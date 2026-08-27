@@ -435,6 +435,62 @@
   .mine-item .act{margin-left:auto;display:flex;gap:14px;flex:none}
   .mine-item .act button{color:var(--accent);font-size:13.5px;font-weight:600}
   .mine-item .act .del{color:#d94f3d}
+
+  /* ---------- Lista della spesa ---------- */
+  .sp-add{
+    position:sticky;top:0;z-index:12;background:var(--bg);padding:6px 0 10px;
+  }
+  .sp-add .box{display:flex;gap:8px;position:relative}
+  .sp-add input{
+    flex:1;min-width:0;background:var(--card);border:1.5px solid transparent;border-radius:12px;
+    padding:12px 14px;font:inherit;font-size:16px;color:var(--text);outline:none;box-shadow:var(--shadow);
+  }
+  .sp-add input:focus{border-color:var(--accent)}
+  .sp-add button.go{
+    flex:none;background:var(--accent);color:#fff;border-radius:12px;padding:0 18px;
+    font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(10,132,255,.3);
+  }
+  .sp-sec{
+    display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.6px;margin:16px 4px 8px;
+  }
+  .sp-sec small{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none}
+  .sp-group{background:var(--card);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .sp-item{
+    display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+    padding:11px 14px;border-bottom:.5px solid var(--sep);
+  }
+  .sp-item:last-child{border-bottom:none}
+  .sp-item .tick{
+    flex:none;width:23px;height:23px;border-radius:50%;border:2px solid var(--chip-border);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:transparent;
+    transition:background .12s,border-color .12s;
+  }
+  .sp-item.done .tick{background:var(--green);border-color:var(--green);color:#fff}
+  .sp-item svg{flex:none}
+  .sp-item .tx{min-width:0;flex:1}
+  .sp-item .tx b{font-size:15.5px;font-weight:600;display:block;line-height:1.25}
+  .sp-item .tx small{font-size:12px;color:var(--text3)}
+  .sp-item.done .tx b{text-decoration:line-through;color:var(--text3)}
+  .sp-item.done svg{opacity:.4}
+  .sp-item .rm{flex:none;color:var(--text3);font-size:15px;padding:4px 2px 4px 8px}
+  .sp-tools{display:flex;gap:8px;justify-content:center;margin:18px 0 4px;flex-wrap:wrap}
+  .sp-tools button{
+    background:var(--card);border:1px solid var(--chip-border);border-radius:999px;
+    padding:8px 16px;font-size:13.5px;font-weight:600;color:var(--text2);
+  }
+  .sp-tools button.danger{color:#d94f3d}
+  .sp-empty{text-align:center;padding:44px 24px;color:var(--text2)}
+  .sp-empty .big{margin-bottom:14px;color:var(--text3)}
+  .sp-empty h3{color:var(--text);font-size:18px;margin-bottom:6px}
+  .sp-empty p{font-size:14.5px;line-height:1.55}
+  .sh-addlist{
+    width:100%;background:var(--orange-soft);color:var(--orange);
+    font-size:15px;font-weight:700;padding:12px;border-radius:12px;margin-bottom:16px;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .sh-addlist.ok{background:var(--green-soft);color:var(--green)}
+  .hcard .hic.cart{color:var(--green);background:var(--green-soft)}
 </style>
 </head>
 <body>
@@ -460,6 +516,11 @@
       <button class="hcard" data-go="browse">
         <span class="hic" id="hic-browse"></span>
         <span class="htx"><b>Sfoglia il ricettario</b><p>Tutte le ricette, dalla carbonara al tiramisù</p></span>
+        <span class="chev">›</span>
+      </button>
+      <button class="hcard" data-go="spesa">
+        <span class="hic cart" id="hic-spesa"></span>
+        <span class="htx"><b>Lista della spesa</b><p id="spesa-sub">Quello che ti manca, diviso per reparto</p></span>
         <span class="chev">›</span>
       </button>
       <button class="hcard" data-go="create">
@@ -509,6 +570,23 @@
       <button data-f="dolci">Dolci</button>
     </div>
     <div id="ric-list"></div>
+  </section>
+
+  <!-- ============ LISTA DELLA SPESA ============ -->
+  <section class="screen" id="screen-spesa">
+    <button class="back" id="spesa-back">‹ Home</button>
+    <div class="sp-add">
+      <div class="box">
+        <input id="sp-input" placeholder="Aggiungi alla lista…" autocomplete="off" enterkeyhint="done">
+        <span class="idrop" id="sp-drop"></span>
+        <button class="go" id="sp-go">Aggiungi</button>
+      </div>
+    </div>
+    <div id="sp-list"></div>
+    <div class="sp-tools" id="sp-tools" style="display:none">
+      <button id="sp-clear-done">Togli gli spuntati</button>
+      <button id="sp-clear-all" class="danger">Svuota la lista</button>
+    </div>
   </section>
 
   <!-- ============ CREA RICETTA ============ -->
@@ -590,6 +668,7 @@ const $ = s => document.querySelector(s);
 const ING_BY_ID = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 const APP_BY_ID = Object.fromEntries(APPLIANCES.map(a => [a.id, a]));
 const CAT_LABEL = { primi: "Primi", secondi: "Secondi", dolci: "Dolci" };
+const CAT_NAME = Object.fromEntries(CATEGORIES.map(c => [c.id, c.name]));
 // foto reali del catalogo (vedi photos.js): id ricetta -> URL o data URI
 const PHOTO_OF = (r) => r.photo || (typeof PHOTOS !== "undefined" ? PHOTOS[r.id] : null);
 
@@ -608,6 +687,9 @@ let mine = [];
 try { mine = JSON.parse(localStorage.getItem("qb_mie_ricette") || localStorage.getItem("nova_mie_ricette")) || []; } catch (e) {}
 mine.forEach(r => { r.mine = true; });
 function saveMine() { try { localStorage.setItem("qb_mie_ricette", JSON.stringify(mine)); } catch (e) {} }
+let spesa = [];
+try { spesa = JSON.parse(localStorage.getItem("qb_lista")) || []; } catch (e) {}
+function saveSpesa() { try { localStorage.setItem("qb_lista", JSON.stringify(spesa)); } catch (e) {} }
 const ALL = () => RECIPES.concat(mine);
 function save() {
   try {
@@ -843,7 +925,8 @@ function renderSheet() {
       ${appPills}
     </div>
     <p class="sh-sub">Cambia le porzioni con \u2212 e + : le quantit\u00e0 si aggiornano da sole</p>
-    ${m.missing.length ? `<div class="sh-warn">Ti manca: ${m.missing.map(altName).join(", ")}. Il resto ce l'hai tutto.</div>` : ""}
+    ${m.missing.length ? `<div class="sh-warn">Ti manca: ${m.missing.map(altName).join(", ")}. Il resto ce l'hai tutto.</div>
+      <button class="sh-addlist" id="sh-add">${QB_UI("cart", 19, 2.2)} Aggiungi i ${m.missing.length} mancanti alla lista</button>` : ""}
     <div class="sh-sec">Ingredienti</div>
     <div>${ingRows}</div>
     <div class="sh-sec">Preparazione</div>
@@ -863,6 +946,22 @@ function openSheet(id) {
   document.body.style.overflow = "hidden";
 }
 $("#sheet").addEventListener("click", e => {
+  if (e.target.closest("#sh-add")) {
+    const r = sheetR, f = sheetN / sheetBase;
+    const m = matchRecipe(r);
+    let nuovi = 0;
+    for (const iid of m.missing) {
+      const first = iid.split("|")[0];
+      const riga = r.ing.find(x => x[0] === iid);
+      if (addToSpesa({ id: first, name: ING_BY_ID[first].n,
+                       qty: riga ? scaleText(riga[1], f) : "", from: r.name })) nuovi++;
+    }
+    saveSpesa(); updateChrome();
+    const btn = $("#sh-add");
+    btn.classList.add("ok");
+    btn.innerHTML = `${QB_UI("cart", 19, 2.2)} ` + (nuovi ? `Aggiunti alla lista della spesa` : `Erano già in lista`);
+    return;
+  }
   const b = e.target.closest("[data-p]"); if (!b) return;
   const max = Math.max(12, sheetBase * 3);
   sheetN = Math.min(max, Math.max(1, sheetN + (+b.dataset.p)));
@@ -877,7 +976,7 @@ function closeSheet() {
 }
 
 // ---------- Navigazione ----------
-const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata" };
+const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata", spesa: "Cosa devi comprare" };
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -888,6 +987,7 @@ function setTab(t) {
   if (t === "ric") renderRecipes();
   if (t === "home") renderHome();
   if (t === "crea") renderMine();
+  if (t === "spesa") renderSpesa();
   updateChrome();
 }
 
@@ -911,7 +1011,7 @@ function updateChrome() {
   } else {
     cta.classList.add("hidden");
   }
-  if (state.tab === "home" || state.tab === "crea") cta.classList.add("hidden");
+  if (["home", "crea", "spesa"].includes(state.tab)) cta.classList.add("hidden");
 }
 
 // ---------- Eventi ----------
@@ -971,6 +1071,116 @@ $("#sheet").addEventListener("touchmove", e => {
   if (touchY !== null && e.touches[0].clientY - touchY > 70) { closeSheet(); touchY = null; }
 }, { passive: true });
 
+
+// ---------- Lista della spesa ----------
+const SP_ALTRO = { id: "altro", name: "Altro" };
+function spesaDaFare() { return spesa.filter(x => !x.done).length; }
+
+function addToSpesa({ id, name, qty, from }) {
+  const key = (id || name).toLowerCase();
+  const ex = spesa.find(x => (x.id || x.name).toLowerCase() === key);
+  if (ex) {                       // già in lista: aggiorno e la "risveglio"
+    ex.done = false;
+    if (qty && !(ex.qty || "").includes(qty)) ex.qty = ex.qty ? ex.qty + " + " + qty : qty;
+    if (from && !(ex.from || []).includes(from)) ex.from = (ex.from || []).concat(from);
+    return false;
+  }
+  spesa.push({ id: id || undefined, name, qty: qty || "", cat: id ? ING_BY_ID[id].c : "altro",
+               from: from ? [from] : [], done: false });
+  return true;
+}
+
+function renderSpesa() {
+  const box = $("#sp-list"), tools = $("#sp-tools");
+  if (!spesa.length) {
+    tools.style.display = "none";
+    box.innerHTML = `<div class="sp-empty">
+      <div class="big">${QB_UI("cart", 54, 1.6)}</div>
+      <h3>Lista vuota</h3>
+      <p>Scrivi qui sopra quello che ti serve,<br>oppure aprendo una ricetta aggiungi<br>gli ingredienti che ti mancano.</p>
+    </div>`;
+    return;
+  }
+  tools.style.display = "flex";
+  const cats = CATEGORIES.concat([SP_ALTRO]);
+  const todo = spesa.filter(x => !x.done), done = spesa.filter(x => x.done);
+  const riga = (x) => {
+    const ix = spesa.indexOf(x);
+    const note = x.qty ? x.qty : (x.from && x.from.length ? "per " + x.from.join(", ") : "");
+    const nota2 = x.qty && x.from && x.from.length ? " · per " + x.from.join(", ") : "";
+    return `<div class="sp-item${x.done ? " done" : ""}" data-ix="${ix}">
+      <span class="tick">✓</span>
+      ${x.id ? QB_ICON(ING_BY_ID[x.id].e, 24) : ""}
+      <span class="tx"><b>${x.name}</b>${note ? `<small>${note}${nota2}</small>` : ""}</span>
+      <button class="rm" data-rm-sp="${ix}" aria-label="Togli dalla lista">✕</button>
+    </div>`;
+  };
+  let html = "";
+  for (const c of cats) {
+    const items = todo.filter(x => x.cat === c.id);
+    if (!items.length) continue;
+    html += `<div class="sp-sec">${c.name} <small>· ${items.length}</small></div>
+             <div class="sp-group">${items.map(riga).join("")}</div>`;
+  }
+  if (done.length) {
+    html += `<div class="sp-sec">Presi <small>· ${done.length}</small></div>
+             <div class="sp-group">${done.map(riga).join("")}</div>`;
+  }
+  box.innerHTML = html;
+}
+
+function spesaSuggerimenti() {
+  const drop = $("#sp-drop"), q = norm($("#sp-input").value.trim());
+  if (!q) { drop.classList.remove("show"); return; }
+  const inList = new Set(spesa.map(x => x.id).filter(Boolean));
+  const items = INGREDIENTS.filter(i => norm(i.n).includes(q) && !inList.has(i.id)).slice(0, 8);
+  if (!items.length) { drop.classList.remove("show"); return; }
+  drop.innerHTML = items.map(i =>
+    `<button type="button" data-sp-pick="${i.id}">${QB_ICON(i.e, 22)}${i.n}<small>${CAT_NAME[i.c]}</small></button>`).join("");
+  drop.classList.add("show");
+}
+
+function aggiungiScritto() {
+  const inp = $("#sp-input"), t = inp.value.trim();
+  if (!t) return;
+  const match = INGREDIENTS.find(i => norm(i.n) === norm(t));
+  addToSpesa(match ? { id: match.id, name: match.n } : { name: t[0].toUpperCase() + t.slice(1) });
+  inp.value = ""; $("#sp-drop").classList.remove("show");
+  saveSpesa(); renderSpesa(); updateChrome();
+  inp.focus();
+}
+
+$("#spesa-back").addEventListener("click", () => setTab("home"));
+$("#sp-go").addEventListener("click", aggiungiScritto);
+$("#sp-input").addEventListener("input", spesaSuggerimenti);
+$("#sp-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); aggiungiScritto(); }
+  if (e.key === "Escape") $("#sp-drop").classList.remove("show");
+});
+$("#sp-drop").addEventListener("click", e => {
+  const b = e.target.closest("[data-sp-pick]"); if (!b) return;
+  const i = ING_BY_ID[b.dataset.spPick];
+  addToSpesa({ id: i.id, name: i.n });
+  $("#sp-input").value = ""; $("#sp-drop").classList.remove("show");
+  saveSpesa(); renderSpesa(); updateChrome();
+});
+$("#sp-list").addEventListener("click", e => {
+  const rm = e.target.closest("[data-rm-sp]");
+  if (rm) { spesa.splice(+rm.dataset.rmSp, 1); saveSpesa(); renderSpesa(); updateChrome(); return; }
+  const row = e.target.closest("[data-ix]"); if (!row) return;
+  const x = spesa[+row.dataset.ix];
+  x.done = !x.done;
+  saveSpesa(); renderSpesa(); updateChrome();
+});
+$("#sp-clear-done").addEventListener("click", () => {
+  spesa = spesa.filter(x => !x.done); saveSpesa(); renderSpesa(); updateChrome();
+});
+$("#sp-clear-all").addEventListener("click", () => {
+  if (spesa.length && confirm("Svuotare tutta la lista?")) {
+    spesa = []; saveSpesa(); renderSpesa(); updateChrome();
+  }
+});
+
 // ---------- Home ----------
 function renderHome() {
   const h = new Date().getHours();
@@ -979,6 +1189,10 @@ function renderHome() {
   $("#credits").innerHTML = cr.length
     ? `Foto dei piatti da Wikimedia Commons, con licenze libere. <button id="cr-open">Autori e licenze</button>`
     : "";
+  const n = spesaDaFare();
+  $("#spesa-sub").textContent = n
+    ? `${n} cos${n === 1 ? "a" : "e"} da comprare`
+    : "Quello che ti manca, diviso per reparto";
   $("#home-stats").innerHTML =
     `<span><b>${ALL().length}</b> ricette</span> · <span><b>${INGREDIENTS.length}</b> ingredienti</span> · <span><b>${APPLIANCES.length}</b> strumenti</span>`;
 }
@@ -989,6 +1203,7 @@ const homeThumb = (id, fallback) => {
 $("#hic-find").innerHTML = homeThumb("carbonara", { k: "spag", a: "#eec96f", g: "chili" });
 $("#hic-browse").innerHTML = homeThumb("tiramisu", { k: "cake" });
 $("#hic-create").innerHTML = QB_UI("plus", 30, 2.2);
+$("#hic-spesa").innerHTML = QB_UI("cart", 30, 2.2);
 $("#credits").addEventListener("click", e => {
   if (e.target.id !== "cr-open") return;
   const box = $("#cred-list");
@@ -1007,6 +1222,7 @@ document.querySelector(".home-cards").addEventListener("click", e => {
   if (go === "find") { state.mode = "match"; save(); setTab("ing"); }
   if (go === "browse") { state.mode = "all"; state.filter = "tutte"; save(); setTab("ric"); }
   if (go === "create") setTab("crea");
+  if (go === "spesa") setTab("spesa");
 });
 
 // ---------- Crea ricetta ----------
@@ -1052,7 +1268,6 @@ function addIngRow(id = "", qty = "", opt = false) {
 }
 
 // ---------- ricerca ingredienti nel modulo ----------
-const CAT_NAME = Object.fromEntries(CATEGORIES.map(c => [c.id, c.name]));
 function fillDrop(input) {
   const drop = input.parentElement.querySelector(".idrop");
   const q = norm(input.value.trim());
@@ -1266,6 +1481,7 @@ $("#catnav").addEventListener("click", e => {
 renderIngredients();
 renderAppliances();
 resetForm();
+renderSpesa();
 setTab("home");
 </script>
 </body>
