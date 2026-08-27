@@ -290,6 +290,7 @@
     padding:8px 20px calc(28px + env(safe-area-inset-bottom));
   }
   #sheet.show{transform:translateY(0)}
+  #sheet{position:fixed}
   .grabber{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:6px auto 14px}
   .sh-hero{display:flex;justify-content:center;margin:2px 0 10px}
   .sh-hero svg{display:block}
@@ -491,6 +492,94 @@
   }
   .sh-addlist.ok{background:var(--green-soft);color:var(--green)}
   .hcard .hic.cart{color:var(--green);background:var(--green-soft)}
+
+  /* ---------- Ricerca e filtri ricette ---------- */
+  .ric-top{position:sticky;top:0;z-index:12;background:var(--bg);padding-bottom:8px}
+  .filtri{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 2px}
+  .filtri::-webkit-scrollbar{display:none}
+  .filtri button{
+    flex:none;display:inline-flex;align-items:center;gap:5px;
+    background:var(--card);border:1px solid var(--chip-border);border-radius:999px;
+    padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--text2);white-space:nowrap;
+  }
+  .filtri button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .filtri button.fav.on{background:#e0405a;border-color:#e0405a}
+  .ric-count{color:var(--text3);font-size:12.5px;font-weight:600;margin:2px 4px 0}
+
+  /* ---------- Preferiti ---------- */
+  .heart{
+    position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:var(--text3);
+    background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.12);
+  }
+  .heart.on{color:#e0405a}
+  .heart svg{display:block;pointer-events:none}
+  .heart{cursor:pointer}
+  .rcard{position:relative}
+  .rcard .heart{top:50%;right:34px;transform:translateY(-50%);box-shadow:none;background:none;width:30px;height:30px}
+  .sh-fav{position:absolute;top:14px;right:16px;z-index:3}
+
+  /* ---------- Ingredienti spuntabili ---------- */
+  .ing-row{cursor:pointer;user-select:none;border-radius:8px;transition:opacity .15s}
+  .ing-row.usato{opacity:.45}
+  .ing-row.usato .name{text-decoration:line-through}
+  .ing-hint{color:var(--text3);font-size:12px;margin:2px 2px 6px}
+
+  /* ---------- Modalità cucina ---------- */
+  .sh-cook{
+    width:100%;background:var(--accent);color:#fff;font-size:16px;font-weight:700;
+    padding:14px;border-radius:14px;margin:6px 0 18px;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    box-shadow:0 6px 20px rgba(10,132,255,.32);
+  }
+  #cook{
+    position:fixed;inset:0;z-index:120;background:var(--bg);
+    display:none;flex-direction:column;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  #cook.show{display:flex}
+  .ck-top{
+    display:flex;align-items:center;gap:12px;padding:14px 18px 8px;flex:none;
+  }
+  .ck-top .ck-nm{font-size:14.5px;font-weight:700;flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ck-top button{color:var(--accent);font-size:15px;font-weight:600;flex:none;padding:4px}
+  .ck-bar{display:flex;gap:4px;padding:0 18px 10px;flex:none}
+  .ck-bar i{flex:1;height:4px;border-radius:2px;background:var(--sep)}
+  .ck-bar i.on{background:var(--accent)}
+  .ck-body{
+    flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;
+    padding:8px 26px;overflow-y:auto;cursor:pointer;
+  }
+  .ck-n{
+    font-size:13px;font-weight:800;color:var(--accent);letter-spacing:1.2px;
+    text-transform:uppercase;margin-bottom:14px;
+  }
+  .ck-tx{font-size:25px;line-height:1.42;font-weight:600;letter-spacing:-.3px;text-wrap:balance}
+  .ck-fine{font-size:15px;color:var(--text2);margin-top:20px;line-height:1.5}
+  .ck-ing{
+    flex:0 0 auto;border-top:.5px solid var(--sep);background:var(--card);
+    max-height:44vh;overflow-y:auto;
+  }
+  .ck-ing summary{
+    padding:13px 20px;font-size:14px;font-weight:700;color:var(--text2);
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+  }
+  .ck-ing summary::-webkit-details-marker{display:none}
+  .ck-ing summary::after{content:"›";margin-left:auto;color:var(--text3);font-size:18px;transform:rotate(90deg)}
+  .ck-ing[open] summary::after{transform:rotate(-90deg)}
+  .ck-ing .box{padding:0 20px 14px}
+  .ck-nav{
+    flex:none;display:flex;gap:10px;padding:12px 18px 16px;background:var(--bg);
+    border-top:.5px solid var(--sep);
+  }
+  .ck-nav button{
+    flex:1;padding:15px;border-radius:14px;font-size:16px;font-weight:700;
+    background:var(--card2);color:var(--text2);
+  }
+  .ck-nav button.main{background:var(--accent);color:#fff;flex:2;box-shadow:0 4px 16px rgba(10,132,255,.3)}
+  .ck-nav button:disabled{opacity:.4}
+  .ck-awake{font-size:11.5px;color:var(--text3);text-align:center;padding:10px 18px 2px;flex:none}
 </style>
 </head>
 <body>
@@ -559,9 +648,22 @@
 
   <!-- ============ SCHERMATA RICETTE ============ -->
   <section class="screen" id="screen-ric">
-    <div class="modes" id="modes">
-      <button data-m="match" class="on">Per te</button>
-      <button data-m="all">Tutte</button>
+    <div class="ric-top">
+      <div class="modes" id="modes">
+        <button data-m="match" class="on">Per te</button>
+        <button data-m="all">Tutte</button>
+      </div>
+      <div class="search" id="ricbox" style="margin-bottom:8px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="ric-q" type="text" placeholder="Cerca una ricetta…" autocomplete="off">
+        <button class="clear" id="ric-q-clear" aria-label="Cancella ricerca">✕</button>
+      </div>
+      <div class="filtri" id="filtri">
+        <button data-f2="fav" class="fav">♥ Preferiti</button>
+        <button data-f2="veloce">Sotto i 20 min</button>
+        <button data-f2="veg">Vegetariano</button>
+        <button data-f2="facile">Facile</button>
+      </div>
     </div>
     <div class="seg" id="seg">
       <button data-f="tutte" class="on">Tutte</button>
@@ -654,6 +756,27 @@
   <button data-t="ric" style="position:relative"><span class="badge" id="ric-badge"></span><span class="ti" data-ui="dish"></span>Ricette</button>
 </nav>
 
+<div id="cook" role="dialog" aria-modal="true">
+  <div class="ck-top">
+    <span class="ck-nm" id="ck-nm"></span>
+    <button id="ck-close">Esci</button>
+  </div>
+  <div class="ck-bar" id="ck-bar"></div>
+  <div class="ck-body" id="ck-body">
+    <div class="ck-n" id="ck-n"></div>
+    <div class="ck-tx" id="ck-tx"></div>
+  </div>
+  <details class="ck-ing" id="ck-ing">
+    <summary>Ingredienti</summary>
+    <div class="box" id="ck-ing-box"></div>
+  </details>
+  <div class="ck-awake" id="ck-awake"></div>
+  <div class="ck-nav">
+    <button id="ck-prev">Indietro</button>
+    <button id="ck-next" class="main">Avanti</button>
+  </div>
+</div>
+
 <div id="backdrop"></div>
 <div id="sheet" role="dialog" aria-modal="true"></div>
 
@@ -669,11 +792,26 @@ const ING_BY_ID = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 const APP_BY_ID = Object.fromEntries(APPLIANCES.map(a => [a.id, a]));
 const CAT_LABEL = { primi: "Primi", secondi: "Secondi", dolci: "Dolci" };
 const CAT_NAME = Object.fromEntries(CATEGORIES.map(c => [c.id, c.name]));
+// una ricetta è vegetariana se non contiene carne, pesce o salumi (nemmeno tra le alternative)
+const NON_VEG = new Set(["pollo", "macinato", "salsiccia", "fettine", "salmone", "tonno",
+                         "guanciale", "pancetta", "cotto", "crudo"]);
+const isVeg = (r) => !r.ing.some(([iid]) => iid.split("|").some(x => NON_VEG.has(x)));
+const FACILI = new Set(["Facilissima", "Facile"]);
+function passaFiltri(r) {
+  const q = norm(state.q.trim());
+  if (q && !norm(r.name).includes(q) &&
+      !r.ing.some(([iid]) => iid.split("|").some(x => norm(ING_BY_ID[x]?.n || "").includes(q)))) return false;
+  if (state.f2.has("fav") && !fav.has(r.id)) return false;
+  if (state.f2.has("veloce") && r.time > 20) return false;
+  if (state.f2.has("veg") && !isVeg(r)) return false;
+  if (state.f2.has("facile") && !FACILI.has(r.diff)) return false;
+  return true;
+}
 // foto reali del catalogo (vedi photos.js): id ricetta -> URL o data URI
 const PHOTO_OF = (r) => r.photo || (typeof PHOTOS !== "undefined" ? PHOTOS[r.id] : null);
 
 // ---------- Stato (persistito) ----------
-let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match" };
+let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match", q: "", f2: new Set() };
 try {
   const saved = JSON.parse(localStorage.getItem("qb_state") || localStorage.getItem("nova_state"));
   if (saved) {
@@ -681,6 +819,7 @@ try {
     state.app = new Set(saved.app || []);
     state.filter = saved.filter || "tutte";
     state.mode = saved.mode || "match";
+    state.f2 = new Set(saved.f2 || []);
   }
 } catch (e) {}
 let mine = [];
@@ -689,12 +828,17 @@ mine.forEach(r => { r.mine = true; });
 function saveMine() { try { localStorage.setItem("qb_mie_ricette", JSON.stringify(mine)); } catch (e) {} }
 let spesa = [];
 try { spesa = JSON.parse(localStorage.getItem("qb_lista")) || []; } catch (e) {}
+let fav = new Set();
+try { fav = new Set(JSON.parse(localStorage.getItem("qb_preferiti")) || []); } catch (e) {}
+function saveFav() { try { localStorage.setItem("qb_preferiti", JSON.stringify([...fav])); } catch (e) {} }
+// ingredienti "già usati" mentre cucini: solo per la scheda aperta
+let usati = new Set();
 function saveSpesa() { try { localStorage.setItem("qb_lista", JSON.stringify(spesa)); } catch (e) {} }
 const ALL = () => RECIPES.concat(mine);
 function save() {
   try {
     localStorage.setItem("qb_state", JSON.stringify({
-      ing: [...state.ing], app: [...state.app], filter: state.filter, mode: state.mode
+      ing: [...state.ing], app: [...state.app], filter: state.filter, mode: state.mode, f2: [...state.f2]
     }));
   } catch (e) {}
 }
@@ -716,6 +860,7 @@ function computeMatches() {
   let lockedByApp = 0, tooMissing = 0;
   for (const r of ALL()) {
     if (state.filter !== "tutte" && r.cat !== state.filter) continue;
+    if (!passaFiltri(r)) continue;
     const m = matchRecipe(r);
     if (m.missing.length > 2) { tooMissing++; continue; }
     if (!m.appOk) { lockedByApp++; continue; }
@@ -793,6 +938,7 @@ function recipeCard({ r, m }) {
       <div class="meta">${CAT_LABEL[r.cat]} · ${r.time} min · ${r.serves}</div>
       ${status}
     </span>
+    <span class="heart${fav.has(r.id) ? " on" : ""}" data-fav="${r.id}" role="button" tabindex="0" aria-label="Aggiungi ai preferiti">${QB_UI(fav.has(r.id) ? "heartFull" : "heart", 19, 2)}</span>
     <span class="chev">›</span>
   </button>`;
 }
@@ -801,16 +947,27 @@ function renderRecipes() {
   const list = $("#ric-list");
   document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.f === state.filter));
   document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === state.mode));
+  document.querySelectorAll("#filtri button").forEach(b => b.classList.toggle("on", state.f2.has(b.dataset.f2)));
+  $("#ricbox").classList.toggle("has-text", !!state.q);
+  if ($("#ric-q").value !== state.q) $("#ric-q").value = state.q;
 
   if (state.mode === "all") {
     const groups = state.filter === "tutte" ? ["primi", "secondi", "dolci"] : [state.filter];
     let html = "";
+    let tot = 0;
     for (const g of groups) {
-      const rs = ALL().filter(r => r.cat === g);
+      const rs = ALL().filter(r => r.cat === g && passaFiltri(r));
+      tot += rs.length;
       if (!rs.length) continue;
       html += `<div class="sec-label"><span class="dot" style="background:var(--accent)"></span>${CAT_LABEL[g]} <small>· ${rs.length}</small></div>`;
       html += rs.map(r => recipeCard({ r, m: matchRecipe(r) })).join("");
     }
+    if (!tot) html = `<div class="empty">
+      <div class="big">${QB_UI("dish", 54, 1.6)}</div>
+      <h3>Nessuna ricetta</h3>
+      <p>Nessuna ricetta corrisponde alla ricerca<br>o ai filtri che hai scelto.</p>
+      <button id="reset-filtri">Azzera ricerca e filtri</button>
+    </div>`;
     list.innerHTML = html;
     return;
   }
@@ -902,7 +1059,7 @@ function renderSheet() {
     const cls = have ? "" : (opt ? " optional" : " missing");
     const mark = have ? `<span class="mark ok">\u25cf</span>`
       : opt ? `<span class="mark opt">\u25cb</span>` : `<span class="mark no">\u25cb</span>`;
-    return `<div class="ing-row${cls}">${mark}
+    return `<div class="ing-row${cls}${usati.has(iid) ? " usato" : ""}" data-ing-row="${iid}">${mark}
       ${altIcon(iid, 22)}
       <span class="name">${altName(iid)}${opt ? " <small style='color:var(--text3)'>(facolt.)</small>" : ""}</span>
       <span class="qty">${scaleText(qty, f)}</span></div>`;
@@ -912,6 +1069,7 @@ function renderSheet() {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
+    <button class="heart sh-fav${fav.has(r.id) ? " on" : ""}" data-fav="${r.id}" aria-label="Preferito">${QB_UI(fav.has(r.id) ? "heartFull" : "heart", 20, 2)}</button>
     <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : QB_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
     <div class="sh-meta">
@@ -928,8 +1086,10 @@ function renderSheet() {
     ${m.missing.length ? `<div class="sh-warn">Ti manca: ${m.missing.map(altName).join(", ")}. Il resto ce l'hai tutto.</div>
       <button class="sh-addlist" id="sh-add">${QB_UI("cart", 19, 2.2)} Aggiungi i ${m.missing.length} mancanti alla lista</button>` : ""}
     <div class="sh-sec">Ingredienti</div>
+    <p class="ing-hint">Tocca un ingrediente per segnarlo come già usato</p>
     <div>${ingRows}</div>
     <div class="sh-sec">Preparazione</div>
+    <button class="sh-cook" id="sh-cook">${QB_UI("flame", 20, 2)} Inizia a cucinare</button>
     <div>${steps}</div>
     ${r.note ? `<div class="sh-note"><b>Nota:</b> ${r.note}</div>` : ""}
   `;
@@ -937,6 +1097,7 @@ function renderSheet() {
 function openSheet(id) {
   const r = ALL().find(x => x.id === id); if (!r) return;
   sheetR = r;
+  usati = new Set();
   sheetBase = Math.max(1, parseInt((r.serves.match(/\d+/) || [2])[0], 10));
   sheetN = sheetBase;
   renderSheet();
@@ -946,6 +1107,23 @@ function openSheet(id) {
   document.body.style.overflow = "hidden";
 }
 $("#sheet").addEventListener("click", e => {
+  const fv = e.target.closest("[data-fav]");
+  if (fv) {
+    const id = fv.dataset.fav;
+    fav.has(id) ? fav.delete(id) : fav.add(id);
+    saveFav();
+    fv.classList.toggle("on", fav.has(id));
+    fv.innerHTML = QB_UI(fav.has(id) ? "heartFull" : "heart", 20, 2);
+    return;
+  }
+  if (e.target.closest("#sh-cook")) { apriCucina(); return; }
+  const ir = e.target.closest("[data-ing-row]");
+  if (ir) {
+    const k = ir.dataset.ingRow;
+    usati.has(k) ? usati.delete(k) : usati.add(k);
+    ir.classList.toggle("usato", usati.has(k));
+    return;
+  }
   if (e.target.closest("#sh-add")) {
     const r = sheetR, f = sheetN / sheetBase;
     const m = matchRecipe(r);
@@ -974,6 +1152,87 @@ function closeSheet() {
   $("#sheet").classList.remove("show");
   document.body.style.overflow = "";
 }
+
+
+// ---------- Modalità cucina ----------
+let ckR = null, ckI = 0, ckLock = null, ckF = 1;
+
+async function tieniAcceso() {
+  try {
+    if ("wakeLock" in navigator) {
+      ckLock = await navigator.wakeLock.request("screen");
+      $("#ck-awake").textContent = "Lo schermo resta acceso mentre cucini";
+      ckLock.addEventListener("release", () => { ckLock = null; });
+    } else {
+      $("#ck-awake").textContent = "Se lo schermo si spegne, alza il tempo di blocco nelle impostazioni";
+    }
+  } catch (e) {
+    $("#ck-awake").textContent = "";
+  }
+}
+function lasciaSpegnere() { try { ckLock && ckLock.release(); } catch (e) {} ckLock = null; }
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && $("#cook").classList.contains("show") && !ckLock) tieniAcceso();
+});
+
+function renderCucina() {
+  const n = ckR.steps.length;
+  const fine = ckI >= n;
+  $("#ck-bar").innerHTML = ckR.steps.map((_, i) => `<i class="${fine || i <= ckI ? "on" : ""}"></i>`).join("");
+  $("#ck-n").textContent = fine ? "" : `Passaggio ${ckI + 1} di ${n}`;
+  $("#ck-tx").innerHTML = fine
+    ? `Fatto! Buon appetito.<div class="ck-fine">${ckR.name} è pronta.${ckR.note ? "<br><br>" + ckR.note : ""}</div>`
+    : ckR.steps[ckI];
+  $("#ck-prev").disabled = ckI === 0;
+  $("#ck-next").textContent = fine ? "Chiudi" : (ckI === n - 1 ? "Ultimo passaggio ✓" : "Avanti");
+  $("#ck-body").scrollTop = 0;
+}
+function avanti() {
+  if (ckI >= ckR.steps.length) { chiudiCucina(); return; }
+  ckI++; renderCucina();
+}
+function indietro() { if (ckI > 0) { ckI--; renderCucina(); } }
+
+function apriCucina() {
+  ckR = sheetR; ckI = 0; ckF = sheetN / sheetBase;
+  $("#ck-nm").textContent = ckR.name;
+  $("#ck-ing-box").innerHTML = ckR.ing.map(([iid, qty, opt]) => {
+    const have = hasIng(iid);
+    return `<div class="ing-row${have ? "" : (opt ? " optional" : " missing")}${usati.has(iid) ? " usato" : ""}" data-ing-row="${iid}">
+      <span class="mark ${have ? "ok" : (opt ? "opt" : "no")}">${have ? "●" : "○"}</span>
+      ${altIcon(iid, 20)}
+      <span class="name">${altName(iid)}</span>
+      <span class="qty">${scaleText(qty, ckF)}</span></div>`;
+  }).join("");
+  $("#ck-ing").open = false;
+  renderCucina();
+  $("#cook").classList.add("show");
+  document.body.style.overflow = "hidden";
+  tieniAcceso();
+}
+function chiudiCucina() {
+  $("#cook").classList.remove("show");
+  lasciaSpegnere();
+  document.body.style.overflow = $("#sheet").classList.contains("show") ? "hidden" : "";
+  if (sheetR) renderSheet();   // riporta nella scheda gli ingredienti spuntati
+}
+
+$("#ck-close").addEventListener("click", chiudiCucina);
+$("#ck-next").addEventListener("click", avanti);
+$("#ck-prev").addEventListener("click", indietro);
+$("#ck-body").addEventListener("click", avanti);
+$("#ck-ing-box").addEventListener("click", e => {
+  const ir = e.target.closest("[data-ing-row]"); if (!ir) return;
+  const k = ir.dataset.ingRow;
+  usati.has(k) ? usati.delete(k) : usati.add(k);
+  ir.classList.toggle("usato", usati.has(k));
+});
+document.addEventListener("keydown", e => {
+  if (!$("#cook").classList.contains("show")) return;
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); avanti(); }
+  if (e.key === "ArrowLeft") indietro();
+  if (e.key === "Escape") chiudiCucina();
+});
 
 // ---------- Navigazione ----------
 const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata", spesa: "Cosa devi comprare" };
@@ -1049,6 +1308,19 @@ $("#seg").addEventListener("click", e => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 $("#ric-list").addEventListener("click", e => {
+  const fv = e.target.closest("[data-fav]");
+  if (fv) {
+    e.stopPropagation();
+    const id = fv.dataset.fav;
+    fav.has(id) ? fav.delete(id) : fav.add(id);
+    saveFav();
+    if (state.f2.has("fav")) renderRecipes();
+    else { fv.classList.toggle("on", fav.has(id)); fv.innerHTML = QB_UI(fav.has(id) ? "heartFull" : "heart", 19, 2); }
+    return;
+  }
+  if (e.target.closest("#reset-filtri")) {
+    state.q = ""; state.f2 = new Set(); save(); renderRecipes(); return;
+  }
   const card = e.target.closest("[data-r]");
   if (card) { openSheet(card.dataset.r); return; }
   if (e.target.closest("#goto-ing")) setTab("ing");
@@ -1061,7 +1333,7 @@ $("#tabbar").addEventListener("click", e => {
 $("#cta-btn").addEventListener("click", e => setTab(e.target.dataset.go));
 
 $("#backdrop").addEventListener("click", closeSheet);
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#cook").classList.contains("show")) closeSheet(); });
 // swipe-down per chiudere la scheda
 let touchY = null;
 $("#sheet").addEventListener("touchstart", e => {
@@ -1462,6 +1734,15 @@ $("#mine-list")?.addEventListener("click", e => {
       mine = mine.filter(x => x.id !== r.id); saveMine(); renderMine(); updateChrome();
     }
   }
+});
+$("#ric-q").addEventListener("input", e => { state.q = e.target.value; renderRecipes(); });
+$("#ric-q-clear").addEventListener("click", () => { state.q = ""; renderRecipes(); $("#ric-q").focus(); });
+$("#filtri").addEventListener("click", e => {
+  const b = e.target.closest("[data-f2]"); if (!b) return;
+  const k = b.dataset.f2;
+  state.f2.has(k) ? state.f2.delete(k) : state.f2.add(k);
+  save(); renderRecipes();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 $("#modes").addEventListener("click", e => {
   const b = e.target.closest("[data-m]"); if (!b) return;
