@@ -1822,6 +1822,14 @@ $("#modes").addEventListener("click", e => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
+// ---------- Funziona anche senza connessione ----------
+// Solo quando l'app è servita da un sito: aperta come file locale non serve.
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
 // ---------- Avvio ----------
 document.querySelectorAll("[data-ui]").forEach(el => { el.innerHTML = QB_UI(el.dataset.ui, 22); });
 $("#catnav").innerHTML = CATEGORIES.map(c => `<button data-cat="${c.id}">${c.name}</button>`).join("");

@@ -28,8 +28,9 @@ for (const f of ["icons.js", "photos.js", "steps.js", "data.js"]) {
   const src = fs.readFileSync(path.join(ROOT, f), "utf8");
   out = out.replace(`<script src="${f}"></script>`, "<script>\n" + inline(src) + "\n</script>");
 }
-// anche l'icona nel manifest e i meta non servono in un file singolo
+// nel file singolo non ci sono file affiancati: via manifest e service worker
 out = out.replace(/\n<link rel="manifest"[^>]*>/g, "");
+out = out.replace(/if \("serviceWorker" in navigator[\s\S]*?\n\}\n/, "");
 
 fs.writeFileSync(dest, out);
 console.log(`${path.relative(ROOT, dest)}: ${(fs.statSync(dest).size / 1048576).toFixed(2)} MB`);

@@ -27,7 +27,13 @@ python3 -m http.server 8000     # poi apri http://localhost:8000
 
 In alternativa, `node tools/build-single.js` genera `quanto-basta.html`: **un file solo** con tutto dentro (foto comprese), che si apre con un doppio clic anche senza server e funziona offline.
 
-Per metterla online gratis: **Settings → Pages → Deploy from branch**, e sarà raggiungibile da qualsiasi telefono. Dal browser si può poi aggiungere alla schermata Home: grazie al manifest si apre a tutto schermo, con la sua icona, come un'app installata.
+Per metterla online gratis: **Settings → Pages → Deploy from branch**, e sarà raggiungibile da qualsiasi telefono.
+
+### Installarla come app
+
+Una volta online, dal browser del telefono si aggiunge alla schermata Home (su iPhone: Condividi → Aggiungi a Home; su Android compare da sola la proposta di installazione). Da lì in poi si comporta come un'app installata: icona propria, si apre a tutto schermo senza barre del browser e **funziona anche senza connessione**, perché il service worker (`sw.js`) tiene in cache l'app e tutte le foto.
+
+Quando pubblichi una nuova versione, alza `VERSIONE` in `sw.js`: le cache vecchie vengono buttate e i telefoni prendono i file aggiornati.
 
 ## Struttura
 
@@ -43,6 +49,7 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch**, e sar
 | `tools/steps-coverage.js` | Riporta quanti passaggi vengono coperti da una foto di tecnica |
 | `tools/build-single.js` | Genera la versione a file unico, con le foto incorporate |
 | `manifest.webmanifest`, `icons/` | Installazione sulla schermata Home e icone dell'app |
+| `sw.js` | Service worker: fa funzionare l'app anche senza connessione |
 | `tools/build-photos.js` | Rigenera `photos.js` dalle foto in `photos/` |
 
 ## Aggiungere una ricetta
