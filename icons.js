@@ -642,6 +642,8 @@
   // --- interfaccia UI (tab bar, stati vuoti): stroke = currentColor ---
   const UI = {
     basket: `<path d="M5 13h22l-2.6 12.5a3 3 0 01-3 2.5H10.6a3 3 0 01-3-2.5z"/><path d="M10 13l5-8m7 8l-5-8"/><path d="M11 17.5v6m5-6v6m5-6v6"/>`,
+    home: `<path d="M5 14.5 16 5l11 9.5"/><path d="M8.5 13.5V27h15V13.5"/><path d="M13.5 27v-8h5v8"/>`,
+    plus: `<circle cx="16" cy="16" r="11"/><path d="M16 10.5v11M10.5 16h11"/>`,
     tools: `<circle cx="11" cy="14" r="7"/><path d="M18 14h9"/><path d="M11 10.5a3.5 3.5 0 013.5 3.5"/>`,
     dish: `<circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="5"/><path d="M2.5 8v7m0-7v3.5a2 2 0 002 2M29.5 8v7"/>`,
   };

@@ -333,6 +333,81 @@
     padding:12px 14px;font-size:13.5px;color:var(--text2);line-height:1.5;
   }
   .sh-note b{color:var(--text)}
+
+  /* ---------- Home ---------- */
+  .home-hero{padding:6px 4px 2px}
+  .home-hero h2{font-size:24px;font-weight:800;letter-spacing:-.4px}
+  .home-hero p{color:var(--text2);font-size:15px;margin-top:5px;line-height:1.45;max-width:34ch}
+  .home-cards{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+  .hcard{
+    display:flex;align-items:center;gap:14px;background:var(--card);border-radius:18px;
+    padding:15px;box-shadow:var(--shadow);text-align:left;transition:transform .08s ease;
+  }
+  .hcard:active{transform:scale(.98)}
+  .hcard .hic{flex:none;width:62px;height:62px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center}
+  .hcard .hic.accent{color:var(--accent);background:var(--accent-soft)}
+  .hcard .htx{min-width:0}
+  .hcard b{font-size:16.5px;font-weight:750;display:block}
+  .hcard p{color:var(--text2);font-size:13.5px;margin-top:2px;line-height:1.35}
+  .hcard .chev{margin-left:auto;color:var(--text3);font-size:20px;flex:none}
+  .home-stats{display:flex;justify-content:center;gap:6px;margin:18px 0 6px;color:var(--text3);font-size:12.5px;font-weight:600}
+  .home-stats b{color:var(--text2)}
+
+  /* ---------- Per te / Tutte ---------- */
+  .modes{display:flex;gap:6px;margin:2px 0 10px}
+  .modes button{background:var(--card);border:1px solid var(--chip-border);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--text2)}
+  .modes button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .mine-badge{display:inline-block;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+  .rcard .em img{width:100%;height:100%;object-fit:cover;border-radius:14px}
+  .sh-hero img{width:100%;max-height:190px;object-fit:cover;border-radius:16px}
+
+  /* ---------- Crea ricetta ---------- */
+  .back{color:var(--accent);font-size:16px;font-weight:600;padding:4px 2px;margin:0 0 8px;display:inline-flex;align-items:center}
+  .fcard{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
+  .fcard h3{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+  .fcard label{display:block;font-size:13.5px;font-weight:600;color:var(--text2);margin-bottom:10px}
+  .fin{
+    width:100%;margin-top:5px;background:var(--card2);border:1.5px solid transparent;border-radius:10px;
+    padding:10px 12px;font:inherit;font-size:15px;color:var(--text);outline:none;
+  }
+  .fin:focus{border-color:var(--accent)}
+  .frow{display:flex;gap:8px}
+  .frow>label{flex:1;min-width:0}
+  .fseg{display:flex;background:var(--card2);border-radius:10px;padding:3px;margin-top:5px}
+  .fseg button{flex:1;padding:8px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text2)}
+  .fseg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .fchips{display:flex;flex-wrap:wrap;gap:7px}
+  .fchips button{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1.5px solid transparent;border-radius:999px;padding:6px 12px 6px 8px;font-size:13.5px;font-weight:600;color:var(--text)}
+  .fchips button.on{border-color:var(--accent);background:var(--accent-soft)}
+  .imgpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:8px}
+  .imgpick button{background:var(--card2);border:2px solid transparent;border-radius:12px;padding:3px;display:flex;align-items:center;justify-content:center}
+  .imgpick button.on{border-color:var(--accent)}
+  .photo-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .photo-row img{width:72px;height:52px;object-fit:cover;border-radius:8px}
+  .lbl-btn{color:var(--accent);font-size:14px;font-weight:600;cursor:pointer}
+  .lbl-btn.del{color:#d94f3d}
+  .ingrow,.steprow{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+  .ingrow select.fin{flex:1.5;margin-top:0;min-width:0}
+  .ingrow input.fin{flex:1;margin-top:0;min-width:0}
+  .steprow textarea.fin{flex:1;margin-top:0;resize:vertical;min-height:46px}
+  .rowdel{flex:none;width:30px;height:30px;border-radius:50%;background:var(--card2);color:var(--text2);font-size:15px;line-height:1}
+  .rowopt{flex:none;font-size:11px;font-weight:700;padding:6px 7px;border-radius:8px;background:var(--card2);color:var(--text3)}
+  .rowopt.on{background:var(--orange-soft);color:var(--orange)}
+  .addrow{color:var(--accent);font-size:14px;font-weight:600;padding:4px 0}
+  .f-err{color:#d94f3d;font-size:13.5px;font-weight:600;margin:2px 2px 10px;display:none}
+  .f-err.show{display:block}
+  .savebtn{
+    width:100%;background:var(--accent);color:#fff;font-size:16px;font-weight:700;
+    padding:14px;border-radius:999px;box-shadow:0 6px 20px rgba(10,132,255,.35);margin:2px 0 14px;
+  }
+  .mine-item{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:.5px solid var(--sep)}
+  .mine-item:last-child{border-bottom:none}
+  .mine-item .mi-tx{min-width:0}
+  .mine-item b{font-size:15px;display:block}
+  .mine-item small{color:var(--text2);font-size:12.5px}
+  .mine-item .act{margin-left:auto;display:flex;gap:14px;flex:none}
+  .mine-item .act button{color:var(--accent);font-size:13.5px;font-weight:600}
+  .mine-item .act .del{color:#d94f3d}
 </style>
 </head>
 <body>
@@ -343,8 +418,34 @@
 </header>
 
 <main>
+  <!-- ============ HOME ============ -->
+  <section class="screen active" id="screen-home">
+    <div class="home-hero">
+      <h2 id="greet">Ciao!</h2>
+      <p>Dimmi cosa c'è nel tuo frigo e nella tua dispensa: al resto pensa NOVA.</p>
+    </div>
+    <div class="home-cards">
+      <button class="hcard" data-go="find">
+        <span class="hic" id="hic-find"></span>
+        <span class="htx"><b>Trova ricette</b><p>Scegli ingredienti e strumenti, ti dico cosa puoi cucinare</p></span>
+        <span class="chev">›</span>
+      </button>
+      <button class="hcard" data-go="browse">
+        <span class="hic" id="hic-browse"></span>
+        <span class="htx"><b>Sfoglia il ricettario</b><p>Tutte le ricette, dalla carbonara al tiramisù</p></span>
+        <span class="chev">›</span>
+      </button>
+      <button class="hcard" data-go="create">
+        <span class="hic accent" id="hic-create"></span>
+        <span class="htx"><b>Crea una ricetta</b><p>Campi guidati: la tua ricetta entra nell'app</p></span>
+        <span class="chev">›</span>
+      </button>
+    </div>
+    <div class="home-stats" id="home-stats"></div>
+  </section>
+
   <!-- ============ SCHERMATA INGREDIENTI ============ -->
-  <section class="screen active" id="screen-ing">
+  <section class="screen" id="screen-ing">
     <div class="search-wrap">
       <div class="search" id="searchbox">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -368,6 +469,10 @@
 
   <!-- ============ SCHERMATA RICETTE ============ -->
   <section class="screen" id="screen-ric">
+    <div class="modes" id="modes">
+      <button data-m="match" class="on">Per te</button>
+      <button data-m="all">Tutte</button>
+    </div>
     <div class="seg" id="seg">
       <button data-f="tutte" class="on">Tutte</button>
       <button data-f="primi">Primi</button>
@@ -376,12 +481,68 @@
     </div>
     <div id="ric-list"></div>
   </section>
+
+  <!-- ============ CREA RICETTA ============ -->
+  <section class="screen" id="screen-crea">
+    <button class="back" id="crea-back">‹ Home</button>
+    <div class="fcard">
+      <h3>La ricetta</h3>
+      <label>Nome<input class="fin" id="f-nome" placeholder="Es. Pasta della domenica" maxlength="60"></label>
+      <label>Categoria
+        <div class="fseg" id="f-cat">
+          <button data-v="primi" class="on">Primo</button>
+          <button data-v="secondi">Secondo</button>
+          <button data-v="dolci">Dolce</button>
+        </div>
+      </label>
+      <div class="frow">
+        <label>Tempo (minuti)<input class="fin" id="f-tempo" type="number" min="1" max="600" placeholder="20"></label>
+        <label>Porzioni<input class="fin" id="f-porzioni" placeholder="2 persone"></label>
+      </div>
+      <label style="margin-bottom:0">Difficoltà
+        <select class="fin" id="f-diff">
+          <option>Facilissima</option><option selected>Facile</option><option>Media</option><option>Difficile</option>
+        </select>
+      </label>
+    </div>
+    <div class="fcard">
+      <h3>Strumenti necessari</h3>
+      <div class="fchips" id="f-app"></div>
+      <p style="color:var(--text3);font-size:12.5px;margin-top:10px">Nessuno selezionato = ricetta senza cottura</p>
+    </div>
+    <div class="fcard">
+      <h3>Immagine del piatto</h3>
+      <div class="imgpick" id="f-imgs"></div>
+      <div class="photo-row" id="f-photo-row">
+        <label class="lbl-btn" for="f-photo">Oppure carica una tua foto</label>
+        <input type="file" id="f-photo" accept="image/*" style="display:none">
+      </div>
+    </div>
+    <div class="fcard">
+      <h3>Ingredienti</h3>
+      <div id="f-ings"></div>
+      <button class="addrow" id="f-add-ing">+ Aggiungi ingrediente</button>
+      <p style="color:var(--text3);font-size:12.5px;margin-top:8px">Il pulsante «facolt.» segna un ingrediente come facoltativo</p>
+    </div>
+    <div class="fcard">
+      <h3>Preparazione</h3>
+      <div id="f-steps"></div>
+      <button class="addrow" id="f-add-step">+ Aggiungi passaggio</button>
+    </div>
+    <p class="f-err" id="f-err"></p>
+    <button class="savebtn" id="f-save">Salva la ricetta</button>
+    <div class="fcard" id="mine-card" style="display:none">
+      <h3>Le tue ricette</h3>
+      <div id="mine-list"></div>
+    </div>
+  </section>
 </main>
 
 <div id="cta"><button id="cta-btn"></button></div>
 
 <nav id="tabbar">
-  <button data-t="ing" class="on"><span class="ti" data-ui="basket"></span>Ingredienti</button>
+  <button data-t="home" class="on"><span class="ti" data-ui="home"></span>Home</button>
+  <button data-t="ing"><span class="ti" data-ui="basket"></span>Ingredienti</button>
   <button data-t="app"><span class="ti" data-ui="tools"></span>Strumenti</button>
   <button data-t="ric" style="position:relative"><span class="badge" id="ric-badge"></span><span class="ti" data-ui="dish"></span>Ricette</button>
 </nav>
@@ -401,19 +562,25 @@ const APP_BY_ID = Object.fromEntries(APPLIANCES.map(a => [a.id, a]));
 const CAT_LABEL = { primi: "Primi", secondi: "Secondi", dolci: "Dolci" };
 
 // ---------- Stato (persistito) ----------
-let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "ing", filter: "tutte" };
+let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match" };
 try {
   const saved = JSON.parse(localStorage.getItem("nova_state"));
   if (saved) {
     state.ing = new Set(saved.ing || []);
     state.app = new Set(saved.app || []);
     state.filter = saved.filter || "tutte";
+    state.mode = saved.mode || "match";
   }
 } catch (e) {}
+let mine = [];
+try { mine = JSON.parse(localStorage.getItem("nova_mie_ricette")) || []; } catch (e) {}
+mine.forEach(r => { r.mine = true; });
+function saveMine() { try { localStorage.setItem("nova_mie_ricette", JSON.stringify(mine)); } catch (e) {} }
+const ALL = () => RECIPES.concat(mine);
 function save() {
   try {
     localStorage.setItem("nova_state", JSON.stringify({
-      ing: [...state.ing], app: [...state.app], filter: state.filter
+      ing: [...state.ing], app: [...state.app], filter: state.filter, mode: state.mode
     }));
   } catch (e) {}
 }
@@ -433,7 +600,7 @@ function matchRecipe(r) {
 function computeMatches() {
   const ready = [], almost = [];
   let lockedByApp = 0, tooMissing = 0;
-  for (const r of RECIPES) {
+  for (const r of ALL()) {
     if (state.filter !== "tutte" && r.cat !== state.filter) continue;
     const m = matchRecipe(r);
     if (m.missing.length > 2) { tooMissing++; continue; }
@@ -445,7 +612,7 @@ function computeMatches() {
   return { ready, almost, lockedByApp, tooMissing };
 }
 function readyCountAll() {
-  return RECIPES.filter(r => { const m = matchRecipe(r); return m.appOk && m.missing.length === 0; }).length;
+  return ALL().filter(r => { const m = matchRecipe(r); return m.appOk && m.missing.length === 0; }).length;
 }
 
 // ---------- Ricerca ----------
@@ -502,11 +669,13 @@ function renderAppliances() {
 function recipeCard({ r, m }) {
   const status = m.missing.length === 0
     ? `<span class="status ok">✓ Hai tutto</span>`
-    : `<span class="status miss">Manca: ${m.missing.map(altName).join(", ")}</span>`;
+    : m.missing.length <= 2
+      ? `<span class="status miss">Manca: ${m.missing.map(altName).join(", ")}</span>`
+      : `<span class="status miss">Mancano ${m.missing.length} ingredienti</span>`;
   return `<button class="rcard" data-r="${r.id}">
-    <span class="em">${NOVA_DISH(r.img, 48)}</span>
+    <span class="em">${r.photo ? `<img src="${r.photo}" alt="">` : NOVA_DISH(r.img, 48)}</span>
     <span class="body">
-      <div class="nm">${r.name}</div>
+      <div class="nm">${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</div>
       <div class="meta">${CAT_LABEL[r.cat]} · ${r.time} min · ${r.serves}</div>
       ${status}
     </span>
@@ -517,6 +686,20 @@ function recipeCard({ r, m }) {
 function renderRecipes() {
   const list = $("#ric-list");
   document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.f === state.filter));
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === state.mode));
+
+  if (state.mode === "all") {
+    const groups = state.filter === "tutte" ? ["primi", "secondi", "dolci"] : [state.filter];
+    let html = "";
+    for (const g of groups) {
+      const rs = ALL().filter(r => r.cat === g);
+      if (!rs.length) continue;
+      html += `<div class="sec-label"><span class="dot" style="background:var(--accent)"></span>${CAT_LABEL[g]} <small>· ${rs.length}</small></div>`;
+      html += rs.map(r => recipeCard({ r, m: matchRecipe(r) })).join("");
+    }
+    list.innerHTML = html;
+    return;
+  }
 
   if (!state.ing.size) {
     list.innerHTML = `<div class="empty">
@@ -557,7 +740,7 @@ function renderRecipes() {
 
 // ---------- Scheda ricetta ----------
 function openSheet(id) {
-  const r = RECIPES.find(x => x.id === id); if (!r) return;
+  const r = ALL().find(x => x.id === id); if (!r) return;
   const m = matchRecipe(r);
   const appPills = r.app.length
     ? r.app.map(entry => entry.split("|").map(x => APP_BY_ID[x].name).join(" oppure ")).map(t => `<span class="pill app">${t}</span>`).join("")
@@ -578,7 +761,7 @@ function openSheet(id) {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
-    <div class="sh-hero">${NOVA_DISH(r.img, 148)}</div>
+    <div class="sh-hero">${r.photo ? `<img src="${r.photo}" alt="">` : NOVA_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}</h2></div>
     <div class="sh-meta">
       <span class="pill">${r.time} min</span>
@@ -605,7 +788,7 @@ function closeSheet() {
 }
 
 // ---------- Navigazione ----------
-const SUBTITLES = { ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare" };
+const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata" };
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -614,6 +797,8 @@ function setTab(t) {
   $("#subtitle").textContent = SUBTITLES[t];
   window.scrollTo(0, 0);
   if (t === "ric") renderRecipes();
+  if (t === "home") renderHome();
+  if (t === "crea") renderMine();
   updateChrome();
 }
 
@@ -637,6 +822,7 @@ function updateChrome() {
   } else {
     cta.classList.add("hidden");
   }
+  if (state.tab === "home" || state.tab === "crea") cta.classList.add("hidden");
 }
 
 // ---------- Eventi ----------
@@ -695,6 +881,203 @@ $("#sheet").addEventListener("touchmove", e => {
   if (touchY !== null && e.touches[0].clientY - touchY > 70) { closeSheet(); touchY = null; }
 }, { passive: true });
 
+// ---------- Home ----------
+function renderHome() {
+  const h = new Date().getHours();
+  $("#greet").textContent = h < 12 ? "Buongiorno!" : h < 18 ? "Buon pomeriggio!" : "Buonasera!";
+  $("#home-stats").innerHTML =
+    `<span><b>${ALL().length}</b> ricette</span> · <span><b>${INGREDIENTS.length}</b> ingredienti</span> · <span><b>${APPLIANCES.length}</b> strumenti</span>`;
+}
+$("#hic-find").innerHTML = NOVA_DISH({ k: "spag", a: "#eec96f", g: "chili" }, 52);
+$("#hic-browse").innerHTML = NOVA_DISH({ k: "cake" }, 52);
+$("#hic-create").innerHTML = NOVA_UI("plus", 30, 2.2);
+document.querySelector(".home-cards").addEventListener("click", e => {
+  const b = e.target.closest("[data-go]"); if (!b) return;
+  const go = b.dataset.go;
+  if (go === "find") { state.mode = "match"; save(); setTab("ing"); }
+  if (go === "browse") { state.mode = "all"; state.filter = "tutte"; save(); setTab("ric"); }
+  if (go === "create") setTab("crea");
+});
+
+// ---------- Crea ricetta ----------
+const IMG_PRESETS = [
+  { k: "short", a: "#d94f3d", g: "basil" }, { k: "spag", a: "#eec96f", g: "chili" },
+  { k: "short", a: "#6fae53", g: "cheese" }, { k: "risotto", a: "#f2c94c" },
+  { k: "soup", a: "#e0b46a", g: "pasta" }, { k: "noodles" },
+  { k: "meat", a: "#e9b46a", g: "lemon" }, { k: "fish" },
+  { k: "burger" }, { k: "salad" }, { k: "frittata" }, { k: "roastveg" },
+  { k: "cake" }, { k: "cookies" }, { k: "pancakes" }, { k: "crepes" },
+  { k: "mug" }, { k: "fruit" }, { k: "smoothie" }, { k: "tiramisu" },
+];
+const cur = { img: 0, photo: null, app: new Set(), editId: null };
+const SELOPTS = CATEGORIES.map(c =>
+  `<optgroup label="${c.name}">` +
+  INGREDIENTS.filter(i => i.c === c.id).map(i => `<option value="${i.id}">${i.n}</option>`).join("") +
+  `</optgroup>`).join("");
+
+function renderFApp() {
+  $("#f-app").innerHTML = APPLIANCES.map(a =>
+    `<button type="button" data-fa="${a.id}" class="${cur.app.has(a.id) ? "on" : ""}">${NOVA_ICON(a.e, 20)}${a.name}</button>`).join("");
+}
+function renderImgPicker() {
+  $("#f-imgs").innerHTML = IMG_PRESETS.map((p, i) =>
+    `<button type="button" data-fi="${i}" class="${!cur.photo && cur.img === i ? "on" : ""}">${NOVA_DISH(p, 46)}</button>`).join("");
+  const row = $("#f-photo-row");
+  row.querySelector("img")?.remove();
+  row.querySelector(".del")?.remove();
+  if (cur.photo) {
+    row.insertAdjacentHTML("afterbegin", `<img src="${cur.photo}" alt="">`);
+    row.insertAdjacentHTML("beforeend", `<button type="button" class="lbl-btn del" id="f-photo-del">Rimuovi foto</button>`);
+  }
+}
+function addIngRow(id = "", qty = "", opt = false) {
+  const div = document.createElement("div");
+  div.className = "ingrow";
+  div.innerHTML = `<select class="fin">${SELOPTS}</select>
+    <input class="fin" placeholder="Quantità (es. 180 g)" value="${qty.replace(/"/g, "&quot;")}">
+    <button type="button" class="rowopt${opt ? " on" : ""}">facolt.</button>
+    <button type="button" class="rowdel">✕</button>`;
+  if (id) div.querySelector("select").value = id;
+  $("#f-ings").appendChild(div);
+}
+function addStepRow(text = "") {
+  const div = document.createElement("div");
+  div.className = "steprow";
+  div.innerHTML = `<textarea class="fin" placeholder="Descrivi il passaggio…"></textarea>
+    <button type="button" class="rowdel">✕</button>`;
+  div.querySelector("textarea").value = text;
+  $("#f-steps").appendChild(div);
+}
+function resetForm() {
+  cur.img = 0; cur.photo = null; cur.app = new Set(); cur.editId = null;
+  $("#f-nome").value = ""; $("#f-tempo").value = ""; $("#f-porzioni").value = "";
+  $("#f-diff").value = "Facile";
+  document.querySelectorAll("#f-cat button").forEach((b, i) => b.classList.toggle("on", i === 0));
+  $("#f-ings").innerHTML = ""; addIngRow(); addIngRow();
+  $("#f-steps").innerHTML = ""; addStepRow(); addStepRow();
+  $("#f-err").classList.remove("show");
+  $("#f-save").textContent = "Salva la ricetta";
+  renderFApp(); renderImgPicker();
+}
+function loadRecipe(r) {
+  resetForm();
+  cur.editId = r.id; cur.photo = r.photo || null; cur.app = new Set(r.app);
+  cur.img = Math.max(0, IMG_PRESETS.findIndex(p => JSON.stringify(p) === JSON.stringify(r.img)));
+  $("#f-nome").value = r.name; $("#f-tempo").value = r.time; $("#f-porzioni").value = r.serves;
+  $("#f-diff").value = r.diff;
+  document.querySelectorAll("#f-cat button").forEach(b => b.classList.toggle("on", b.dataset.v === r.cat));
+  $("#f-ings").innerHTML = "";
+  r.ing.forEach(([id, qty, opt]) => addIngRow(id.split("|")[0], qty, !!opt));
+  $("#f-steps").innerHTML = "";
+  r.steps.forEach(t => addStepRow(t));
+  $("#f-save").textContent = "Salva le modifiche";
+  renderFApp(); renderImgPicker();
+  window.scrollTo(0, 0);
+}
+function renderMine() {
+  const card = $("#mine-card");
+  if (!mine.length) { card.style.display = "none"; $("#mine-list").innerHTML = ""; return; }
+  card.style.display = "block";
+  $("#mine-list").innerHTML = mine.map(r => `
+    <div class="mine-item">
+      ${r.photo ? `<span class="em" style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex:none"><img src="${r.photo}" style="width:100%;height:100%;object-fit:cover"></span>` : NOVA_DISH(r.img, 40)}
+      <span class="mi-tx"><b>${r.name}</b><small>${CAT_LABEL[r.cat]} · ${r.time} min</small></span>
+      <span class="act">
+        <button data-edit="${r.id}">Modifica</button>
+        <button data-del="${r.id}" class="del">Elimina</button>
+      </span>
+    </div>`).join("");
+}
+function saveRecipe() {
+  const err = (msg) => { const e = $("#f-err"); e.textContent = msg; e.classList.add("show"); e.scrollIntoView({ block: "center" }); };
+  const name = $("#f-nome").value.trim();
+  if (!name) return err("Dai un nome alla ricetta");
+  const cat = document.querySelector("#f-cat button.on").dataset.v;
+  const time = parseInt($("#f-tempo").value, 10) || 20;
+  const serves = $("#f-porzioni").value.trim() || "2 persone";
+  const ing = [...document.querySelectorAll("#f-ings .ingrow")].map(row => {
+    const id = row.querySelector("select").value;
+    const qty = row.querySelector("input").value.trim();
+    const opt = row.querySelector(".rowopt").classList.contains("on");
+    return qty || id ? [id, qty || "q.b.", opt || undefined] : null;
+  }).filter(Boolean).map(x => x[2] ? x : [x[0], x[1]]);
+  if (!ing.length) return err("Aggiungi almeno un ingrediente");
+  const steps = [...document.querySelectorAll("#f-steps textarea")].map(t => t.value.trim()).filter(Boolean);
+  if (!steps.length) return err("Scrivi almeno un passaggio");
+  const r = {
+    id: cur.editId || "mia-" + Date.now(), mine: true,
+    cat, name, img: IMG_PRESETS[cur.img], photo: cur.photo || undefined,
+    time, serves, diff: $("#f-diff").value,
+    app: [...cur.app], ing, steps,
+  };
+  const ix = mine.findIndex(x => x.id === r.id);
+  ix >= 0 ? mine.splice(ix, 1, r) : mine.push(r);
+  saveMine();
+  resetForm();
+  state.mode = "all"; state.filter = cat; save();
+  setTab("ric");
+  openSheet(r.id);
+}
+
+$("#crea-back").addEventListener("click", () => setTab("home"));
+$("#screen-crea").addEventListener("input", () => $("#f-err").classList.remove("show"));
+$("#f-cat").addEventListener("click", e => {
+  const b = e.target.closest("[data-v]"); if (!b) return;
+  document.querySelectorAll("#f-cat button").forEach(x => x.classList.toggle("on", x === b));
+});
+$("#f-app").addEventListener("click", e => {
+  const b = e.target.closest("[data-fa]"); if (!b) return;
+  const id = b.dataset.fa;
+  cur.app.has(id) ? cur.app.delete(id) : cur.app.add(id);
+  renderFApp();
+});
+$("#f-imgs").addEventListener("click", e => {
+  const b = e.target.closest("[data-fi]"); if (!b) return;
+  cur.img = +b.dataset.fi; cur.photo = null; $("#f-photo").value = "";
+  renderImgPicker();
+});
+$("#f-photo").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const sc = Math.min(1, 560 / img.width);
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    cur.photo = c.toDataURL("image/jpeg", .8);
+    URL.revokeObjectURL(img.src);
+    renderImgPicker();
+  };
+  img.src = URL.createObjectURL(f);
+});
+$("#f-photo-row").addEventListener("click", e => {
+  if (e.target.id === "f-photo-del") { cur.photo = null; $("#f-photo").value = ""; renderImgPicker(); }
+});
+$("#f-ings").addEventListener("click", e => {
+  if (e.target.classList.contains("rowdel")) e.target.closest(".ingrow").remove();
+  if (e.target.classList.contains("rowopt")) e.target.classList.toggle("on");
+});
+$("#f-steps").addEventListener("click", e => {
+  if (e.target.classList.contains("rowdel")) e.target.closest(".steprow").remove();
+});
+$("#f-add-ing").addEventListener("click", () => addIngRow());
+$("#f-add-step").addEventListener("click", () => addStepRow());
+$("#f-save").addEventListener("click", saveRecipe);
+$("#mine-list")?.addEventListener("click", e => {
+  const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
+  if (ed) { const r = mine.find(x => x.id === ed.dataset.edit); if (r) loadRecipe(r); }
+  if (del) {
+    const r = mine.find(x => x.id === del.dataset.del);
+    if (r && confirm(`Eliminare «${r.name}»?`)) {
+      mine = mine.filter(x => x.id !== r.id); saveMine(); renderMine(); updateChrome();
+    }
+  }
+});
+$("#modes").addEventListener("click", e => {
+  const b = e.target.closest("[data-m]"); if (!b) return;
+  state.mode = b.dataset.m; save(); renderRecipes();
+});
+
 // ---------- Avvio ----------
 document.querySelectorAll("[data-ui]").forEach(el => { el.innerHTML = NOVA_UI(el.dataset.ui, 22); });
 $("#catnav").innerHTML = CATEGORIES.map(c => `<button data-cat="${c.id}">${c.name}</button>`).join("");
@@ -706,8 +1089,8 @@ $("#catnav").addEventListener("click", e => {
 });
 renderIngredients();
 renderAppliances();
-renderRecipes();
-updateChrome();
+resetForm();
+setTab("home");
 </script>
 </body>
 </html>
