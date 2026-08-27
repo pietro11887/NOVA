@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>NOVA — Cosa cucino oggi?</title>
+<style>
+  :root{
+    --bg:#f2f2f7; --card:#ffffff; --card2:#f7f7fa;
+    --text:#1c1c1e; --text2:#6e6e73; --text3:#aeaeb2;
+    --sep:rgba(60,60,67,.12);
+    --accent:#0a84ff; --accent-soft:rgba(10,132,255,.12);
+    --green:#30a14e; --green-soft:rgba(48,209,88,.14);
+    --orange:#e08700; --orange-soft:rgba(255,159,10,.14);
+    --chip:#ffffff; --chip-border:rgba(60,60,67,.16);
+    --sheet:#ffffff; --backdrop:rgba(0,0,0,.4);
+    --tabbar:rgba(249,249,251,.92);
+    --shadow:0 1px 3px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#000000; --card:#1c1c1e; --card2:#2c2c2e;
+      --text:#f5f5f7; --text2:#98989f; --text3:#636369;
+      --sep:rgba(84,84,88,.5);
+      --accent:#0a84ff; --accent-soft:rgba(10,132,255,.2);
+      --green:#30d158; --green-soft:rgba(48,209,88,.16);
+      --orange:#ff9f0a; --orange-soft:rgba(255,159,10,.16);
+      --chip:#1c1c1e; --chip-border:rgba(84,84,88,.65);
+      --sheet:#1c1c1e; --backdrop:rgba(0,0,0,.6);
+      --tabbar:rgba(22,22,24,.94);
+      --shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100dvh;
+    padding-bottom:calc(84px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+  /* ---------- Header ---------- */
+  header{
+    padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
+    max-width:640px;margin:0 auto;
+  }
+  .app-name{font-size:34px;font-weight:800;letter-spacing:-.5px}
+  .app-name span{color:var(--accent)}
+  .subtitle{color:var(--text2);font-size:16px;margin-top:2px;font-weight:500}
+
+  main{max-width:640px;margin:0 auto;padding:10px 16px 24px}
+  .screen{display:none;animation:fadein .18s ease}
+  .screen.active{display:block}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ---------- Search ---------- */
+  .search-wrap{position:sticky;top:0;z-index:10;padding:8px 0 10px;background:var(--bg)}
+  .search{
+    display:flex;align-items:center;gap:8px;
+    background:var(--card);border-radius:12px;padding:10px 12px;
+    box-shadow:var(--shadow);
+  }
+  .search svg{flex:none;opacity:.4}
+  .search input{
+    flex:1;border:none;outline:none;background:transparent;
+    font-size:16px;color:var(--text);
+  }
+  .search input::placeholder{color:var(--text3)}
+  .search .clear{display:none;color:var(--text3);font-size:18px;line-height:1;padding:2px 4px}
+  .search.has-text .clear{display:block}
+
+  /* ---------- Selected bar ---------- */
+  .selbar{display:none;align-items:center;gap:8px;margin:2px 0 10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .selbar::-webkit-scrollbar{display:none}
+  .selbar.show{display:flex}
+  .selbar .mini{
+    flex:none;display:inline-flex;align-items:center;gap:5px;
+    background:var(--accent);color:#fff;border-radius:999px;
+    padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap;
+  }
+  .selbar .mini b{font-weight:700;opacity:.8;margin-left:2px}
+  .selbar .wipe{flex:none;color:var(--accent);font-size:13px;font-weight:600;white-space:nowrap;padding:6px 8px}
+
+  /* ---------- Ingredient chips ---------- */
+  .cat-title{
+    font-size:13px;font-weight:700;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.6px;
+    margin:18px 4px 8px;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--chip);border:1px solid var(--chip-border);
+    border-radius:999px;padding:8px 14px 8px 10px;
+    font-size:15px;font-weight:500;color:var(--text);
+    transition:transform .08s ease, background .12s ease, border-color .12s ease;
+  }
+  .chip:active{transform:scale(.95)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .chip .em{font-size:16px}
+  .staples-note{
+    margin:20px 4px 8px;color:var(--text3);font-size:13px;line-height:1.5;text-align:center;
+  }
+  .no-results{color:var(--text2);text-align:center;padding:40px 20px;font-size:15px}
+
+  /* ---------- Appliances ---------- */
+  .app-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .app-card{
+    background:var(--card);border:2px solid transparent;border-radius:16px;
+    padding:16px 14px;text-align:left;box-shadow:var(--shadow);
+    transition:transform .08s ease, border-color .12s ease;
+    position:relative;
+  }
+  .app-card:active{transform:scale(.97)}
+  .app-card.on{border-color:var(--accent);background:var(--accent-soft)}
+  .app-card .em{font-size:30px;display:block;margin-bottom:8px}
+  .app-card .nm{font-size:15px;font-weight:700}
+  .app-card .ds{font-size:12.5px;color:var(--text2);margin-top:2px;line-height:1.35}
+  .app-card .tick{
+    position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;
+    background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;
+  }
+  .app-card.on .tick{display:flex}
+  .app-hint{color:var(--text2);font-size:14px;margin:6px 4px 4px;line-height:1.5}
+  .app-all{
+    display:block;margin:14px auto 0;color:var(--accent);
+    font-size:15px;font-weight:600;padding:8px 16px;
+  }
+
+  /* ---------- Recipes ---------- */
+  .seg{
+    display:flex;background:var(--card2);border-radius:10px;padding:3px;margin:8px 0 16px;
+    position:sticky;top:0;z-index:10;box-shadow:var(--shadow);
+  }
+  .seg button{
+    flex:1;padding:8px 4px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text2);
+    transition:background .12s ease,color .12s ease;
+  }
+  .seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
+  .sec-label{
+    display:flex;align-items:center;gap:8px;
+    font-size:15px;font-weight:700;margin:20px 4px 10px;
+  }
+  .sec-label:first-of-type{margin-top:4px}
+  .sec-label .dot{width:8px;height:8px;border-radius:50%}
+  .sec-label.ready .dot{background:var(--green)}
+  .sec-label.almost .dot{background:var(--orange)}
+  .sec-label small{color:var(--text3);font-weight:600}
+
+  .rcard{
+    width:100%;text-align:left;
+    background:var(--card);border-radius:16px;padding:14px;
+    box-shadow:var(--shadow);margin-bottom:10px;
+    display:flex;gap:12px;align-items:center;
+    transition:transform .08s ease;
+  }
+  .rcard:active{transform:scale(.98)}
+  .rcard .em{
+    flex:none;width:52px;height:52px;border-radius:14px;background:var(--card2);
+    display:flex;align-items:center;justify-content:center;font-size:28px;
+  }
+  .rcard .body{flex:1;min-width:0}
+  .rcard .nm{font-size:16px;font-weight:700;line-height:1.25}
+  .rcard .meta{color:var(--text2);font-size:13px;margin-top:3px}
+  .rcard .status{font-size:13px;font-weight:600;margin-top:6px;display:inline-flex;align-items:center;gap:5px;border-radius:7px;padding:3px 8px}
+  .rcard .status.ok{color:var(--green);background:var(--green-soft)}
+  .rcard .status.miss{color:var(--orange);background:var(--orange-soft)}
+  .rcard .chev{flex:none;color:var(--text3);font-size:20px}
+
+  .empty{
+    text-align:center;padding:48px 24px;color:var(--text2);
+  }
+  .empty .big{font-size:52px;margin-bottom:12px}
+  .empty h3{color:var(--text);font-size:18px;margin-bottom:6px}
+  .empty p{font-size:14.5px;line-height:1.5}
+  .empty button{
+    margin-top:16px;background:var(--accent);color:#fff;
+    padding:11px 22px;border-radius:999px;font-size:15px;font-weight:600;
+  }
+  .locked-note{
+    display:block;width:100%;text-align:center;color:var(--text2);font-size:13.5px;
+    padding:14px 12px;line-height:1.5;
+  }
+  .locked-note b{color:var(--accent);font-weight:600}
+
+  /* ---------- CTA ---------- */
+  #cta{
+    position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));
+    display:flex;justify-content:center;padding:0 16px 10px;z-index:20;
+    pointer-events:none;
+  }
+  #cta button{
+    pointer-events:auto;
+    background:var(--accent);color:#fff;
+    font-size:16px;font-weight:700;
+    padding:14px 26px;border-radius:999px;
+    box-shadow:0 6px 20px rgba(10,132,255,.4);
+    max-width:640px;width:100%;
+    transition:transform .08s ease,opacity .15s ease;
+  }
+  #cta button:active{transform:scale(.97)}
+  #cta.hidden{display:none}
+
+  /* ---------- Tab bar ---------- */
+  #tabbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:var(--tabbar);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-top:.5px solid var(--sep);
+    display:flex;justify-content:space-around;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  #tabbar button{
+    flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:2px;
+    color:var(--text3);font-size:10.5px;font-weight:600;padding:4px 0;position:relative;
+  }
+  #tabbar button .ti{font-size:22px;line-height:1;filter:grayscale(1);opacity:.55;transition:filter .12s,opacity .12s}
+  #tabbar button.on{color:var(--accent)}
+  #tabbar button.on .ti{filter:none;opacity:1}
+  #tabbar .badge{
+    position:absolute;top:-2px;right:calc(50% - 26px);
+    background:var(--green);color:#fff;font-size:10px;font-weight:800;
+    border-radius:999px;min-width:17px;height:17px;padding:0 4px;
+    display:none;align-items:center;justify-content:center;
+  }
+  #tabbar .badge.show{display:flex}
+
+  /* ---------- Sheet ---------- */
+  #backdrop{
+    position:fixed;inset:0;background:var(--backdrop);z-index:40;
+    opacity:0;pointer-events:none;transition:opacity .22s ease;
+  }
+  #backdrop.show{opacity:1;pointer-events:auto}
+  #sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--sheet);border-radius:22px 22px 0 0;
+    max-height:90dvh;overflow-y:auto;overscroll-behavior:contain;
+    transform:translateY(102%);transition:transform .26s cubic-bezier(.32,.72,.28,1);
+    max-width:680px;margin:0 auto;
+    padding:8px 20px calc(28px + env(safe-area-inset-bottom));
+  }
+  #sheet.show{transform:translateY(0)}
+  .grabber{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:6px auto 14px}
+  .sh-head{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+  .sh-head .em{
+    flex:none;width:60px;height:60px;border-radius:16px;background:var(--card2);
+    display:flex;align-items:center;justify-content:center;font-size:32px;
+  }
+  .sh-head h2{font-size:21px;font-weight:800;line-height:1.2;letter-spacing:-.3px}
+  .sh-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .pill{
+    background:var(--card2);border-radius:999px;padding:6px 12px;
+    font-size:13px;font-weight:600;color:var(--text2);
+  }
+  .pill.app{background:var(--accent-soft);color:var(--accent)}
+  .sh-warn{
+    background:var(--orange-soft);color:var(--orange);
+    border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;
+    margin-bottom:16px;line-height:1.4;
+  }
+  .sh-sec{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin:18px 0 8px}
+  .ing-row{
+    display:flex;align-items:baseline;gap:10px;
+    padding:9px 0;border-bottom:.5px solid var(--sep);font-size:15px;
+  }
+  .ing-row:last-child{border-bottom:none}
+  .ing-row .mark{flex:none;font-size:14px;width:18px;text-align:center}
+  .ing-row .mark.ok{color:var(--green)}
+  .ing-row .mark.no{color:var(--orange)}
+  .ing-row .mark.opt{color:var(--text3)}
+  .ing-row .qty{margin-left:auto;color:var(--text2);font-size:14px;text-align:right;flex:none;max-width:45%}
+  .ing-row.missing .name{color:var(--orange);font-weight:600}
+  .ing-row.optional .name{color:var(--text2)}
+  .step{display:flex;gap:12px;padding:8px 0;font-size:15px;line-height:1.5}
+  .step .n{
+    flex:none;width:24px;height:24px;border-radius:50%;
+    background:var(--accent-soft);color:var(--accent);
+    font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    margin-top:1px;
+  }
+  .sh-note{
+    margin-top:16px;background:var(--card2);border-radius:12px;
+    padding:12px 14px;font-size:13.5px;color:var(--text2);line-height:1.5;
+  }
+  .sh-note b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="app-name">NOVA<span>.</span></div>
+  <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
+</header>
+
+<main>
+  <!-- ============ SCHERMATA INGREDIENTI ============ -->
+  <section class="screen active" id="screen-ing">
+    <div class="search-wrap">
+      <div class="search" id="searchbox">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="text" placeholder="Cerca un ingrediente…" autocomplete="off">
+        <button class="clear" id="search-clear" aria-label="Cancella ricerca">✕</button>
+      </div>
+    </div>
+    <div class="selbar" id="selbar"></div>
+    <div id="ing-list"></div>
+    <p class="staples-note">Sale, pepe, olio extravergine e acqua<br>li diamo per scontati 😉</p>
+  </section>
+
+  <!-- ============ SCHERMATA STRUMENTI ============ -->
+  <section class="screen" id="screen-app">
+    <p class="app-hint">Seleziona solo quello che hai davvero: le ricette si adattano. Anche con un solo microonde o un bollitore si mangia bene.</p>
+    <div class="app-grid" id="app-grid"></div>
+    <button class="app-all" id="app-all">Seleziona tutto</button>
+  </section>
+
+  <!-- ============ SCHERMATA RICETTE ============ -->
+  <section class="screen" id="screen-ric">
+    <div class="seg" id="seg">
+      <button data-f="tutte" class="on">Tutte</button>
+      <button data-f="primi">Primi</button>
+      <button data-f="secondi">Secondi</button>
+      <button data-f="dolci">Dolci</button>
+    </div>
+    <div id="ric-list"></div>
+  </section>
+</main>
+
+<div id="cta"><button id="cta-btn"></button></div>
+
+<nav id="tabbar">
+  <button data-t="ing" class="on"><span class="ti">🧺</span>Ingredienti</button>
+  <button data-t="app"><span class="ti">🍳</span>Strumenti</button>
+  <button data-t="ric" style="position:relative"><span class="badge" id="ric-badge"></span><span class="ti">🍽️</span>Ricette</button>
+</nav>
+
+<div id="backdrop"></div>
+<div id="sheet" role="dialog" aria-modal="true"></div>
+
+<script src="data.js"></script>
+<script>
+// ============================================================
+// NOVA — logica app
+// ============================================================
+const $ = s => document.querySelector(s);
+const ING_BY_ID = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
+const APP_BY_ID = Object.fromEntries(APPLIANCES.map(a => [a.id, a]));
+const CAT_LABEL = { primi: "Primi", secondi: "Secondi", dolci: "Dolci" };
+
+// ---------- Stato (persistito) ----------
+let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "ing", filter: "tutte" };
+try {
+  const saved = JSON.parse(localStorage.getItem("nova_state"));
+  if (saved) {
+    state.ing = new Set(saved.ing || []);
+    state.app = new Set(saved.app || []);
+    state.filter = saved.filter || "tutte";
+  }
+} catch (e) {}
+function save() {
+  try {
+    localStorage.setItem("nova_state", JSON.stringify({
+      ing: [...state.ing], app: [...state.app], filter: state.filter
+    }));
+  } catch (e) {}
+}
+
+// ---------- Matching ----------
+function hasIng(id) { return id.split("|").some(x => state.ing.has(x)); }
+function hasApp(entry) { return entry.split("|").some(x => state.app.has(x)); }
+function altName(id) { return id.split("|").map(x => ING_BY_ID[x]?.n || x).join(" o "); }
+function altEmoji(id) { return ING_BY_ID[id.split("|")[0]]?.e || "🍴"; }
+
+function matchRecipe(r) {
+  const missing = r.ing.filter(i => !i[2] && !hasIng(i[0])).map(i => i[0]);
+  const appOk = r.app.every(hasApp);
+  return { missing, appOk };
+}
+
+function computeMatches() {
+  const ready = [], almost = [];
+  let lockedByApp = 0, tooMissing = 0;
+  for (const r of RECIPES) {
+    if (state.filter !== "tutte" && r.cat !== state.filter) continue;
+    const m = matchRecipe(r);
+    if (m.missing.length > 2) { tooMissing++; continue; }
+    if (!m.appOk) { lockedByApp++; continue; }
+    (m.missing.length === 0 ? ready : almost).push({ r, m });
+  }
+  const byTime = (a, b) => a.m.missing.length - b.m.missing.length || a.r.time - b.r.time;
+  ready.sort(byTime); almost.sort(byTime);
+  return { ready, almost, lockedByApp, tooMissing };
+}
+function readyCountAll() {
+  return RECIPES.filter(r => { const m = matchRecipe(r); return m.appOk && m.missing.length === 0; }).length;
+}
+
+// ---------- Ricerca ----------
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+// ---------- Render: ingredienti ----------
+function renderIngredients() {
+  const q = norm($("#search").value.trim());
+  $("#searchbox").classList.toggle("has-text", q.length > 0);
+  let html = "", any = false;
+  for (const cat of CATEGORIES) {
+    const items = INGREDIENTS.filter(i => i.c === cat.id && (!q || norm(i.n).includes(q)));
+    if (!items.length) continue;
+    any = true;
+    html += `<div class="cat-title">${cat.name}</div><div class="chips">`;
+    for (const i of items) {
+      html += `<button class="chip${state.ing.has(i.id) ? " on" : ""}" data-ing="${i.id}">
+        <span class="em">${i.e}</span>${i.n}</button>`;
+    }
+    html += `</div>`;
+  }
+  if (!any) html = `<p class="no-results">Nessun ingrediente trovato per «${$("#search").value.trim()}» 🤔</p>`;
+  $("#ing-list").innerHTML = html;
+  renderSelbar();
+}
+
+function renderSelbar() {
+  const bar = $("#selbar");
+  if (!state.ing.size) { bar.classList.remove("show"); bar.innerHTML = ""; return; }
+  bar.classList.add("show");
+  let html = `<button class="wipe" id="wipe">Svuota</button>`;
+  for (const id of state.ing) {
+    const i = ING_BY_ID[id]; if (!i) continue;
+    html += `<button class="mini" data-rm="${id}">${i.e} ${i.n}<b>✕</b></button>`;
+  }
+  bar.innerHTML = html;
+}
+
+// ---------- Render: strumenti ----------
+function renderAppliances() {
+  $("#app-grid").innerHTML = APPLIANCES.map(a => `
+    <button class="app-card${state.app.has(a.id) ? " on" : ""}" data-app="${a.id}">
+      <span class="tick">✓</span>
+      <span class="em">${a.e}</span>
+      <span class="nm">${a.name}</span>
+      <div class="ds">${a.d}</div>
+    </button>`).join("");
+  const all = state.app.size === APPLIANCES.length;
+  $("#app-all").textContent = all ? "Deseleziona tutto" : "Seleziona tutto";
+}
+
+// ---------- Render: ricette ----------
+function recipeCard({ r, m }) {
+  const status = m.missing.length === 0
+    ? `<span class="status ok">✓ Hai tutto</span>`
+    : `<span class="status miss">Manca: ${m.missing.map(altName).join(", ")}</span>`;
+  return `<button class="rcard" data-r="${r.id}">
+    <span class="em">${r.e}</span>
+    <span class="body">
+      <div class="nm">${r.name}</div>
+      <div class="meta">${CAT_LABEL[r.cat]} · ⏱ ${r.time} min · ${r.serves}</div>
+      ${status}
+    </span>
+    <span class="chev">›</span>
+  </button>`;
+}
+
+function renderRecipes() {
+  const list = $("#ric-list");
+  document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.f === state.filter));
+
+  if (!state.ing.size) {
+    list.innerHTML = `<div class="empty">
+      <div class="big">🧺</div>
+      <h3>Prima dimmi cosa hai</h3>
+      <p>Seleziona gli ingredienti che hai in casa<br>e ti dico subito cosa puoi cucinare.</p>
+      <button id="goto-ing">Scegli gli ingredienti</button>
+    </div>`;
+    return;
+  }
+
+  const { ready, almost, lockedByApp, tooMissing } = computeMatches();
+  let html = "";
+  if (ready.length) {
+    html += `<div class="sec-label ready"><span class="dot"></span>Pronte da cucinare <small>· ${ready.length}</small></div>`;
+    html += ready.map(recipeCard).join("");
+  }
+  if (almost.length) {
+    html += `<div class="sec-label almost"><span class="dot"></span>Ti manca poco <small>· ${almost.length}</small></div>`;
+    html += almost.map(recipeCard).join("");
+  }
+  if (!ready.length && !almost.length) {
+    html += `<div class="empty">
+      <div class="big">🤷</div>
+      <h3>Ancora niente…</h3>
+      <p>Aggiungi qualche ingrediente in più${lockedByApp ? " o controlla gli strumenti selezionati" : ""}:<br>le ricette compaiono da sole.</p>
+      <button id="goto-ing">Aggiungi ingredienti</button>
+    </div>`;
+  }
+  if (lockedByApp) {
+    html += `<button class="locked-note" id="goto-app">🔒 ${lockedByApp === 1 ? "1 ricetta è nascosta perché richiede" : lockedByApp + " ricette sono nascoste perché richiedono"} strumenti che non hai selezionato · <b>Strumenti</b></button>`;
+  }
+  if (tooMissing) {
+    html += `<div class="locked-note">…e per altre ${tooMissing} ricette mancano troppi ingredienti.</div>`;
+  }
+  list.innerHTML = html;
+}
+
+// ---------- Scheda ricetta ----------
+function openSheet(id) {
+  const r = RECIPES.find(x => x.id === id); if (!r) return;
+  const m = matchRecipe(r);
+  const appPills = r.app.length
+    ? r.app.map(entry => entry.split("|").map(x => `${APP_BY_ID[x].e} ${APP_BY_ID[x].name}`).join(" oppure ")).map(t => `<span class="pill app">${t}</span>`).join("")
+    : `<span class="pill app">❄️ Senza cottura</span>`;
+
+  const ingRows = r.ing.map(([iid, qty, opt]) => {
+    const have = hasIng(iid);
+    const cls = have ? "" : (opt ? " optional" : " missing");
+    const mark = have ? `<span class="mark ok">●</span>`
+      : opt ? `<span class="mark opt">○</span>` : `<span class="mark no">○</span>`;
+    return `<div class="ing-row${cls}">${mark}
+      <span class="name">${altEmoji(iid)} ${altName(iid)}${opt ? " <small style='color:var(--text3)'>(facolt.)</small>" : ""}</span>
+      <span class="qty">${qty}</span></div>`;
+  }).join("");
+
+  const steps = r.steps.map((s, i) => `<div class="step"><span class="n">${i + 1}</span><span>${s}</span></div>`).join("");
+
+  $("#sheet").innerHTML = `
+    <div class="grabber"></div>
+    <div class="sh-head"><span class="em">${r.e}</span><h2>${r.name}</h2></div>
+    <div class="sh-meta">
+      <span class="pill">⏱ ${r.time} min</span>
+      <span class="pill">🍽 ${r.serves}</span>
+      <span class="pill">${r.diff}</span>
+      ${appPills}
+    </div>
+    ${m.missing.length ? `<div class="sh-warn">Ti manca: ${m.missing.map(altName).join(", ")}. Il resto ce l'hai tutto.</div>` : ""}
+    <div class="sh-sec">Ingredienti</div>
+    <div>${ingRows}</div>
+    <div class="sh-sec">Preparazione</div>
+    <div>${steps}</div>
+    ${r.note ? `<div class="sh-note"><b>💡 Nota:</b> ${r.note}</div>` : ""}
+  `;
+  $("#backdrop").classList.add("show");
+  $("#sheet").classList.add("show");
+  $("#sheet").scrollTop = 0;
+  document.body.style.overflow = "hidden";
+}
+function closeSheet() {
+  $("#backdrop").classList.remove("show");
+  $("#sheet").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
+// ---------- Navigazione ----------
+const SUBTITLES = { ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare" };
+function setTab(t) {
+  state.tab = t;
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $("#screen-" + t).classList.add("active");
+  document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  $("#subtitle").textContent = SUBTITLES[t];
+  window.scrollTo(0, 0);
+  if (t === "ric") renderRecipes();
+  updateChrome();
+}
+
+function updateChrome() {
+  const n = readyCountAll();
+  const badge = $("#ric-badge");
+  badge.textContent = n;
+  badge.classList.toggle("show", n > 0);
+
+  const cta = $("#cta"), btn = $("#cta-btn");
+  if (state.tab === "ing") {
+    cta.classList.remove("hidden");
+    btn.textContent = state.ing.size
+      ? `Avanti · Strumenti  (${state.ing.size} ingredient${state.ing.size === 1 ? "e" : "i"})`
+      : "Scegli qualche ingrediente 👆";
+    btn.dataset.go = "app";
+  } else if (state.tab === "app") {
+    cta.classList.remove("hidden");
+    btn.textContent = n > 0 ? `Vedi le ricette (${n} pront${n === 1 ? "a" : "e"}) →` : "Vedi le ricette →";
+    btn.dataset.go = "ric";
+  } else {
+    cta.classList.add("hidden");
+  }
+}
+
+// ---------- Eventi ----------
+$("#search").addEventListener("input", renderIngredients);
+$("#search-clear").addEventListener("click", () => { $("#search").value = ""; renderIngredients(); $("#search").focus(); });
+
+$("#ing-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-ing]"); if (!b) return;
+  const id = b.dataset.ing;
+  state.ing.has(id) ? state.ing.delete(id) : state.ing.add(id);
+  b.classList.toggle("on", state.ing.has(id));
+  save(); renderSelbar(); updateChrome();
+});
+$("#selbar").addEventListener("click", e => {
+  const rm = e.target.closest("[data-rm]");
+  if (rm) { state.ing.delete(rm.dataset.rm); save(); renderIngredients(); updateChrome(); return; }
+  if (e.target.closest("#wipe")) { state.ing.clear(); save(); renderIngredients(); updateChrome(); }
+});
+
+$("#app-grid").addEventListener("click", e => {
+  const b = e.target.closest("[data-app]"); if (!b) return;
+  const id = b.dataset.app;
+  state.app.has(id) ? state.app.delete(id) : state.app.add(id);
+  save(); renderAppliances(); updateChrome();
+});
+$("#app-all").addEventListener("click", () => {
+  if (state.app.size === APPLIANCES.length) state.app.clear();
+  else APPLIANCES.forEach(a => state.app.add(a.id));
+  save(); renderAppliances(); updateChrome();
+});
+
+$("#seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-f]"); if (!b) return;
+  state.filter = b.dataset.f; save(); renderRecipes();
+});
+$("#ric-list").addEventListener("click", e => {
+  const card = e.target.closest("[data-r]");
+  if (card) { openSheet(card.dataset.r); return; }
+  if (e.target.closest("#goto-ing")) setTab("ing");
+  if (e.target.closest("#goto-app")) setTab("app");
+});
+
+$("#tabbar").addEventListener("click", e => {
+  const b = e.target.closest("[data-t]"); if (b) setTab(b.dataset.t);
+});
+$("#cta-btn").addEventListener("click", e => setTab(e.target.dataset.go));
+
+$("#backdrop").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+// swipe-down per chiudere la scheda
+let touchY = null;
+$("#sheet").addEventListener("touchstart", e => {
+  touchY = ($("#sheet").scrollTop <= 0) ? e.touches[0].clientY : null;
+}, { passive: true });
+$("#sheet").addEventListener("touchmove", e => {
+  if (touchY !== null && e.touches[0].clientY - touchY > 70) { closeSheet(); touchY = null; }
+}, { passive: true });
+
+// ---------- Avvio ----------
+renderIngredients();
+renderAppliances();
+renderRecipes();
+updateChrome();
+</script>
+</body>
+</html>
