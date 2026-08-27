@@ -64,7 +64,7 @@ Basta aggiungere un oggetto a `RECIPES` in `data.js`:
 
 ## Foto dei piatti
 
-36 ricette hanno una foto reale; le altre usano l'illustrazione del piatto. Le foto vengono da **Wikimedia Commons** e hanno tutte licenza libera verificata (CC BY, CC BY-SA, CC0 o pubblico dominio): autore e licenza di ciascuna sono in `photos/credits.json` e consultabili nell'app dalla Home, sotto «Autori e licenze».
+43 ricette su 49 hanno una foto reale; le altre usano l'illustrazione del piatto. Le foto vengono da **Wikimedia Commons** e da **Openverse** (che raccoglie materiale con licenza libera da Flickr e altri archivi) e hanno tutte licenza libera verificata (CC BY, CC BY-SA, CC0 o pubblico dominio): autore e licenza di ciascuna sono in `photos/credits.json` e consultabili nell'app dalla Home, sotto «Autori e licenze».
 
 Le foto sono incorporate in `photos.js` come data URI, così l'app resta autosufficiente e funziona anche offline. Dopo aver aggiunto o sostituito un file in `photos/`, rigenera con:
 

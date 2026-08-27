@@ -1,6 +1,7 @@
 // Foto dei piatti — generato da tools/build-photos.js, non modificare a mano.
 // Fonte: Wikimedia Commons. Licenze libere (CC BY, CC BY-SA, CC0, pubblico dominio).
 const PHOTOS = {
+  "affogato": "photos/affogato.jpg",
   "aglio-olio": "photos/aglio-olio.jpg",
   "arrabbiata": "photos/arrabbiata.jpg",
   "banana-bread": "photos/banana-bread.jpg",
@@ -10,6 +11,7 @@ const PHOTOS = {
   "carbonara": "photos/carbonara.jpg",
   "ciambellone": "photos/ciambellone.jpg",
   "cookies": "photos/cookies.jpg",
+  "coppa-greco": "photos/coppa-greco.jpg",
   "crepes": "photos/crepes.jpg",
   "crumble": "photos/crumble.jpg",
   "hamburger": "photos/hamburger.jpg",
@@ -19,7 +21,9 @@ const PHOTOS = {
   "noodles-up": "photos/noodles-up.jpg",
   "pancakes": "photos/pancakes.jpg",
   "parmigiana": "photos/parmigiana.jpg",
+  "pasta-ceci": "photos/pasta-ceci.jpg",
   "pasta-pesto": "photos/pasta-pesto.jpg",
+  "pasta-tonno": "photos/pasta-tonno.jpg",
   "patate-airfryer": "photos/patate-airfryer.jpg",
   "piadina": "photos/piadina.jpg",
   "pollo-airfryer": "photos/pollo-airfryer.jpg",
@@ -30,16 +34,26 @@ const PHOTOS = {
   "salame-cioccolato": "photos/salame-cioccolato.jpg",
   "salmone": "photos/salmone.jpg",
   "scaloppine": "photos/scaloppine.jpg",
+  "smoothie": "photos/smoothie.jpg",
   "sorrentina": "photos/sorrentina.jpg",
   "tiramisu": "photos/tiramisu.jpg",
   "toast": "photos/toast.jpg",
+  "tonno-cannellini": "photos/tonno-cannellini.jpg",
   "torta-cioccolato": "photos/torta-cioccolato.jpg",
   "uova-strapazzate": "photos/uova-strapazzate.jpg",
   "uovo-micro": "photos/uovo-micro.jpg",
   "verdure-forno": "photos/verdure-forno.jpg",
+  "zuppa-lenticchie": "photos/zuppa-lenticchie.jpg",
 };
 
 const PHOTO_CREDITS = [
+ {
+  "file": "Affogato in an Irish Coffee glass. #homebarista #homecafe #summercoffe",
+  "license": "CC BY 2.0",
+  "author": "insidious_plots",
+  "page": "https://www.flickr.com/photos/70928775@N00/28623148316",
+  "id": "affogato"
+ },
  {
   "id": "aglio-olio",
   "file": "Spaghetti_di_Gragnano_e_colatura_di_alici.jpg",
@@ -111,6 +125,13 @@ const PHOTO_CREDITS = [
   "license": "CC BY-SA 2.0",
   "author": "Ashley Bilodeau",
   "page": "https://commons.wikimedia.org/wiki/File:Plates_of_chocolate_chip_cookies_with_walnuts.jpg"
+ },
+ {
+  "file": "Chobani SoHo",
+  "license": "CC BY 2.0",
+  "author": "missmeng",
+  "page": "https://www.flickr.com/photos/41720539@N03/8126264276",
+  "id": "coppa-greco"
  },
  {
   "id": "crepes",
@@ -185,12 +206,26 @@ const PHOTO_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Parmigiana_di_melanzane.jpg"
  },
  {
+  "file": "pasta with chickpeas and pancetta",
+  "license": "CC BY 2.0",
+  "author": "Maggie Hoffman",
+  "page": "https://www.flickr.com/photos/8830972@N08/3855897838",
+  "id": "pasta-ceci"
+ },
+ {
   "id": "pasta-pesto",
   "file": "Pesto Pasta (Unsplash).jpg",
   "source": "commons",
   "license": "CC0",
   "author": "Eaters Collective eaterscollective",
   "page": "https://commons.wikimedia.org/wiki/File:Pesto_Pasta_(Unsplash).jpg"
+ },
+ {
+  "file": "spaghetti",
+  "license": "CC BY 2.0",
+  "author": "seelensturm",
+  "page": "https://www.flickr.com/photos/61404197@N00/5451534765",
+  "id": "pasta-tonno"
  },
  {
   "id": "patate-airfryer",
@@ -273,6 +308,13 @@ const PHOTO_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Scaloppine_al_limone.jpg"
  },
  {
+  "file": "Morning Fruit Smoothy",
+  "license": "CC BY 2.0",
+  "author": "OakleyOriginals",
+  "page": "https://www.flickr.com/photos/47264866@N00/3311066815",
+  "id": "smoothie"
+ },
+ {
   "id": "sorrentina",
   "file": "Gnocchi_alla_sorrentina.jpg",
   "source": "wikipedia:it:Gnocchi alla sorrentina",
@@ -295,6 +337,13 @@ const PHOTO_CREDITS = [
   "license": "CC BY-SA 2.0",
   "author": "tak.wing",
   "page": "https://commons.wikimedia.org/wiki/File:Lisboa_L1190313_(24936285580).jpg"
+ },
+ {
+  "file": "tuna & white bean salad-2",
+  "license": "CC BY 2.0",
+  "author": "jules:stonesoup",
+  "page": "https://www.flickr.com/photos/58367355@N00/10585910504",
+  "id": "tonno-cannellini"
  },
  {
   "id": "torta-cioccolato",
@@ -327,5 +376,12 @@ const PHOTO_CREDITS = [
   "license": "CC0",
   "author": "Jack145945",
   "page": "https://commons.wikimedia.org/wiki/File:Ratatouille_home_cooked.jpg"
+ },
+ {
+  "file": "Bowl Soup",
+  "license": "CC0 1.0",
+  "author": "Foodie Girl",
+  "page": "https://stocksnap.io/photo/bowl-soup-WOZ7PQGMMI",
+  "id": "zuppa-lenticchie"
  }
 ];

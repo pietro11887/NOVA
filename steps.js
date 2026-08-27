@@ -1,44 +1,24 @@
 // Foto delle tecniche di cottura — generato da tools/build-photos.js, non modificare a mano.
 // Fonte: Wikimedia Commons, licenze libere. Mostrate nella modalità cucina come esempio della tecnica.
 const STEP_PHOTOS = {
-  "soffriggere": "photos/steps/soffriggere.jpg",
   "bollire": "photos/steps/bollire.jpg",
+  "forno": "photos/steps/forno.jpg",
+  "frullare": "photos/steps/frullare.jpg",
+  "grattugiare": "photos/steps/grattugiare.jpg",
+  "mescolare": "photos/steps/mescolare.jpg",
+  "soffriggere": "photos/steps/soffriggere.jpg",
+  "sugo": "photos/steps/sugo.jpg",
   "tagliare": "photos/steps/tagliare.jpg",
   "uova-sbattere": "photos/steps/uova-sbattere.jpg",
-  "forno": "photos/steps/forno.jpg",
-  "grattugiare": "photos/steps/grattugiare.jpg",
-  "frullare": "photos/steps/frullare.jpg",
-  "sugo": "photos/steps/sugo.jpg",
 };
 
 const STEP_CREDITS = [
- {
-  "id": "soffriggere",
-  "file": "Frying onion.JPG",
-  "license": "Public domain",
-  "author": "Dnor",
-  "page": "https://commons.wikimedia.org/wiki/File:Frying_onion.JPG"
- },
  {
   "id": "bollire",
   "file": "2008-07-05 Water boiling in cooking pot.jpg",
   "license": "CC BY-SA 4.0",
   "author": "Ildar Sagdejev (Specious)",
   "page": "https://commons.wikimedia.org/wiki/File:2008-07-05_Water_boiling_in_cooking_pot.jpg"
- },
- {
-  "id": "tagliare",
-  "file": "Chopping Welsh onion (Allium fistulosum) on a wooden cutting board.jpg",
-  "license": "CC BY-SA 4.0",
-  "author": "Sarah5252",
-  "page": "https://commons.wikimedia.org/wiki/File:Chopping_Welsh_onion_(Allium_fistulosum)_on_a_wooden_cutting_board.jpg"
- },
- {
-  "id": "uova-sbattere",
-  "file": "2024-06-16 10 19 54 The contents of two chicken eggs after being whisked in a bowl in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg",
-  "license": "CC BY-SA 4.0",
-  "author": "Famartin",
-  "page": "https://commons.wikimedia.org/wiki/File:2024-06-16_10_19_54_The_contents_of_two_chicken_eggs_after_being_whisked_in_a_bowl_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg"
  },
  {
   "id": "forno",
@@ -48,13 +28,6 @@ const STEP_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Cranberry-Mohn_Muffins_in_baking_tray.jpg"
  },
  {
-  "id": "grattugiare",
-  "file": "Grating Soft Cheese.jpg",
-  "license": "CC BY 2.0",
-  "author": "Didriks",
-  "page": "https://commons.wikimedia.org/wiki/File:Grating_Soft_Cheese.jpg"
- },
- {
   "id": "frullare",
   "file": "Chopped fruits.jpg",
   "license": "CC BY-SA 3.0",
@@ -62,10 +35,45 @@ const STEP_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Chopped_fruits.jpg"
  },
  {
+  "id": "grattugiare",
+  "file": "Grating Soft Cheese.jpg",
+  "license": "CC BY 2.0",
+  "author": "Didriks",
+  "page": "https://commons.wikimedia.org/wiki/File:Grating_Soft_Cheese.jpg"
+ },
+ {
+  "file": "Day 98 - More Pie",
+  "license": "CC BY 2.0",
+  "author": "Phil and Pam",
+  "page": "https://www.flickr.com/photos/33987777@N00/2131629044",
+  "id": "mescolare"
+ },
+ {
+  "id": "soffriggere",
+  "file": "Frying onion.JPG",
+  "license": "Public domain",
+  "author": "Dnor",
+  "page": "https://commons.wikimedia.org/wiki/File:Frying_onion.JPG"
+ },
+ {
   "id": "sugo",
   "file": "Creamy tomato mushroom herb sauce.jpg",
   "license": "CC BY-SA 2.0",
   "author": "Annie Mueller from St. Louis, Missouri, USA",
   "page": "https://commons.wikimedia.org/wiki/File:Creamy_tomato_mushroom_herb_sauce.jpg"
+ },
+ {
+  "file": "BrunoBrunan",
+  "license": "CC BY 2.0",
+  "author": "Instagram: Brunobrunan",
+  "page": "https://www.flickr.com/photos/13956722@N06/14143092659",
+  "id": "tagliare"
+ },
+ {
+  "id": "uova-sbattere",
+  "file": "2024-06-16 10 19 54 The contents of two chicken eggs after being whisked in a bowl in the Mountainview section of Ewing Township, Mercer County, New Jersey.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Famartin",
+  "page": "https://commons.wikimedia.org/wiki/File:2024-06-16_10_19_54_The_contents_of_two_chicken_eggs_after_being_whisked_in_a_bowl_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg"
  }
 ];
