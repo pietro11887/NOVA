@@ -19,9 +19,15 @@ Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e 
 
 ## Come provarla
 
-Nessuna installazione, nessun server: apri `index.html` nel browser e basta.
+Serve un piccolo server locale, perché le foto sono file separati:
 
-Per metterla online gratis: **Settings → Pages → Deploy from branch** su questo repository, e sarà raggiungibile da qualsiasi telefono.
+```
+python3 -m http.server 8000     # poi apri http://localhost:8000
+```
+
+In alternativa, `node tools/build-single.js` genera `quanto-basta.html`: **un file solo** con tutto dentro (foto comprese), che si apre con un doppio clic anche senza server e funziona offline.
+
+Per metterla online gratis: **Settings → Pages → Deploy from branch**, e sarà raggiungibile da qualsiasi telefono. Dal browser si può poi aggiungere alla schermata Home: grazie al manifest si apre a tutto schermo, con la sua icona, come un'app installata.
 
 ## Struttura
 
@@ -35,6 +41,8 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch** su que
 | `photos/steps/` | Foto delle tecniche di cottura, con i loro crediti |
 | `steps.js` | Foto delle tecniche incorporate (generato) |
 | `tools/steps-coverage.js` | Riporta quanti passaggi vengono coperti da una foto di tecnica |
+| `tools/build-single.js` | Genera la versione a file unico, con le foto incorporate |
+| `manifest.webmanifest`, `icons/` | Installazione sulla schermata Home e icone dell'app |
 | `tools/build-photos.js` | Rigenera `photos.js` dalle foto in `photos/` |
 
 ## Aggiungere una ricetta

@@ -6,6 +6,19 @@
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Quanto Basta — Cosa cucino oggi?</title>
+<meta name="description" content="Dimmi cosa hai in casa e quali strumenti puoi usare: trovi subito le ricette che puoi cucinare davvero, con quantità, passaggi e lista della spesa.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quanto Basta">
+<meta name="mobile-web-app-capable" content="yes">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Quanto Basta">
+<meta property="og:description" content="Trova le ricette che puoi fare con quello che hai già in casa.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta property="og:locale" content="it_IT">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root{
     --bg:#f2f2f7; --card:#ffffff; --card2:#f7f7fa;
@@ -43,13 +56,14 @@
     -webkit-font-smoothing:antialiased;
   }
   button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
 
   /* ---------- Header ---------- */
   header{
     padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
     max-width:640px;margin:0 auto;
   }
-  .app-name{font-size:28px;font-weight:800;letter-spacing:-.6px}
+  .app-name{font-size:28px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
   .app-name span{color:var(--accent)}
   .subtitle{color:var(--text2);font-size:16px;margin-top:2px;font-weight:500}
 
@@ -593,7 +607,7 @@
 <body>
 
 <header>
-  <div class="app-name">Quanto Basta<span>.</span></div>
+  <h1 class="app-name">Quanto Basta<span>.</span></h1>
   <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
 </header>
 
@@ -1572,7 +1586,7 @@ function renderFApp() {
 }
 function renderImgPicker() {
   $("#f-imgs").innerHTML = IMG_PRESETS.map((p, i) =>
-    `<button type="button" data-fi="${i}" class="${!cur.photo && cur.img === i ? "on" : ""}">${QB_DISH(p, 46)}</button>`).join("");
+    `<button type="button" data-fi="${i}" class="${!cur.photo && cur.img === i ? "on" : ""}" aria-label="Illustrazione ${i + 1} di ${IMG_PRESETS.length}">${QB_DISH(p, 46)}</button>`).join("");
   const row = $("#f-photo-row");
   row.querySelector("img")?.remove();
   row.querySelector(".del")?.remove();

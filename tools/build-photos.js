@@ -11,6 +11,9 @@ const ROOT = path.join(__dirname, "..");
 const DIR = path.join(ROOT, "photos");
 const credits = JSON.parse(fs.readFileSync(path.join(DIR, "credits.json"), "utf8"));
 
+// Le foto restano file separati: il browser scarica solo quelle che servono
+// e le tiene in cache. La versione a file unico (anteprima) le incorpora
+// al momento della build, vedi tools/build-single.js
 let out = "// Foto dei piatti — generato da tools/build-photos.js, non modificare a mano.\n";
 out += "// Fonte: Wikimedia Commons. Licenze libere (CC BY, CC BY-SA, CC0, pubblico dominio).\n";
 out += "const PHOTOS = {\n";
@@ -18,13 +21,12 @@ let n = 0, bytes = 0;
 for (const c of credits) {
   const file = path.join(DIR, c.id + ".jpg");
   if (!fs.existsSync(file)) continue;
-  const b64 = fs.readFileSync(file).toString("base64");
-  out += `  "${c.id}": "data:image/jpeg;base64,${b64}",\n`;
-  n++; bytes += b64.length;
+  out += `  "${c.id}": "photos/${c.id}.jpg",\n`;
+  n++; bytes += fs.statSync(file).size;
 }
 out += "};\n\nconst PHOTO_CREDITS = " + JSON.stringify(credits, null, 1) + ";\n";
 fs.writeFileSync(path.join(ROOT, "photos.js"), out);
-console.log(`photos.js: ${n} foto, ${(bytes / 1048576).toFixed(2)} MB in base64`);
+console.log(`photos.js: ${n} foto (${(bytes / 1048576).toFixed(2)} MB su disco, caricate su richiesta)`);
 
 // ---- foto delle tecniche usate nella modalità cucina ----
 const SDIR = path.join(DIR, "steps");
@@ -37,11 +39,10 @@ if (fs.existsSync(path.join(SDIR, "credits.json"))) {
   for (const c of sc) {
     const f = path.join(SDIR, c.id + ".jpg");
     if (!fs.existsSync(f)) continue;
-    const b64 = fs.readFileSync(f).toString("base64");
-    so += `  "${c.id}": "data:image/jpeg;base64,${b64}",\n`;
-    sn++; sb += b64.length;
+    so += `  "${c.id}": "photos/steps/${c.id}.jpg",\n`;
+    sn++; sb += fs.statSync(f).size;
   }
   so += "};\n\nconst STEP_CREDITS = " + JSON.stringify(sc, null, 1) + ";\n";
   fs.writeFileSync(path.join(ROOT, "steps.js"), so);
-  console.log(`steps.js: ${sn} foto tecnica, ${(sb / 1024).toFixed(0)} KB in base64`);
+  console.log(`steps.js: ${sn} foto tecnica (${(sb / 1024).toFixed(0)} KB su disco)`);
 }
