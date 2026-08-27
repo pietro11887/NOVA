@@ -4,13 +4,13 @@
 
 // --- Strumenti di cucina selezionabili ---
 const APPLIANCES = [
-  { id: "fornelli",   name: "Fornelli",            e: "🍳", d: "Piano cottura a gas o induzione" },
-  { id: "forno",      name: "Forno",               e: "🔥", d: "Forno elettrico o a gas" },
-  { id: "micro",      name: "Microonde",           e: "⚡", d: "Anche solo per scaldare" },
-  { id: "airfryer",   name: "Friggitrice ad aria", e: "🍟", d: "Air fryer di qualsiasi misura" },
-  { id: "frullatore", name: "Frullatore",          e: "🥤", d: "Frullatore o minipimer" },
-  { id: "moka",       name: "Moka / caffettiera",  e: "☕", d: "Per il caffè vero" },
-  { id: "bollitore",  name: "Bollitore",           e: "🫖", d: "Solo acqua bollente" },
+  { id: "fornelli",   name: "Fornelli",            e: "stove", d: "Piano cottura a gas o induzione" },
+  { id: "forno",      name: "Forno",               e: "oven", d: "Forno elettrico o a gas" },
+  { id: "micro",      name: "Microonde",           e: "microwave", d: "Anche solo per scaldare" },
+  { id: "airfryer",   name: "Friggitrice ad aria", e: "airfryer", d: "Air fryer di qualsiasi misura" },
+  { id: "frullatore", name: "Frullatore",          e: "blender", d: "Frullatore o minipimer" },
+  { id: "moka",       name: "Moka / caffettiera",  e: "moka", d: "Per il caffè vero" },
+  { id: "bollitore",  name: "Bollitore",           e: "kettle", d: "Solo acqua bollente" },
 ];
 
 // --- Categorie ingredienti (ordine di visualizzazione) ---
@@ -20,109 +20,110 @@ const CATEGORIES = [
   { id: "frut", name: "Frutta" },
   { id: "carn", name: "Carne e pesce" },
   { id: "latt", name: "Uova e latticini" },
-  { id: "form", name: "Formaggi e salumi" },
+  { id: "form", name: "Formaggi" },
+  { id: "sal",  name: "Salumi" },
   { id: "pane", name: "Pane e affini" },
   { id: "spez", name: "Spezie e condimenti" },
   { id: "dolc", name: "Dolci e colazione" },
 ];
 
-// --- Ingredienti: id, nome, emoji, categoria ---
+// --- Ingredienti: id, nome, icona (vedi icons.js), categoria ---
 const INGREDIENTS = [
   // Dispensa
-  { id: "spaghetti",  n: "Spaghetti",                     e: "🍝", c: "disp" },
-  { id: "pastacorta", n: "Pasta corta (penne, fusilli…)", e: "🍝", c: "disp" },
-  { id: "riso",       n: "Riso",                          e: "🍚", c: "disp" },
-  { id: "gnocchi",    n: "Gnocchi di patate",             e: "🥟", c: "disp" },
-  { id: "couscous",   n: "Couscous",                      e: "🥣", c: "disp" },
-  { id: "noodles",    n: "Noodles istantanei",            e: "🍜", c: "disp" },
-  { id: "farina",     n: "Farina 00",                     e: "🌾", c: "disp" },
-  { id: "pangrattato",n: "Pangrattato",                   e: "🍞", c: "disp" },
-  { id: "zucchero",   n: "Zucchero",                      e: "🥄", c: "disp" },
-  { id: "lievito",    n: "Lievito per dolci",             e: "🥄", c: "disp" },
-  { id: "passata",    n: "Passata di pomodoro",           e: "🍅", c: "disp" },
-  { id: "tonno",      n: "Tonno sott'olio",               e: "🐟", c: "disp" },
-  { id: "ceci",       n: "Ceci in scatola",               e: "🫘", c: "disp" },
-  { id: "cannellini", n: "Fagioli cannellini",            e: "🫘", c: "disp" },
-  { id: "lenticchie", n: "Lenticchie",                    e: "🫘", c: "disp" },
-  { id: "mais",       n: "Mais in scatola",               e: "🌽", c: "disp" },
-  { id: "olive",      n: "Olive",                         e: "🫒", c: "disp" },
-  { id: "pesto",      n: "Pesto pronto",                  e: "🌿", c: "disp" },
-  { id: "dado",       n: "Dado / brodo",                  e: "🍲", c: "disp" },
-  { id: "cocco",      n: "Latte di cocco",                e: "🥥", c: "disp" },
-  { id: "zafferano",  n: "Zafferano",                     e: "💛", c: "disp" },
-  { id: "oliosemi",   n: "Olio di semi",                  e: "🫙", c: "disp" },
+  { id: "spaghetti",  n: "Spaghetti",                     e: "spaghetti", c: "disp" },
+  { id: "pastacorta", n: "Pasta corta (penne, fusilli…)", e: "penne", c: "disp" },
+  { id: "riso",       n: "Riso",                          e: "rice", c: "disp" },
+  { id: "gnocchi",    n: "Gnocchi di patate",             e: "gnocchi", c: "disp" },
+  { id: "couscous",   n: "Couscous",                      e: "couscous", c: "disp" },
+  { id: "noodles",    n: "Noodles istantanei",            e: "noodles", c: "disp" },
+  { id: "farina",     n: "Farina 00",                     e: "flour", c: "disp" },
+  { id: "pangrattato",n: "Pangrattato",                   e: "crumbs", c: "disp" },
+  { id: "zucchero",   n: "Zucchero",                      e: "sugar", c: "disp" },
+  { id: "lievito",    n: "Lievito per dolci",             e: "packet", c: "disp" },
+  { id: "passata",    n: "Passata di pomodoro",           e: "passata", c: "disp" },
+  { id: "tonno",      n: "Tonno sott'olio",               e: "can-tuna", c: "disp" },
+  { id: "ceci",       n: "Ceci in scatola",               e: "can-ceci", c: "disp" },
+  { id: "cannellini", n: "Fagioli cannellini",            e: "can-cannellini", c: "disp" },
+  { id: "lenticchie", n: "Lenticchie",                    e: "can-lenticchie", c: "disp" },
+  { id: "mais",       n: "Mais in scatola",               e: "can-mais", c: "disp" },
+  { id: "olive",      n: "Olive",                         e: "olives", c: "disp" },
+  { id: "pesto",      n: "Pesto pronto",                  e: "jar-pesto", c: "disp" },
+  { id: "dado",       n: "Dado / brodo",                  e: "dado", c: "disp" },
+  { id: "cocco",      n: "Latte di cocco",                e: "can-cocco", c: "disp" },
+  { id: "zafferano",  n: "Zafferano",                     e: "zafferano", c: "disp" },
+  { id: "oliosemi",   n: "Olio di semi",                  e: "bottle-oil", c: "disp" },
   // Verdure e aromi
-  { id: "pomodorini", n: "Pomodorini",          e: "🍅", c: "verd" },
-  { id: "pomodori",   n: "Pomodori",            e: "🍅", c: "verd" },
-  { id: "cipolla",    n: "Cipolla",             e: "🧅", c: "verd" },
-  { id: "aglio",      n: "Aglio",               e: "🧄", c: "verd" },
-  { id: "zucchine",   n: "Zucchine",            e: "🥒", c: "verd" },
-  { id: "melanzane",  n: "Melanzane",           e: "🍆", c: "verd" },
-  { id: "peperoni",   n: "Peperoni",            e: "🫑", c: "verd" },
-  { id: "patate",     n: "Patate",              e: "🥔", c: "verd" },
-  { id: "carote",     n: "Carote",              e: "🥕", c: "verd" },
-  { id: "funghi",     n: "Funghi champignon",   e: "🍄", c: "verd" },
-  { id: "spinaci",    n: "Spinaci",             e: "🥬", c: "verd" },
-  { id: "insalata",   n: "Insalata",            e: "🥬", c: "verd" },
-  { id: "rucola",     n: "Rucola",              e: "🌿", c: "verd" },
-  { id: "basilico",   n: "Basilico",            e: "🌿", c: "verd" },
-  { id: "prezzemolo", n: "Prezzemolo",          e: "🌿", c: "verd" },
-  { id: "rosmarino",  n: "Rosmarino",           e: "🌿", c: "verd" },
+  { id: "pomodorini", n: "Pomodorini",          e: "cherrytomato", c: "verd" },
+  { id: "pomodori",   n: "Pomodori",            e: "tomato", c: "verd" },
+  { id: "cipolla",    n: "Cipolla",             e: "onion", c: "verd" },
+  { id: "aglio",      n: "Aglio",               e: "garlic", c: "verd" },
+  { id: "zucchine",   n: "Zucchine",            e: "zucchini", c: "verd" },
+  { id: "melanzane",  n: "Melanzane",           e: "eggplant", c: "verd" },
+  { id: "peperoni",   n: "Peperoni",            e: "bellpepper", c: "verd" },
+  { id: "patate",     n: "Patate",              e: "potato", c: "verd" },
+  { id: "carote",     n: "Carote",              e: "carrot", c: "verd" },
+  { id: "funghi",     n: "Funghi champignon",   e: "mushroom", c: "verd" },
+  { id: "spinaci",    n: "Spinaci",             e: "spinach", c: "verd" },
+  { id: "insalata",   n: "Insalata",            e: "lettuce", c: "verd" },
+  { id: "rucola",     n: "Rucola",              e: "rucola", c: "verd" },
+  { id: "basilico",   n: "Basilico",            e: "basil", c: "verd" },
+  { id: "prezzemolo", n: "Prezzemolo",          e: "parsley", c: "verd" },
+  { id: "rosmarino",  n: "Rosmarino",           e: "rosemary", c: "verd" },
   // Frutta
-  { id: "limone",   n: "Limone",           e: "🍋", c: "frut" },
-  { id: "banana",   n: "Banane",           e: "🍌", c: "frut" },
-  { id: "mele",     n: "Mele",             e: "🍎", c: "frut" },
-  { id: "fragole",  n: "Fragole",          e: "🍓", c: "frut" },
-  { id: "bosco",    n: "Frutti di bosco",  e: "🫐", c: "frut" },
-  { id: "arancia",  n: "Arance",           e: "🍊", c: "frut" },
+  { id: "limone",   n: "Limone",           e: "lemon", c: "frut" },
+  { id: "banana",   n: "Banane",           e: "banana", c: "frut" },
+  { id: "mele",     n: "Mele",             e: "apple", c: "frut" },
+  { id: "fragole",  n: "Fragole",          e: "strawberry", c: "frut" },
+  { id: "bosco",    n: "Frutti di bosco",  e: "berries", c: "frut" },
+  { id: "arancia",  n: "Arance",           e: "orange", c: "frut" },
   // Carne e pesce
-  { id: "pollo",     n: "Petto di pollo",            e: "🍗", c: "carn" },
-  { id: "macinato",  n: "Carne macinata",            e: "🥩", c: "carn" },
-  { id: "salsiccia", n: "Salsiccia",                 e: "🌭", c: "carn" },
-  { id: "fettine",   n: "Fettine di vitello o pollo",e: "🥩", c: "carn" },
-  { id: "salmone",   n: "Filetto di salmone",        e: "🐟", c: "carn" },
+  { id: "pollo",     n: "Petto di pollo",            e: "chicken", c: "carn" },
+  { id: "macinato",  n: "Carne macinata",            e: "mince", c: "carn" },
+  { id: "salsiccia", n: "Salsiccia",                 e: "sausage", c: "carn" },
+  { id: "fettine",   n: "Fettine di vitello o pollo",e: "cutlet", c: "carn" },
+  { id: "salmone",   n: "Filetto di salmone",        e: "salmon", c: "carn" },
   // Uova e latticini
-  { id: "uova",        n: "Uova",                 e: "🥚", c: "latt" },
-  { id: "latte",       n: "Latte",                e: "🥛", c: "latt" },
-  { id: "burro",       n: "Burro",                e: "🧈", c: "latt" },
-  { id: "panna",       n: "Panna da cucina",      e: "🥛", c: "latt" },
-  { id: "yogurt",      n: "Yogurt bianco",        e: "🥛", c: "latt" },
-  { id: "yogurtgreco", n: "Yogurt greco",         e: "🥛", c: "latt" },
-  { id: "mascarpone",  n: "Mascarpone",           e: "🧀", c: "latt" },
-  { id: "mozzarella",  n: "Mozzarella",           e: "🧀", c: "latt" },
-  { id: "spalmabile",  n: "Formaggio spalmabile", e: "🧀", c: "latt" },
+  { id: "uova",        n: "Uova",                 e: "egg", c: "latt" },
+  { id: "latte",       n: "Latte",                e: "milk", c: "latt" },
+  { id: "burro",       n: "Burro",                e: "butter", c: "latt" },
+  { id: "panna",       n: "Panna da cucina",      e: "cream", c: "latt" },
+  { id: "yogurt",      n: "Yogurt bianco",        e: "yogurt", c: "latt" },
+  { id: "yogurtgreco", n: "Yogurt greco",         e: "yogurt-greek", c: "latt" },
+  { id: "mascarpone",  n: "Mascarpone",           e: "tub-mascarpone", c: "form" },
+  { id: "mozzarella",  n: "Mozzarella",           e: "mozzarella", c: "form" },
+  { id: "spalmabile",  n: "Formaggio spalmabile", e: "tub-spread", c: "form" },
   // Formaggi e salumi
-  { id: "parmigiano", n: "Parmigiano",         e: "🧀", c: "form" },
-  { id: "pecorino",   n: "Pecorino romano",    e: "🧀", c: "form" },
-  { id: "guanciale",  n: "Guanciale",          e: "🥓", c: "form" },
-  { id: "pancetta",   n: "Pancetta",           e: "🥓", c: "form" },
-  { id: "cotto",      n: "Prosciutto cotto",   e: "🍖", c: "form" },
-  { id: "crudo",      n: "Prosciutto crudo",   e: "🍖", c: "form" },
-  { id: "sottilette", n: "Formaggio a fette",  e: "🧀", c: "form" },
+  { id: "parmigiano", n: "Parmigiano",         e: "parm", c: "form" },
+  { id: "pecorino",   n: "Pecorino romano",    e: "pecorino", c: "form" },
+  { id: "guanciale",  n: "Guanciale",          e: "bacon", c: "sal" },
+  { id: "pancetta",   n: "Pancetta",           e: "bacon2", c: "sal" },
+  { id: "cotto",      n: "Prosciutto cotto",   e: "ham", c: "sal" },
+  { id: "crudo",      n: "Prosciutto crudo",   e: "prosciutto", c: "sal" },
+  { id: "sottilette", n: "Formaggio a fette",  e: "cheese-slices", c: "form" },
   // Pane e affini
-  { id: "pane",     n: "Pane",                 e: "🍞", c: "pane" },
-  { id: "pancarre", n: "Pancarré",             e: "🍞", c: "pane" },
-  { id: "piadine",  n: "Piadine",              e: "🫓", c: "pane" },
-  { id: "buns",     n: "Panini da hamburger",  e: "🍔", c: "pane" },
+  { id: "pane",     n: "Pane",                 e: "bread", c: "pane" },
+  { id: "pancarre", n: "Pancarré",             e: "toastbread", c: "pane" },
+  { id: "piadine",  n: "Piadine",              e: "piadina", c: "pane" },
+  { id: "buns",     n: "Panini da hamburger",  e: "bun", c: "pane" },
   // Spezie e condimenti
-  { id: "peperoncino", n: "Peperoncino",   e: "🌶️", c: "spez" },
-  { id: "curry",       n: "Curry",         e: "🍛", c: "spez" },
-  { id: "paprika",     n: "Paprika",       e: "🌶️", c: "spez" },
-  { id: "cannella",    n: "Cannella",      e: "🟤", c: "spez" },
-  { id: "origano",     n: "Origano",       e: "🌿", c: "spez" },
-  { id: "soia",        n: "Salsa di soia", e: "🥢", c: "spez" },
+  { id: "peperoncino", n: "Peperoncino",   e: "chili", c: "spez" },
+  { id: "curry",       n: "Curry",         e: "spice-curry", c: "spez" },
+  { id: "paprika",     n: "Paprika",       e: "spice-paprika", c: "spez" },
+  { id: "cannella",    n: "Cannella",      e: "cinnamon", c: "spez" },
+  { id: "origano",     n: "Origano",       e: "spice-origano", c: "spez" },
+  { id: "soia",        n: "Salsa di soia", e: "soy", c: "spez" },
   // Dolci e colazione
-  { id: "nutella",    n: "Crema alle nocciole",  e: "🍫", c: "dolc" },
-  { id: "marmellata", n: "Marmellata",           e: "🍓", c: "dolc" },
-  { id: "miele",      n: "Miele",                e: "🍯", c: "dolc" },
-  { id: "biscotti",   n: "Biscotti secchi",      e: "🍪", c: "dolc" },
-  { id: "savoiardi",  n: "Savoiardi",            e: "🍪", c: "dolc" },
-  { id: "cacao",      n: "Cacao amaro",          e: "🍫", c: "dolc" },
-  { id: "fondente",   n: "Cioccolato fondente",  e: "🍫", c: "dolc" },
-  { id: "gocce",      n: "Gocce di cioccolato",  e: "🍫", c: "dolc" },
-  { id: "gelato",     n: "Gelato alla crema",    e: "🍨", c: "dolc" },
-  { id: "caffe",      n: "Caffè macinato",       e: "☕", c: "dolc" },
-  { id: "noci",       n: "Noci",                 e: "🌰", c: "dolc" },
+  { id: "nutella",    n: "Crema alle nocciole",  e: "jar-choc", c: "dolc" },
+  { id: "marmellata", n: "Marmellata",           e: "jar-jam", c: "dolc" },
+  { id: "miele",      n: "Miele",                e: "honey", c: "dolc" },
+  { id: "biscotti",   n: "Biscotti secchi",      e: "cookie", c: "dolc" },
+  { id: "savoiardi",  n: "Savoiardi",            e: "savoiardi", c: "dolc" },
+  { id: "cacao",      n: "Cacao amaro",          e: "jar-cacao", c: "dolc" },
+  { id: "fondente",   n: "Cioccolato fondente",  e: "chocolate", c: "dolc" },
+  { id: "gocce",      n: "Gocce di cioccolato",  e: "chips", c: "dolc" },
+  { id: "gelato",     n: "Gelato alla crema",    e: "icecream", c: "dolc" },
+  { id: "caffe",      n: "Caffè macinato",       e: "coffee", c: "dolc" },
+  { id: "noci",       n: "Noci",                 e: "walnut", c: "dolc" },
 ];
 
 // ============================================================
@@ -137,7 +138,7 @@ const RECIPES = [
 
   // ------------------------- PRIMI -------------------------
   {
-    id: "aglio-olio", cat: "primi", name: "Spaghetti aglio, olio e peperoncino", e: "🍝",
+    id: "aglio-olio", cat: "primi", name: "Spaghetti aglio, olio e peperoncino", img: { k: "spag", a: "#eec96f", g: "chili" },
     time: 15, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["spaghetti", "180 g"],
@@ -154,7 +155,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pomodoro", cat: "primi", name: "Pasta al pomodoro e basilico", e: "🍅",
+    id: "pomodoro", cat: "primi", name: "Pasta al pomodoro e basilico", img: { k: "short", a: "#d94f3d", g: "basil" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pastacorta", "180 g"],
@@ -172,7 +173,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "carbonara", cat: "primi", name: "Spaghetti alla carbonara", e: "🥓",
+    id: "carbonara", cat: "primi", name: "Spaghetti alla carbonara", img: { k: "spag", a: "#f0d48a", g: "guanciale" },
     time: 20, serves: "2 persone", diff: "Media", app: ["fornelli"],
     ing: [
       ["spaghetti", "180 g"],
@@ -190,7 +191,7 @@ const RECIPES = [
     note: "Il segreto: le uova non devono mai toccare il fuoco diretto, altrimenti diventa frittata.",
   },
   {
-    id: "cacioepepe", cat: "primi", name: "Cacio e pepe", e: "🧀",
+    id: "cacioepepe", cat: "primi", name: "Cacio e pepe", img: { k: "spag", a: "#f3e3b5", g: "pepper" },
     time: 15, serves: "2 persone", diff: "Media", app: ["fornelli"],
     ing: [
       ["spaghetti", "180 g"],
@@ -205,7 +206,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pasta-tonno", cat: "primi", name: "Pasta al tonno", e: "🐟",
+    id: "pasta-tonno", cat: "primi", name: "Pasta al tonno", img: { k: "short", a: "#d94f3d", g: "tuna" },
     time: 15, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pastacorta", "180 g"],
@@ -222,7 +223,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "burro-parmigiano", cat: "primi", name: "Pasta burro e parmigiano", e: "🧈",
+    id: "burro-parmigiano", cat: "primi", name: "Pasta burro e parmigiano", img: { k: "short", a: "#f2d886", g: "cheese" },
     time: 12, serves: "2 persone", diff: "Facilissima", app: ["fornelli"],
     ing: [
       ["pastacorta", "180 g"],
@@ -237,7 +238,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "arrabbiata", cat: "primi", name: "Penne all'arrabbiata", e: "🌶️",
+    id: "arrabbiata", cat: "primi", name: "Penne all'arrabbiata", img: { k: "short", a: "#c8402f", g: "chili" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pastacorta", "180 g"],
@@ -254,7 +255,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pasta-pesto", cat: "primi", name: "Pasta al pesto", e: "🌿",
+    id: "pasta-pesto", cat: "primi", name: "Pasta al pesto", img: { k: "short", a: "#6fae53", g: "cheese" },
     time: 12, serves: "2 persone", diff: "Facilissima", app: ["fornelli"],
     ing: [
       ["pastacorta", "180 g"],
@@ -269,7 +270,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "sorrentina", cat: "primi", name: "Gnocchi alla sorrentina in padella", e: "🥟",
+    id: "sorrentina", cat: "primi", name: "Gnocchi alla sorrentina in padella", img: { k: "gnocchi" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["gnocchi", "500 g"],
@@ -286,7 +287,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "risotto-zafferano", cat: "primi", name: "Risotto allo zafferano", e: "💛",
+    id: "risotto-zafferano", cat: "primi", name: "Risotto allo zafferano", img: { k: "risotto", a: "#f2c94c" },
     time: 30, serves: "2 persone", diff: "Media", app: ["fornelli"],
     ing: [
       ["riso", "160 g"],
@@ -305,7 +306,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "risotto-funghi", cat: "primi", name: "Risotto ai funghi", e: "🍄",
+    id: "risotto-funghi", cat: "primi", name: "Risotto ai funghi", img: { k: "risotto", a: "#efe3c8", g: "mush" },
     time: 35, serves: "2 persone", diff: "Media", app: ["fornelli"],
     ing: [
       ["riso", "160 g"],
@@ -325,7 +326,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pasta-ceci", cat: "primi", name: "Pasta e ceci", e: "🥣",
+    id: "pasta-ceci", cat: "primi", name: "Pasta e ceci", img: { k: "soup", a: "#e0b46a", g: "pasta" },
     time: 25, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pastacorta", "140 g"],
@@ -343,7 +344,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "couscous-tonno", cat: "primi", name: "Couscous freddo al tonno", e: "🥗",
+    id: "couscous-tonno", cat: "primi", name: "Couscous freddo al tonno", img: { k: "couscous" },
     time: 15, serves: "2 persone", diff: "Facilissima", app: ["bollitore|fornelli|micro"],
     ing: [
       ["couscous", "120 g"],
@@ -363,7 +364,7 @@ const RECIPES = [
     note: "Zero fuochi: si fa anche in una stanza da studente col solo bollitore.",
   },
   {
-    id: "noodles-up", cat: "primi", name: "Noodles istantanei, versione pro", e: "🍜",
+    id: "noodles-up", cat: "primi", name: "Noodles istantanei, versione pro", img: { k: "noodles" },
     time: 10, serves: "1 persona", diff: "Facilissima", app: ["fornelli|bollitore|micro"],
     ing: [
       ["noodles", "1 confezione"],
@@ -381,7 +382,7 @@ const RECIPES = [
 
   // ------------------------- SECONDI -------------------------
   {
-    id: "pollo-limone", cat: "secondi", name: "Pollo al limone in padella", e: "🍗",
+    id: "pollo-limone", cat: "secondi", name: "Pollo al limone in padella", img: { k: "meat", a: "#e9b46a", g: "lemon" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pollo", "300 g"],
@@ -397,7 +398,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pollo-curry", cat: "secondi", name: "Pollo al curry", e: "🍛",
+    id: "pollo-curry", cat: "secondi", name: "Pollo al curry", img: { k: "curry" },
     time: 25, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["pollo", "300 g"],
@@ -415,7 +416,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "frittata-zucchine", cat: "secondi", name: "Frittata di zucchine", e: "🍳",
+    id: "frittata-zucchine", cat: "secondi", name: "Frittata di zucchine", img: { k: "frittata" },
     time: 15, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["uova", "4"],
@@ -431,7 +432,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "uova-strapazzate", cat: "secondi", name: "Uova strapazzate cremose", e: "🥚",
+    id: "uova-strapazzate", cat: "secondi", name: "Uova strapazzate cremose", img: { k: "scrambled" },
     time: 8, serves: "1 persona", diff: "Facilissima", app: ["fornelli"],
     ing: [
       ["uova", "2-3"],
@@ -446,7 +447,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "uovo-micro", cat: "secondi", name: "Uovo in camicia al microonde", e: "⚡",
+    id: "uovo-micro", cat: "secondi", name: "Uovo in camicia al microonde", img: { k: "poached" },
     time: 4, serves: "1 persona", diff: "Facilissima", app: ["micro"],
     ing: [
       ["uova", "1"],
@@ -460,7 +461,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pollo-airfryer", cat: "secondi", name: "Straccetti di pollo croccanti in air fryer", e: "🍗",
+    id: "pollo-airfryer", cat: "secondi", name: "Straccetti di pollo croccanti in air fryer", img: { k: "strips" },
     time: 25, serves: "2 persone", diff: "Facile", app: ["airfryer"],
     ing: [
       ["pollo", "400 g"],
@@ -477,7 +478,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "salmone", cat: "secondi", name: "Salmone al limone", e: "🐟",
+    id: "salmone", cat: "secondi", name: "Salmone al limone", img: { k: "fish" },
     time: 18, serves: "2 persone", diff: "Facile", app: ["airfryer|forno"],
     ing: [
       ["salmone", "2 filetti"],
@@ -493,7 +494,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "patate-airfryer", cat: "secondi", name: "Patate croccanti (contorno)", e: "🍟",
+    id: "patate-airfryer", cat: "secondi", name: "Patate croccanti (contorno)", img: { k: "fries" },
     time: 30, serves: "2 persone", diff: "Facile", app: ["airfryer|forno"],
     ing: [
       ["patate", "500 g"],
@@ -508,7 +509,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "hamburger", cat: "secondi", name: "Hamburger fatto in casa", e: "🍔",
+    id: "hamburger", cat: "secondi", name: "Hamburger fatto in casa", img: { k: "burger" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["macinato", "300 g"],
@@ -526,7 +527,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "polpette", cat: "secondi", name: "Polpette al sugo", e: "🍝",
+    id: "polpette", cat: "secondi", name: "Polpette al sugo", img: { k: "meatballs" },
     time: 40, serves: "3 persone", diff: "Media", app: ["fornelli"],
     ing: [
       ["macinato", "400 g"],
@@ -546,7 +547,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "scaloppine", cat: "secondi", name: "Scaloppine al limone", e: "🍋",
+    id: "scaloppine", cat: "secondi", name: "Scaloppine al limone", img: { k: "meat", a: "#d9a05e", g: "lemon" },
     time: 15, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["fettine", "300 g"],
@@ -562,7 +563,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "salsiccia-patate", cat: "secondi", name: "Salsiccia e patate al forno", e: "🌭",
+    id: "salsiccia-patate", cat: "secondi", name: "Salsiccia e patate al forno", img: { k: "sausage" },
     time: 45, serves: "2 persone", diff: "Facile", app: ["forno|airfryer"],
     ing: [
       ["salsiccia", "4"],
@@ -577,7 +578,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "verdure-forno", cat: "secondi", name: "Verdure al forno", e: "🥗",
+    id: "verdure-forno", cat: "secondi", name: "Verdure al forno", img: { k: "roastveg" },
     time: 35, serves: "2 persone", diff: "Facilissima", app: ["forno|airfryer"],
     ing: [
       ["zucchine", "1"],
@@ -594,7 +595,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "parmigiana", cat: "secondi", name: "Parmigiana di melanzane veloce", e: "🍆",
+    id: "parmigiana", cat: "secondi", name: "Parmigiana di melanzane veloce", img: { k: "parmigiana" },
     time: 50, serves: "3 persone", diff: "Media", app: ["fornelli", "forno|airfryer"],
     ing: [
       ["melanzane", "2"],
@@ -612,7 +613,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "caprese", cat: "secondi", name: "Caprese", e: "🍅",
+    id: "caprese", cat: "secondi", name: "Caprese", img: { k: "caprese" },
     time: 5, serves: "2 persone", diff: "Facilissima", app: [],
     ing: [
       ["mozzarella", "250 g"],
@@ -627,7 +628,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "tonno-cannellini", cat: "secondi", name: "Insalata di tonno e cannellini", e: "🥫",
+    id: "tonno-cannellini", cat: "secondi", name: "Insalata di tonno e cannellini", img: { k: "salad" },
     time: 10, serves: "2 persone", diff: "Facilissima", app: [],
     ing: [
       ["tonno", "160 g sgocciolato"],
@@ -643,7 +644,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "toast", cat: "secondi", name: "Toast prosciutto e formaggio", e: "🥪",
+    id: "toast", cat: "secondi", name: "Toast prosciutto e formaggio", img: { k: "toast" },
     time: 8, serves: "1 persona", diff: "Facilissima", app: ["fornelli|airfryer"],
     ing: [
       ["pancarre", "4 fette"],
@@ -658,7 +659,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "piadina", cat: "secondi", name: "Piadina crudo, formaggio e rucola", e: "🫓",
+    id: "piadina", cat: "secondi", name: "Piadina crudo, formaggio e rucola", img: { k: "piadina" },
     time: 8, serves: "1 persona", diff: "Facilissima", app: ["fornelli"],
     ing: [
       ["piadine", "1"],
@@ -675,7 +676,7 @@ const RECIPES = [
   },
 
   {
-    id: "zuppa-lenticchie", cat: "secondi", name: "Zuppa di lenticchie", e: "🥣",
+    id: "zuppa-lenticchie", cat: "secondi", name: "Zuppa di lenticchie", img: { k: "soup", a: "#8a5a35" },
     time: 35, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
       ["lenticchie", "250 g (in scatola: 1 lattina)"],
@@ -693,7 +694,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "spinaci-saltati", cat: "secondi", name: "Spinaci saltati con parmigiano (contorno)", e: "🥬",
+    id: "spinaci-saltati", cat: "secondi", name: "Spinaci saltati con parmigiano (contorno)", img: { k: "greens" },
     time: 12, serves: "2 persone", diff: "Facilissima", app: ["fornelli"],
     ing: [
       ["spinaci", "400 g freschi (o 300 g surgelati)"],
@@ -711,7 +712,7 @@ const RECIPES = [
 
   // ------------------------- DOLCI -------------------------
   {
-    id: "mugcake", cat: "dolci", name: "Mug cake al cioccolato", e: "☕",
+    id: "mugcake", cat: "dolci", name: "Mug cake al cioccolato", img: { k: "mug" },
     time: 5, serves: "1 persona", diff: "Facilissima", app: ["micro"],
     ing: [
       ["farina", "4 cucchiai"],
@@ -731,7 +732,7 @@ const RECIPES = [
     note: "La torta al cioccolato più veloce del mondo: 5 minuti da voglia a cucchiaino.",
   },
   {
-    id: "tiramisu", cat: "dolci", name: "Tiramisù classico", e: "☕",
+    id: "tiramisu", cat: "dolci", name: "Tiramisù classico", img: { k: "tiramisu" },
     time: 30, serves: "6 persone", diff: "Media", app: ["moka"],
     ing: [
       ["savoiardi", "300 g"],
@@ -751,7 +752,7 @@ const RECIPES = [
     note: "Le uova restano crude: usale freschissime e tieni il tiramisù sempre in frigo.",
   },
   {
-    id: "affogato", cat: "dolci", name: "Affogato al caffè", e: "🍨",
+    id: "affogato", cat: "dolci", name: "Affogato al caffè", img: { k: "affogato" },
     time: 5, serves: "1 persona", diff: "Facilissima", app: ["moka"],
     ing: [
       ["gelato", "2 palline"],
@@ -766,7 +767,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "torta-cioccolato", cat: "dolci", name: "Torta al cioccolato morbida", e: "🍫",
+    id: "torta-cioccolato", cat: "dolci", name: "Torta al cioccolato morbida", img: { k: "cake" },
     time: 50, serves: "8 persone", diff: "Media", app: ["forno"],
     ing: [
       ["farina", "200 g"],
@@ -786,7 +787,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "ciambellone", cat: "dolci", name: "Ciambellone allo yogurt", e: "🍩",
+    id: "ciambellone", cat: "dolci", name: "Ciambellone allo yogurt", img: { k: "bundt" },
     time: 55, serves: "8 persone", diff: "Facile", app: ["forno"],
     ing: [
       ["yogurt", "250 g"],
@@ -806,7 +807,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "cookies", cat: "dolci", name: "Cookies alle gocce di cioccolato", e: "🍪",
+    id: "cookies", cat: "dolci", name: "Cookies alle gocce di cioccolato", img: { k: "cookies" },
     time: 25, serves: "15 biscotti", diff: "Facile", app: ["forno|airfryer"],
     ing: [
       ["burro", "100 g morbido"],
@@ -825,7 +826,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "pancakes", cat: "dolci", name: "Pancakes", e: "🥞",
+    id: "pancakes", cat: "dolci", name: "Pancakes", img: { k: "pancakes" },
     time: 20, serves: "2 persone (8 pancakes)", diff: "Facile", app: ["fornelli"],
     ing: [
       ["farina", "200 g"],
@@ -845,7 +846,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "crepes", cat: "dolci", name: "Crêpes dolci", e: "🥞",
+    id: "crepes", cat: "dolci", name: "Crêpes dolci", img: { k: "crepes" },
     time: 25, serves: "2 persone (6 crêpes)", diff: "Facile", app: ["fornelli"],
     ing: [
       ["farina", "125 g"],
@@ -863,7 +864,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "salame-cioccolato", cat: "dolci", name: "Salame di cioccolato", e: "🍫",
+    id: "salame-cioccolato", cat: "dolci", name: "Salame di cioccolato", img: { k: "salame" },
     time: 20, serves: "6 persone", diff: "Facile", app: [],
     ing: [
       ["biscotti", "200 g"],
@@ -881,7 +882,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "macedonia", cat: "dolci", name: "Macedonia al limone e miele", e: "🍓",
+    id: "macedonia", cat: "dolci", name: "Macedonia al limone e miele", img: { k: "fruit" },
     time: 10, serves: "2 persone", diff: "Facilissima", app: [],
     ing: [
       ["mele", "1"],
@@ -898,7 +899,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "smoothie", cat: "dolci", name: "Smoothie di frutta", e: "🥤",
+    id: "smoothie", cat: "dolci", name: "Smoothie di frutta", img: { k: "smoothie" },
     time: 5, serves: "1 persona", diff: "Facilissima", app: ["frullatore"],
     ing: [
       ["banana", "1"],
@@ -914,7 +915,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "coppa-greco", cat: "dolci", name: "Coppa di yogurt greco, miele e noci", e: "🍯",
+    id: "coppa-greco", cat: "dolci", name: "Coppa di yogurt greco, miele e noci", img: { k: "yogurtcup" },
     time: 5, serves: "2 persone", diff: "Facilissima", app: [],
     ing: [
       ["yogurtgreco", "300 g"],
@@ -930,7 +931,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "mele-micro", cat: "dolci", name: "Mele «al forno» al microonde", e: "🍎",
+    id: "mele-micro", cat: "dolci", name: "Mele «al forno» al microonde", img: { k: "apples" },
     time: 8, serves: "2 persone", diff: "Facilissima", app: ["micro"],
     ing: [
       ["mele", "2"],
@@ -946,7 +947,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "banana-bread", cat: "dolci", name: "Banana bread", e: "🍌",
+    id: "banana-bread", cat: "dolci", name: "Banana bread", img: { k: "loaf" },
     time: 60, serves: "8 persone", diff: "Facile", app: ["forno"],
     ing: [
       ["banana", "3 molto mature"],
@@ -967,7 +968,7 @@ const RECIPES = [
     ],
   },
   {
-    id: "crumble", cat: "dolci", name: "Crumble di mele", e: "🥧",
+    id: "crumble", cat: "dolci", name: "Crumble di mele", img: { k: "crumble" },
     time: 45, serves: "4 persone", diff: "Facile", app: ["forno"],
     ing: [
       ["mele", "4"],

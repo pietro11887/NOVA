@@ -22,6 +22,7 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch** su que
 |---|---|
 | `index.html` | Interfaccia e logica dell'app (nessuna dipendenza esterna) |
 | `data.js` | ~85 ingredienti, 7 strumenti e 49 ricette con quantità e passaggi |
+| `icons.js` | Libreria di illustrazioni SVG: icone di ingredienti e strumenti, piatti delle ricette |
 
 ## Aggiungere una ricetta
 
@@ -29,7 +30,7 @@ Basta aggiungere un oggetto a `RECIPES` in `data.js`:
 
 ```js
 {
-  id: "mia-ricetta", cat: "primi", name: "Nome", e: "🍝",
+  id: "mia-ricetta", cat: "primi", name: "Nome", img: { k: "short", a: "#d94f3d" },
   time: 20, serves: "2 persone", diff: "Facile",
   app: ["fornelli"],            // "forno|airfryer" = basta uno dei due; [] = senza cottura
   ing: [
