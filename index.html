@@ -295,7 +295,11 @@
   .sh-hero svg{display:block}
   .sh-head{margin-bottom:12px;text-align:center}
   .sh-head h2{font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-.3px;text-wrap:balance}
-  .sh-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;justify-content:center}
+  .sh-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;justify-content:center}
+  .portioner{display:inline-flex;align-items:center;gap:2px;background:var(--accent-soft);border-radius:999px;padding:2px}
+  .portioner button{width:30px;height:30px;border-radius:50%;background:var(--card);color:var(--accent);font-size:18px;font-weight:700;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .portioner span{font-size:13px;font-weight:700;color:var(--accent);padding:0 10px;min-width:80px;text-align:center}
+  .sh-sub{font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px}
   .pill{
     background:var(--card2);border-radius:999px;padding:6px 12px;
     font-size:13px;font-weight:600;color:var(--text2);
@@ -739,8 +743,45 @@ function renderRecipes() {
 }
 
 // ---------- Scheda ricetta ----------
-function openSheet(id) {
-  const r = ALL().find(x => x.id === id); if (!r) return;
+
+// ---------- Porzioni: scala le quantità ----------
+const FRAC = { "\u00bc": 0.25, "\u00bd": 0.5, "\u00be": 0.75 };
+const FRAC_GLYPH = { 0.25: "\u00bc", 0.5: "\u00bd", 0.75: "\u00be" };
+const PLUR = {
+  lattina: "lattine", dado: "dadi", bustina: "bustine", spicchio: "spicchi", rametto: "rametti",
+  cucchiaio: "cucchiai", cucchiaino: "cucchiaini", tazzina: "tazzine", foglia: "foglie",
+  persona: "persone", fetta: "fette", confezione: "confezioni", pallina: "palline",
+  filetto: "filetti", uovo: "uova", intero: "interi", tuorlo: "tuorli", biscotto: "biscotti",
+  polpetta: "polpette", mestolo: "mestoli", banana: "banane", mela: "mele", patata: "patate",
+};
+const SING = Object.fromEntries(Object.entries(PLUR).map(([a, b]) => [b, a]));
+function fmtNum(v) {
+  if (v >= 100) v = Math.round(v / 5) * 5;
+  else if (v >= 20) v = Math.round(v);
+  else v = Math.round(v * 4) / 4;
+  const i = Math.floor(v), fp = +(v - i).toFixed(2);
+  if (fp === 0) return String(i);
+  const g = FRAC_GLYPH[fp];
+  if (g) return i ? i + g : g;
+  return String(+v.toFixed(1)).replace(".", ",");
+}
+function scaleText(txt, f) {
+  if (f === 1 || !txt) return txt;
+  let out = txt.replace(/(\d+(?:[.,]\d+)?)?\s*([\u00bc\u00bd\u00be])|(\d+(?:[.,]\d+)?)/g, (m, ip, fr, plain) => {
+    const v = fr ? (ip ? parseFloat(ip.replace(",", ".")) : 0) + FRAC[fr] : parseFloat(plain.replace(",", "."));
+    return "\u0000" + fmtNum(v * f) + "\u0000";
+  });
+  out = out.replace(/\u0000([^\u0000]+)\u0000(\s+)([a-zA-Z\u00e0-\u00f9]+)/g, (m, num, sp, word) => {
+    const one = num === "1" || num === "\u00bd" || num === "\u00bc" || num === "\u00be";
+    const w = one ? (SING[word.toLowerCase()] || word) : (PLUR[word.toLowerCase()] || word);
+    return num + sp + w;
+  });
+  return out.replace(/\u0000/g, "");
+}
+
+let sheetR = null, sheetN = 1, sheetBase = 1;
+function renderSheet() {
+  const r = sheetR, f = sheetN / sheetBase;
   const m = matchRecipe(r);
   const appPills = r.app.length
     ? r.app.map(entry => entry.split("|").map(x => APP_BY_ID[x].name).join(" oppure ")).map(t => `<span class="pill app">${t}</span>`).join("")
@@ -749,26 +790,31 @@ function openSheet(id) {
   const ingRows = r.ing.map(([iid, qty, opt]) => {
     const have = hasIng(iid);
     const cls = have ? "" : (opt ? " optional" : " missing");
-    const mark = have ? `<span class="mark ok">●</span>`
-      : opt ? `<span class="mark opt">○</span>` : `<span class="mark no">○</span>`;
+    const mark = have ? `<span class="mark ok">\u25cf</span>`
+      : opt ? `<span class="mark opt">\u25cb</span>` : `<span class="mark no">\u25cb</span>`;
     return `<div class="ing-row${cls}">${mark}
       ${altIcon(iid, 22)}
       <span class="name">${altName(iid)}${opt ? " <small style='color:var(--text3)'>(facolt.)</small>" : ""}</span>
-      <span class="qty">${qty}</span></div>`;
+      <span class="qty">${scaleText(qty, f)}</span></div>`;
   }).join("");
 
-  const steps = r.steps.map((s, i) => `<div class="step"><span class="n">${i + 1}</span><span>${s}</span></div>`).join("");
+  const steps = r.steps.map((st, i) => `<div class="step"><span class="n">${i + 1}</span><span>${st}</span></div>`).join("");
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
     <div class="sh-hero">${r.photo ? `<img src="${r.photo}" alt="">` : NOVA_DISH(r.img, 148)}</div>
-    <div class="sh-head"><h2>${r.name}</h2></div>
+    <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
     <div class="sh-meta">
       <span class="pill">${r.time} min</span>
-      <span class="pill">${r.serves}</span>
+      <span class="portioner">
+        <button data-p="-1" aria-label="Meno porzioni">\u2212</button>
+        <span>${scaleText(r.serves, f)}</span>
+        <button data-p="1" aria-label="Pi\u00f9 porzioni">+</button>
+      </span>
       <span class="pill">${r.diff}</span>
       ${appPills}
     </div>
+    <p class="sh-sub">Cambia le porzioni con \u2212 e + : le quantit\u00e0 si aggiornano da sole</p>
     ${m.missing.length ? `<div class="sh-warn">Ti manca: ${m.missing.map(altName).join(", ")}. Il resto ce l'hai tutto.</div>` : ""}
     <div class="sh-sec">Ingredienti</div>
     <div>${ingRows}</div>
@@ -776,11 +822,26 @@ function openSheet(id) {
     <div>${steps}</div>
     ${r.note ? `<div class="sh-note"><b>Nota:</b> ${r.note}</div>` : ""}
   `;
+}
+function openSheet(id) {
+  const r = ALL().find(x => x.id === id); if (!r) return;
+  sheetR = r;
+  sheetBase = Math.max(1, parseInt((r.serves.match(/\d+/) || [2])[0], 10));
+  sheetN = sheetBase;
+  renderSheet();
   $("#backdrop").classList.add("show");
   $("#sheet").classList.add("show");
   $("#sheet").scrollTop = 0;
   document.body.style.overflow = "hidden";
 }
+$("#sheet").addEventListener("click", e => {
+  const b = e.target.closest("[data-p]"); if (!b) return;
+  const max = Math.max(12, sheetBase * 3);
+  sheetN = Math.min(max, Math.max(1, sheetN + (+b.dataset.p)));
+  const st = $("#sheet").scrollTop;
+  renderSheet();
+  $("#sheet").scrollTop = st;
+});
 function closeSheet() {
   $("#backdrop").classList.remove("show");
   $("#sheet").classList.remove("show");
