@@ -686,15 +686,12 @@
     // parete e pavimento
     s += `<rect x="0" y="0" width="360" height="276" fill="var(--card2,#f1f1f4)"/>
           <rect x="0" y="276" width="360" height="24" fill="rgba(0,0,0,.07)"/>`;
-    // quadretto decorativo
-    s += `<rect x="34" y="26" width="52" height="42" rx="4" fill="var(--card,#fff)" stroke="${cab}" stroke-width="3"/>
-          <g transform="translate(48 34) scale(.55)">${ICONS.tomato.replace(/<ellipse[^/]*\/>/, "")}</g>`;
     // mensola in alto a destra con frullatore, moka e bollitore
     s += `<rect x="182" y="64" width="170" height="8" rx="3" fill="${wood}"/>
           <path d="M196 72l6 10h-6zM334 72l6 10h-6z" fill="${cab}" opacity=".55"/>`;
-    s += zone("frullatore", on("frullatore"), put("blender", 186, 14, 1.12, "", on("frullatore") ? "shake" : ""), [184, 8, 56, 62], [236, 20]);
-    s += zone("moka",       on("moka"),       put("moka", 242, 14, 1.12, on("moka") ? wisp(19, 8, 0) + wisp(27, 6, 0.9) : ""), [240, 8, 56, 62], [292, 20]);
-    s += zone("bollitore",  on("bollitore"),  put("kettle", 296, 14, 1.12, on("bollitore") ? wisp(40, 19, 0.3) + wisp(45, 15, 1.2) : ""), [294, 8, 58, 62], [344, 20]);
+    s += zone("frullatore", on("frullatore"), put("blender", 186, 19, 1.12, "", on("frullatore") ? "shake" : ""), [184, 8, 56, 62], [236, 20]);
+    s += zone("moka",       on("moka"),       put("moka", 242, 19, 1.12, on("moka") ? wisp(19, 8, 0) + wisp(27, 6, 0.9) : ""), [240, 8, 56, 62], [292, 20]);
+    s += zone("bollitore",  on("bollitore"),  put("kettle", 296, 18, 1.12, on("bollitore") ? wisp(40, 19, 0.3) + wisp(45, 15, 1.2) : ""), [294, 8, 58, 62], [344, 20]);
     // blocco cucina a tutta larghezza: piano, base, cassetti decorativi
     s += `<rect x="8" y="170" width="344" height="12" rx="4" fill="${wood}"/>
           <rect x="8" y="170" width="344" height="3" rx="1.5" fill="rgba(255,255,255,.25)"/>
@@ -706,12 +703,12 @@
     s += drawer(22, 190) + drawer(22, 218) + drawer(22, 246);
     s += drawer(242, 190) + drawer(242, 218) + drawer(242, 246);
     // microonde e friggitrice ad aria sul piano, ai lati
-    s += zone("micro", on("micro"), put("microwave", 28, 108, 1.4, on("micro")
+    s += zone("micro", on("micro"), put("microwave", 28, 118, 1.4, on("micro")
         ? '<rect x="13" y="20" width="14" height="10" rx="1.5" fill="#f2c063" opacity=".9" class="glow"/><rect x="16" y="26.5" width="8" height="2.5" rx="1.2" fill="#b96f1e"/>'
-        : ""), [22, 100, 78, 72], [96, 112]);
-    s += zone("airfryer", on("airfryer"), put("airfryer", 268, 113, 1.3, on("airfryer")
+        : ""), [22, 112, 78, 62], [96, 130]);
+    s += zone("airfryer", on("airfryer"), put("airfryer", 268, 115, 1.3, on("airfryer")
         ? '<circle cx="24" cy="18.5" r="3.4" fill="#ef9b3f" class="pulse"/>' + wisp(15, 7, 0.5) + wisp(31, 5, 1.4)
-        : ""), [262, 105, 74, 70], [332, 117]);
+        : ""), [262, 108, 74, 66], [332, 121]);
     // fornelli appoggiati sul piano, proprio sopra il forno
     s += zone("fornelli", on("fornelli"),
       `<rect x="136" y="153" width="88" height="6" rx="3" fill="#2e3236"/>
