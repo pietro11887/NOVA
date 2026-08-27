@@ -25,3 +25,23 @@ for (const c of credits) {
 out += "};\n\nconst PHOTO_CREDITS = " + JSON.stringify(credits, null, 1) + ";\n";
 fs.writeFileSync(path.join(ROOT, "photos.js"), out);
 console.log(`photos.js: ${n} foto, ${(bytes / 1048576).toFixed(2)} MB in base64`);
+
+// ---- foto delle tecniche usate nella modalità cucina ----
+const SDIR = path.join(DIR, "steps");
+if (fs.existsSync(path.join(SDIR, "credits.json"))) {
+  const sc = JSON.parse(fs.readFileSync(path.join(SDIR, "credits.json"), "utf8"));
+  let so = "// Foto delle tecniche di cottura — generato da tools/build-photos.js, non modificare a mano.\n";
+  so += "// Fonte: Wikimedia Commons, licenze libere. Mostrate nella modalità cucina come esempio della tecnica.\n";
+  so += "const STEP_PHOTOS = {\n";
+  let sn = 0, sb = 0;
+  for (const c of sc) {
+    const f = path.join(SDIR, c.id + ".jpg");
+    if (!fs.existsSync(f)) continue;
+    const b64 = fs.readFileSync(f).toString("base64");
+    so += `  "${c.id}": "data:image/jpeg;base64,${b64}",\n`;
+    sn++; sb += b64.length;
+  }
+  so += "};\n\nconst STEP_CREDITS = " + JSON.stringify(sc, null, 1) + ";\n";
+  fs.writeFileSync(path.join(ROOT, "steps.js"), so);
+  console.log(`steps.js: ${sn} foto tecnica, ${(sb / 1024).toFixed(0)} KB in base64`);
+}

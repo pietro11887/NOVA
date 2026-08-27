@@ -10,7 +10,7 @@ Dalla **Home** scegli dove andare:
 
 - **Trova ricette** — il flusso in tre passi: selezioni gli **ingredienti** che hai (sale, pepe, olio e acqua sono dati per scontati), spunti gli **strumenti** nella cucina illustrata interattiva, e vedi le **ricette** divise tra *"Pronte da cucinare"* (hai tutto) e *"Ti manca poco"* (mancano 1-2 ingredienti, ti dice quali)
 - **Sfoglia il ricettario** — tutte le ricette per categoria, con ricerca per nome o ingrediente e filtri (preferiti, sotto i 20 minuti, vegetariano, facile)
-- **Modalità cucina** — dalla scheda di una ricetta: un passaggio alla volta a caratteri grandi, si avanza toccando lo schermo, gli ingredienti restano a portata di mano e lo schermo non si spegne mentre cucini (Wake Lock)
+- **Modalità cucina** — dalla scheda di una ricetta: un passaggio alla volta a caratteri grandi, si avanza toccando lo schermo, gli ingredienti restano a portata di mano e lo schermo non si spegne mentre cucini (Wake Lock). Dove il passaggio descrive una tecnica riconoscibile (soffriggere, bollire, infornare, sbattere le uova, frullare, tagliare, grattugiare, cuocere il sugo) compare una **foto d'esempio della tecnica**, con didascalia che dice cosa mostra: non è una foto di quella ricetta specifica
 - **Preferiti** — il cuore su ogni ricetta, con il filtro dedicato nel ricettario
 - **Lista della spesa** — funziona anche da sola: scrivi quello che ti serve (anche cose non da ricetta) e lo trovi diviso per reparto del supermercato; dalla scheda di una ricetta un pulsante aggiunge gli ingredienti che ti mancano, con le quantità già adattate alle porzioni scelte
 - **Crea una ricetta** — campi guidati (nome, categoria, tempi, strumenti, ingredienti con quantità, passaggi), scegli l'illustrazione del piatto o **carichi una tua foto**; le tue ricette entrano nell'app, si possono modificare ed eliminare, e partecipano al match con i tuoi ingredienti
@@ -32,6 +32,9 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch** su que
 | `icons.js` | Libreria di illustrazioni SVG (`QB_ICON`, `QB_DISH`, `QB_KITCHEN`, `QB_UI`): icone di ingredienti e strumenti, piatti delle ricette |
 | `photos.js` | Foto dei piatti incorporate (generato, non modificare a mano) |
 | `photos/` | Foto sorgente in JPEG più `credits.json` con autore e licenza di ognuna |
+| `photos/steps/` | Foto delle tecniche di cottura, con i loro crediti |
+| `steps.js` | Foto delle tecniche incorporate (generato) |
+| `tools/steps-coverage.js` | Riporta quanti passaggi vengono coperti da una foto di tecnica |
 | `tools/build-photos.js` | Rigenera `photos.js` dalle foto in `photos/` |
 
 ## Aggiungere una ricetta

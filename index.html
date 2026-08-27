@@ -556,6 +556,14 @@
     text-transform:uppercase;margin-bottom:14px;
   }
   .ck-tx{font-size:25px;line-height:1.42;font-weight:600;letter-spacing:-.3px;text-wrap:balance}
+  .ck-foto{margin-bottom:18px}
+  .ck-foto img{
+    width:100%;max-height:26vh;object-fit:cover;border-radius:16px;display:block;
+    box-shadow:var(--shadow);
+  }
+  .ck-foto span{
+    display:block;font-size:11px;color:var(--text3);margin-top:6px;text-align:center;
+  }
   .ck-fine{font-size:15px;color:var(--text2);margin-top:20px;line-height:1.5}
   .ck-ing{
     flex:0 0 auto;border-top:.5px solid var(--sep);background:var(--card);
@@ -764,6 +772,7 @@
   <div class="ck-bar" id="ck-bar"></div>
   <div class="ck-body" id="ck-body">
     <div class="ck-n" id="ck-n"></div>
+    <div class="ck-foto" id="ck-foto"></div>
     <div class="ck-tx" id="ck-tx"></div>
   </div>
   <details class="ck-ing" id="ck-ing">
@@ -782,6 +791,7 @@
 
 <script src="icons.js"></script>
 <script src="photos.js"></script>
+<script src="steps.js"></script>
 <script src="data.js"></script>
 <script>
 // ============================================================
@@ -1157,6 +1167,42 @@ function closeSheet() {
 // ---------- Modalità cucina ----------
 let ckR = null, ckI = 0, ckLock = null, ckF = 1;
 
+// Riconosce la tecnica descritta dal passaggio, per mostrare una foto d'esempio.
+// L'ordine conta: si ferma alla prima che corrisponde, dalla più specifica.
+const TECNICHE = [
+  ["moka",          /\b(moka|caffettiera)\b/i],
+  ["frullare",      /\bfrulla|frullatore|minipimer\b/i],
+  ["airfryer",      /\bair ?fryer|friggitrice ad aria|cestello\b/i],
+  ["microonde",     /\bmicroonde|\d+\s?W\b/i],
+  ["forno",         /\bforno|inforna|°\s?C|teglia|pirofila|gratina\b/i],
+  ["scolare",       /\bscola\b/i],
+  ["bollire",       /\bbollire|bollore|acqua (poco |abbondante )?salata|butta (gli|la|le)|cuoci (la pasta|gli|le)|vengono a galla|porta a cottura|brodo\b/i],
+  ["uova-sbattere", /\bsbatt|monta (le uova|i tuorli|gli albumi)|tuorli|albumi\b/i],
+  ["impastare",     /\bimpasta|amalgama|incorpora (la )?farina|briciole|setaccia\b/i],
+  ["grattugiare",   /\bgrattugia\b/i],
+  ["tagliare",      /\btaglia|affetta|trita|a cubetti|a fettine|a rondelle|a spicchi\b/i],
+  ["soffriggere",   /\bsoffrigg|rosola|dora|scalda .*olio|cipolla tritata\b/i],
+  ["sugo",          /\bpassata|sugo|pomodor/i],
+  ["condire",       /\bcondisci|condire|servi|spolvera|completa con|un giro d.olio|a piacere\b/i],
+  ["mescolare",     /\bmescola|manteca|gira|salta in padella|unisci|aggiungi|versa|sgrana|allunga\b/i],
+  ["padella",       /\bpadella|tegame|pentolino|fuoco (vivo|medio|basso|dolce)\b/i],
+];
+const TEC_DIDA = {
+  soffriggere: "esempio: un soffritto di cipolla",
+  bollire: "esempio: pentola sul fuoco",
+  tagliare: "esempio: taglio al coltello",
+  "uova-sbattere": "esempio: uova sbattute",
+  forno: "esempio: cottura in forno",
+  grattugiare: "esempio: formaggio grattugiato",
+  frullare: "esempio: frutta nel frullatore",
+  sugo: "esempio: sugo che sobbolle",
+};
+function fotoPassaggio(testo) {
+  if (typeof STEP_PHOTOS === "undefined") return null;
+  const hit = TECNICHE.find(([k, re]) => STEP_PHOTOS[k] && re.test(testo));
+  return hit ? { src: STEP_PHOTOS[hit[0]], dida: TEC_DIDA[hit[0]] || "esempio della tecnica" } : null;
+}
+
 async function tieniAcceso() {
   try {
     if ("wakeLock" in navigator) {
@@ -1180,6 +1226,10 @@ function renderCucina() {
   const fine = ckI >= n;
   $("#ck-bar").innerHTML = ckR.steps.map((_, i) => `<i class="${fine || i <= ckI ? "on" : ""}"></i>`).join("");
   $("#ck-n").textContent = fine ? "" : `Passaggio ${ckI + 1} di ${n}`;
+  const foto = fine ? null : fotoPassaggio(ckR.steps[ckI]);
+  $("#ck-foto").innerHTML = foto
+    ? `<img src="${foto.src}" alt=""><span>${foto.dida}</span>`
+    : "";
   $("#ck-tx").innerHTML = fine
     ? `Fatto! Buon appetito.<div class="ck-fine">${ckR.name} è pronta.${ckR.note ? "<br><br>" + ckR.note : ""}</div>`
     : ckR.steps[ckI];
@@ -1480,10 +1530,17 @@ $("#credits").addEventListener("click", e => {
   if (e.target.id !== "cr-open") return;
   const box = $("#cred-list");
   if (!box.innerHTML) {
-    box.innerHTML = PHOTO_CREDITS.map(c => {
+    const riga = (c, nome) =>
+      `<a href="${c.page}" target="_blank" rel="noopener"><b>${nome}</b> — ${c.author || "autore non indicato"} · ${c.license}</a>`;
+    let h = PHOTO_CREDITS.map(c => {
       const r = ALL().find(x => x.id === c.id);
-      return `<a href="${c.page}" target="_blank" rel="noopener"><b>${r ? r.name : c.id}</b> — ${c.author || "autore non indicato"} · ${c.license}</a>`;
+      return riga(c, r ? r.name : c.id);
     }).join("");
+    if (typeof STEP_CREDITS !== "undefined" && STEP_CREDITS.length) {
+      h += `<a style="border:none;padding-top:12px"><b>Foto delle tecniche</b></a>`;
+      h += STEP_CREDITS.map(c => riga(c, c.id)).join("");
+    }
+    box.innerHTML = h;
   }
   box.classList.toggle("show");
   e.target.textContent = box.classList.contains("show") ? "Nascondi elenco" : "Autori e licenze";
