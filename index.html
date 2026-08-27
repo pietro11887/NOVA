@@ -134,6 +134,20 @@
   #app-scene g[data-app]{cursor:pointer}
   #app-scene .art{transition:opacity .18s ease,filter .18s ease}
   #app-scene .art.off{filter:grayscale(1);opacity:.4}
+  #app-scene .flame{transform-box:fill-box;transform-origin:50% 100%;animation:nv-flick .5s ease-in-out infinite alternate}
+  #app-scene .steam{animation:nv-steam 2.4s ease-in-out infinite}
+  #app-scene .pulse{animation:nv-pulse 1.6s ease-in-out infinite}
+  #app-scene .glow{animation:nv-glow 2.2s ease-in-out infinite}
+  #app-scene .shake{transform-box:fill-box;transform-origin:50% 88%;animation:nv-shake .3s linear infinite}
+  @keyframes nv-flick{from{transform:scaleY(1)}to{transform:scaleY(.62)}}
+  @keyframes nv-steam{0%{opacity:0;transform:translateY(2px)}30%{opacity:.85}100%{opacity:0;transform:translateY(-8px)}}
+  @keyframes nv-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @keyframes nv-glow{0%,100%{opacity:.82}50%{opacity:1}}
+  @keyframes nv-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(1.3deg)}75%{transform:rotate(-1.3deg)}}
+  @media (prefers-reduced-motion: reduce){
+    #app-scene .flame,#app-scene .steam,#app-scene .pulse,#app-scene .glow,#app-scene .shake{animation:none}
+    #app-scene .steam{opacity:.6}
+  }
   .app-list{
     background:var(--card);border-radius:16px;box-shadow:var(--shadow);
     margin-top:10px;overflow:hidden;

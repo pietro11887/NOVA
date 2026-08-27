@@ -664,7 +664,20 @@
        ${DOT(dot[0], dot[1], on)}
      </g>`;
 
-  const put = (key, tx, ty, s) => `<g transform="translate(${tx} ${ty}) scale(${s})">${APPS[key]}</g>`;
+  const put = (key, tx, ty, s, extra = "", cls = "") =>
+    `<g transform="translate(${tx} ${ty}) scale(${s})"><g class="${cls}">${APPS[key]}</g>${extra}</g>`;
+
+  // fiammella del gas (doppia: alone blu + cuore chiaro)
+  const flame = (x, y, d) =>
+    `<g transform="translate(${x} ${y})">
+       <path class="flame" style="animation-delay:${d}s" d="M0 0c-2.4-3.2-2.4-6.4 0-9c2.4 2.6 2.4 5.8 0 9z" fill="#5aa7e8"/>
+       <path class="flame" style="animation-delay:${d + 0.12}s" d="M0 0c-1.2-1.8-1.2-3.6 0-5c1.2 1.4 1.2 3.2 0 5z" fill="#a8dcff"/>
+     </g>`;
+  // filo di vapore che sale
+  const wisp = (x, y, d) =>
+    `<g transform="translate(${x} ${y})">
+       <path class="steam" style="animation-delay:${d}s" d="M0 0c2.5-3-2.5-6 0-9" stroke="#b9c2c9" stroke-width="2" stroke-linecap="round" fill="none"/>
+     </g>`;
 
   window.NOVA_KITCHEN = (sel) => {
     const on = (id) => sel.has(id);
@@ -679,9 +692,9 @@
     // mensola con frullatore, moka e bollitore
     s += `<rect x="182" y="64" width="170" height="8" rx="3" fill="${wood}"/>
           <path d="M196 72l6 10h-6zM334 72l6 10h-6z" fill="${cab}" opacity=".55"/>`;
-    s += zone("frullatore", on("frullatore"), put("blender", 186, 14, 1.12), [184, 8, 56, 62], [236, 20]);
-    s += zone("moka",       on("moka"),       put("moka", 242, 14, 1.12),    [240, 8, 56, 62], [292, 20]);
-    s += zone("bollitore",  on("bollitore"),  put("kettle", 296, 14, 1.12),  [294, 8, 58, 62], [344, 20]);
+    s += zone("frullatore", on("frullatore"), put("blender", 186, 14, 1.12, "", on("frullatore") ? "shake" : ""), [184, 8, 56, 62], [236, 20]);
+    s += zone("moka",       on("moka"),       put("moka", 242, 14, 1.12, on("moka") ? wisp(19, 8, 0) + wisp(27, 6, 0.9) : ""), [240, 8, 56, 62], [292, 20]);
+    s += zone("bollitore",  on("bollitore"),  put("kettle", 296, 14, 1.12, on("bollitore") ? wisp(40, 19, 0.3) + wisp(45, 15, 1.2) : ""), [294, 8, 58, 62], [344, 20]);
     // bancone con mobiletto
     s += `<rect x="128" y="172" width="224" height="12" rx="4" fill="${wood}"/>
           <rect x="132" y="184" width="216" height="92" fill="${cab}"/>
@@ -690,22 +703,27 @@
           <circle cx="226" cy="228" r="3.2" fill="${wood}"/>
           <circle cx="254" cy="228" r="3.2" fill="${wood}"/>`;
     // microonde e friggitrice ad aria sul bancone
-    s += zone("micro",    on("micro"),    put("microwave", 136, 108, 1.5), [132, 100, 84, 76], [208, 112]);
-    s += zone("airfryer", on("airfryer"), put("airfryer", 248, 114, 1.35), [244, 106, 74, 72], [314, 118]);
+    s += zone("micro",    on("micro"),    put("microwave", 136, 108, 1.5, on("micro")
+        ? '<rect x="13" y="20" width="14" height="10" rx="1.5" fill="#f2c063" opacity=".9" class="glow"/><rect x="16" y="26.5" width="8" height="2.5" rx="1.2" fill="#b96f1e"/>'
+        : ""), [132, 100, 84, 76], [208, 112]);
+    s += zone("airfryer", on("airfryer"), put("airfryer", 248, 114, 1.35, on("airfryer")
+        ? '<circle cx="24" cy="18.5" r="3.4" fill="#ef9b3f" class="pulse"/>' + wisp(15, 7, 0.5) + wisp(31, 5, 1.4)
+        : ""), [244, 106, 74, 72], [314, 118]);
     // cucina a sinistra: fornelli sopra, forno sotto
     s += `<ellipse cx="66" cy="276" rx="54" ry="5" fill="rgba(0,0,0,.10)"/>`;
     s += zone("fornelli", on("fornelli"),
       `<rect x="16" y="94" width="100" height="14" rx="3" fill="#828b93"/>
        <circle cx="32" cy="101" r="3" fill="#4a4f54"/><circle cx="44" cy="101" r="3" fill="#4a4f54"/><circle cx="56" cy="101" r="3" fill="#4a4f54"/>
        <rect x="16" y="108" width="100" height="16" rx="3" fill="#3a3f44"/>
-       <ellipse cx="45" cy="116" rx="15" ry="5" fill="#2e3236" stroke="${on("fornelli") ? "#ef9b3f" : "#5a6167"}" stroke-width="2.4"/>
-       <ellipse cx="88" cy="116" rx="15" ry="5" fill="#2e3236" stroke="${on("fornelli") ? "#ef9b3f" : "#5a6167"}" stroke-width="2.4"/>`,
+       <ellipse cx="45" cy="116" rx="15" ry="5" fill="#2e3236" stroke="${on("fornelli") ? "#5aa7e8" : "#5a6167"}" stroke-width="2"/>
+       <ellipse cx="88" cy="116" rx="15" ry="5" fill="#2e3236" stroke="${on("fornelli") ? "#5aa7e8" : "#5a6167"}" stroke-width="2"/>
+       ${on("fornelli") ? flame(37, 114, 0) + flame(45, 113, 0.2) + flame(53, 114, 0.35) + flame(80, 114, 0.5) + flame(88, 113, 0.1) + flame(96, 114, 0.28) : ""}`,
       [12, 88, 112, 40], [104, 100]);
     s += zone("forno", on("forno"),
       `<rect x="16" y="124" width="100" height="144" rx="5" fill="#aab2ba"/>
        <rect x="24" y="132" width="84" height="7" rx="3.5" fill="#4a4f54"/>
        <rect x="24" y="146" width="84" height="106" rx="5" fill="#8f979e"/>
-       <rect x="32" y="158" width="68" height="66" rx="4" fill="${on("forno") ? "#f2a03d" : "#2e3236"}"/>
+       <rect x="32" y="158" width="68" height="66" rx="4" fill="${on("forno") ? "#f2a03d" : "#2e3236"}"${on("forno") ? ' class="glow"' : ""}/>
        ${on("forno") ? '<rect x="36" y="176" width="60" height="3" rx="1.5" fill="#d67f26"/><rect x="36" y="196" width="60" height="3" rx="1.5" fill="#d67f26"/>' : '<rect x="36" y="176" width="60" height="3" rx="1.5" fill="#454b51"/><rect x="36" y="196" width="60" height="3" rx="1.5" fill="#454b51"/>'}
        <rect x="22" y="268" width="10" height="8" rx="2" fill="#4a4f54"/><rect x="100" y="268" width="10" height="8" rx="2" fill="#4a4f54"/>`,
       [12, 130, 112, 148], [104, 158]);
