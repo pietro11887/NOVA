@@ -1,5 +1,5 @@
 // ============================================================
-// NOVA — dati: ingredienti, strumenti, ricette
+// Quanto Basta — dati: ingredienti, strumenti, ricette
 // ============================================================
 
 // --- Strumenti di cucina selezionabili ---

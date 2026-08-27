@@ -1,5 +1,5 @@
 // ============================================================
-// NOVA — libreria di illustrazioni SVG (ingredienti, strumenti, piatti)
+// Quanto Basta — libreria di illustrazioni SVG (ingredienti, strumenti, piatti)
 // Stile: flat, senza contorni, ombra morbida a terra per coerenza.
 // ============================================================
 
@@ -681,7 +681,7 @@
        <path class="steam" style="animation-delay:${d}s" d="M0 0c2.5-3-2.5-6 0-9" stroke="#b9c2c9" stroke-width="2" stroke-linecap="round" fill="none"/>
      </g>`;
 
-  window.NOVA_KITCHEN = (sel) => {
+  window.QB_KITCHEN = (sel) => {
     const on = (id) => sel.has(id);
     const wood = "#d9b98c", cab = "#8d6e4f", door = "#9b7a58";
     let s = "";
@@ -736,11 +736,11 @@
   };
 
   // --- API pubblica ---
-  window.NOVA_ICON = (key, size = 20) =>
+  window.QB_ICON = (key, size = 20) =>
     wrap(ICONS[key] || APPS[key] || `<circle cx="24" cy="26" r="12" fill="${K.off}"/>`, size, 48);
-  window.NOVA_DISH = (spec, size = 48) => {
+  window.QB_DISH = (spec, size = 48) => {
     const fn = DISHES[spec && spec.k];
     return wrap(fn ? fn(spec) : plate(""), size, 96);
   };
-  window.NOVA_UI = uiIcon;
+  window.QB_UI = uiIcon;
 })();

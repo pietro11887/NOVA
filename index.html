@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<title>NOVA — Cosa cucino oggi?</title>
+<title>Quanto Basta — Cosa cucino oggi?</title>
 <style>
   :root{
     --bg:#f2f2f7; --card:#ffffff; --card2:#f7f7fa;
@@ -49,7 +49,7 @@
     padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
     max-width:640px;margin:0 auto;
   }
-  .app-name{font-size:34px;font-weight:800;letter-spacing:-.5px}
+  .app-name{font-size:28px;font-weight:800;letter-spacing:-.6px}
   .app-name span{color:var(--accent)}
   .subtitle{color:var(--text2);font-size:16px;margin-top:2px;font-weight:500}
 
@@ -440,7 +440,7 @@
 <body>
 
 <header>
-  <div class="app-name">NOVA<span>.</span></div>
+  <div class="app-name">Quanto Basta<span>.</span></div>
   <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
 </header>
 
@@ -449,7 +449,7 @@
   <section class="screen active" id="screen-home">
     <div class="home-hero">
       <h2 id="greet">Ciao!</h2>
-      <p>Dimmi cosa c'è nel tuo frigo e nella tua dispensa: al resto pensa NOVA.</p>
+      <p>Dimmi cosa c'è nel tuo frigo e nella tua dispensa: al resto pensiamo noi.</p>
     </div>
     <div class="home-cards">
       <button class="hcard" data-go="find">
@@ -584,7 +584,7 @@
 <script src="data.js"></script>
 <script>
 // ============================================================
-// NOVA — logica app
+// Quanto Basta — logica app
 // ============================================================
 const $ = s => document.querySelector(s);
 const ING_BY_ID = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
@@ -596,7 +596,7 @@ const PHOTO_OF = (r) => r.photo || (typeof PHOTOS !== "undefined" ? PHOTOS[r.id]
 // ---------- Stato (persistito) ----------
 let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match" };
 try {
-  const saved = JSON.parse(localStorage.getItem("nova_state"));
+  const saved = JSON.parse(localStorage.getItem("qb_state") || localStorage.getItem("nova_state"));
   if (saved) {
     state.ing = new Set(saved.ing || []);
     state.app = new Set(saved.app || []);
@@ -605,13 +605,13 @@ try {
   }
 } catch (e) {}
 let mine = [];
-try { mine = JSON.parse(localStorage.getItem("nova_mie_ricette")) || []; } catch (e) {}
+try { mine = JSON.parse(localStorage.getItem("qb_mie_ricette") || localStorage.getItem("nova_mie_ricette")) || []; } catch (e) {}
 mine.forEach(r => { r.mine = true; });
-function saveMine() { try { localStorage.setItem("nova_mie_ricette", JSON.stringify(mine)); } catch (e) {} }
+function saveMine() { try { localStorage.setItem("qb_mie_ricette", JSON.stringify(mine)); } catch (e) {} }
 const ALL = () => RECIPES.concat(mine);
 function save() {
   try {
-    localStorage.setItem("nova_state", JSON.stringify({
+    localStorage.setItem("qb_state", JSON.stringify({
       ing: [...state.ing], app: [...state.app], filter: state.filter, mode: state.mode
     }));
   } catch (e) {}
@@ -621,7 +621,7 @@ function save() {
 function hasIng(id) { return id.split("|").some(x => state.ing.has(x)); }
 function hasApp(entry) { return entry.split("|").some(x => state.app.has(x)); }
 function altName(id) { return id.split("|").map(x => ING_BY_ID[x]?.n || x).join(" o "); }
-function altIcon(id, size) { return NOVA_ICON(ING_BY_ID[id.split("|")[0]]?.e, size); }
+function altIcon(id, size) { return QB_ICON(ING_BY_ID[id.split("|")[0]]?.e, size); }
 
 function matchRecipe(r) {
   const missing = r.ing.filter(i => !i[2] && !hasIng(i[0])).map(i => i[0]);
@@ -663,7 +663,7 @@ function renderIngredients() {
     html += `<section class="cat-sec" id="cat-${cat.id}"><div class="cat-title">${cat.name}</div><div class="tiles">`;
     for (const i of items) {
       html += `<button class="tile${state.ing.has(i.id) ? " on" : ""}" data-ing="${i.id}">
-        <span class="tk">✓</span>${NOVA_ICON(i.e, 30)}<span class="lbl">${i.n}</span></button>`;
+        <span class="tk">✓</span>${QB_ICON(i.e, 30)}<span class="lbl">${i.n}</span></button>`;
     }
     html += `</div></section>`;
   }
@@ -686,10 +686,10 @@ function renderSelbar() {
 
 // ---------- Render: strumenti ----------
 function renderAppliances() {
-  $("#app-scene").innerHTML = NOVA_KITCHEN(state.app);
+  $("#app-scene").innerHTML = QB_KITCHEN(state.app);
   $("#app-list").innerHTML = APPLIANCES.map(a => `
     <button class="app-row${state.app.has(a.id) ? " on" : ""}" data-app="${a.id}">
-      ${NOVA_ICON(a.e, 28)}
+      ${QB_ICON(a.e, 28)}
       <span class="ar-txt"><b>${a.name}</b><small>${a.d}</small></span>
       <span class="chk">✓</span>
     </button>`).join("");
@@ -705,7 +705,7 @@ function recipeCard({ r, m }) {
       ? `<span class="status miss">Manca: ${m.missing.map(altName).join(", ")}</span>`
       : `<span class="status miss">Mancano ${m.missing.length} ingredienti</span>`;
   return `<button class="rcard" data-r="${r.id}">
-    <span class="em">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="" loading="lazy">` : NOVA_DISH(r.img, 48)}</span>
+    <span class="em">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="" loading="lazy">` : QB_DISH(r.img, 48)}</span>
     <span class="body">
       <div class="nm">${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</div>
       <div class="meta">${CAT_LABEL[r.cat]} · ${r.time} min · ${r.serves}</div>
@@ -735,7 +735,7 @@ function renderRecipes() {
 
   if (!state.ing.size) {
     list.innerHTML = `<div class="empty">
-      <div class="big">${NOVA_UI("basket", 54, 1.6)}</div>
+      <div class="big">${QB_UI("basket", 54, 1.6)}</div>
       <h3>Prima dimmi cosa hai</h3>
       <p>Seleziona gli ingredienti che hai in casa<br>e ti dico subito cosa puoi cucinare.</p>
       <button id="goto-ing">Scegli gli ingredienti</button>
@@ -755,7 +755,7 @@ function renderRecipes() {
   }
   if (!ready.length && !almost.length) {
     html += `<div class="empty">
-      <div class="big">${NOVA_UI("dish", 54, 1.6)}</div>
+      <div class="big">${QB_UI("dish", 54, 1.6)}</div>
       <h3>Ancora niente…</h3>
       <p>Aggiungi qualche ingrediente in più${lockedByApp ? " o controlla gli strumenti selezionati" : ""}:<br>le ricette compaiono da sole.</p>
       <button id="goto-ing">Aggiungi ingredienti</button>
@@ -830,7 +830,7 @@ function renderSheet() {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
-    <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : NOVA_DISH(r.img, 148)}</div>
+    <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : QB_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
     <div class="sh-meta">
       <span class="pill">${r.time} min</span>
@@ -984,11 +984,11 @@ function renderHome() {
 }
 const homeThumb = (id, fallback) => {
   const p = typeof PHOTOS !== "undefined" ? PHOTOS[id] : null;
-  return p ? `<img src="${p}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">` : NOVA_DISH(fallback, 52);
+  return p ? `<img src="${p}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">` : QB_DISH(fallback, 52);
 };
 $("#hic-find").innerHTML = homeThumb("carbonara", { k: "spag", a: "#eec96f", g: "chili" });
 $("#hic-browse").innerHTML = homeThumb("tiramisu", { k: "cake" });
-$("#hic-create").innerHTML = NOVA_UI("plus", 30, 2.2);
+$("#hic-create").innerHTML = QB_UI("plus", 30, 2.2);
 $("#credits").addEventListener("click", e => {
   if (e.target.id !== "cr-open") return;
   const box = $("#cred-list");
@@ -1023,11 +1023,11 @@ const cur = { img: 0, photo: null, app: new Set(), editId: null };
 
 function renderFApp() {
   $("#f-app").innerHTML = APPLIANCES.map(a =>
-    `<button type="button" data-fa="${a.id}" class="${cur.app.has(a.id) ? "on" : ""}">${NOVA_ICON(a.e, 20)}${a.name}</button>`).join("");
+    `<button type="button" data-fa="${a.id}" class="${cur.app.has(a.id) ? "on" : ""}">${QB_ICON(a.e, 20)}${a.name}</button>`).join("");
 }
 function renderImgPicker() {
   $("#f-imgs").innerHTML = IMG_PRESETS.map((p, i) =>
-    `<button type="button" data-fi="${i}" class="${!cur.photo && cur.img === i ? "on" : ""}">${NOVA_DISH(p, 46)}</button>`).join("");
+    `<button type="button" data-fi="${i}" class="${!cur.photo && cur.img === i ? "on" : ""}">${QB_DISH(p, 46)}</button>`).join("");
   const row = $("#f-photo-row");
   row.querySelector("img")?.remove();
   row.querySelector(".del")?.remove();
@@ -1062,7 +1062,7 @@ function fillDrop(input) {
     : INGREDIENTS;
   items = items.slice(0, 40);
   drop.innerHTML = items.length
-    ? items.map(i => `<button type="button" data-pick="${i.id}">${NOVA_ICON(i.e, 22)}${i.n}<small>${CAT_NAME[i.c]}</small></button>`).join("")
+    ? items.map(i => `<button type="button" data-pick="${i.id}">${QB_ICON(i.e, 22)}${i.n}<small>${CAT_NAME[i.c]}</small></button>`).join("")
     : `<div class="none">Nessun ingrediente trovato</div>`;
   drop.classList.add("show");
 }
@@ -1144,7 +1144,7 @@ function renderMine() {
   card.style.display = "block";
   $("#mine-list").innerHTML = mine.map(r => `
     <div class="mine-item">
-      ${r.photo ? `<span class="em" style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex:none"><img src="${r.photo}" style="width:100%;height:100%;object-fit:cover"></span>` : NOVA_DISH(r.img, 40)}
+      ${r.photo ? `<span class="em" style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex:none"><img src="${r.photo}" style="width:100%;height:100%;object-fit:cover"></span>` : QB_DISH(r.img, 40)}
       <span class="mi-tx"><b>${r.name}</b><small>${CAT_LABEL[r.cat]} · ${r.time} min</small></span>
       <span class="act">
         <button data-edit="${r.id}">Modifica</button>
@@ -1255,7 +1255,7 @@ $("#modes").addEventListener("click", e => {
 });
 
 // ---------- Avvio ----------
-document.querySelectorAll("[data-ui]").forEach(el => { el.innerHTML = NOVA_UI(el.dataset.ui, 22); });
+document.querySelectorAll("[data-ui]").forEach(el => { el.innerHTML = QB_UI(el.dataset.ui, 22); });
 $("#catnav").innerHTML = CATEGORIES.map(c => `<button data-cat="${c.id}">${c.name}</button>`).join("");
 $("#catnav").addEventListener("click", e => {
   const b = e.target.closest("[data-cat]"); if (!b) return;

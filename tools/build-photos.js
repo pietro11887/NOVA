@@ -1,5 +1,5 @@
 // ============================================================
-// NOVA — costruisce photos.js dalle foto in photos/
+// Quanto Basta — costruisce photos.js dalle foto in photos/
 // Uso: node tools/build-photos.js
 // Le foto vengono incorporate come data URI: l'app resta un file
 // che funziona anche offline, senza richieste esterne.

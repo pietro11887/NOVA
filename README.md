@@ -1,6 +1,8 @@
-# NOVA 🍳
+# Quanto Basta 🍳
 
-**Cosa cucino oggi?** — Seleziona gli ingredienti che hai in casa e gli strumenti che puoi usare (fornelli, forno, microonde, friggitrice ad aria, moka, bollitore…): NOVA ti mostra subito le ricette che puoi fare davvero, con quantità e istruzioni passo passo, divise in **primi, secondi e dolci**.
+**Cosa cucino oggi?** — Seleziona gli ingredienti che hai in casa e gli strumenti che puoi usare (fornelli, forno, microonde, friggitrice ad aria, moka, bollitore…): l'app ti mostra subito le ricette che puoi fare davvero, con quantità e istruzioni passo passo, divise in **primi, secondi e dolci**.
+
+Il nome viene da **q.b.**, l'abbreviazione che sta su ogni ricetta italiana: con quello che hai, quanto basta.
 
 ## Come funziona
 
@@ -24,7 +26,7 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch** su que
 |---|---|
 | `index.html` | Interfaccia e logica dell'app (nessuna dipendenza esterna) |
 | `data.js` | ~85 ingredienti, 7 strumenti e 49 ricette con quantità e passaggi |
-| `icons.js` | Libreria di illustrazioni SVG: icone di ingredienti e strumenti, piatti delle ricette |
+| `icons.js` | Libreria di illustrazioni SVG (`QB_ICON`, `QB_DISH`, `QB_KITCHEN`, `QB_UI`): icone di ingredienti e strumenti, piatti delle ricette |
 | `photos.js` | Foto dei piatti incorporate (generato, non modificare a mano) |
 | `photos/` | Foto sorgente in JPEG più `credits.json` con autore e licenza di ognuna |
 | `tools/build-photos.js` | Rigenera `photos.js` dalle foto in `photos/` |
