@@ -25,6 +25,9 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch** su que
 | `index.html` | Interfaccia e logica dell'app (nessuna dipendenza esterna) |
 | `data.js` | ~85 ingredienti, 7 strumenti e 49 ricette con quantità e passaggi |
 | `icons.js` | Libreria di illustrazioni SVG: icone di ingredienti e strumenti, piatti delle ricette |
+| `photos.js` | Foto dei piatti incorporate (generato, non modificare a mano) |
+| `photos/` | Foto sorgente in JPEG più `credits.json` con autore e licenza di ognuna |
+| `tools/build-photos.js` | Rigenera `photos.js` dalle foto in `photos/` |
 
 ## Aggiungere una ricetta
 
@@ -42,3 +45,15 @@ Basta aggiungere un oggetto a `RECIPES` in `data.js`:
   steps: ["Passo 1…", "Passo 2…"],
 }
 ```
+
+## Foto dei piatti
+
+36 ricette hanno una foto reale; le altre usano l'illustrazione del piatto. Le foto vengono da **Wikimedia Commons** e hanno tutte licenza libera verificata (CC BY, CC BY-SA, CC0 o pubblico dominio): autore e licenza di ciascuna sono in `photos/credits.json` e consultabili nell'app dalla Home, sotto «Autori e licenze».
+
+Le foto sono incorporate in `photos.js` come data URI, così l'app resta autosufficiente e funziona anche offline. Dopo aver aggiunto o sostituito un file in `photos/`, rigenera con:
+
+```
+node tools/build-photos.js
+```
+
+Se aggiungi una foto, aggiungi anche la sua riga in `photos/credits.json` (`id`, `file`, `license`, `author`, `page`): senza licenza verificata la foto non va pubblicata.

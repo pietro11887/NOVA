@@ -348,7 +348,7 @@
     padding:15px;box-shadow:var(--shadow);text-align:left;transition:transform .08s ease;
   }
   .hcard:active{transform:scale(.98)}
-  .hcard .hic{flex:none;width:62px;height:62px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center}
+  .hcard .hic{flex:none;width:62px;height:62px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;overflow:hidden}
   .hcard .hic.accent{color:var(--accent);background:var(--accent-soft)}
   .hcard .htx{min-width:0}
   .hcard b{font-size:16.5px;font-weight:750;display:block}
@@ -356,6 +356,13 @@
   .hcard .chev{margin-left:auto;color:var(--text3);font-size:20px;flex:none}
   .home-stats{display:flex;justify-content:center;gap:6px;margin:18px 0 6px;color:var(--text3);font-size:12.5px;font-weight:600}
   .home-stats b{color:var(--text2)}
+  .credits{color:var(--text3);font-size:11.5px;text-align:center;line-height:1.5;margin:10px 8px 0}
+  .credits button{color:var(--accent);font-size:11.5px;font-weight:600;text-decoration:underline}
+  .cred-list{margin-top:10px;text-align:left;display:none}
+  .cred-list.show{display:block}
+  .cred-list a{display:block;color:var(--text3);padding:4px 0;border-bottom:.5px solid var(--sep);line-height:1.35}
+  .cred-list a:last-child{border-bottom:none}
+  .cred-list b{color:var(--text2);font-weight:600}
 
   /* ---------- Per te / Tutte ---------- */
   .modes{display:flex;gap:6px;margin:2px 0 10px}
@@ -391,8 +398,24 @@
   .lbl-btn{color:var(--accent);font-size:14px;font-weight:600;cursor:pointer}
   .lbl-btn.del{color:#d94f3d}
   .ingrow,.steprow{display:flex;gap:6px;align-items:center;margin-bottom:8px}
-  .ingrow select.fin{flex:1.5;margin-top:0;min-width:0}
-  .ingrow input.fin{flex:1;margin-top:0;min-width:0}
+  .ingrow .ipick{position:relative;flex:1.5;min-width:0}
+  .ingrow .ipick input.fin{margin-top:0;width:100%}
+  .ingrow .ipick input.fin.chosen{font-weight:600}
+  .ingrow input.qta{flex:1;margin-top:0;min-width:0}
+  .idrop{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;
+    background:var(--card);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.18),0 0 0 1px var(--sep);
+    max-height:230px;overflow-y:auto;overscroll-behavior:contain;display:none;
+  }
+  .idrop.show{display:block}
+  .idrop button{
+    display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+    padding:9px 11px;font-size:14.5px;border-bottom:.5px solid var(--sep);
+  }
+  .idrop button:last-child{border-bottom:none}
+  .idrop button.hi{background:var(--accent-soft)}
+  .idrop button small{margin-left:auto;color:var(--text3);font-size:11.5px;flex:none}
+  .idrop .none{padding:12px;color:var(--text2);font-size:13.5px;text-align:center}
   .steprow textarea.fin{flex:1;margin-top:0;resize:vertical;min-height:46px}
   .rowdel{flex:none;width:30px;height:30px;border-radius:50%;background:var(--card2);color:var(--text2);font-size:15px;line-height:1}
   .rowopt{flex:none;font-size:11px;font-weight:700;padding:6px 7px;border-radius:8px;background:var(--card2);color:var(--text3)}
@@ -446,6 +469,8 @@
       </button>
     </div>
     <div class="home-stats" id="home-stats"></div>
+    <p class="credits" id="credits"></p>
+    <div class="cred-list" id="cred-list"></div>
   </section>
 
   <!-- ============ SCHERMATA INGREDIENTI ============ -->
@@ -555,6 +580,7 @@
 <div id="sheet" role="dialog" aria-modal="true"></div>
 
 <script src="icons.js"></script>
+<script src="photos.js"></script>
 <script src="data.js"></script>
 <script>
 // ============================================================
@@ -564,6 +590,8 @@ const $ = s => document.querySelector(s);
 const ING_BY_ID = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
 const APP_BY_ID = Object.fromEntries(APPLIANCES.map(a => [a.id, a]));
 const CAT_LABEL = { primi: "Primi", secondi: "Secondi", dolci: "Dolci" };
+// foto reali del catalogo (vedi photos.js): id ricetta -> URL o data URI
+const PHOTO_OF = (r) => r.photo || (typeof PHOTOS !== "undefined" ? PHOTOS[r.id] : null);
 
 // ---------- Stato (persistito) ----------
 let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match" };
@@ -677,7 +705,7 @@ function recipeCard({ r, m }) {
       ? `<span class="status miss">Manca: ${m.missing.map(altName).join(", ")}</span>`
       : `<span class="status miss">Mancano ${m.missing.length} ingredienti</span>`;
   return `<button class="rcard" data-r="${r.id}">
-    <span class="em">${r.photo ? `<img src="${r.photo}" alt="">` : NOVA_DISH(r.img, 48)}</span>
+    <span class="em">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="" loading="lazy">` : NOVA_DISH(r.img, 48)}</span>
     <span class="body">
       <div class="nm">${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</div>
       <div class="meta">${CAT_LABEL[r.cat]} · ${r.time} min · ${r.serves}</div>
@@ -802,7 +830,7 @@ function renderSheet() {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
-    <div class="sh-hero">${r.photo ? `<img src="${r.photo}" alt="">` : NOVA_DISH(r.img, 148)}</div>
+    <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : NOVA_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
     <div class="sh-meta">
       <span class="pill">${r.time} min</span>
@@ -918,6 +946,7 @@ $("#app-all").addEventListener("click", () => {
 $("#seg").addEventListener("click", e => {
   const b = e.target.closest("[data-f]"); if (!b) return;
   state.filter = b.dataset.f; save(); renderRecipes();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 $("#ric-list").addEventListener("click", e => {
   const card = e.target.closest("[data-r]");
@@ -946,12 +975,32 @@ $("#sheet").addEventListener("touchmove", e => {
 function renderHome() {
   const h = new Date().getHours();
   $("#greet").textContent = h < 12 ? "Buongiorno!" : h < 18 ? "Buon pomeriggio!" : "Buonasera!";
+  const cr = typeof PHOTO_CREDITS !== "undefined" ? PHOTO_CREDITS : [];
+  $("#credits").innerHTML = cr.length
+    ? `Foto dei piatti da Wikimedia Commons, con licenze libere. <button id="cr-open">Autori e licenze</button>`
+    : "";
   $("#home-stats").innerHTML =
     `<span><b>${ALL().length}</b> ricette</span> · <span><b>${INGREDIENTS.length}</b> ingredienti</span> · <span><b>${APPLIANCES.length}</b> strumenti</span>`;
 }
-$("#hic-find").innerHTML = NOVA_DISH({ k: "spag", a: "#eec96f", g: "chili" }, 52);
-$("#hic-browse").innerHTML = NOVA_DISH({ k: "cake" }, 52);
+const homeThumb = (id, fallback) => {
+  const p = typeof PHOTOS !== "undefined" ? PHOTOS[id] : null;
+  return p ? `<img src="${p}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">` : NOVA_DISH(fallback, 52);
+};
+$("#hic-find").innerHTML = homeThumb("carbonara", { k: "spag", a: "#eec96f", g: "chili" });
+$("#hic-browse").innerHTML = homeThumb("tiramisu", { k: "cake" });
 $("#hic-create").innerHTML = NOVA_UI("plus", 30, 2.2);
+$("#credits").addEventListener("click", e => {
+  if (e.target.id !== "cr-open") return;
+  const box = $("#cred-list");
+  if (!box.innerHTML) {
+    box.innerHTML = PHOTO_CREDITS.map(c => {
+      const r = ALL().find(x => x.id === c.id);
+      return `<a href="${c.page}" target="_blank" rel="noopener"><b>${r ? r.name : c.id}</b> — ${c.author || "autore non indicato"} · ${c.license}</a>`;
+    }).join("");
+  }
+  box.classList.toggle("show");
+  e.target.textContent = box.classList.contains("show") ? "Nascondi elenco" : "Autori e licenze";
+});
 document.querySelector(".home-cards").addEventListener("click", e => {
   const b = e.target.closest("[data-go]"); if (!b) return;
   const go = b.dataset.go;
@@ -971,10 +1020,6 @@ const IMG_PRESETS = [
   { k: "mug" }, { k: "fruit" }, { k: "smoothie" }, { k: "tiramisu" },
 ];
 const cur = { img: 0, photo: null, app: new Set(), editId: null };
-const SELOPTS = CATEGORIES.map(c =>
-  `<optgroup label="${c.name}">` +
-  INGREDIENTS.filter(i => i.c === c.id).map(i => `<option value="${i.id}">${i.n}</option>`).join("") +
-  `</optgroup>`).join("");
 
 function renderFApp() {
   $("#f-app").innerHTML = APPLIANCES.map(a =>
@@ -994,13 +1039,71 @@ function renderImgPicker() {
 function addIngRow(id = "", qty = "", opt = false) {
   const div = document.createElement("div");
   div.className = "ingrow";
-  div.innerHTML = `<select class="fin">${SELOPTS}</select>
-    <input class="fin" placeholder="Quantità (es. 180 g)" value="${qty.replace(/"/g, "&quot;")}">
+  const ing = id ? ING_BY_ID[id] : null;
+  div.innerHTML = `<span class="ipick">
+      <input class="fin ipsearch${ing ? " chosen" : ""}" data-id="${ing ? id : ""}" placeholder="Cerca ingrediente…"
+             value="${ing ? ing.n.replace(/"/g, "&quot;") : ""}" autocomplete="off">
+      <span class="idrop"></span>
+    </span>
+    <input class="fin qta" placeholder="Quantità" value="${qty.replace(/"/g, "&quot;")}">
     <button type="button" class="rowopt${opt ? " on" : ""}">facolt.</button>
     <button type="button" class="rowdel">✕</button>`;
-  if (id) div.querySelector("select").value = id;
   $("#f-ings").appendChild(div);
 }
+
+// ---------- ricerca ingredienti nel modulo ----------
+const CAT_NAME = Object.fromEntries(CATEGORIES.map(c => [c.id, c.name]));
+function fillDrop(input) {
+  const drop = input.parentElement.querySelector(".idrop");
+  const q = norm(input.value.trim());
+  let items = q
+    ? INGREDIENTS.filter(i => norm(i.n).includes(q))
+        .sort((a, b) => norm(a.n).indexOf(q) - norm(b.n).indexOf(q))
+    : INGREDIENTS;
+  items = items.slice(0, 40);
+  drop.innerHTML = items.length
+    ? items.map(i => `<button type="button" data-pick="${i.id}">${NOVA_ICON(i.e, 22)}${i.n}<small>${CAT_NAME[i.c]}</small></button>`).join("")
+    : `<div class="none">Nessun ingrediente trovato</div>`;
+  drop.classList.add("show");
+}
+function closeDrops(except) {
+  document.querySelectorAll(".idrop.show").forEach(d => { if (d !== except) d.classList.remove("show"); });
+}
+$("#f-ings").addEventListener("focusin", e => {
+  if (!e.target.classList.contains("ipsearch")) return;
+  e.target.select();
+  fillDrop(e.target);
+  closeDrops(e.target.parentElement.querySelector(".idrop"));
+});
+$("#f-ings").addEventListener("input", e => {
+  if (!e.target.classList.contains("ipsearch")) return;
+  e.target.dataset.id = "";
+  e.target.classList.remove("chosen");
+  fillDrop(e.target);
+});
+$("#f-ings").addEventListener("keydown", e => {
+  if (!e.target.classList.contains("ipsearch")) return;
+  const drop = e.target.parentElement.querySelector(".idrop");
+  if (!drop.classList.contains("show")) return;
+  const btns = [...drop.querySelectorAll("[data-pick]")];
+  if (!btns.length) return;
+  let ix = btns.findIndex(b => b.classList.contains("hi"));
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    ix = e.key === "ArrowDown" ? Math.min(btns.length - 1, ix + 1) : Math.max(0, ix - 1);
+    btns.forEach(b => b.classList.remove("hi"));
+    btns[ix].classList.add("hi");
+    btns[ix].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    (btns[ix >= 0 ? ix : 0]).click();
+  } else if (e.key === "Escape") {
+    drop.classList.remove("show");
+  }
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".ipick")) closeDrops(null);
+});
 function addStepRow(text = "") {
   const div = document.createElement("div");
   div.className = "steprow";
@@ -1057,12 +1160,12 @@ function saveRecipe() {
   const time = parseInt($("#f-tempo").value, 10) || 20;
   const serves = $("#f-porzioni").value.trim() || "2 persone";
   const ing = [...document.querySelectorAll("#f-ings .ingrow")].map(row => {
-    const id = row.querySelector("select").value;
-    const qty = row.querySelector("input").value.trim();
+    const id = row.querySelector(".ipsearch").dataset.id;
+    const qty = row.querySelector(".qta").value.trim();
     const opt = row.querySelector(".rowopt").classList.contains("on");
-    return qty || id ? [id, qty || "q.b.", opt || undefined] : null;
+    return id ? [id, qty || "q.b.", opt || undefined] : null;
   }).filter(Boolean).map(x => x[2] ? x : [x[0], x[1]]);
-  if (!ing.length) return err("Aggiungi almeno un ingrediente");
+  if (!ing.length) return err("Scegli almeno un ingrediente dalla lista di ricerca");
   const steps = [...document.querySelectorAll("#f-steps textarea")].map(t => t.value.trim()).filter(Boolean);
   if (!steps.length) return err("Scrivi almeno un passaggio");
   const r = {
@@ -1115,6 +1218,17 @@ $("#f-photo-row").addEventListener("click", e => {
   if (e.target.id === "f-photo-del") { cur.photo = null; $("#f-photo").value = ""; renderImgPicker(); }
 });
 $("#f-ings").addEventListener("click", e => {
+  const pick = e.target.closest("[data-pick]");
+  if (pick) {
+    const row = pick.closest(".ingrow");
+    const input = row.querySelector(".ipsearch");
+    const i = ING_BY_ID[pick.dataset.pick];
+    input.value = i.n; input.dataset.id = i.id; input.classList.add("chosen");
+    row.querySelector(".idrop").classList.remove("show");
+    const q = row.querySelector(".qta");
+    if (!q.value) q.focus();
+    return;
+  }
   if (e.target.classList.contains("rowdel")) e.target.closest(".ingrow").remove();
   if (e.target.classList.contains("rowopt")) e.target.classList.toggle("on");
 });
@@ -1137,6 +1251,7 @@ $("#mine-list")?.addEventListener("click", e => {
 $("#modes").addEventListener("click", e => {
   const b = e.target.closest("[data-m]"); if (!b) return;
   state.mode = b.dataset.m; save(); renderRecipes();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 // ---------- Avvio ----------
