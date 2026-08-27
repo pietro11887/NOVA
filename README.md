@@ -6,7 +6,9 @@ Il nome viene da **q.b.**, l'abbreviazione che sta su ogni ricetta italiana: con
 
 ## Come funziona
 
-Dalla **Home** scegli dove andare:
+La **Home** è una vetrina: in cima la ricetta che puoi fare stasera con quello che hai (foto grande), poi le strisce «Pronte da cucinare» e «Ti manca poco», la tua cucina in miniatura e le scorciatoie. Al primo avvio la dispensa parte già piena degli ingredienti che quasi tutti hanno in casa, così l'app mostra subito ricette vere invece di una lista vuota: si tolgono con un tocco.
+
+Da lì si va a:
 
 - **Trova ricette** — il flusso in tre passi: selezioni gli **ingredienti** che hai (sale, pepe, olio e acqua sono dati per scontati), spunti gli **strumenti** nella cucina illustrata interattiva, e vedi le **ricette** divise tra *"Pronte da cucinare"* (hai tutto) e *"Ti manca poco"* (mancano 1-2 ingredienti, ti dice quali)
 - **Sfoglia il ricettario** — tutte le ricette per categoria, con ricerca per nome o ingrediente e filtri (preferiti, sotto i 20 minuti, vegetariano, facile)

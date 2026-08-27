@@ -602,6 +602,104 @@
   .ck-nav button.main{background:var(--accent);color:#fff;flex:2;box-shadow:0 4px 16px rgba(10,132,255,.3)}
   .ck-nav button:disabled{opacity:.4}
   .ck-awake{font-size:11.5px;color:var(--text3);text-align:center;padding:10px 18px 2px;flex:none}
+
+  /* ---------- Home vetrina ---------- */
+  .greet{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:4px 2px 2px}
+  .greet-sub{color:var(--text2);font-size:14.5px;margin:0 2px 14px}
+  .hero{
+    position:relative;display:block;width:100%;text-align:left;
+    border-radius:20px;overflow:hidden;box-shadow:var(--shadow);
+    background:var(--card);transition:transform .1s ease;
+  }
+  .hero:active{transform:scale(.985)}
+  .hero .ph{position:relative;aspect-ratio:16/10;background:var(--card2)}
+  .hero .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .hero .ph svg{position:absolute;inset:0;margin:auto}
+  .hero .veil{
+    position:absolute;inset:auto 0 0 0;padding:44px 16px 14px;
+    background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,.25) 55%,transparent);
+    color:#fff;
+  }
+  .hero .eyebrow{
+    font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
+    opacity:.9;margin-bottom:5px;display:flex;align-items:center;gap:6px;
+  }
+  .hero h2{font-size:22px;font-weight:800;line-height:1.15;letter-spacing:-.3px;text-wrap:balance}
+  .hero .meta{font-size:13px;opacity:.92;margin-top:5px}
+  .hero .pill-ok{
+    display:inline-block;background:#30d158;color:#06331a;font-size:11.5px;font-weight:800;
+    border-radius:6px;padding:2px 7px;margin-top:8px;
+  }
+  .hero .pill-miss{
+    display:inline-block;background:rgba(255,255,255,.22);color:#fff;font-size:11.5px;font-weight:700;
+    border-radius:6px;padding:2px 7px;margin-top:8px;
+  }
+
+  .strip-h{
+    display:flex;align-items:baseline;gap:8px;margin:22px 2px 10px;
+    font-size:15.5px;font-weight:750;
+  }
+  .strip-h small{color:var(--text3);font-weight:600;font-size:12.5px}
+  .strip-h button{margin-left:auto;color:var(--accent);font-size:13px;font-weight:600}
+  .strip{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px}
+  .strip::-webkit-scrollbar{display:none}
+  .scard{
+    flex:none;width:136px;text-align:left;background:var(--card);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow);transition:transform .1s ease;
+  }
+  .scard:active{transform:scale(.96)}
+  .scard .ph{aspect-ratio:4/3;background:var(--card2);position:relative;display:flex;align-items:center;justify-content:center}
+  .scard .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .scard .nm{
+    font-size:12.5px;font-weight:650;line-height:1.25;padding:8px 9px 3px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .scard .mt{font-size:11px;color:var(--text3);padding:0 9px 9px;font-weight:600}
+
+  .kcard{
+    display:block;width:100%;background:var(--card);border-radius:18px;
+    box-shadow:var(--shadow);overflow:hidden;padding:8px 8px 4px;text-align:left;
+  }
+  .kcard svg{display:block;width:100%;height:auto;border-radius:12px}
+  .kcard .kfoot{display:flex;align-items:center;gap:8px;padding:9px 8px 7px;font-size:13px;color:var(--text2)}
+  .kcard .kfoot b{color:var(--text);font-weight:650}
+  .kcard .kfoot span{margin-left:auto;color:var(--accent);font-weight:600}
+
+  .acts{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .arow{
+    display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;
+    padding:13px 14px;box-shadow:var(--shadow);text-align:left;transition:transform .08s ease;
+  }
+  .arow:active{transform:scale(.985)}
+  .arow .ic{flex:none;width:34px;height:34px;border-radius:10px;background:var(--card2);
+    display:flex;align-items:center;justify-content:center;color:var(--text2)}
+  .arow b{font-size:15px;font-weight:650}
+  .arow small{display:block;color:var(--text2);font-size:12.5px;margin-top:1px}
+  .arow .cnt{margin-left:auto;background:var(--green);color:#fff;font-size:11.5px;font-weight:800;
+    border-radius:999px;min-width:20px;height:20px;padding:0 6px;display:flex;align-items:center;justify-content:center}
+  .arow .chev{margin-left:auto;color:var(--text3);font-size:19px}
+  .arow .cnt + .chev{margin-left:8px}
+
+  .primo-avvio{
+    background:var(--accent-soft);color:var(--accent);border-radius:12px;
+    padding:10px 13px;font-size:13px;font-weight:600;line-height:1.45;margin:2px 0 10px;
+    display:flex;gap:9px;align-items:flex-start;
+  }
+  .primo-avvio button{margin-left:auto;flex:none;color:var(--accent);font-weight:700;font-size:13px}
+
+  /* condividi */
+  .sh-share{
+    position:absolute;top:14px;right:58px;z-index:3;width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:var(--text2);
+    background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.12);
+  }
+  .toast{
+    position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);
+    background:var(--text);color:var(--bg);font-size:14px;font-weight:600;
+    padding:11px 18px;border-radius:999px;z-index:200;opacity:0;pointer-events:none;
+    transition:opacity .2s ease,transform .2s ease;box-shadow:0 8px 26px rgba(0,0,0,.3);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -614,32 +712,14 @@
 <main>
   <!-- ============ HOME ============ -->
   <section class="screen active" id="screen-home">
-    <div class="home-hero">
-      <h2 id="greet">Ciao!</h2>
-      <p>Dimmi cosa c'è nel tuo frigo e nella tua dispensa: al resto pensiamo noi.</p>
-    </div>
-    <div class="home-cards">
-      <button class="hcard" data-go="find">
-        <span class="hic" id="hic-find"></span>
-        <span class="htx"><b>Trova ricette</b><p>Scegli ingredienti e strumenti, ti dico cosa puoi cucinare</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="hcard" data-go="browse">
-        <span class="hic" id="hic-browse"></span>
-        <span class="htx"><b>Sfoglia il ricettario</b><p>Tutte le ricette, dalla carbonara al tiramisù</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="hcard" data-go="spesa">
-        <span class="hic cart" id="hic-spesa"></span>
-        <span class="htx"><b>Lista della spesa</b><p id="spesa-sub">Quello che ti manca, diviso per reparto</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="hcard" data-go="create">
-        <span class="hic accent" id="hic-create"></span>
-        <span class="htx"><b>Crea una ricetta</b><p>Campi guidati: la tua ricetta entra nell'app</p></span>
-        <span class="chev">›</span>
-      </button>
-    </div>
+    <h2 class="greet" id="greet">Ciao!</h2>
+    <p class="greet-sub" id="greet-sub">Vediamo cosa si cucina.</p>
+    <div id="primo-avvio"></div>
+    <div id="home-hero"></div>
+    <div id="home-strips"></div>
+    <div class="strip-h">La tua cucina <small id="k-count"></small></div>
+    <button class="kcard" id="home-kitchen"></button>
+    <div class="acts" id="home-acts"></div>
     <div class="home-stats" id="home-stats"></div>
     <p class="credits" id="credits"></p>
     <div class="cred-list" id="cred-list"></div>
@@ -655,6 +735,7 @@
       </div>
       <div class="catnav" id="catnav"></div>
     </div>
+    <div id="ing-nota"></div>
     <div class="selbar" id="selbar"></div>
     <div id="ing-list"></div>
     <p class="staples-note">Sale, pepe, olio extravergine e acqua<br>li diamo per scontati</p>
@@ -800,6 +881,7 @@
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
 <div id="backdrop"></div>
 <div id="sheet" role="dialog" aria-modal="true"></div>
 
@@ -835,6 +917,15 @@ function passaFiltri(r) {
 const PHOTO_OF = (r) => r.photo || (typeof PHOTOS !== "undefined" ? PHOTOS[r.id] : null);
 
 // ---------- Stato (persistito) ----------
+// Al primo avvio partiamo da quello che c'è in quasi tutte le cucine: così l'app
+// mostra subito ricette vere invece di una lista vuota. Si toglie in un tocco.
+const DISPENSA_BASE = [
+  "spaghetti", "pastacorta", "riso", "passata", "tonno",
+  "aglio", "cipolla", "peperoncino", "pomodorini", "patate", "zucchine", "limone",
+  "uova", "latte", "burro", "parmigiano", "pane",
+  "farina", "zucchero", "lievito", "basilico", "origano",
+];
+let primoAvvio = false;
 let state = { ing: new Set(), app: new Set(["fornelli"]), tab: "home", filter: "tutte", mode: "match", q: "", f2: new Set() };
 try {
   const saved = JSON.parse(localStorage.getItem("qb_state") || localStorage.getItem("nova_state"));
@@ -845,7 +936,13 @@ try {
     state.mode = saved.mode || "match";
     state.f2 = new Set(saved.f2 || []);
   }
+  else primoAvvio = true;
 } catch (e) {}
+if (!localStorage.getItem("qb_state") && !localStorage.getItem("nova_state")) primoAvvio = true;
+if (primoAvvio) {
+  DISPENSA_BASE.forEach(i => state.ing.add(i));
+  ["forno", "micro"].forEach(a => state.app.add(a));
+}
 let mine = [];
 try { mine = JSON.parse(localStorage.getItem("qb_mie_ricette") || localStorage.getItem("nova_mie_ricette")) || []; } catch (e) {}
 mine.forEach(r => { r.mine = true; });
@@ -906,6 +1003,9 @@ function renderIngredients() {
   const q = norm($("#search").value.trim());
   $("#searchbox").classList.toggle("has-text", q.length > 0);
   $("#catnav").style.display = q ? "none" : "flex";
+  $("#ing-nota").innerHTML = primoAvvio
+    ? `<div class="primo-avvio">Ti abbiamo già segnato gli ingredienti che quasi tutti hanno in casa: togli quelli che non hai.<button id="pa-ok2">Ok</button></div>`
+    : "";
   let html = "", any = false;
   for (const cat of CATEGORIES) {
     const items = INGREDIENTS.filter(i => i.c === cat.id && (!q || norm(i.n).includes(q)));
@@ -1093,6 +1193,7 @@ function renderSheet() {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
+    <button class="sh-share" id="sh-share" aria-label="Condividi la ricetta">${QB_UI("share", 18, 2)}</button>
     <button class="heart sh-fav${fav.has(r.id) ? " on" : ""}" data-fav="${r.id}" aria-label="Preferito">${QB_UI(fav.has(r.id) ? "heartFull" : "heart", 20, 2)}</button>
     <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : QB_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
@@ -1141,6 +1242,7 @@ $("#sheet").addEventListener("click", e => {
     return;
   }
   if (e.target.closest("#sh-cook")) { apriCucina(); return; }
+  if (e.target.closest("#sh-share")) { condividi(sheetR); return; }
   const ir = e.target.closest("[data-ing-row]");
   if (ir) {
     const k = ir.dataset.ingRow;
@@ -1177,6 +1279,35 @@ function closeSheet() {
   document.body.style.overflow = "";
 }
 
+
+// ---------- Condividi una ricetta ----------
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function testoRicetta(r) {
+  const f = sheetR === r ? sheetN / sheetBase : 1;
+  const ing = r.ing.map(([iid, qty, opt]) =>
+    `· ${altName(iid)} — ${scaleText(qty, f)}${opt ? " (facolt.)" : ""}`).join("\n");
+  const steps = r.steps.map((st, i) => `${i + 1}. ${st}`).join("\n");
+  return `${r.name}\n${CAT_LABEL[r.cat]} · ${r.time} min · ${scaleText(r.serves, f)}\n\n`
+    + `INGREDIENTI\n${ing}\n\nPREPARAZIONE\n${steps}\n\n— da Quanto Basta`;
+}
+async function condividi(r) {
+  const testo = testoRicetta(r);
+  try {
+    if (navigator.share) { await navigator.share({ title: r.name, text: testo }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  try {
+    await navigator.clipboard.writeText(testo);
+    toast("Ricetta copiata: incollala dove vuoi");
+  } catch (e) {
+    toast("Non riesco a condividere da qui");
+  }
+}
 
 // ---------- Modalità cucina ----------
 let ckR = null, ckI = 0, ckLock = null, ckF = 1;
@@ -1342,8 +1473,12 @@ function updateChrome() {
 $("#search").addEventListener("input", renderIngredients);
 $("#search-clear").addEventListener("click", () => { $("#search").value = ""; renderIngredients(); $("#search").focus(); });
 
+$("#ing-nota").addEventListener("click", e => {
+  if (e.target.id === "pa-ok2") { primoAvvio = false; renderIngredients(); }
+});
 $("#ing-list").addEventListener("click", e => {
   const b = e.target.closest("[data-ing]"); if (!b) return;
+  if (primoAvvio) { primoAvvio = false; $("#ing-nota").innerHTML = ""; }
   const id = b.dataset.ing;
   state.ing.has(id) ? state.ing.delete(id) : state.ing.add(id);
   b.classList.toggle("on", state.ing.has(id));
@@ -1519,54 +1654,152 @@ $("#sp-clear-all").addEventListener("click", () => {
 });
 
 // ---------- Home ----------
+// La ricetta del giorno cambia ogni giorno ma resta la stessa per tutta la giornata
+function ricettaDelGiorno() {
+  const conFoto = ALL().filter(r => PHOTO_OF(r));
+  const pool = conFoto.length ? conFoto : ALL();
+  const g = new Date();
+  const seme = g.getFullYear() * 1000 + Math.floor((g - new Date(g.getFullYear(), 0, 0)) / 86400000);
+  return pool[seme % pool.length];
+}
+
+function heroCard(r, eyebrow) {
+  const m = matchRecipe(r);
+  const p = PHOTO_OF(r);
+  const stato = m.appOk && m.missing.length === 0
+    ? `<span class="pill-ok">Puoi farla adesso</span>`
+    : m.missing.length && m.missing.length <= 3
+      ? `<span class="pill-miss">Ti manca: ${m.missing.map(altName).join(", ")}</span>`
+      : "";
+  return `<button class="hero" data-r="${r.id}">
+    <span class="ph">${p ? `<img src="${p}" alt="">` : QB_DISH(r.img, 150)}
+      <span class="veil">
+        <span class="eyebrow">${QB_UI("flame", 13, 2.4)} ${eyebrow}</span>
+        <h2>${r.name}</h2>
+        <div class="meta">${CAT_LABEL[r.cat]} · ${r.time} min · ${r.serves}</div>
+        ${stato}
+      </span>
+    </span>
+  </button>`;
+}
+
+function stripCard(r) {
+  const p = PHOTO_OF(r);
+  return `<button class="scard" data-r="${r.id}">
+    <span class="ph">${p ? `<img src="${p}" alt="" loading="lazy">` : QB_DISH(r.img, 62)}</span>
+    <span class="nm">${r.name}</span>
+    <span class="mt">${r.time} min</span>
+  </button>`;
+}
+
+function striscia(titolo, nota, ricette, vaiA) {
+  if (!ricette.length) return "";
+  return `<div class="strip-h">${titolo}<small>${nota}</small>
+      ${vaiA ? `<button data-strip="${vaiA}">Vedi tutte</button>` : ""}</div>
+    <div class="strip">${ricette.map(stripCard).join("")}</div>`;
+}
+
 function renderHome() {
   const h = new Date().getHours();
   $("#greet").textContent = h < 12 ? "Buongiorno!" : h < 18 ? "Buon pomeriggio!" : "Buonasera!";
+
+  // quante ricette sono pronte con quello che ha in casa
+  const pronte = ALL().filter(r => { const m = matchRecipe(r); return m.appOk && m.missing.length === 0; });
+  const quasi = ALL().filter(r => { const m = matchRecipe(r); return m.appOk && m.missing.length > 0 && m.missing.length <= 2; });
+  $("#greet-sub").textContent = pronte.length
+    ? `Con quello che hai puoi fare ${pronte.length} ricett${pronte.length === 1 ? "a" : "e"}.`
+    : "Dimmi cosa hai in casa e ti dico cosa cucinare.";
+
+  // nota del primo avvio, finché non tocca gli ingredienti
+  $("#primo-avvio").innerHTML = primoAvvio
+    ? `<div class="primo-avvio">Abbiamo già segnato gli ingredienti che quasi tutti hanno in casa.
+         <button id="pa-ok">Ok</button></div>`
+    : "";
+
+  // in cima: se può cucinare qualcosa mostriamo quella, altrimenti la ricetta del giorno
+  const hero = pronte.length ? pronte[Math.floor(Date.now() / 86400000) % pronte.length] : ricettaDelGiorno();
+  $("#home-hero").innerHTML = heroCard(hero, pronte.length ? "Stasera puoi fare" : "La ricetta del giorno");
+
+  let strisce = "";
+  if (pronte.length > 1) {
+    const altre = pronte.filter(r => r.id !== hero.id).slice(0, 10);
+    strisce += striscia("Pronte da cucinare", `· ${pronte.length}`, altre, "pronte");
+  }
+  if (quasi.length) strisce += striscia("Ti manca poco", `· ${quasi.length}`, quasi.slice(0, 10), "quasi");
+  // la striscia dei veloci serve soprattutto quando le altre due sono vuote
+  if (pronte.length + quasi.length < 6) {
+    const veloci = ALL().filter(r => r.time <= 20 && PHOTO_OF(r)).slice(0, 10);
+    strisce += striscia("Veloci, sotto i 20 minuti", "", veloci, "veloci");
+  }
+  const pref = ALL().filter(r => fav.has(r.id));
+  if (pref.length) strisce += striscia("I tuoi preferiti", `· ${pref.length}`, pref.slice(0, 10), "fav");
+  $("#home-strips").innerHTML = strisce;
+
+  // la cucina, in miniatura e viva
+  $("#k-count").textContent = `· ${state.app.size} strument${state.app.size === 1 ? "o" : "i"}`;
+  $("#home-kitchen").innerHTML = QB_KITCHEN(state.app) +
+    `<span class="kfoot"><b>Cosa puoi usare</b> — tocca per cambiare<span>Apri ›</span></span>`;
+
+  // le azioni, compatte
+  const n = spesaDaFare();
+  $("#home-acts").innerHTML = `
+    <button class="arow" data-go="find"><span class="ic">${QB_UI("basket", 19, 2)}</span>
+      <span><b>Cosa ho in casa</b><small>Aggiorna la tua dispensa</small></span><span class="chev">›</span></button>
+    <button class="arow" data-go="browse"><span class="ic">${QB_UI("dish", 19, 2)}</span>
+      <span><b>Sfoglia il ricettario</b><small>${ALL().length} ricette, con ricerca e filtri</small></span><span class="chev">›</span></button>
+    <button class="arow" data-go="spesa"><span class="ic">${QB_UI("cart", 19, 2)}</span>
+      <span><b>Lista della spesa</b><small>${n ? `${n} cos${n === 1 ? "a" : "e"} da comprare` : "Divisa per reparto"}</small></span>
+      ${n ? `<span class="cnt">${n}</span>` : ""}<span class="chev">›</span></button>
+    <button class="arow" data-go="create"><span class="ic">${QB_UI("plus", 19, 2)}</span>
+      <span><b>Crea una ricetta</b><small>La tua ricetta entra nell'app</small></span><span class="chev">›</span></button>`;
+
   const cr = typeof PHOTO_CREDITS !== "undefined" ? PHOTO_CREDITS : [];
   $("#credits").innerHTML = cr.length
-    ? `Foto dei piatti da Wikimedia Commons, con licenze libere. <button id="cr-open">Autori e licenze</button>`
+    ? `Foto dei piatti da Wikimedia Commons e Openverse, con licenze libere. <button id="cr-open">Autori e licenze</button>`
     : "";
-  const n = spesaDaFare();
-  $("#spesa-sub").textContent = n
-    ? `${n} cos${n === 1 ? "a" : "e"} da comprare`
-    : "Quello che ti manca, diviso per reparto";
   $("#home-stats").innerHTML =
     `<span><b>${ALL().length}</b> ricette</span> · <span><b>${INGREDIENTS.length}</b> ingredienti</span> · <span><b>${APPLIANCES.length}</b> strumenti</span>`;
 }
-const homeThumb = (id, fallback) => {
-  const p = typeof PHOTOS !== "undefined" ? PHOTOS[id] : null;
-  return p ? `<img src="${p}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">` : QB_DISH(fallback, 52);
-};
-$("#hic-find").innerHTML = homeThumb("carbonara", { k: "spag", a: "#eec96f", g: "chili" });
-$("#hic-browse").innerHTML = homeThumb("tiramisu", { k: "cake" });
-$("#hic-create").innerHTML = QB_UI("plus", 30, 2.2);
-$("#hic-spesa").innerHTML = QB_UI("cart", 30, 2.2);
-$("#credits").addEventListener("click", e => {
-  if (e.target.id !== "cr-open") return;
-  const box = $("#cred-list");
-  if (!box.innerHTML) {
-    const riga = (c, nome) =>
-      `<a href="${c.page}" target="_blank" rel="noopener"><b>${nome}</b> — ${c.author || "autore non indicato"} · ${c.license}</a>`;
-    let h = PHOTO_CREDITS.map(c => {
-      const r = ALL().find(x => x.id === c.id);
-      return riga(c, r ? r.name : c.id);
-    }).join("");
-    if (typeof STEP_CREDITS !== "undefined" && STEP_CREDITS.length) {
-      h += `<a style="border:none;padding-top:12px"><b>Foto delle tecniche</b></a>`;
-      h += STEP_CREDITS.map(c => riga(c, c.id)).join("");
+
+$("#screen-home").addEventListener("click", (e) => {
+  if (e.target.id === "pa-ok") { primoAvvio = false; renderHome(); return; }
+  if (e.target.id === "cr-open") {
+    const box = $("#cred-list");
+    if (!box.innerHTML) {
+      const riga = (c, nome) =>
+        `<a href="${c.page}" target="_blank" rel="noopener"><b>${nome}</b> — ${c.author || "autore non indicato"} · ${c.license}</a>`;
+      let h = PHOTO_CREDITS.map(c => {
+        const r = ALL().find(x => x.id === c.id);
+        return riga(c, r ? r.name : c.id);
+      }).join("");
+      if (typeof STEP_CREDITS !== "undefined" && STEP_CREDITS.length) {
+        h += `<a style="border:none;padding-top:12px"><b>Foto delle tecniche</b></a>`;
+        h += STEP_CREDITS.map(c => riga(c, c.id)).join("");
+      }
+      box.innerHTML = h;
     }
-    box.innerHTML = h;
+    box.classList.toggle("show");
+    e.target.textContent = box.classList.contains("show") ? "Nascondi elenco" : "Autori e licenze";
+    return;
   }
-  box.classList.toggle("show");
-  e.target.textContent = box.classList.contains("show") ? "Nascondi elenco" : "Autori e licenze";
-});
-document.querySelector(".home-cards").addEventListener("click", e => {
-  const b = e.target.closest("[data-go]"); if (!b) return;
-  const go = b.dataset.go;
-  if (go === "find") { state.mode = "match"; save(); setTab("ing"); }
-  if (go === "browse") { state.mode = "all"; state.filter = "tutte"; save(); setTab("ric"); }
-  if (go === "create") setTab("crea");
-  if (go === "spesa") setTab("spesa");
+  const card = e.target.closest("[data-r]");
+  if (card) { openSheet(card.dataset.r); return; }
+  const strip = e.target.closest("[data-strip]");
+  if (strip) {
+    const k = strip.dataset.strip;
+    state.q = ""; state.f2 = new Set();
+    if (k === "pronte" || k === "quasi") state.mode = "match";
+    else { state.mode = "all"; if (k === "veloci") state.f2.add("veloce"); if (k === "fav") state.f2.add("fav"); }
+    state.filter = "tutte"; save(); setTab("ric");
+    return;
+  }
+  if (e.target.closest("#home-kitchen")) { setTab("app"); return; }
+  const go = e.target.closest("[data-go]");
+  if (!go) return;
+  if (go.dataset.go === "find") { state.mode = "match"; save(); setTab("ing"); }
+  if (go.dataset.go === "browse") { state.mode = "all"; state.filter = "tutte"; save(); setTab("ric"); }
+  if (go.dataset.go === "create") setTab("crea");
+  if (go.dataset.go === "spesa") setTab("spesa");
 });
 
 // ---------- Crea ricetta ----------
