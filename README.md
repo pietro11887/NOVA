@@ -23,7 +23,11 @@ Da lì si va a:
 
 Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e desktop.
 
-**Intestazione** — in cima c'è il titolo grande; appena scorri si contrae in una barretta sottile che resta lì, con il nome della schermata e il pulsante del tema. Quello che era già appiccicato in alto (ricerca, filtri, campo della spesa) si posiziona sotto: l'altezza da contratta viene misurata, non indovinata, perché dipende dal telefono.
+**Intestazione** — in cima c'è il titolo grande; appena scorri si contrae in una barretta sottile che resta lì, con il nome della schermata e il pulsante del tema. Quello che era già appiccicato in alto (ricerca, filtri, categorie, campo della spesa) si posiziona sotto: l'altezza da contratta viene misurata, non indovinata, perché dipende dal telefono.
+
+Le barre che restano sono in **vetro smerigliato**: semitrasparenti, con il contenuto sfocato che ci scorre sotto (`backdrop-filter`). Dove il browser non lo sostiene, o dove l'utente ha chiesto meno trasparenza nelle impostazioni di sistema, tornano piene.
+
+Nel ricettario la riga dei filtri si ritira mentre scorri per non mangiare schermo, ma **solo se non hai filtri attivi**: uno acceso resta sempre visibile, altrimenti non si capisce perché la lista è corta.
 
 **Barra della ricetta** — dentro la scheda una barretta resta in cima con chiudi, preferiti e condividi; scorrendo compaiono anche il nome della ricetta e il pulsante **Cucina**, così si può partire da qualsiasi punto senza risalire.
 
