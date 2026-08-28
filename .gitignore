@@ -1,3 +1,6 @@
 # roba di lavoro che non serve nel repository
 node_modules/
 *.log
+
+# appartiene al progetto NOVA, non a questa app: resta sul disco ma fuori dal pacchetto
+status.json
