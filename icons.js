@@ -672,6 +672,7 @@
     share: `<path d="M16 21V4"/><path d="M10 10l6-6 6 6"/><path d="M7 15v10a2 2 0 002 2h14a2 2 0 002-2V15"/>`,
     sole: `<circle cx="16" cy="16" r="6"/><path d="M16 3v3M16 26v3M3 16h3M26 16h3M6.8 6.8l2.1 2.1M23.1 23.1l2.1 2.1M25.2 6.8l-2.1 2.1M8.9 23.1l-2.1 2.1"/>`,
     luna: `<path d="M25 18.5A10.5 10.5 0 0113.5 7a10.5 10.5 0 100 21 10.5 10.5 0 0011.5-9.5z"/>`,
+    avvia: `<circle cx="16" cy="16" r="12.5"/><path d="M13 11.2l8 4.8-8 4.8z" fill="currentColor" stroke="none"/>`,
     tools: `<circle cx="11" cy="14" r="7"/><path d="M18 14h9"/><path d="M11 10.5a3.5 3.5 0 013.5 3.5"/>`,
     dish: `<circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="5"/><path d="M2.5 8v7m0-7v3.5a2 2 0 002 2M29.5 8v7"/>`,
   };
