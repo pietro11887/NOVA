@@ -155,10 +155,10 @@ const RECIPES = [
     ],
   },
   {
-    id: "pomodoro", cat: "primi", name: "Pasta al pomodoro e basilico", img: { k: "short", a: "#d94f3d", g: "basil" },
+    id: "pomodoro", cat: "primi", name: "Pasta al pomodoro e basilico", img: { k: "spag", a: "#d94f3d" },
     time: 20, serves: "2 persone", diff: "Facile", app: ["fornelli"],
     ing: [
-      ["pastacorta", "180 g"],
+      ["spaghetti|pastacorta", "180 g"],
       ["passata", "350 g"],
       ["aglio", "1 spicchio"],
       ["basilico", "qualche foglia"],
@@ -226,7 +226,7 @@ const RECIPES = [
     id: "burro-parmigiano", cat: "primi", name: "Pasta burro e parmigiano", img: { k: "short", a: "#f2d886", g: "cheese" },
     time: 12, serves: "2 persone", diff: "Facilissima", app: ["fornelli"],
     ing: [
-      ["pastacorta", "180 g"],
+      ["pastacorta|spaghetti", "180 g"],
       ["burro", "40 g"],
       ["parmigiano", "50 g grattugiato"],
     ],

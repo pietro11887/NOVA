@@ -23,7 +23,6 @@ const PHOTOS = {
   "parmigiana": "photos/parmigiana.jpg",
   "pasta-ceci": "photos/pasta-ceci.jpg",
   "pasta-pesto": "photos/pasta-pesto.jpg",
-  "pasta-tonno": "photos/pasta-tonno.jpg",
   "patate-airfryer": "photos/patate-airfryer.jpg",
   "piadina": "photos/piadina.jpg",
   "pollo-airfryer": "photos/pollo-airfryer.jpg",
@@ -221,13 +220,6 @@ const PHOTO_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Pesto_Pasta_(Unsplash).jpg"
  },
  {
-  "file": "spaghetti",
-  "license": "CC BY 2.0",
-  "author": "seelensturm",
-  "page": "https://www.flickr.com/photos/61404197@N00/5451534765",
-  "id": "pasta-tonno"
- },
- {
   "id": "patate-airfryer",
   "file": "Potato_wedges_at_Mensa_Paderborn_(11956794164).jpg",
   "source": "wikipedia:en:Potato wedges",
@@ -268,12 +260,11 @@ const PHOTO_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Hackb%C3%A4llchen_mit_Tomatensugo_(5923210944).jpg"
  },
  {
-  "id": "pomodoro",
-  "file": "Pasta_(14819024165).jpg",
-  "source": "wikipedia:it:Pasta al pomodoro",
+  "file": "spaghetti",
   "license": "CC BY 2.0",
-  "author": "LanguageTeaching",
-  "page": "https://commons.wikimedia.org/wiki/File:Pasta_(14819024165).jpg"
+  "author": "seelensturm",
+  "page": "https://www.flickr.com/photos/61404197@N00/5451534765",
+  "id": "pomodoro"
  },
  {
   "id": "risotto-zafferano",

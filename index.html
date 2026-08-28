@@ -1716,8 +1716,15 @@ function renderHome() {
          <button id="pa-ok">Ok</button></div>`
     : "";
 
-  // in cima: se può cucinare qualcosa mostriamo quella, altrimenti la ricetta del giorno
-  const hero = pronte.length ? pronte[Math.floor(Date.now() / 86400000) % pronte.length] : ricettaDelGiorno();
+  // In cima ci va un piatto vero che puoi cucinare adesso: con la foto (una foto
+  // grande fa molto più effetto di un'illustrazione), e meglio un piatto completo
+  // che un contorno o due uova. Se non c'è, si scende di pretesa un gradino
+  // alla volta fino alla ricetta del giorno.
+  const piattoVero = (r) => !/contorno/i.test(r.name) && r.ing.length >= 4;
+  const scelta = [pronte.filter(r => PHOTO_OF(r) && piattoVero(r)),
+                  pronte.filter(r => PHOTO_OF(r)),
+                  pronte].find(l => l.length) || [];
+  const hero = scelta.length ? scelta[Math.floor(Date.now() / 86400000) % scelta.length] : ricettaDelGiorno();
   $("#home-hero").innerHTML = heroCard(hero, pronte.length ? "Stasera puoi fare" : "La ricetta del giorno");
 
   let strisce = "";
