@@ -51,7 +51,9 @@ Per metterla online gratis: **Settings → Pages → Deploy from branch**, e sar
 
 Una volta online, dal browser del telefono si aggiunge alla schermata Home (su iPhone: Condividi → Aggiungi a Home; su Android compare da sola la proposta di installazione). Da lì in poi si comporta come un'app installata: icona propria, si apre a tutto schermo senza barre del browser e **funziona anche senza connessione**, perché il service worker (`sw.js`) tiene in cache l'app e tutte le foto.
 
-Quando pubblichi una nuova versione, alza `VERSIONE` in `sw.js`: le cache vecchie vengono buttate e i telefoni prendono i file aggiornati.
+L'icona sulla schermata Home si mette **una volta sola**: gli aggiornamenti arrivano da soli, non serve reinstallare nulla.
+
+Quando pubblichi una nuova versione, alza `VERSIONE` in `sw.js` (`qb-v3` → `qb-v4`): le cache vecchie vengono buttate e i telefoni prendono i file aggiornati. Rientrando nell'app viene controllato se c'è una versione nuova; quando è pronta compare in basso un riquadro **«Nuova versione pronta — Ricarica»**, così non si continua a vedere quella vecchia fino alla riapertura successiva.
 
 ## Struttura
 
