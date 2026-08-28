@@ -23,7 +23,9 @@ Da lì si va a:
 
 Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e desktop.
 
-**Tema** — in fondo alla Home si sceglie fra *Automatico* (segue il telefono), *Chiaro* e *Scuro*. La scelta viene ricordata e vale ovunque: una scelta esplicita mette `data-theme` sull'elemento radice e ha la precedenza sul sistema, in entrambe le direzioni.
+**Tema** — il pulsante in alto a destra gira fra *Automatico*, *Chiaro* e *Scuro*; in fondo alla Home ci sono le tre voci per esteso. La scelta viene ricordata.
+
+Una scelta esplicita non si limita a mettere `data-theme` sull'elemento radice: scrive anche i colori come proprietà in linea. L'attributo, da solo, non basta quando la pagina è ospitata da un contenitore che imposta il proprio tema e lo riscrive dopo l'avvio (è il caso dell'anteprima): le proprietà in linea vincono su qualsiasi foglio di stile, e un osservatore rimette l'attributo se qualcuno lo cambia.
 
 ## Come provarla
 

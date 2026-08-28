@@ -78,6 +78,14 @@
     padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
     max-width:640px;margin:0 auto;
   }
+  .hd{display:flex;align-items:flex-start;gap:12px}
+  .hd-tx{flex:1;min-width:0}
+  #tema-btn{
+    flex:none;width:40px;height:40px;border-radius:50%;background:var(--card);
+    color:var(--text2);display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow);margin-top:2px;
+  }
+  #tema-btn svg{display:block}
   .app-name{font-size:28px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
   .app-name span{color:var(--accent)}
   .subtitle{color:var(--text2);font-size:16px;margin-top:2px;font-weight:500}
@@ -794,8 +802,13 @@
 <body>
 
 <header>
-  <h1 class="app-name">Quanto Basta<span>.</span></h1>
-  <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
+  <div class="hd">
+    <div class="hd-tx">
+      <h1 class="app-name">Quanto Basta<span>.</span></h1>
+      <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
+    </div>
+    <button id="tema-btn" aria-label="Cambia tema chiaro o scuro"><span id="tema-icona"></span></button>
+  </div>
 </header>
 
 <main>
@@ -1964,24 +1977,83 @@ $("#sp-clear-all").addEventListener("click", () => {
 });
 
 // ---------- Tema chiaro / scuro ----------
-// "auto" lascia decidere il telefono; una scelta esplicita mette data-theme
-// sul documento e vince sul sistema, in entrambe le direzioni.
+// "auto" segue il telefono. Una scelta esplicita non si limita a mettere
+// data-theme sul documento: quell'attributo lo tocca anche chi ci ospita
+// (l'anteprima lo riscrive col proprio tema, cancellando la scelta), quindi
+// scriviamo i colori direttamente sull'elemento radice, dove nessun foglio
+// di stile esterno può passarci sopra.
+const TOKEN_TEMA = {
+  light: {
+    "--bg": "#f2f2f7", "--card": "#ffffff", "--card2": "#f7f7fa",
+    "--text": "#1c1c1e", "--text2": "#6e6e73", "--text3": "#aeaeb2",
+    "--sep": "rgba(60,60,67,.12)",
+    "--accent": "#0a84ff", "--accent-soft": "rgba(10,132,255,.12)",
+    "--green": "#30a14e", "--green-soft": "rgba(48,209,88,.14)",
+    "--orange": "#e08700", "--orange-soft": "rgba(255,159,10,.14)",
+    "--chip": "#ffffff", "--chip-border": "rgba(60,60,67,.16)",
+    "--sheet": "#ffffff", "--backdrop": "rgba(0,0,0,.4)",
+    "--tabbar": "rgba(249,249,251,.92)",
+    "--shadow": "0 1px 3px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.05)",
+  },
+  dark: {
+    "--bg": "#000000", "--card": "#1c1c1e", "--card2": "#2c2c2e",
+    "--text": "#f5f5f7", "--text2": "#98989f", "--text3": "#636369",
+    "--sep": "rgba(84,84,88,.5)",
+    "--accent": "#0a84ff", "--accent-soft": "rgba(10,132,255,.2)",
+    "--green": "#30d158", "--green-soft": "rgba(48,209,88,.16)",
+    "--orange": "#ff9f0a", "--orange-soft": "rgba(255,159,10,.16)",
+    "--chip": "#1c1c1e", "--chip-border": "rgba(84,84,88,.65)",
+    "--sheet": "#1c1c1e", "--backdrop": "rgba(0,0,0,.6)",
+    "--tabbar": "rgba(22,22,24,.94)",
+    "--shadow": "0 1px 3px rgba(0,0,0,.4)",
+  },
+};
+
 function applicaTema() {
   const r = document.documentElement;
-  if (state.tema === "auto") r.removeAttribute("data-theme");
-  else r.setAttribute("data-theme", state.tema);
-  // la barra di stato del telefono segue il tema scelto
+  const scelto = state.tema === "light" || state.tema === "dark";
+
+  // via i colori scritti a mano: se siamo in automatico decide il foglio di stile
+  for (const k of Object.keys(TOKEN_TEMA.dark)) r.style.removeProperty(k);
+  if (scelto) {
+    const t = TOKEN_TEMA[state.tema];
+    for (const k in t) r.style.setProperty(k, t[k]);
+    r.setAttribute("data-theme", state.tema);
+    r.style.colorScheme = state.tema;
+  } else {
+    r.removeAttribute("data-theme");
+    r.style.colorScheme = "";
+  }
+
   const scuro = state.tema === "dark" ||
     (state.tema === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
   let meta = document.querySelector('meta[name="theme-color"]:not([media])');
   if (!meta) { meta = document.createElement("meta"); meta.name = "theme-color"; document.head.appendChild(meta); }
   meta.content = scuro ? "#000000" : "#f2f2f7";
-  document.querySelectorAll("#tema-sw button").forEach(b =>
+
+  document.querySelectorAll("[data-tema]").forEach(b =>
     b.classList.toggle("on", b.dataset.tema === state.tema));
+  const ic = $("#tema-icona");
+  if (ic) ic.innerHTML = QB_UI(scuro ? "luna" : "sole", 20, 2);
 }
-$("#tema-sw").addEventListener("click", (e) => {
+
+// Se chi ci ospita riscrive data-theme mentre abbiamo una scelta nostra,
+// la rimettiamo: i colori scritti a mano restano comunque i nostri.
+new MutationObserver(() => {
+  if (state.tema === "auto") return;
+  if (document.documentElement.getAttribute("data-theme") !== state.tema) applicaTema();
+}).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+function cambiaTema(v) { state.tema = v; save(); applicaTema(); }
+
+document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-tema]"); if (!b) return;
-  state.tema = b.dataset.tema; save(); applicaTema();
+  cambiaTema(b.dataset.tema);
+});
+$("#tema-btn").addEventListener("click", () => {
+  const giro = { auto: "light", light: "dark", dark: "auto" };
+  cambiaTema(giro[state.tema] || "light");
+  toast({ auto: "Tema automatico: segue il telefono", light: "Tema chiaro", dark: "Tema scuro" }[state.tema]);
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   if (state.tema === "auto") applicaTema();
