@@ -73,11 +73,29 @@
   button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
 
-  /* ---------- Header ---------- */
+  /* ---------- Header ----------
+     In cima il titolo grande; appena scorri si contrae in una barretta sottile
+     che resta lì, col nome della schermata e il pulsante del tema. */
+  :root{ --hd-h:54px; }
   header{
+    position:sticky;top:0;z-index:35;background:var(--bg);
     padding:calc(14px + env(safe-area-inset-top)) 20px 6px;
     max-width:640px;margin:0 auto;
+    transition:padding .18s ease, box-shadow .18s ease;
   }
+  header::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:.5px;
+    background:var(--sep);opacity:0;transition:opacity .18s ease;
+  }
+  header.ridotta{padding:calc(7px + env(safe-area-inset-top)) 20px 7px}
+  header.ridotta::after{opacity:1}
+  .hd-grande{transition:opacity .16s ease, max-height .2s ease}
+  header.ridotta .hd-grande{opacity:0;max-height:0;overflow:hidden;pointer-events:none}
+  .hd-piccola{
+    font-size:16.5px;font-weight:750;letter-spacing:-.2px;
+    opacity:0;max-height:0;overflow:hidden;transition:opacity .16s ease .04s, max-height .2s ease;
+  }
+  header.ridotta .hd-piccola{opacity:1;max-height:26px}
   .hd{display:flex;align-items:flex-start;gap:12px}
   .hd-tx{flex:1;min-width:0}
   #tema-btn{
@@ -96,7 +114,7 @@
   @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
   /* ---------- Search ---------- */
-  .search-wrap{position:sticky;top:0;z-index:10;padding:8px 0 10px;background:var(--bg)}
+  .search-wrap{position:sticky;top:var(--hd-h);z-index:10;margin-top:-10px;padding:18px 0 10px;background:var(--bg)}
   .search{
     display:flex;align-items:center;gap:8px;
     background:var(--card);border-radius:12px;padding:10px 12px;
@@ -137,7 +155,7 @@
     white-space:nowrap;
   }
   .catnav button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
-  .cat-sec{scroll-margin-top:130px}
+  .cat-sec{scroll-margin-top:calc(var(--hd-h) + 118px)}
   .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px}
   .tile{
     position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
@@ -328,7 +346,38 @@
   }
   #sheet.show{transform:translateY(0)}
   #sheet{position:fixed}
-  .grabber{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:6px auto 14px}
+  .grabber{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:6px auto 8px}
+  /* Barretta in cima alla scheda: chiudi e preferiti sempre lì; nome e
+     "Cucina" compaiono quando scorri, così puoi partire da qualsiasi punto. */
+  .sh-bar{
+    position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:8px;
+    background:var(--sheet);padding:4px 0 10px;margin-bottom:2px;
+  }
+  .sh-bar .chiudi{
+    flex:none;width:34px;height:34px;border-radius:50%;background:var(--card2);
+    color:var(--text2);font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .sh-bar .nm{
+    flex:1;min-width:0;font-size:15px;font-weight:700;letter-spacing:-.2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    opacity:0;transition:opacity .18s ease;
+  }
+  .sh-bar.scesa .nm{opacity:1}
+  .sh-bar .tondo{
+    flex:none;width:34px;height:34px;border-radius:50%;background:var(--card2);
+    display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;
+  }
+  .sh-bar .tondo.on{color:#e0405a}
+  .sh-bar .cucina{
+    flex:none;display:none;align-items:center;gap:6px;background:var(--accent);color:#fff;
+    border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:700;
+  }
+  .sh-bar.scesa .cucina{display:flex}
+  .sh-bar::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:.5px;background:var(--sep);
+    opacity:0;transition:opacity .18s ease;
+  }
+  .sh-bar.scesa::after{opacity:1}
   .sh-hero{display:flex;justify-content:center;margin:2px 0 10px}
   .sh-hero svg{display:block}
   .sh-head{margin-bottom:12px;text-align:center}
@@ -484,7 +533,8 @@
 
   /* ---------- Lista della spesa ---------- */
   .sp-add{
-    position:sticky;top:0;z-index:12;background:var(--bg);padding:6px 0 10px;
+    position:sticky;top:var(--hd-h);z-index:12;background:var(--bg);
+    margin-top:-10px;padding:16px 0 10px;
   }
   .sp-add .box{display:flex;gap:8px;position:relative}
   .sp-add input{
@@ -539,7 +589,7 @@
   .hcard .hic.cart{color:var(--green);background:var(--green-soft)}
 
   /* ---------- Ricerca e filtri ricette ---------- */
-  .ric-top{position:sticky;top:0;z-index:12;background:var(--bg);padding-bottom:8px}
+  .ric-top{position:sticky;top:var(--hd-h);z-index:12;background:var(--bg);margin-top:-10px;padding:10px 0 8px}
   .filtri{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 2px}
   .filtri::-webkit-scrollbar{display:none}
   .filtri button{
@@ -562,7 +612,6 @@
   .heart{cursor:pointer}
   .rcard{position:relative}
   .rcard .heart{top:50%;right:34px;transform:translateY(-50%);box-shadow:none;background:none;width:30px;height:30px}
-  .sh-fav{position:absolute;top:14px;right:16px;z-index:3}
 
   /* ---------- Ingredienti spuntabili ---------- */
   .ing-row{cursor:pointer;user-select:none;border-radius:8px;transition:opacity .15s}
@@ -719,11 +768,6 @@
   .primo-avvio button{margin-left:auto;flex:none;color:var(--accent);font-weight:700;font-size:13px}
 
   /* condividi */
-  .sh-share{
-    position:absolute;top:14px;right:58px;z-index:3;width:34px;height:34px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;color:var(--text2);
-    background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.12);
-  }
   .toast{
     position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(12px);
     background:var(--text);color:var(--bg);font-size:14px;font-weight:600;
@@ -804,8 +848,11 @@
 <header>
   <div class="hd">
     <div class="hd-tx">
-      <h1 class="app-name">Quanto Basta<span>.</span></h1>
-      <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
+      <div class="hd-grande">
+        <h1 class="app-name">Quanto Basta<span>.</span></h1>
+        <div class="subtitle" id="subtitle">Cosa hai in cucina?</div>
+      </div>
+      <div class="hd-piccola" id="hd-piccola">Home</div>
     </div>
     <button id="tema-btn" aria-label="Cambia tema chiaro o scuro"><span id="tema-icona"></span></button>
   </div>
@@ -1327,8 +1374,13 @@ function renderSheet() {
 
   $("#sheet").innerHTML = `
     <div class="grabber"></div>
-    <button class="sh-share" id="sh-share" aria-label="Condividi la ricetta">${QB_UI("share", 18, 2)}</button>
-    <button class="heart sh-fav${fav.has(r.id) ? " on" : ""}" data-fav="${r.id}" aria-label="Preferito">${QB_UI(fav.has(r.id) ? "heartFull" : "heart", 20, 2)}</button>
+    <div class="sh-bar" id="sh-bar">
+      <button class="chiudi" id="sh-chiudi" aria-label="Chiudi la ricetta">✕</button>
+      <span class="nm">${r.name}</span>
+      <span class="tondo${fav.has(r.id) ? " on" : ""}" data-fav="${r.id}" role="button" tabindex="0" aria-label="Aggiungi ai preferiti">${QB_UI(fav.has(r.id) ? "heartFull" : "heart", 18, 2)}</span>
+      <button class="tondo" id="sh-share" aria-label="Condividi la ricetta">${QB_UI("share", 17, 2)}</button>
+      <button class="cucina" id="sh-cook-bar">${QB_UI("flame", 15, 2.4)} Cucina</button>
+    </div>
     <div class="sh-hero">${PHOTO_OF(r) ? `<img src="${PHOTO_OF(r)}" alt="">` : QB_DISH(r.img, 148)}</div>
     <div class="sh-head"><h2>${r.name}${r.mine ? '<span class="mine-badge">Tua</span>' : ""}</h2></div>
     <div class="sh-meta">
@@ -1372,10 +1424,11 @@ $("#sheet").addEventListener("click", e => {
     fav.has(id) ? fav.delete(id) : fav.add(id);
     saveFav();
     fv.classList.toggle("on", fav.has(id));
-    fv.innerHTML = QB_UI(fav.has(id) ? "heartFull" : "heart", 20, 2);
+    fv.innerHTML = QB_UI(fav.has(id) ? "heartFull" : "heart", 18, 2);
     return;
   }
-  if (e.target.closest("#sh-cook")) { apriCucina(); return; }
+  if (e.target.closest("#sh-chiudi")) { closeSheet(); return; }
+  if (e.target.closest("#sh-cook") || e.target.closest("#sh-cook-bar")) { apriCucina(); return; }
   if (e.target.closest("#sh-share")) { condividi(sheetR); return; }
   const ir = e.target.closest("[data-ing-row]");
   if (ir) {
@@ -1744,13 +1797,35 @@ document.addEventListener("keydown", e => {
 
 // ---------- Navigazione ----------
 const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata", spesa: "Cosa devi comprare" };
+// nome corto, quello che resta nella barretta quando scorri
+const NOMI_SCHERMO = { home: "Quanto Basta", ing: "La tua dispensa", app: "La tua cucina", ric: "Ricettario", crea: "Nuova ricetta", spesa: "Lista della spesa" };
+
+const hd = document.querySelector("header");
+// L'altezza da contratta dipende dal telefono (tacca, dimensione dei caratteri):
+// la misuriamo invece di indovinarla, così quello che resta appiccicato sotto
+// non ci finisce sopra di un paio di pixel.
+function misuraHeader() {
+  if (!hd.classList.contains("ridotta")) return;
+  const h = Math.round(hd.getBoundingClientRect().height);
+  if (h > 0) document.documentElement.style.setProperty("--hd-h", h + "px");
+}
+addEventListener("scroll", () => {
+  const prima = hd.classList.contains("ridotta");
+  hd.classList.toggle("ridotta", window.scrollY > 8);
+  // a transizione finita, altrimenti misuriamo un'altezza di mezzo cammino
+  if (!prima && hd.classList.contains("ridotta")) setTimeout(misuraHeader, 220);
+}, { passive: true });
+addEventListener("resize", misuraHeader);
+hd.addEventListener("transitionend", misuraHeader);
 function setTab(t) {
   state.tab = t;
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   $("#screen-" + t).classList.add("active");
   document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   $("#subtitle").textContent = SUBTITLES[t];
+  $("#hd-piccola").textContent = NOMI_SCHERMO[t] || "Quanto Basta";
   window.scrollTo(0, 0);
+  hd.classList.remove("ridotta");
   if (t === "ric") renderRecipes();
   if (t === "home") renderHome();
   if (t === "crea") renderMine();
@@ -1846,6 +1921,11 @@ $("#cta-btn").addEventListener("click", e => setTab(e.target.dataset.go));
 
 $("#backdrop").addEventListener("click", closeSheet);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#cook").classList.contains("show")) closeSheet(); });
+$("#sheet").addEventListener("scroll", () => {
+  const bar = $("#sh-bar");
+  if (bar) bar.classList.toggle("scesa", $("#sheet").scrollTop > 110);
+}, { passive: true });
+
 // swipe-down per chiudere la scheda
 let touchY = null;
 $("#sheet").addEventListener("touchstart", e => {

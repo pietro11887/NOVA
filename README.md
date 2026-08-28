@@ -23,6 +23,10 @@ Da lì si va a:
 
 Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e desktop.
 
+**Intestazione** — in cima c'è il titolo grande; appena scorri si contrae in una barretta sottile che resta lì, con il nome della schermata e il pulsante del tema. Quello che era già appiccicato in alto (ricerca, filtri, campo della spesa) si posiziona sotto: l'altezza da contratta viene misurata, non indovinata, perché dipende dal telefono.
+
+**Barra della ricetta** — dentro la scheda una barretta resta in cima con chiudi, preferiti e condividi; scorrendo compaiono anche il nome della ricetta e il pulsante **Cucina**, così si può partire da qualsiasi punto senza risalire.
+
 **Tema** — il pulsante in alto a destra gira fra *Automatico*, *Chiaro* e *Scuro*; in fondo alla Home ci sono le tre voci per esteso. La scelta viene ricordata.
 
 Una scelta esplicita non si limita a mettere `data-theme` sull'elemento radice: scrive anche i colori come proprietà in linea. L'attributo, da solo, non basta quando la pagina è ospitata da un contenitore che imposta il proprio tema e lo riscrive dopo l'avvio (è il caso dell'anteprima): le proprietà in linea vincono su qualsiasi foglio di stile, e un osservatore rimette l'attributo se qualcuno lo cambia.
