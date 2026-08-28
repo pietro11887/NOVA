@@ -1,0 +1,3 @@
+# roba di lavoro che non serve nel repository
+node_modules/
+*.log
