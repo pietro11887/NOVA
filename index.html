@@ -700,6 +700,72 @@
     transition:opacity .2s ease,transform .2s ease;box-shadow:0 8px 26px rgba(0,0,0,.3);
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---------- Fine cottura: cosa è finito ---------- */
+  .ck-finito{margin-top:22px;text-align:left}
+  .ck-finito p{font-size:14px;color:var(--text2);margin-bottom:10px;line-height:1.45}
+  .ck-finito .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .ck-finito .chips button{
+    display:inline-flex;align-items:center;gap:7px;background:var(--card2);
+    border:1.5px solid transparent;border-radius:999px;padding:8px 14px 8px 10px;
+    font-size:14px;font-weight:600;color:var(--text);
+  }
+  .ck-finito .chips button.on{background:var(--orange-soft);border-color:var(--orange);color:var(--orange)}
+  .ck-finito .esito{margin-top:12px;font-size:13.5px;color:var(--green);font-weight:600}
+
+  /* ---------- Timer ---------- */
+  .step-timers{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .step-timers button{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--accent-soft);color:var(--accent);border-radius:999px;
+    padding:9px 16px;font-size:14.5px;font-weight:700;
+  }
+  .timers{
+    display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;
+    padding:0 18px 8px;flex:none;
+  }
+  .timers::-webkit-scrollbar{display:none}
+  .timers .tm{
+    flex:none;display:flex;align-items:center;gap:9px;
+    background:var(--card);border-radius:999px;padding:7px 8px 7px 14px;
+    box-shadow:var(--shadow);font-variant-numeric:tabular-nums;
+  }
+  .timers .tm b{font-size:15px;font-weight:750;letter-spacing:.3px}
+  .timers .tm small{font-size:11.5px;color:var(--text3);font-weight:600}
+  .timers .tm.suona{background:var(--orange);color:#fff;animation:tm-pulse .7s ease-in-out infinite}
+  .timers .tm.suona small{color:rgba(255,255,255,.85)}
+  .timers .tm button{
+    width:24px;height:24px;border-radius:50%;background:var(--card2);color:var(--text2);
+    font-size:13px;line-height:1;flex:none;
+  }
+  .timers .tm.suona button{background:rgba(255,255,255,.25);color:#fff}
+  @keyframes tm-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+  @media (prefers-reduced-motion: reduce){ .timers .tm.suona{animation:none} }
+
+  /* ---------- Incolla una ricetta ---------- */
+  .incolla{background:var(--card);border-radius:16px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+  .incolla summary{
+    padding:14px;font-size:14.5px;font-weight:700;cursor:pointer;list-style:none;
+    display:flex;align-items:center;gap:9px;
+  }
+  .incolla summary::-webkit-details-marker{display:none}
+  .incolla summary::after{content:"›";margin-left:auto;color:var(--text3);font-size:19px;transform:rotate(90deg)}
+  .incolla[open] summary::after{transform:rotate(-90deg)}
+  .incolla .box{padding:0 14px 14px}
+  .incolla textarea{width:100%;min-height:150px;resize:vertical}
+  .incolla p{color:var(--text2);font-size:12.5px;line-height:1.5;margin:8px 0 10px}
+  .incolla .vai{
+    width:100%;background:var(--accent);color:#fff;font-size:15px;font-weight:700;
+    padding:12px;border-radius:12px;
+  }
+  /* ---------- Salvataggio ---------- */
+  .backup{display:flex;gap:8px;margin:16px 0 8px}
+  .backup button, .backup label{
+    flex:1;text-align:center;background:var(--card);border:1px solid var(--chip-border);
+    border-radius:12px;padding:11px;font-size:13.5px;font-weight:650;color:var(--text);
+    box-shadow:var(--shadow);cursor:pointer;
+  }
+  .backup-nota{color:var(--text3);font-size:12px;text-align:center;line-height:1.5;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -797,6 +863,14 @@
   <!-- ============ CREA RICETTA ============ -->
   <section class="screen" id="screen-crea">
     <button class="back" id="crea-back">‹ Home</button>
+    <details class="incolla" id="incolla">
+      <summary>Hai una ricetta scritta? Incollala qui</summary>
+      <div class="box">
+        <p>Incolla il testo (da un messaggio, da un sito, dal quaderno di casa): riempio io i campi qui sotto, poi controlli e sistemi.</p>
+        <textarea class="fin" id="inc-testo" placeholder="Es.&#10;Pasta della nonna&#10;Per 4 persone, 30 minuti&#10;&#10;Ingredienti&#10;- 400 g di pasta&#10;- 500 g di passata&#10;&#10;Preparazione&#10;1. Fai il sugo…&#10;2. Cuoci la pasta…"></textarea>
+        <button class="vai" id="inc-vai" type="button">Riempi i campi</button>
+      </div>
+    </details>
     <div class="fcard">
       <h3>La ricetta</h3>
       <label>Nome<input class="fin" id="f-nome" placeholder="Es. Pasta della domenica" maxlength="60"></label>
@@ -843,6 +917,18 @@
     </div>
     <p class="f-err" id="f-err"></p>
     <button class="savebtn" id="f-save">Salva la ricetta</button>
+    <div class="fcard">
+      <h3>Le tue cose</h3>
+      <p class="backup-nota">Dispensa, preferiti, lista della spesa e ricette tue vivono in questo telefono. Salvale in un file per non perderle se cambi telefono o pulisci il browser.</p>
+      <div class="backup">
+        <button type="button" id="bk-esporta">Salva in un file</button>
+        <button type="button" id="bk-copia">Copia negli appunti</button>
+      </div>
+      <div class="backup">
+        <label for="bk-file">Ripristina da un salvataggio</label>
+        <input type="file" id="bk-file" accept="application/json,.json" style="display:none">
+      </div>
+    </div>
     <div class="fcard" id="mine-card" style="display:none">
       <h3>Le tue ricette</h3>
       <div id="mine-list"></div>
@@ -865,10 +951,12 @@
     <button id="ck-close">Esci</button>
   </div>
   <div class="ck-bar" id="ck-bar"></div>
+  <div class="timers" id="ck-timers"></div>
   <div class="ck-body" id="ck-body">
     <div class="ck-n" id="ck-n"></div>
     <div class="ck-foto" id="ck-foto"></div>
     <div class="ck-tx" id="ck-tx"></div>
+    <div class="step-timers" id="ck-step-timers"></div>
   </div>
   <details class="ck-ing" id="ck-ing">
     <summary>Ingredienti</summary>
@@ -1309,6 +1397,101 @@ async function condividi(r) {
   }
 }
 
+
+// ---------- Timer dei passaggi ----------
+// I passaggi dicono già "cuoci 10 minuti": li rendiamo toccabili, così mentre
+// cucini non devi uscire dall'app per aprire l'orologio.
+let timers = [], tmTick = null, audioCtx = null;
+
+function durateNelTesto(t) {
+  const out = [];
+  const re = /(\d+)(?:\s*[-–]\s*(\d+))?\s*(minuti|minuto|min\b|secondi|secondo|ore|ora)/gi;
+  let m;
+  while ((m = re.exec(t))) {
+    const a = +m[1], b = m[2] ? +m[2] : null;
+    const u = m[3].toLowerCase();
+    const sec = u.startsWith("or") ? 3600 : u.startsWith("sec") ? 1 : 60;
+    // su un intervallo ("35-40 minuti") si punta il minore: si controlla e si aspetta
+    const v = (b ? Math.min(a, b) : a) * sec;
+    if (v >= 30 && v <= 4 * 3600 && !out.some(x => x.sec === v)) {
+      out.push({ sec: v, testo: b ? `${Math.min(a, b)}-${Math.max(a, b)} ${m[3]}` : `${a} ${m[3]}` });
+    }
+  }
+  return out.slice(0, 3);
+}
+
+const mmss = (s) => {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), q = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(q).padStart(2, "0")}`
+           : `${m}:${String(q).padStart(2, "0")}`;
+};
+
+function suona() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t0 + i * 0.42);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + i * 0.42 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.42 + 0.32);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0 + i * 0.42); o.stop(t0 + i * 0.42 + 0.34);
+    }
+  } catch (e) { /* niente audio: restano avviso a schermo e vibrazione */ }
+  try { navigator.vibrate && navigator.vibrate([220, 120, 220, 120, 220]); } catch (e) {}
+}
+
+function avviaTimer(sec, etichetta) {
+  // svegliamo l'audio adesso, che siamo dentro un tocco dell'utente
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) {}
+  timers.push({ fine: Date.now() + sec * 1000, etichetta, suonato: false });
+  if (!tmTick) tmTick = setInterval(battitoTimer, 500);
+  renderTimers();
+  toast(`Timer avviato: ${etichetta}`);
+}
+
+function battitoTimer() {
+  let cambia = false;
+  for (const t of timers) {
+    if (!t.suonato && Date.now() >= t.fine) { t.suonato = true; suona(); cambia = true; }
+  }
+  renderTimers();
+  if (cambia && navigator.vibrate) { /* già vibrato in suona() */ }
+  if (!timers.length && tmTick) { clearInterval(tmTick); tmTick = null; }
+}
+
+function renderTimers() {
+  const box = $("#ck-timers");
+  if (!box) return;
+  box.innerHTML = timers.map((t, i) => {
+    const resta = (t.fine - Date.now()) / 1000;
+    return `<span class="tm${t.suonato ? " suona" : ""}">
+      <b>${t.suonato ? "Pronto!" : mmss(resta)}</b>
+      <small>${t.etichetta}</small>
+      <button data-tm="${i}" aria-label="Ferma il timer">✕</button>
+    </span>`;
+  }).join("");
+  box.style.display = timers.length ? "flex" : "none";
+}
+
+$("#ck-timers").addEventListener("click", e => {
+  const b = e.target.closest("[data-tm]"); if (!b) return;
+  timers.splice(+b.dataset.tm, 1);
+  if (!timers.length && tmTick) { clearInterval(tmTick); tmTick = null; }
+  renderTimers();
+});
+$("#ck-step-timers").addEventListener("click", e => {
+  const b = e.target.closest("[data-sec]"); if (!b) return;
+  avviaTimer(+b.dataset.sec, b.dataset.lab);
+});
+
 // ---------- Modalità cucina ----------
 let ckR = null, ckI = 0, ckLock = null, ckF = 1;
 
@@ -1409,9 +1592,27 @@ function renderCucina() {
   $("#ck-foto").innerHTML = foto
     ? `<img src="${foto.src}" alt=""><span>${foto.dida}</span>`
     : "";
-  $("#ck-tx").innerHTML = fine
-    ? `Fatto! Buon appetito.<div class="ck-fine">${ckR.name} è pronta.${ckR.note ? "<br><br>" + ckR.note : ""}</div>`
-    : ckR.steps[ckI];
+  const durate = fine ? [] : durateNelTesto(ckR.steps[ckI]);
+  $("#ck-step-timers").innerHTML = durate.map(d =>
+    `<button data-sec="${d.sec}" data-lab="${d.testo}">⏱ Timer ${d.testo}</button>`).join("");
+  if (fine) {
+    // Chiudiamo il cerchio: quello che è finito esce dalla dispensa ed entra
+    // nella lista della spesa, senza doverci pensare la prossima volta.
+    const inDispensa = ckR.ing
+      .map(([iid]) => iid.split("|").find(x => state.ing.has(x)))
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i);
+    $("#ck-tx").innerHTML = `Fatto! Buon appetito.
+      <div class="ck-fine">${ckR.name} è pronta.${ckR.note ? "<br><br>" + ckR.note : ""}</div>
+      ${inDispensa.length ? `<div class="ck-finito">
+        <p><b>Hai finito qualcosa?</b><br>Tocca quello che è terminato: lo tolgo dalla dispensa e te lo metto nella lista della spesa.</p>
+        <div class="chips">${inDispensa.map(id =>
+          `<button data-finito="${id}">${QB_ICON(ING_BY_ID[id].e, 20)}${ING_BY_ID[id].n}</button>`).join("")}</div>
+        <div class="esito" id="ck-esito"></div>
+      </div>` : ""}`;
+  } else {
+    $("#ck-tx").textContent = ckR.steps[ckI];
+  }
   $("#ck-prev").disabled = ckI === 0;
   $("#ck-next").textContent = fine ? "Chiudi" : (ckI === n - 1 ? "Ultimo passaggio ✓" : "Avanti");
   $("#ck-body").scrollTop = 0;
@@ -1444,12 +1645,39 @@ function chiudiCucina() {
   lasciaSpegnere();
   document.body.style.overflow = $("#sheet").classList.contains("show") ? "hidden" : "";
   if (sheetR) renderSheet();   // riporta nella scheda gli ingredienti spuntati
+  renderIngredients(); renderSpesa();   // dispensa e spesa possono essere cambiate
+  timers = []; renderTimers();
+  if (tmTick) { clearInterval(tmTick); tmTick = null; }
 }
 
 $("#ck-close").addEventListener("click", chiudiCucina);
 $("#ck-next").addEventListener("click", avanti);
 $("#ck-prev").addEventListener("click", indietro);
-$("#ck-body").addEventListener("click", avanti);
+$("#ck-body").addEventListener("click", (e) => {
+  // dentro il pannello di fine cottura non si avanza: si spuntano gli ingredienti
+  const f = e.target.closest("[data-finito]");
+  if (f) {
+    const id = f.dataset.finito;
+    const attivo = f.classList.toggle("on");
+    if (attivo) {
+      state.ing.delete(id);
+      addToSpesa({ id, name: ING_BY_ID[id].n, from: ckR.name });
+    } else {
+      state.ing.add(id);
+      const ix = spesa.findIndex(x => x.id === id);
+      if (ix >= 0) spesa.splice(ix, 1);
+    }
+    save(); saveSpesa(); updateChrome();
+    const n = $("#ck-body").querySelectorAll("[data-finito].on").length;
+    $("#ck-esito").textContent = n
+      ? `${n} ${n === 1 ? "ingrediente spostato" : "ingredienti spostati"} nella lista della spesa`
+      : "";
+    return;
+  }
+  if (e.target.closest(".ck-finito")) return;
+  if (e.target.closest("[data-sec]")) return;
+  avanti();
+});
 $("#ck-ing-box").addEventListener("click", e => {
   const ir = e.target.closest("[data-ing-row]"); if (!ir) return;
   const k = ir.dataset.ingRow;
@@ -1675,7 +1903,18 @@ $("#sp-list").addEventListener("click", e => {
   const row = e.target.closest("[data-ix]"); if (!row) return;
   const x = spesa[+row.dataset.ix];
   x.done = !x.done;
+  // Spuntare vuol dire "l'ho comprato": entra in dispensa da solo, così non
+  // devi rifarla a mano ogni volta. Se togli la spunta, torna com'era.
+  if (x.id) {
+    if (x.done && !state.ing.has(x.id)) {
+      state.ing.add(x.id); x.messoInDispensa = true; save();
+      toast(`${ING_BY_ID[x.id].n} è ora nella tua dispensa`);
+    } else if (!x.done && x.messoInDispensa) {
+      state.ing.delete(x.id); x.messoInDispensa = false; save();
+    }
+  }
   saveSpesa(); renderSpesa(); updateChrome();
+  renderIngredients();
 });
 $("#sp-clear-done").addEventListener("click", () => {
   spesa = spesa.filter(x => !x.done); saveSpesa(); renderSpesa(); updateChrome();
@@ -2014,6 +2253,155 @@ function saveRecipe() {
   setTab("ric");
   openSheet(r.id);
 }
+
+
+// ---------- Incolla una ricetta ----------
+// Riconosce la struttura tipica delle ricette scritte: titolo, ingredienti,
+// preparazione. Non indovina sempre: riempie i campi e poi si corregge a mano.
+const RE_ING = /^\s*(ingredienti|ingredients|occorrente|cosa serve)\s*:?\s*$/i;
+const RE_PREP = /^\s*(preparazione|procedimento|istruzioni|preparation|come si fa|esecuzione)\s*:?\s*$/i;
+
+function trovaIngrediente(riga) {
+  const t = norm(riga);
+  let best = null, len = 0;
+  for (const i of INGREDIENTS) {
+    const n = norm(i.n).split(" (")[0];
+    if (n.length > 2 && t.includes(n) && n.length > len) { best = i; len = n.length; }
+  }
+  if (best) return best;
+  // prova con la prima parola significativa ("pomodori pelati" -> pomodori)
+  for (const w of t.split(/[^a-z0-9à-ù]+/).filter(x => x.length > 3)) {
+    const m = INGREDIENTS.find(i => norm(i.n).startsWith(w) || w.startsWith(norm(i.n).slice(0, 5)));
+    if (m) return m;
+  }
+  return null;
+}
+
+function analizzaTesto(testo) {
+  const righe = testo.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+  if (!righe.length) return null;
+  const out = { nome: "", tempo: null, porzioni: "", ing: [], steps: [] };
+
+  let sez = "testa";
+  for (const r of righe) {
+    if (RE_ING.test(r)) { sez = "ing"; continue; }
+    if (RE_PREP.test(r)) { sez = "step"; continue; }
+
+    if (sez === "testa") {
+      if (!out.nome && r.length < 80 && !/^\d/.test(r)) { out.nome = r.replace(/^[#*\s]+/, ""); continue; }
+    }
+    const t = r.match(/(\d+)\s*(minuti|min\b|ore)/i);
+    if (t && !out.tempo) out.tempo = /ore/i.test(t[2]) ? +t[1] * 60 : +t[1];
+    const p = r.match(/per\s+(\d+)\s*(persone|porzioni)/i);
+    if (p && !out.porzioni) out.porzioni = `${p[1]} ${p[2].toLowerCase()}`;
+
+    if (sez === "ing") {
+      // qui il numero iniziale è la quantità: si toglie solo il segno di elenco
+      const pulita = r.replace(/^[-–•*\s]+/, "").trim();
+      if (!pulita) continue;
+      const ing = trovaIngrediente(pulita);
+      const qta = (pulita.match(/^([\d.,\/]+\s*(kg|g|ml|l|cucchiai?|cucchiaini?|spicchi?|foglie|rametti?|bustine?|lattine?|fette|pizzico|q\.?b\.?)?)/i) || [""])[0].trim();
+      if (ing) out.ing.push({ id: ing.id, qta: qta || "q.b." });
+    } else if (sez === "step") {
+      const pulita = r.replace(/^[-–•*\d.)\s]+/, "").trim();
+      if (pulita.length > 8) out.steps.push(pulita);
+    }
+  }
+
+  // testo senza intestazioni: proviamo lo stesso a dividere in due
+  if (!out.ing.length && !out.steps.length) {
+    for (const r of righe.slice(1)) {
+      const pulita = r.replace(/^[-–•*\s]+/, "").trim();
+      const ing = trovaIngrediente(pulita);
+      if (ing && pulita.length < 60) out.ing.push({ id: ing.id, qta: (pulita.match(/^[\d.,\/]+\s*\w*/) || [""])[0].trim() || "q.b." });
+      else if (pulita.length > 25) out.steps.push(pulita);
+    }
+  }
+  return out;
+}
+
+$("#inc-vai").addEventListener("click", () => {
+  const r = analizzaTesto($("#inc-testo").value);
+  if (!r || (!r.ing.length && !r.steps.length)) { toast("Non sono riuscito a leggerla: prova a incollarla con «Ingredienti» e «Preparazione»"); return; }
+  if (r.nome) $("#f-nome").value = r.nome;
+  if (r.tempo) $("#f-tempo").value = r.tempo;
+  if (r.porzioni) $("#f-porzioni").value = r.porzioni;
+  if (r.ing.length) { $("#f-ings").innerHTML = ""; r.ing.forEach(i => addIngRow(i.id, i.qta)); addIngRow(); }
+  if (r.steps.length) { $("#f-steps").innerHTML = ""; r.steps.forEach(t => addStepRow(t)); addStepRow(); }
+  $("#incolla").open = false;
+  toast(`Trovati ${r.ing.length} ingredienti e ${r.steps.length} passaggi: controlla e sistema`);
+  $("#f-nome").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+// ---------- Salvataggio e ripristino ----------
+function datiDaSalvare() {
+  return {
+    app: "Quanto Basta", versione: 1, salvato: new Date().toISOString(),
+    dispensa: [...state.ing], strumenti: [...state.app],
+    preferiti: [...fav], ricette: mine, spesa,
+  };
+}
+// Dentro un'anteprima incorniciata il salvataggio su file viene bloccato dal
+// browser senza dire niente: lì passiamo direttamente dagli appunti, così il
+// messaggio non promette un file che non arriverà mai.
+const inCornice = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+async function copiaSalvataggio() {
+  const testo = JSON.stringify(datiDaSalvare(), null, 1);
+  try {
+    await navigator.clipboard.writeText(testo);
+    toast("Copiato: incollalo in un file di testo e tienilo da parte");
+  } catch (e) {
+    // ultima spiaggia: lo mettiamo a schermo perché possa selezionarlo a mano
+    const t = document.createElement("textarea");
+    t.value = testo; t.style.cssText = "position:fixed;inset:10%;z-index:300;width:80%;height:60%";
+    document.body.appendChild(t); t.select();
+    toast("Selezionalo e copialo, poi tocca fuori");
+    t.addEventListener("blur", () => t.remove());
+  }
+}
+
+$("#bk-copia").addEventListener("click", copiaSalvataggio);
+$("#bk-esporta").addEventListener("click", () => {
+  if (inCornice) { copiaSalvataggio(); return; }
+  const testo = JSON.stringify(datiDaSalvare(), null, 1);
+  const nome = `quanto-basta-${new Date().toISOString().slice(0, 10)}.json`;
+  try {
+    const url = URL.createObjectURL(new Blob([testo], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast("Salvato: " + nome);
+  } catch (e) { copiaSalvataggio(); }
+});
+$("#bk-file").addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    let d;
+    try { d = JSON.parse(fr.result); } catch (x) { toast("Il file non è leggibile"); return; }
+    if (!d || d.app !== "Quanto Basta") { toast("Questo non sembra un salvataggio di Quanto Basta"); return; }
+    const quante = (d.ricette || []).length;
+    if (!confirm(`Ripristinare il salvataggio del ${(d.salvato || "").slice(0, 10)}?\n\n`
+      + `${(d.dispensa || []).length} ingredienti, ${quante} ricette tue, ${(d.spesa || []).length} voci di spesa.\n`
+      + `Quello che hai adesso verrà sostituito.`)) { e.target.value = ""; return; }
+    state.ing = new Set(d.dispensa || []);
+    state.app = new Set(d.strumenti || ["fornelli"]);
+    fav = new Set(d.preferiti || []);
+    mine = (d.ricette || []).map(r => ({ ...r, mine: true }));
+    spesa = d.spesa || [];
+    primoAvvio = false;
+    save(); saveFav(); saveMine(); saveSpesa();
+    renderIngredients(); renderAppliances(); renderSpesa(); renderMine(); resetForm(); updateChrome();
+    e.target.value = "";
+    toast("Ripristinato: bentornato");
+    setTab("home");
+  };
+  fr.readAsText(f);
+});
+
+// ---------- Incolla una ricetta: fine ----------
 
 $("#crea-back").addEventListener("click", () => setTab("home"));
 $("#screen-crea").addEventListener("input", () => $("#f-err").classList.remove("show"));
