@@ -21,7 +21,9 @@ Da lì si va a:
 - **Lista della spesa** — funziona anche da sola: scrivi quello che ti serve (anche cose non da ricetta) e lo trovi diviso per reparto del supermercato; dalla scheda di una ricetta un pulsante aggiunge gli ingredienti che ti mancano, con le quantità già adattate alle porzioni scelte
 - **Crea una ricetta** — campi guidati (nome, categoria, tempi, strumenti, ingredienti con quantità, passaggi), scegli l'illustrazione del piatto o **carichi una tua foto**; le tue ricette entrano nell'app, si possono modificare ed eliminare, e partecipano al match con i tuoi ingredienti
 
-Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e desktop, con tema chiaro e scuro automatico.
+Le selezioni vengono ricordate tra una visita e l'altra. Funziona su telefono e desktop.
+
+**Tema** — in fondo alla Home si sceglie fra *Automatico* (segue il telefono), *Chiaro* e *Scuro*. La scelta viene ricordata e vale ovunque: una scelta esplicita mette `data-theme` sull'elemento radice e ha la precedenza sul sistema, in entrambe le direzioni.
 
 ## Come provarla
 
