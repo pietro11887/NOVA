@@ -905,6 +905,38 @@
     box-shadow:var(--shadow);cursor:pointer;
   }
   .backup-nota{color:var(--text3);font-size:12px;text-align:center;line-height:1.5;margin-bottom:6px}
+
+  /* ---------- Prepara la spesa ---------- */
+  .prep-intro{color:var(--text2);font-size:14px;line-height:1.5;margin:2px 2px 12px}
+  .prep-lista{display:flex;flex-direction:column;gap:8px;padding-bottom:96px}
+  .prow{
+    display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+    background:var(--card);border:2px solid transparent;border-radius:14px;padding:9px 12px 9px 9px;
+    box-shadow:var(--shadow);transition:transform .08s ease,border-color .12s ease;
+  }
+  .prow:active{transform:scale(.985)}
+  .prow.on{border-color:var(--accent);background:var(--accent-soft)}
+  .prow .ph{flex:none;width:46px;height:46px;border-radius:11px;background:var(--card2);
+    overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .prow .ph img{width:100%;height:100%;object-fit:cover}
+  .prow .tx{flex:1;min-width:0}
+  .prow .tx b{font-size:14.5px;font-weight:650;display:block;line-height:1.25}
+  .prow .tx small{font-size:12px;color:var(--text2)}
+  .prow .tick{
+    flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--chip-border);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:transparent;
+  }
+  .prow.on .tick{background:var(--accent);border-color:var(--accent);color:#fff}
+  .prep-cta{
+    position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));
+    z-index:20;padding:0 16px 10px;display:flex;justify-content:center;pointer-events:none;
+  }
+  .prep-cta button{
+    pointer-events:auto;max-width:640px;width:100%;
+    background:var(--accent);color:#fff;font-size:16px;font-weight:700;
+    padding:14px;border-radius:999px;box-shadow:0 6px 20px rgba(10,132,255,.4);
+  }
+  .prep-cta button:disabled{background:var(--card2);color:var(--text3);box-shadow:none}
 </style>
 </head>
 <body>
@@ -1008,11 +1040,30 @@
         <button class="go" id="sp-go">Aggiungi</button>
       </div>
     </div>
+    <button class="arow" id="sp-prepara" style="margin-bottom:12px">
+      <span class="ic" id="sp-prepara-ic"></span>
+      <span><b>Prepara la spesa</b><small>Da più ricette, con le quantità sommate</small></span>
+      <span class="chev">›</span>
+    </button>
     <div id="sp-list"></div>
     <div class="sp-tools" id="sp-tools" style="display:none">
       <button id="sp-clear-done">Togli gli spuntati</button>
       <button id="sp-clear-all" class="danger">Svuota la lista</button>
     </div>
+  </section>
+
+  <!-- ============ PREPARA LA SPESA ============ -->
+  <section class="screen" id="screen-prepara">
+    <button class="back" id="prep-back">‹ Lista della spesa</button>
+    <p class="prep-intro">Scegli le ricette che <b>potresti</b> fare in questi giorni: nessun giorno da decidere.
+      Metto insieme quello che serve, sommo gli ingredienti in comune e tolgo quelli che hai già in dispensa.</p>
+    <div class="search" id="prepbox" style="margin-bottom:10px">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="prep-q" type="text" placeholder="Cerca una ricetta…" autocomplete="off">
+      <button class="clear" id="prep-q-clear" aria-label="Cancella ricerca">✕</button>
+    </div>
+    <div class="prep-lista" id="prep-lista"></div>
+    <div class="prep-cta"><button id="prep-vai" disabled>Scegli qualche ricetta</button></div>
   </section>
 
   <!-- ============ CREA RICETTA ============ -->
@@ -1876,9 +1927,9 @@ document.addEventListener("keydown", e => {
 });
 
 // ---------- Navigazione ----------
-const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata", spesa: "Cosa devi comprare" };
+const SUBTITLES = { home: "Cosa si mangia oggi?", ing: "Cosa hai in cucina?", app: "Cosa puoi usare?", ric: "Ecco cosa puoi cucinare", crea: "La tua ricetta, guidata", spesa: "Cosa devi comprare", prepara: "Cosa potresti cucinare" };
 // nome corto, quello che resta nella barretta quando scorri
-const NOMI_SCHERMO = { home: "Quanto Basta", ing: "La tua dispensa", app: "La tua cucina", ric: "Ricettario", crea: "Nuova ricetta", spesa: "Lista della spesa" };
+const NOMI_SCHERMO = { home: "Quanto Basta", ing: "La tua dispensa", app: "La tua cucina", ric: "Ricettario", crea: "Nuova ricetta", spesa: "Lista della spesa", prepara: "Prepara la spesa" };
 
 const hd = document.querySelector("header");
 // L'altezza da contratta dipende dal telefono (tacca, dimensione dei caratteri):
@@ -1917,6 +1968,7 @@ function setTab(t) {
   if (t === "home") renderHome();
   if (t === "crea") renderMine();
   if (t === "spesa") renderSpesa();
+  if (t === "prepara") renderPrepara();
   updateChrome();
 }
 
@@ -1940,7 +1992,7 @@ function updateChrome() {
   } else {
     cta.classList.add("hidden");
   }
-  if (["home", "crea", "spesa"].includes(state.tab)) cta.classList.add("hidden");
+  if (["home", "crea", "spesa", "prepara"].includes(state.tab)) cta.classList.add("hidden");
 }
 
 // ---------- Eventi ----------
@@ -2023,6 +2075,33 @@ $("#sheet").addEventListener("touchmove", e => {
 }, { passive: true });
 
 
+// ---------- Somma delle quantità ----------
+// Due ricette che vogliono la passata non devono darti due righe: si sommano,
+// ma solo quando l'unità di misura è la stessa. Altrimenti si affiancano.
+function leggiQta(q) {
+  const m = String(q || "").trim().match(/^(\d+(?:[.,]\d+)?)?\s*([\u00bc\u00bd\u00be])?\s*([A-Za-z\u00e0-\u00f9]+)?\s*(.*)$/);
+  if (!m) return null;
+  const n = (m[1] ? parseFloat(m[1].replace(",", ".")) : 0) + (m[2] ? FRAC[m[2]] : 0);
+  if (!n) return null;
+  return { n, unita: (m[3] || "").toLowerCase(), coda: (m[4] || "").trim() };
+}
+function sommaQta(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const x = leggiQta(a), y = leggiQta(b);
+  if (!x && !y) return a;
+  if (!x) return b;
+  if (!y) return a;
+  const base = (u) => SING[u] || u;
+  if (base(x.unita) !== base(y.unita)) return a + " + " + b;
+  const tot = x.n + y.n;
+  const num = fmtNum(tot);
+  let u = base(x.unita);
+  if (u) u = (tot === 1 || num === "\u00bd" || num === "\u00bc" || num === "\u00be") ? u : (PLUR[u] || u);
+  const coda = x.coda || y.coda;
+  return (num + (u ? " " + u : "") + (coda ? " " + coda : "")).trim();
+}
+
 // ---------- Lista della spesa ----------
 const SP_ALTRO = { id: "altro", name: "Altro" };
 function spesaDaFare() { return spesa.filter(x => !x.done).length; }
@@ -2032,8 +2111,10 @@ function addToSpesa({ id, name, qty, from }) {
   const ex = spesa.find(x => (x.id || x.name).toLowerCase() === key);
   if (ex) {                       // già in lista: aggiorno e la "risveglio"
     ex.done = false;
-    if (qty && !(ex.qty || "").includes(qty)) ex.qty = ex.qty ? ex.qty + " + " + qty : qty;
-    if (from && !(ex.from || []).includes(from)) ex.from = (ex.from || []).concat(from);
+    const giaSua = from && (ex.from || []).includes(from);
+    // la stessa ricetta non deve raddoppiare la quantità se la aggiungi due volte
+    if (qty && !giaSua) ex.qty = sommaQta(ex.qty, qty);
+    if (from && !giaSua) ex.from = (ex.from || []).concat(from);
     return false;
   }
   spesa.push({ id: id || undefined, name, qty: qty || "", cat: id ? ING_BY_ID[id].c : "altro",
@@ -2102,6 +2183,7 @@ function aggiungiScritto() {
 }
 
 $("#spesa-back").addEventListener("click", () => setTab("home"));
+$("#sp-prepara").addEventListener("click", () => setTab("prepara"));
 $("#sp-go").addEventListener("click", aggiungiScritto);
 $("#sp-input").addEventListener("input", spesaSuggerimenti);
 $("#sp-input").addEventListener("keydown", e => {
@@ -2383,6 +2465,79 @@ $("#screen-home").addEventListener("click", (e) => {
   if (go.dataset.go === "browse") { state.mode = "all"; state.filter = "tutte"; save(); setTab("ric"); }
   if (go.dataset.go === "create") setTab("crea");
   if (go.dataset.go === "spesa") setTab("spesa");
+});
+
+
+// ---------- Prepara la spesa da più ricette ----------
+// Niente giorni della settimana: si scelgono le ricette che si potrebbero fare,
+// e la lista viene fuori da sola. Se poi non le cucini non si rompe niente.
+let prepScelte = new Set();
+
+function mancantiDi(r) {
+  return r.ing.filter(i => !i[2] && !hasIng(i[0]));
+}
+
+function renderPrepara() {
+  const q = norm($("#prep-q").value.trim());
+  $("#prepbox").classList.toggle("has-text", !!q);
+  const lista = ALL()
+    .filter(r => !q || norm(r.name).includes(q))
+    .sort((a, b) => mancantiDi(a).length - mancantiDi(b).length);
+
+  $("#prep-lista").innerHTML = lista.map(r => {
+    const m = mancantiDi(r).length;
+    const p = PHOTO_OF(r);
+    return `<button class="prow${prepScelte.has(r.id) ? " on" : ""}" data-prep="${r.id}">
+      <span class="ph">${p ? `<img src="${p}" alt="" loading="lazy">` : QB_DISH(r.img, 44)}</span>
+      <span class="tx"><b>${r.name}</b><small>${CAT_LABEL[r.cat]} · ${r.time} min · ${
+        m === 0 ? "hai già tutto" : m === 1 ? "ti manca 1 ingrediente" : `ti mancano ${m} ingredienti`}</small></span>
+      <span class="tick">✓</span>
+    </button>`;
+  }).join("") || `<p class="no-results">Nessuna ricetta trovata</p>`;
+
+  // quante cose finirebbero davvero nella lista, senza doppioni
+  const cose = new Set();
+  for (const id of prepScelte) {
+    const r = ALL().find(x => x.id === id);
+    if (r) mancantiDi(r).forEach(([iid]) => cose.add(iid.split("|")[0]));
+  }
+  const b = $("#prep-vai");
+  b.disabled = !prepScelte.size;
+  b.textContent = !prepScelte.size
+    ? "Scegli qualche ricetta"
+    : cose.size
+      ? `Aggiungi ${cose.size} cos${cose.size === 1 ? "a" : "e"} alla lista`
+      : "Hai già tutto in casa";
+}
+
+$("#prep-back").addEventListener("click", () => setTab("spesa"));
+$("#prep-q").addEventListener("input", renderPrepara);
+$("#prep-q-clear").addEventListener("click", () => { $("#prep-q").value = ""; renderPrepara(); $("#prep-q").focus(); });
+$("#prep-lista").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-prep]"); if (!b) return;
+  const id = b.dataset.prep;
+  prepScelte.has(id) ? prepScelte.delete(id) : prepScelte.add(id);
+  renderPrepara();
+});
+$("#prep-vai").addEventListener("click", () => {
+  let nuove = 0;
+  const ricette = [];
+  for (const id of prepScelte) {
+    const r = ALL().find(x => x.id === id);
+    if (!r) continue;
+    ricette.push(r.name);
+    for (const [iid, qta] of mancantiDi(r)) {
+      const primo = iid.split("|")[0];
+      if (addToSpesa({ id: primo, name: ING_BY_ID[primo].n, qty: qta, from: r.name })) nuove++;
+    }
+  }
+  saveSpesa(); updateChrome();
+  prepScelte = new Set();
+  $("#prep-q").value = "";
+  setTab("spesa");
+  toast(ricette.length === 1
+    ? `Aggiunto quello che manca per ${ricette[0]}`
+    : `Aggiunto quello che manca per ${ricette.length} ricette`);
 });
 
 // ---------- Crea ricetta ----------

@@ -18,6 +18,7 @@ Da lì si va a:
 - **Timer nei passaggi** — dove il passaggio dice «cuoci 10 minuti» compare un pulsante che avvia il conto alla rovescia, con suono e vibrazione a fine tempo; se ne possono tenere accesi più d'uno
 - **Incolla una ricetta** — nel modulo di creazione: incolli il testo di una ricetta (da un messaggio, da un sito) e i campi si riempiono da soli, poi si correggono
 - **Salvataggio e ripristino** — un file con dispensa, preferiti, spesa e ricette tue, da riprendere su un altro telefono
+- **Prepara la spesa** — dalla lista: scegli le ricette che *potresti* fare in questi giorni (nessun giorno da decidere), e l'app mette insieme quello che serve, **somma gli ingredienti in comune** e toglie quelli che hai già. Se poi non cucini una di quelle ricette non si rompe niente: gli ingredienti restano in dispensa
 - **Lista della spesa** — funziona anche da sola: scrivi quello che ti serve (anche cose non da ricetta) e lo trovi diviso per reparto del supermercato; dalla scheda di una ricetta un pulsante aggiunge gli ingredienti che ti mancano, con le quantità già adattate alle porzioni scelte
 - **Crea una ricetta** — campi guidati (nome, categoria, tempi, strumenti, ingredienti con quantità, passaggi), scegli l'illustrazione del piatto o **carichi una tua foto**; le tue ricette entrano nell'app, si possono modificare ed eliminare, e partecipano al match con i tuoi ingredienti
 
