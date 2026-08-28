@@ -259,6 +259,27 @@
     soy: sh + `<path d="M19 16h10v5c3 2 5 5 5 9v6a4 4 0 01-4 4H18a4 4 0 01-4-4v-6c0-4 2-7 5-9z" fill="#3b2a20"/>
       <rect x="19" y="10" width="10" height="7" rx="2" fill="${K.red}"/>
       <rect x="17" y="26" width="14" height="8" rx="2" fill="${K.cream}"/>`,
+    // aggiunte per le ricette nuove
+    lasagne: sh + `<rect x="9" y="14" width="30" height="7" rx="2" fill="${K.pasta}"/>
+      <rect x="9" y="22" width="30" height="7" rx="2" fill="${K.pasta2}"/>
+      <rect x="9" y="30" width="30" height="7" rx="2" fill="${K.pasta}"/>
+      <path d="M9 16h30M9 24h30M9 32h30" stroke="${K.cream2}" stroke-width="1.2" opacity=".7"/>`,
+    tortellini: sh + `<g fill="${K.pasta}" stroke="${K.pasta2}" stroke-width="1.4">
+      <path d="M12 28c-4-1-5-5-2-7 3-2 7-1 8 2 1-3 5-4 8-2 3 2 2 6-2 7-2 .6-4 .6-6 0-2 .6-4 .6-6 0z"/>
+      <path d="M26 36c-4-1-5-5-2-7 3-2 7-1 8 2 1-3 5-4 8-2 3 2 2 6-2 7-2 .6-4 .6-6 0-2 .6-4 .6-6 0z" transform="translate(-4 -2)"/></g>`,
+    sedano: sh + `<path d="M17 40c-2-12-1-22 1-28l4 1c-2 6-3 15-1 27z" fill="#8cc474"/>
+      <path d="M24 40c-1-13 0-23 3-29l4 2c-3 6-4 15-3 27z" fill="${K.leaf}"/>
+      <path d="M20 12c-2-4-1-7 1-8 2 2 2 5-1 8zM29 13c0-4 2-7 4-7 1 3 0 6-4 7z" fill="${K.dgreen}"/>`,
+    piselli: sh + `<path d="M12 24c0-4 3-7 12-7s12 3 12 7-4 7-12 7-12-3-12-7z" fill="#7ab648"/>
+      <g fill="#a9dd78"><circle cx="18" cy="24" r="3.4"/><circle cx="26" cy="24" r="3.4"/><circle cx="33" cy="24" r="3"/></g>
+      <path d="M12 24c-3-1-5-4-4-7 3 1 4 4 4 7z" fill="${K.dgreen}"/>`,
+    zucca: sh + `<ellipse cx="24" cy="28" rx="15" ry="12" fill="#e08a2c"/>
+      <path d="M24 16v24M16 18c-2 7-2 13 0 20M32 18c2 7 2 13 0 20" stroke="#c4711d" stroke-width="1.8" fill="none"/>
+      <rect x="22" y="10" width="4" height="7" rx="2" fill="${K.green2}"/>
+      <path d="M26 12c3-2 6-1 7 0-2 2-5 2-7 0z" fill="${K.leaf}"/>`,
+    ricotta: sh + `<path d="M13 22c0-6 4-10 11-10s11 4 11 10v12a4 4 0 01-4 4H17a4 4 0 01-4-4z" fill="${K.white}"/>
+      <path d="M13 24h22" stroke="${K.off}" stroke-width="2"/>
+      <path d="M18 18c1-2 4-3 6-2" stroke="${K.off}" stroke-width="2" stroke-linecap="round" fill="none"/>`,
     // dolci
     "jar-choc": jar(K.choco),
     "jar-jam": jar("#c13f4e"),

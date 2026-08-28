@@ -1534,8 +1534,13 @@ const TEC_DIDA = {
 // muffin accanto a una ricetta di patate.
 const CARNE_PESCE = new Set(["pollo", "macinato", "salsiccia", "fettine", "salmone",
                              "tonno", "guanciale", "pancetta", "cotto", "crudo"]);
+// Conta prima cosa dice il passaggio: "trita cipolla e sedano" vuole il tagliere
+// delle verdure anche dentro una ricetta di carne.
+const PAROLE_CARNE = /\bguanciale|pancetta|prosciutto|salsicci|pollo|carne|macinat|fettine|salmone|tonno|bacon\b/i;
 const VARIANTI = {
-  tagliare: (r) => (r.ing.some(([i]) => i.split("|").some((x) => CARNE_PESCE.has(x))) ? "tagliare-carne" : "tagliare"),
+  // il tagliere con la pancetta solo quando il passaggio parla davvero di carne:
+  // nel dubbio quello con le verdure, che stona molto meno
+  tagliare: (r, testo) => (testo && PAROLE_CARNE.test(testo) ? "tagliare-carne" : "tagliare"),
   forno: (r) => (r.cat === "dolci" ? "forno-dolci" : "forno"),
 };
 
@@ -1555,7 +1560,7 @@ function fotoPassaggio(testo, r) {
   if (typeof STEP_PHOTOS === "undefined") return null;
   for (const [k, re] of TECNICHE) {
     if (!re.test(testo)) continue;
-    const scelta = (VARIANTI[k] && r) ? VARIANTI[k](r) : k;
+    const scelta = (VARIANTI[k] && r) ? VARIANTI[k](r, testo) : k;
     for (const key of [scelta, k]) {
       if (STEP_PHOTOS[key] && saporeOk(key, r)) {
         return { src: STEP_PHOTOS[key], dida: TEC_DIDA[key] || "esempio della tecnica" };

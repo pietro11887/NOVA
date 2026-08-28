@@ -46,7 +46,7 @@ Quando pubblichi una nuova versione, alza `VERSIONE` in `sw.js`: le cache vecchi
 | File | Contenuto |
 |---|---|
 | `index.html` | Interfaccia e logica dell'app (nessuna dipendenza esterna) |
-| `data.js` | ~85 ingredienti, 7 strumenti e 49 ricette con quantità e passaggi |
+| `data.js` | 92 ingredienti, 7 strumenti e 74 ricette con quantità e passaggi |
 | `icons.js` | Libreria di illustrazioni SVG (`QB_ICON`, `QB_DISH`, `QB_KITCHEN`, `QB_UI`): icone di ingredienti e strumenti, piatti delle ricette |
 | `photos.js` | Foto dei piatti incorporate (generato, non modificare a mano) |
 | `photos/` | Foto sorgente in JPEG più `credits.json` con autore e licenza di ognuna |
@@ -77,7 +77,7 @@ Basta aggiungere un oggetto a `RECIPES` in `data.js`:
 
 ## Foto dei piatti
 
-43 ricette su 49 hanno una foto reale; le altre usano l'illustrazione del piatto. Le foto vengono da **Wikimedia Commons** e da **Openverse** (che raccoglie materiale con licenza libera da Flickr e altri archivi) e hanno tutte licenza libera verificata (CC BY, CC BY-SA, CC0 o pubblico dominio): autore e licenza di ciascuna sono in `photos/credits.json` e consultabili nell'app dalla Home, sotto «Autori e licenze».
+67 ricette su 74 hanno una foto reale; le altre usano l'illustrazione del piatto. Le foto vengono da **Wikimedia Commons** e da **Openverse** (che raccoglie materiale con licenza libera da Flickr e altri archivi) e hanno tutte licenza libera verificata (CC BY, CC BY-SA, CC0 o pubblico dominio): autore e licenza di ciascuna sono in `photos/credits.json` e consultabili nell'app dalla Home, sotto «Autori e licenze».
 
 Le foto sono incorporate in `photos.js` come data URI, così l'app resta autosufficiente e funziona anche offline. Dopo aver aggiunto o sostituito un file in `photos/`, rigenera con:
 
