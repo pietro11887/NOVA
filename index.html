@@ -1335,18 +1335,51 @@ const TECNICHE = [
 const TEC_DIDA = {
   soffriggere: "esempio: un soffritto di cipolla",
   bollire: "esempio: pentola sul fuoco",
-  tagliare: "esempio: taglio sul tagliere",
+  tagliare: "esempio: si taglia sul tagliere",
+  "tagliare-carne": "esempio: si taglia sul tagliere",
   "uova-sbattere": "esempio: uova sbattute",
   forno: "esempio: cottura in forno",
+  "forno-dolci": "esempio: cottura in forno",
   grattugiare: "esempio: formaggio grattugiato",
   frullare: "esempio: frutta nel frullatore",
   sugo: "esempio: sugo che sobbolle",
   mescolare: "esempio: si mescola in pentola",
 };
-function fotoPassaggio(testo) {
+
+// Alcune tecniche hanno due foto: una con la carne e una con le verdure, una col
+// dolce e una col salato. Senza questa scelta si finisce col mostrare pancetta e
+// muffin accanto a una ricetta di patate.
+const CARNE_PESCE = new Set(["pollo", "macinato", "salsiccia", "fettine", "salmone",
+                             "tonno", "guanciale", "pancetta", "cotto", "crudo"]);
+const VARIANTI = {
+  tagliare: (r) => (r.ing.some(([i]) => i.split("|").some((x) => CARNE_PESCE.has(x))) ? "tagliare-carne" : "tagliare"),
+  forno: (r) => (r.cat === "dolci" ? "forno-dolci" : "forno"),
+};
+
+// Una foto salata accanto a un dolce (o viceversa) stona quanto la pancetta sulle
+// patate: in quel caso è meglio nessuna foto.
+const TEC_SAPORE = {
+  soffriggere: "salato", sugo: "salato", mescolare: "salato",
+  grattugiare: "salato", "tagliare-carne": "salato", forno: "salato",
+  "forno-dolci": "dolce",
+};
+const saporeOk = (key, r) => {
+  const s = TEC_SAPORE[key];
+  if (!s || !r) return true;
+  return s === "dolce" ? r.cat === "dolci" : r.cat !== "dolci";
+};
+function fotoPassaggio(testo, r) {
   if (typeof STEP_PHOTOS === "undefined") return null;
-  const hit = TECNICHE.find(([k, re]) => STEP_PHOTOS[k] && re.test(testo));
-  return hit ? { src: STEP_PHOTOS[hit[0]], dida: TEC_DIDA[hit[0]] || "esempio della tecnica" } : null;
+  for (const [k, re] of TECNICHE) {
+    if (!re.test(testo)) continue;
+    const scelta = (VARIANTI[k] && r) ? VARIANTI[k](r) : k;
+    for (const key of [scelta, k]) {
+      if (STEP_PHOTOS[key] && saporeOk(key, r)) {
+        return { src: STEP_PHOTOS[key], dida: TEC_DIDA[key] || "esempio della tecnica" };
+      }
+    }
+  }
+  return null;
 }
 
 async function tieniAcceso() {
@@ -1372,7 +1405,7 @@ function renderCucina() {
   const fine = ckI >= n;
   $("#ck-bar").innerHTML = ckR.steps.map((_, i) => `<i class="${fine || i <= ckI ? "on" : ""}"></i>`).join("");
   $("#ck-n").textContent = fine ? "" : `Passaggio ${ckI + 1} di ${n}`;
-  const foto = fine ? null : fotoPassaggio(ckR.steps[ckI]);
+  const foto = fine ? null : fotoPassaggio(ckR.steps[ckI], ckR);
   $("#ck-foto").innerHTML = foto
     ? `<img src="${foto.src}" alt=""><span>${foto.dida}</span>`
     : "";

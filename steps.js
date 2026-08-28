@@ -3,12 +3,14 @@
 const STEP_PHOTOS = {
   "bollire": "photos/steps/bollire.jpg",
   "forno": "photos/steps/forno.jpg",
+  "forno-dolci": "photos/steps/forno-dolci.jpg",
   "frullare": "photos/steps/frullare.jpg",
   "grattugiare": "photos/steps/grattugiare.jpg",
   "mescolare": "photos/steps/mescolare.jpg",
   "soffriggere": "photos/steps/soffriggere.jpg",
   "sugo": "photos/steps/sugo.jpg",
   "tagliare": "photos/steps/tagliare.jpg",
+  "tagliare-carne": "photos/steps/tagliare-carne.jpg",
   "uova-sbattere": "photos/steps/uova-sbattere.jpg",
 };
 
@@ -22,6 +24,13 @@ const STEP_CREDITS = [
  },
  {
   "id": "forno",
+  "file": "Liat Portal for Foodie Disorder - Chicken hearts roasted with potatoes",
+  "license": "CC BY-SA 4.0",
+  "author": "HaJunkiyada",
+  "page": "https://commons.wikimedia.org/w/index.php?curid=182116095"
+ },
+ {
+  "id": "forno-dolci",
   "file": "Cranberry-Mohn Muffins in baking tray.jpg",
   "license": "CC BY-SA 2.0",
   "author": "Katrin Morenz",
@@ -63,11 +72,18 @@ const STEP_CREDITS = [
   "page": "https://commons.wikimedia.org/wiki/File:Creamy_tomato_mushroom_herb_sauce.jpg"
  },
  {
+  "id": "tagliare",
+  "file": "Chopping Welsh onion (Allium fistulosum) on a wooden cutting board.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Sarah5252",
+  "page": "https://commons.wikimedia.org/wiki/File:Chopping_Welsh_onion_(Allium_fistulosum)_on_a_wooden_cutting_board.jpg"
+ },
+ {
   "file": "BrunoBrunan",
   "license": "CC BY 2.0",
   "author": "Instagram: Brunobrunan",
   "page": "https://www.flickr.com/photos/13956722@N06/14143092659",
-  "id": "tagliare"
+  "id": "tagliare-carne"
  },
  {
   "id": "uova-sbattere",
