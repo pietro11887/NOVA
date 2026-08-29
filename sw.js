@@ -3,7 +3,7 @@
 // Fa funzionare l'app anche senza connessione, una volta installata.
 // Cambia VERSIONE quando aggiorni i file: le vecchie cache vengono buttate.
 // ============================================================
-const VERSIONE = "qb-v4";
+const VERSIONE = "qb-v5";
 const GUSCIO = "guscio-" + VERSIONE;   // i file dell'app
 const MEDIA = "media-" + VERSIONE;     // le foto, salvate man mano che servono
 
