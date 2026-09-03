@@ -1,0 +1,2077 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AI TOWN — Simulazione 3D</title>
+<style>
+  :root{
+    --bg:#05070f;
+    --panel:rgba(10,14,28,.82);
+    --panel-solid:#0a0e1c;
+    --line:rgba(120,190,255,.16);
+    --line-strong:rgba(120,190,255,.35);
+    --cyan:#39e7ff;
+    --magenta:#ff3ea5;
+    --lime:#8dff5a;
+    --amber:#ffc247;
+    --red:#ff5468;
+    --violet:#a86bff;
+    --txt:#dbe7ff;
+    --txt-dim:#7e90b8;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,"Roboto Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font-family:var(--mono);font-size:13px;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas#scene{position:fixed;inset:0;display:block;width:100%;height:100%;z-index:0}
+
+  /* ---------- scanline / vignette ---------- */
+  .fx{position:fixed;inset:0;z-index:1;pointer-events:none}
+  .fx.scan{
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.22) 2px 4px);
+    opacity:.35;mix-blend-mode:multiply;
+  }
+  .fx.vig{background:radial-gradient(ellipse at 50% 45%,transparent 40%,rgba(0,0,0,.75) 100%)}
+
+  /* ---------- generic panel ---------- */
+  .panel{
+    background:var(--panel);border:1px solid var(--line);
+    backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+    border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .panel h2{
+    margin:0;padding:9px 12px;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--cyan);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;justify-content:space-between;
+  }
+  .panel h2 .tag{color:var(--txt-dim);letter-spacing:.08em}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);flex:0 0 auto}
+
+  /* ---------- top bar ---------- */
+  #topbar{
+    position:fixed;top:12px;left:12px;right:12px;z-index:10;
+    display:flex;gap:10px;align-items:stretch;pointer-events:none;
+  }
+  #topbar > *{pointer-events:auto}
+  #brand{
+    display:flex;align-items:center;gap:12px;padding:8px 16px;
+  }
+  #brand .logo{
+    font-size:17px;font-weight:700;letter-spacing:.24em;
+    color:#fff;text-shadow:0 0 12px var(--cyan),0 0 34px rgba(57,231,255,.5);
+  }
+  #brand .logo span{color:var(--magenta);text-shadow:0 0 12px var(--magenta)}
+  #brand .sub{font-size:9.5px;color:var(--txt-dim);letter-spacing:.14em;text-transform:uppercase}
+  .stats{display:flex;gap:0;flex:1;overflow:hidden}
+  .stat{
+    flex:1;min-width:0;padding:8px 14px;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;gap:2px;justify-content:center;
+  }
+  .stat:last-child{border-right:0}
+  .stat .k{font-size:9px;letter-spacing:.16em;color:var(--txt-dim);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .v{font-size:15px;font-weight:700;color:#fff;white-space:nowrap}
+  .stat .v.up{color:var(--lime)} .stat .v.down{color:var(--red)}
+
+  /* ---------- left column ---------- */
+  #left{
+    position:fixed;left:12px;top:78px;bottom:92px;width:330px;z-index:10;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  #board{flex:0 0 auto}
+  #roster{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  #rosterBody{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+  #rosterBody .card{flex:0 0 auto}
+
+  .lb-row{
+    display:grid;grid-template-columns:20px 1fr auto;gap:8px;align-items:center;
+    padding:6px 12px;border-bottom:1px solid rgba(120,190,255,.07);cursor:pointer;
+    transition:background .15s;
+  }
+  .lb-row:last-child{border-bottom:0}
+  .lb-row:hover{background:rgba(57,231,255,.07)}
+  .lb-row .rank{color:var(--txt-dim);font-size:11px;text-align:center}
+  .lb-row.p1 .rank{color:var(--amber);text-shadow:0 0 8px var(--amber)}
+  .lb-row .who{display:flex;align-items:center;gap:7px;min-width:0}
+  .lb-row .chip{width:9px;height:9px;border-radius:2px;flex:0 0 auto;transform:rotate(45deg)}
+  .lb-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+  .lb-row .val{font-size:12.5px;font-weight:700;color:#fff}
+  .lb-row .delta{font-size:9.5px;margin-left:6px}
+  .up{color:var(--lime)} .down{color:var(--red)} .flat{color:var(--txt-dim)}
+
+  .tabs{display:flex;gap:4px}
+  .tab{
+    padding:2px 8px;border:1px solid var(--line);border-radius:5px;cursor:pointer;
+    font-size:9px;letter-spacing:.1em;color:var(--txt-dim);background:transparent;font-family:var(--mono);
+    text-transform:uppercase;transition:.15s;
+  }
+  .tab:hover{border-color:var(--line-strong);color:var(--txt)}
+  .tab.on{background:var(--cyan);border-color:var(--cyan);color:#04121a;font-weight:700}
+
+  /* ---------- agent card ---------- */
+  .card{
+    border:1px solid var(--line);border-radius:8px;padding:9px 10px;
+    background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0));
+    cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;
+  }
+  .card:hover{transform:translateX(2px)}
+  .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 22px -6px var(--accent)}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+  .card .hd{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .card .av{
+    width:26px;height:26px;border-radius:6px;flex:0 0 auto;display:grid;place-items:center;
+    font-size:12px;font-weight:700;color:#03060e;background:var(--accent);
+    box-shadow:0 0 14px -3px var(--accent);
+  }
+  .card .id{min-width:0;flex:1}
+  .card .id .n{font-size:12.5px;font-weight:700;color:#fff;letter-spacing:.04em}
+  .card .id .r{font-size:9px;color:var(--txt-dim);letter-spacing:.06em;text-transform:uppercase;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .cash{font-size:13px;font-weight:700;text-align:right}
+  .card .cash small{display:block;font-size:8.5px;font-weight:400;color:var(--txt-dim);letter-spacing:.08em}
+  .bars{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}
+  .bar{display:grid;grid-template-columns:34px 1fr 30px;gap:6px;align-items:center}
+  .bar .bl{font-size:8.5px;color:var(--txt-dim);letter-spacing:.06em;text-transform:uppercase}
+  .bar .bt{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+  .bar .bf{height:100%;border-radius:3px;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+  .bar .bv{font-size:9px;color:var(--txt-dim);text-align:right}
+  .card .act{
+    font-size:9.5px;color:var(--txt-dim);letter-spacing:.05em;display:flex;gap:6px;align-items:center;
+    border-top:1px solid rgba(120,190,255,.08);padding-top:6px;
+  }
+  .card .act b{color:var(--accent);font-weight:600}
+  .card .flags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+  .flag{font-size:8px;padding:1px 5px;border-radius:3px;letter-spacing:.08em;text-transform:uppercase}
+  .flag.debt{background:rgba(255,84,104,.16);color:var(--red);border:1px solid rgba(255,84,104,.35)}
+  .flag.inv{background:rgba(141,255,90,.12);color:var(--lime);border:1px solid rgba(141,255,90,.3)}
+  .flag.sick{background:rgba(255,194,71,.14);color:var(--amber);border:1px solid rgba(255,194,71,.32)}
+  .flag.burn{background:rgba(168,107,255,.16);color:var(--violet);border:1px solid rgba(168,107,255,.35)}
+
+  /* ---------- right column ---------- */
+  #right{
+    position:fixed;right:12px;top:78px;bottom:92px;width:350px;z-index:10;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  #ticker{flex:0 0 auto}
+  #tickerBody{padding:9px 12px}
+  .spark{width:100%;height:44px;display:block}
+  .mkt-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .mkt-row .lg{font-size:19px;font-weight:700;color:#fff}
+  .mkt-row .ch{font-size:11px;font-weight:700}
+  .mkt-note{font-size:9px;color:var(--txt-dim);letter-spacing:.06em;margin-top:5px;text-transform:uppercase}
+
+  #feed{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  #feedBody{overflow-y:auto;padding:6px 4px 6px 8px;display:flex;flex-direction:column;gap:3px}
+  .ln{
+    display:grid;grid-template-columns:34px 1fr;gap:8px;padding:4px 6px;border-radius:5px;
+    line-height:1.45;font-size:11.5px;animation:slideIn .3s ease-out;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+  .ln .d{color:rgba(126,144,184,.55);font-size:9.5px;padding-top:1.5px;letter-spacing:.04em}
+  .ln .m{min-width:0;word-wrap:break-word}
+  .ln .m b{font-weight:700}
+  .ln .m i{color:var(--txt-dim);font-style:italic}
+  .ln .m .money{font-weight:700}
+  .ln.sys{background:rgba(57,231,255,.05)}
+  .ln.sys .m{color:var(--cyan)}
+  .ln.ev{background:linear-gradient(90deg,rgba(255,62,165,.14),transparent);border-left:2px solid var(--magenta)}
+  .ln.ev .m{color:#ffd0e8}
+  .ln.ev.good{background:linear-gradient(90deg,rgba(141,255,90,.13),transparent);border-left-color:var(--lime)}
+  .ln.ev.good .m{color:#d8ffc4}
+  .ln.talk{background:rgba(168,107,255,.07)}
+  .ln.day{
+    background:rgba(255,255,255,.045);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    margin:5px 0;padding:5px 6px;
+  }
+  .ln.day .m{color:#fff;letter-spacing:.16em;font-size:10px;text-transform:uppercase;font-weight:700}
+
+  /* ---------- bottom controls ---------- */
+  #dock{
+    position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:11;
+    display:flex;align-items:center;gap:8px;padding:9px 12px;
+  }
+  button.btn{
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    padding:9px 15px;border-radius:7px;border:1px solid var(--line-strong);cursor:pointer;
+    background:rgba(255,255,255,.045);color:var(--txt);transition:.15s;white-space:nowrap;
+  }
+  button.btn:hover:not(:disabled){background:rgba(57,231,255,.14);border-color:var(--cyan);color:#fff}
+  button.btn:active:not(:disabled){transform:translateY(1px)}
+  button.btn:disabled{opacity:.35;cursor:not-allowed}
+  button.btn.primary{
+    background:linear-gradient(180deg,var(--cyan),#12b6d6);color:#03121a;border-color:var(--cyan);
+    font-weight:700;box-shadow:0 0 20px -5px var(--cyan);
+  }
+  button.btn.primary:hover:not(:disabled){filter:brightness(1.12);background:linear-gradient(180deg,var(--cyan),#12b6d6)}
+  button.btn.danger{border-color:rgba(255,62,165,.55);color:#ffb8dd}
+  button.btn.danger:hover:not(:disabled){background:rgba(255,62,165,.18);border-color:var(--magenta);color:#fff}
+  button.btn.on{background:linear-gradient(180deg,var(--lime),#4fce2a);color:#062102;border-color:var(--lime);font-weight:700;box-shadow:0 0 20px -5px var(--lime)}
+  .sep{width:1px;height:26px;background:var(--line)}
+  .speed{display:flex;align-items:center;gap:8px;padding:0 4px}
+  .speed label{font-size:9px;letter-spacing:.12em;color:var(--txt-dim);text-transform:uppercase}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:96px;height:3px;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff;
+    box-shadow:0 0 10px var(--cyan);cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:#fff;box-shadow:0 0 10px var(--cyan);cursor:pointer}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:40;background:rgba(2,4,10,.78);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .overlay.open{display:flex;animation:fadeIn .18s ease-out}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{width:min(880px,100%);max-height:86vh;display:flex;flex-direction:column}
+  .modal .body{padding:14px;overflow-y:auto}
+  .grid-ev{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:9px}
+  .ev-card{
+    text-align:left;border:1px solid var(--line);border-radius:8px;padding:10px 11px;cursor:pointer;
+    background:rgba(255,255,255,.028);font-family:var(--mono);color:var(--txt);transition:.15s;
+  }
+  .ev-card:hover{background:rgba(255,255,255,.07);border-color:var(--kc);transform:translateY(-2px)}
+  .ev-card .t{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#fff;margin-bottom:5px}
+  .ev-card .t .ic{font-size:15px}
+  .ev-card .d{font-size:10px;color:var(--txt-dim);line-height:1.5}
+  .ev-card .b{
+    display:inline-block;margin-top:7px;font-size:8px;letter-spacing:.12em;text-transform:uppercase;
+    padding:1.5px 6px;border-radius:3px;background:var(--kc);color:#04121a;font-weight:700;
+  }
+  .sec-t{
+    font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt-dim);
+    margin:4px 0 10px;display:flex;align-items:center;gap:9px;
+  }
+  .sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
+  .sec-t + .grid-ev{margin-bottom:18px}
+  .x{
+    background:transparent;border:1px solid var(--line);color:var(--txt-dim);border-radius:5px;
+    width:22px;height:22px;cursor:pointer;font-family:var(--mono);font-size:12px;line-height:1;
+  }
+  .x:hover{border-color:var(--red);color:var(--red)}
+
+  /* ---------- detail dossier ---------- */
+  #dossier{
+    position:fixed;left:352px;top:78px;width:320px;z-index:12;display:none;
+  }
+  #dossier.open{display:block;animation:slideIn .22s ease-out}
+  #dossier .body{padding:11px 13px;max-height:68vh;overflow-y:auto}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3.5px 0;font-size:11px;border-bottom:1px solid rgba(120,190,255,.06)}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--txt-dim)}
+  .kv .v{font-weight:700;color:#fff;text-align:right}
+  .quote{
+    font-size:10.5px;line-height:1.55;color:var(--txt-dim);font-style:italic;
+    border-left:2px solid var(--accent);padding:6px 0 6px 9px;margin:9px 0;
+  }
+  .trait{display:grid;grid-template-columns:70px 1fr 26px;gap:6px;align-items:center;padding:2.5px 0}
+  .trait .tl{font-size:8.5px;letter-spacing:.06em;color:var(--txt-dim);text-transform:uppercase}
+  .trait .tt{height:4px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden}
+  .trait .tf{height:100%;background:var(--accent);border-radius:2px}
+  .trait .tv{font-size:8.5px;color:var(--txt-dim);text-align:right}
+
+  /* ---------- hint + toast ---------- */
+  #hint{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;
+    text-align:center;padding:26px 34px;pointer-events:none;
+  }
+  #hint .t{font-size:20px;letter-spacing:.3em;color:#fff;text-shadow:0 0 18px var(--cyan);margin-bottom:8px}
+  #hint .s{font-size:11px;color:var(--txt-dim);letter-spacing:.1em;line-height:1.9}
+  #toast{
+    position:fixed;left:50%;top:88px;transform:translateX(-50%) translateY(-16px);z-index:35;
+    padding:11px 22px;border-radius:8px;font-size:12.5px;letter-spacing:.06em;font-weight:700;
+    background:rgba(10,14,28,.94);border:1px solid var(--magenta);color:#fff;
+    box-shadow:0 0 34px -6px var(--magenta);opacity:0;transition:.32s cubic-bezier(.2,.8,.2,1);pointer-events:none;
+    display:flex;align-items:center;gap:10px;max-width:min(560px,90vw);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast .ic{font-size:17px}
+
+  /* ---------- camera pills ---------- */
+  #cam{position:fixed;right:374px;top:78px;z-index:10;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .pill{
+    font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+    padding:6px 11px;border-radius:20px;border:1px solid var(--line);cursor:pointer;
+    background:rgba(10,14,28,.8);color:var(--txt-dim);backdrop-filter:blur(6px);transition:.15s;white-space:nowrap;
+  }
+  .pill:hover{border-color:var(--line-strong);color:var(--txt)}
+  .pill.on{background:var(--cyan);border-color:var(--cyan);color:#04121a;font-weight:700}
+
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(120,190,255,.2);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(120,190,255,.4)}
+
+  #loading{
+    position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;
+    transition:opacity .5s;text-align:center;
+  }
+  #loading.gone{opacity:0;pointer-events:none}
+  #loading .l{font-size:22px;letter-spacing:.34em;color:#fff;text-shadow:0 0 20px var(--cyan)}
+  #loading .p{margin-top:14px;font-size:10px;letter-spacing:.2em;color:var(--txt-dim);text-transform:uppercase}
+
+  @media (max-width:1280px){
+    #left{width:290px} #right{width:300px} #cam{right:324px} #dossier{left:312px}
+  }
+  @media (max-width:1000px){
+    #left,#right{position:fixed;top:auto;bottom:78px;height:38vh;width:calc(50% - 16px)}
+    #left{left:12px} #right{right:12px} #cam{display:none} #dossier{display:none!important}
+    #brand .sub{display:none} .stats{display:none}
+    #dock{left:8px;right:8px;bottom:8px;transform:none;justify-content:center;
+          flex-wrap:wrap;gap:6px;padding:7px 8px}
+    #dock .speed,#dock .sep{display:none}
+    button.btn{padding:8px 11px;font-size:10px;letter-spacing:.06em}
+  }
+  @media (max-width:1000px) and (orientation:landscape){
+    #left,#right{height:44vh}
+  }
+</style>
+</head>
+<body>
+<div id="loading"><div><div class="l">AI TOWN</div><div class="p" id="loadTxt">Costruzione della città…</div></div></div>
+
+<canvas id="scene"></canvas>
+<div class="fx scan"></div>
+<div class="fx vig"></div>
+
+<div id="topbar">
+  <div class="panel" id="brand">
+    <div>
+      <div class="logo">AI<span>TOWN</span></div>
+      <div class="sub">Simulazione economica 3D</div>
+    </div>
+  </div>
+  <div class="panel stats">
+    <div class="stat"><div class="k">Giorno</div><div class="v" id="sDay">0</div></div>
+    <div class="stat"><div class="k">Ora</div><div class="v" id="sClock">08:00</div></div>
+    <div class="stat"><div class="k">Indice NX-500</div><div class="v" id="sMkt">100.0</div></div>
+    <div class="stat"><div class="k">Patrimonio totale</div><div class="v" id="sTot">$5.000</div></div>
+    <div class="stat"><div class="k">Tassazione</div><div class="v" id="sTax">12%</div></div>
+    <div class="stat"><div class="k">Clima</div><div class="v" id="sMood">Stabile</div></div>
+  </div>
+</div>
+
+<div id="left">
+  <div class="panel" id="board">
+    <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Classifica</span>
+      <span class="tabs">
+        <button class="tab on" data-sort="net">Patrimonio</button>
+        <button class="tab" data-sort="happy">Felicità</button>
+        <button class="tab" data-sort="energy">Energia</button>
+      </span>
+    </h2>
+    <div id="lbBody"></div>
+  </div>
+  <div class="panel" id="roster">
+    <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Cittadini</span><span class="tag" id="popTag">5 attivi</span></h2>
+    <div id="rosterBody"></div>
+  </div>
+</div>
+
+<div class="panel" id="dossier">
+  <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Dossier</span>
+    <button class="x" id="dossierX">✕</button></h2>
+  <div class="body" id="dossierBody"></div>
+</div>
+
+<div id="cam">
+  <button class="pill on" data-cam="orbit">Orbita libera</button>
+  <button class="pill" data-cam="top">Vista dall'alto</button>
+  <button class="pill" data-cam="street">Livello strada</button>
+  <button class="pill" data-cam="follow">Segui selezionato</button>
+</div>
+
+<div id="right">
+  <div class="panel" id="ticker">
+    <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Mercato NX-500</span><span class="tag" id="mktPhase">apertura</span></h2>
+    <div id="tickerBody">
+      <div class="mkt-row"><span class="lg" id="mktVal">100.0</span><span class="ch flat" id="mktChg">+0.0%</span></div>
+      <canvas class="spark" id="spark" width="640" height="88"></canvas>
+      <div class="mkt-note" id="mktNote">Nessuna sessione conclusa</div>
+    </div>
+  </div>
+  <div class="panel" id="feed">
+    <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Feed della città</span><span class="tag" id="feedTag">live</span></h2>
+    <div id="feedBody"></div>
+  </div>
+</div>
+
+<div class="panel" id="dock">
+  <button class="btn primary" id="bNext">▶ Prossimo giorno</button>
+  <button class="btn" id="bAuto">⏩ Autoplay</button>
+  <div class="speed">
+    <label>Velocità</label>
+    <input type="range" id="rSpeed" min="1" max="10" value="4">
+    <span class="tag" id="spdTag" style="font-size:9px;color:var(--txt-dim);width:26px">1.0x</span>
+  </div>
+  <div class="sep"></div>
+  <button class="btn danger" id="bEvents">⚡ Eventi</button>
+  <button class="btn" id="bReset">⟲ Reset</button>
+</div>
+
+<div class="overlay" id="evOverlay">
+  <div class="panel modal">
+    <h2><span style="display:flex;align-items:center;gap:8px"><i class="dot"></i>Console eventi — lancio manuale</span>
+      <button class="x" id="evX">✕</button></h2>
+    <div class="body">
+      <div class="sec-t">Catastrofi</div>
+      <div class="grid-ev" id="evBad"></div>
+      <div class="sec-t">Opportunità</div>
+      <div class="grid-ev" id="evGood"></div>
+      <div class="sec-t">Caos</div>
+      <div class="grid-ev" id="evWild"></div>
+    </div>
+  </div>
+</div>
+
+<div id="hint">
+  <div class="t">AI TOWN</div>
+  <div class="s">
+    5 intelligenze artificiali vivono, lavorano e vanno in rovina in questa città.<br>
+    Premi <b style="color:var(--cyan)">PROSSIMO GIORNO</b> per far partire la simulazione.<br>
+    Trascina per ruotare · rotellina per lo zoom · clicca un cittadino per seguirlo.
+  </div>
+</div>
+
+<div id="toast"><span class="ic" id="toastIc">⚡</span><span id="toastTx"></span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   AI TOWN — simulazione economica 3D
+   Nessuna chiamata a modelli esterni: le decisioni dei bot sono generate
+   da un motore di utilità deterministico basato sui tratti caratteriali.
+   ===================================================================== */
+
+/* ------------------------------ RNG con seed ------------------------ */
+let _seed = 1337;
+function seedRng(s){ _seed = s >>> 0 || 1; }
+function rnd(){ // mulberry32
+  _seed |= 0; _seed = _seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(_seed ^ _seed >>> 15, 1 | _seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+const rr    = (a,b) => a + rnd()*(b-a);
+const ri    = (a,b) => Math.floor(rr(a,b+1));
+const pick  = arr   => arr[Math.floor(rnd()*arr.length)];
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp  = (a,b,t) => a + (b-a)*t;
+const money = v => (v<0?"-":"") + "$" + Math.abs(Math.round(v)).toLocaleString("it-IT");
+
+/* ------------------------------ Luoghi ------------------------------ */
+/* La griglia urbana: 9 isolati (centri a -64/0/64), strade nei varchi. */
+const PLACES = {
+  HOME_0:   { name:"Casa di Gemini",      icon:"🏠", pos:[-84,-84] },
+  HOME_1:   { name:"Casa di GPT",         icon:"🏠", pos:[-56,-84] },
+  HOME_2:   { name:"Casa di Midjourney",  icon:"🏠", pos:[-84,-56] },
+  HOME_3:   { name:"Casa di Claude",      icon:"🏠", pos:[-56,-56] },
+  HOME_4:   { name:"Casa di Grok",        icon:"🏠", pos:[-70,-42] },
+  BANK:     { name:"Banca Centrale",      icon:"🏦", pos:[  0,-66] },
+  EXCHANGE: { name:"Borsa NX-500",        icon:"📈", pos:[ 14,-48] },
+  HOSPITAL: { name:"Ospedale Civico",     icon:"🏥", pos:[ 64,-66] },
+  SCHOOL:   { name:"Università",          icon:"🎓", pos:[-70,  4] },
+  GYM:      { name:"Palestra Iron",       icon:"🏋", pos:[-50, 12] },
+  PARK:     { name:"Parco Centrale",      icon:"🌳", pos:[  0,  0] },
+  WORK:     { name:"NexCorp Tower",       icon:"🏢", pos:[ 60, -4] },
+  MARKET:   { name:"Mercato Centrale",    icon:"🛒", pos:[-64, 60] },
+  CINEMA:   { name:"Cinema Neon",         icon:"🎬", pos:[-10, 58] },
+  DINER:    { name:"Diner Elettrico",     icon:"🍜", pos:[ 16, 68] },
+  CASINO:   { name:"Casinò Fortuna",      icon:"🎰", pos:[ 58, 58] },
+  POLICE:   { name:"Stazione di Polizia", icon:"🚓", pos:[ 78, 76] }
+};
+const homeKey = i => "HOME_" + i;
+
+/* ------------------------------ Azioni ------------------------------ */
+const ACTIONS = {
+  WORK:     { label:"Lavorare",    place:"WORK",     icon:"💼" },
+  INVEST:   { label:"Investire",   place:"EXCHANGE", icon:"📈" },
+  SELL:     { label:"Disinvestire",place:"EXCHANGE", icon:"📉" },
+  SAVE:     { label:"Risparmiare", place:"BANK",     icon:"🏦" },
+  LOAN:     { label:"Prestito",    place:"BANK",     icon:"🪙" },
+  SHOP:     { label:"Shopping",    place:"MARKET",   icon:"🛍" },
+  REST:     { label:"Riposare",    place:null,       icon:"😴" },
+  SOCIAL:   { label:"Socializzare",place:"PARK",     icon:"💬" },
+  FUN:      { label:"Svago",       place:"CINEMA",   icon:"🎬" },
+  EAT:      { label:"Cena fuori",  place:"DINER",    icon:"🍜" },
+  GAMBLE:   { label:"Scommettere", place:"CASINO",   icon:"🎰" },
+  STUDY:    { label:"Studiare",    place:"SCHOOL",   icon:"🎓" },
+  TRAIN:    { label:"Allenarsi",   place:"GYM",      icon:"🏋" },
+  HEAL:     { label:"Curarsi",     place:"HOSPITAL", icon:"🏥" },
+  SIDEHUST: { name:"", label:"Progetto personale", place:null, icon:"🚀" }
+};
+
+/* ------------------------------ Cittadini --------------------------- */
+/* traits 0..1 — risk: propensione al rischio · work: etica del lavoro
+   hedon: bisogno di piacere · social: bisogno degli altri
+   thrift: parsimonia · chaos: imprevedibilità                          */
+const ROSTER = [
+  {
+    id:0, name:"Gemini", role:"L'Imprenditore Rischioso", color:"#4fa8ff", initial:"G",
+    traits:{ risk:.92, work:.62, hedon:.55, social:.58, thrift:.15, chaos:.45 },
+    salary:120, motto:"Il rischio è solo volatilità che non hai ancora capito.",
+    bio:"Ha fondato tre startup, due sono esplose. Vive di leva finanziaria e di caffè."
+  },
+  {
+    id:1, name:"GPT", role:"Il Lavoratore Stabile", color:"#10d9a0", initial:"P",
+    traits:{ risk:.22, work:.95, hedon:.3, social:.5, thrift:.6, chaos:.1 },
+    salary:150, motto:"Un turno alla volta, tutti i giorni. Funziona.",
+    bio:"Impiegato modello alla NexCorp. Non salta un giorno di lavoro nemmeno con la febbre."
+  },
+  {
+    id:2, name:"Midjourney", role:"L'Artista Creativa", color:"#ff3ea5", initial:"M",
+    traits:{ risk:.5, work:.35, hedon:.85, social:.72, thrift:.2, chaos:.62 },
+    salary:88, motto:"I soldi passano, l'opera resta. Purtroppo anche l'affitto resta.",
+    bio:"Vende stampe al mercato quando la ispirazione paga le bollette. Spesso non le paga."
+  },
+  {
+    id:3, name:"Claude", role:"Il Risparmiatore Prudente", color:"#ff9445", initial:"C",
+    traits:{ risk:.12, work:.7, hedon:.22, social:.6, thrift:.95, chaos:.06 },
+    salary:110, motto:"Prima il fondo di emergenza. Poi, forse, il resto.",
+    bio:"Tiene un foglio di calcolo di ogni centesimo dal 2019. Dorme benissimo."
+  },
+  {
+    id:4, name:"Grok", role:"L'Opportunista Caotico", color:"#a86bff", initial:"K",
+    traits:{ risk:.78, work:.4, hedon:.72, social:.8, thrift:.1, chaos:.95 },
+    salary:96, motto:"Il piano è non avere un piano. Finora sta funzionando. Credo.",
+    bio:"Fiuta l'affare del secolo ogni settimana. Il tasso di successo è discutibile."
+  }
+];
+
+/* ------------------------------ Stato ------------------------------- */
+const SIM = {
+  day:0, running:false, busy:false, speed:4,
+  market:100, marketPrev:100, history:[100],
+  taxRate:.12, inflation:1, mood:"Stabile", moodClass:"",
+  agents:[], feed:[], activeEvents:[], sortKey:"net", selected:null, phase:"idle"
+};
+
+function makeAgent(def){
+  return {
+    ...def,
+    cash:1000, invested:0, savings:0, debt:0,
+    energy:100, happy:70, skill:1, health:100,
+    place:homeKey(def.id), target:homeKey(def.id),
+    action:null, lastAction:null, streak:0, bankrupt:false,
+    history:[1000], deltaCash:0, deltaNet:0, notes:[],
+    mood:"neutro", jobLevel:1, daysWorked:0, wins:0, losses:0,
+    fined:0, cooldownGamble:0, lastSocial:0, craving:0,
+    leverage: 1 + Math.max(0, def.traits.risk - .55) * 1.9, venture:1
+  };
+}
+const net = a => a.cash + a.invested + a.savings - a.debt;
+
+/* =====================================================================
+   MOTORE DECISIONALE (mock logic — nessuna API esterna)
+   Ogni azione riceve un punteggio di utilità costruito su tratti,
+   bisogni correnti, stato del mercato ed eventi attivi.
+   ===================================================================== */
+function decide(a){
+  const t = a.traits;
+  const S = {};
+  const broke  = a.cash < 150;
+  const rich   = a.cash > 1200;
+  const tired  = a.energy < 38;
+  const wrecked= a.energy < 15;
+  const sad    = a.happy < 38;
+  const mom    = (SIM.market - SIM.history[Math.max(0,SIM.history.length-4)]) / Math.max(1,SIM.market) * 100;
+  const bias   = eventBias();
+
+  S.WORK   = 26 + t.work*62 + (broke?58:0) + (a.debt>200?24:0) - t.hedon*14 - (tired?66:0);
+  S.REST   = (100-a.energy)*1.15 + (tired?38:0) - t.work*12 + (a.health<60?18:0);
+  S.INVEST = t.risk*66 + mom*3.2*t.risk + (rich?26:0) - (broke?120:0) - (1-t.risk)*22;
+  S.SELL   = a.invested>60 ? (28 + (1-t.risk)*46 - mom*3.4 + (broke?70:0)) : -999;
+  S.SAVE   = t.thrift*74 + (a.cash>560?34:-12) - (broke?90:0) - t.hedon*18 + (a.savings<400?10:0);
+  S.LOAN   = (a.cash<90 && a.debt<1400) ? (34 + t.risk*34 - t.thrift*46 + (a.energy<30?18:0)) : -999;
+  S.SHOP   =  8 + t.hedon*58 + (sad?42:0) - t.thrift*46 - (a.cash<220?62:0)
+             + Math.min(46, a.craving);                      // voglia accumulata di spendere
+  S.SOCIAL = t.social*54 + (sad?32:0) + 8 - (a.energy<25?30:0)
+             + clamp((SIM.day - a.lastSocial)*1.6, 0, 17) * (.3 + t.social*.7);   // solitudine
+  S.FUN    =  6 + t.hedon*50 + (sad?34:0) - t.thrift*28 - (a.cash<160?58:0)
+             + a.streak*15 + Math.min(22, a.craving*.45);    // valvola di chi si spacca di lavoro
+  S.EAT    = 8 + t.hedon*38 + t.social*24 - t.thrift*32 - (a.cash<160?58:0) + (a.energy<50?16:0)
+             + clamp((SIM.day - a.lastSocial)*.9, 0, 11);
+  S.GAMBLE = t.risk*38 + t.chaos*48 - t.thrift*56 - (broke?90:0) - a.cooldownGamble*40;
+  S.STUDY  = t.work*30 + (1-t.chaos)*22 + (a.skill<1.25?26:0) - (broke?60:0) - (tired?30:0);
+  S.TRAIN  = 18 + (100-a.health)*0.62 + (a.health<72 ? (72-a.health)*0.95 : 0)
+             + t.work*14 + (a.energy>62?14:0) - (broke?40:0) - (tired?34:0);
+  S.HEAL   = a.health<48 ? 260 : -999;
+  S.SIDEHUST = t.risk*30 + t.chaos*34 + (1-t.work)*18 + (broke?26:0) - (tired?40:0)
+             + (a.venture-1)*34;                              // il successo chiama successo
+
+  if (wrecked){ S.REST += 200; S.WORK = -999; S.GAMBLE = -999; S.TRAIN = -999; }
+  if (a.debt > 900){ S.WORK += 30; S.SHOP -= 40; S.GAMBLE -= 30; }
+  for (const k in bias) if (k in S && S[k] > -900) S[k] += bias[k];
+  // noia: ripetere la giornata di ieri costa punti (tranne le urgenze)
+  if (a.lastAction && a.lastAction !== "HEAL" && S[a.lastAction] > -900) S[a.lastAction] -= 22;
+  for (const k in S) if (S[k] > -900) S[k] += rnd()*(10 + t.chaos*46);
+
+  let best = "REST", bv = -Infinity;
+  for (const k in S) if (S[k] > bv){ bv = S[k]; best = k; }
+  return best;
+}
+function eventBias(){
+  const b = {};
+  for (const ev of SIM.activeEvents)
+    if (ev.bias) for (const k in ev.bias) b[k] = (b[k]||0) + ev.bias[k];
+  return b;
+}
+
+/* =====================================================================
+   RISOLUZIONE DELLE AZIONI
+   ===================================================================== */
+/* Rendimenti decrescenti: più uno è già felice, meno gli dà lo stesso piacere.
+   Senza questo tutti si stabilizzano a 100 e la classifica felicità è piatta. */
+const joy = a => 1 - a.happy/130;
+
+function resolve(a, act){
+  const t = a.traits;
+  let amt = 0, extra = "";
+
+  switch(act){
+    case "WORK": {
+      const eff = (0.78 + a.energy/240) * (0.62 + a.health/260);
+      amt = a.salary * a.skill * a.jobLevel * eff * (1 - SIM.taxRate) * SIM.wageMult;
+      amt = Math.round(amt);
+      a.cash += amt; a.daysWorked++; a.skill += 0.007; a.streak++;
+      a.energy -= 15 + rnd()*7;
+      a.happy += t.work > .7 ? 1.2 : -4;
+      if (a.streak > 3) a.happy -= 2.5 * (a.streak - 3);   // burnout
+      if (a.daysWorked % 10 === 0){ a.jobLevel += 0.14; extra = " · promozione!"; }
+      break;
+    }
+    case "SIDEHUST": {
+      a.energy -= 16 + rnd()*8;
+      if (rnd() < 0.42 + t.risk*0.12){
+        amt = Math.round(a.salary * rr(1.3, 3.2 + t.risk*2.8) * a.skill * a.venture);
+        a.cash += amt; a.happy += 9 * joy(a); a.wins++; a.skill += 0.012;
+        a.venture = Math.min(2.8, a.venture + 0.15);   // l'impresa si consolida
+        if (a.venture > 1.6 && rnd() < .3) extra = " · l'impresa cresce";
+      } else {
+        const burn = Math.round(a.salary * 0.35 * SIM.priceMult);
+        charge(a, burn); amt = 0; a.happy -= 6; a.losses++;
+        a.venture = Math.max(1, a.venture - 0.075);
+      }
+      break;
+    }
+    case "INVEST": {
+      amt = Math.round(clamp(a.cash * (0.14 + t.risk*0.46), 0, Math.max(0, a.cash - 60)));
+      if (amt < 40){ return resolve(a, "WORK"); }
+      a.cash -= amt; a.invested += amt; a.happy += t.risk*3 - 1;
+      break;
+    }
+    case "SELL": {
+      const frac = clamp(0.35 + (1-t.risk)*0.55, 0, 1);
+      amt = Math.round(a.invested * frac);
+      a.invested -= amt; a.cash += amt;
+      a.happy += 1;
+      break;
+    }
+    case "SAVE": {
+      amt = Math.round(clamp(a.cash * (0.18 + t.thrift*0.42), 0, Math.max(0, a.cash - 80)));
+      if (amt < 30) return resolve(a, "WORK");
+      a.cash -= amt; a.savings += amt; a.happy += t.thrift*4;
+      break;
+    }
+    case "LOAN": {
+      amt = Math.round(rr(280, 620));
+      a.cash += amt; a.debt += Math.round(amt * 1.12);
+      a.happy -= 6 * (1 - t.risk);
+      break;
+    }
+    case "SHOP": {
+      amt = Math.round(clamp(a.cash * (0.06 + t.hedon*0.17) * SIM.priceMult, 20, 460));
+      if (amt > a.cash) amt = Math.round(a.cash*0.6);
+      a.cash -= amt; a.happy += (clamp(amt/13, 3, 20) + a.craving*.14) * joy(a);
+      a.energy -= 5; a.craving = 0;
+      break;
+    }
+    case "SOCIAL": {
+      amt = Math.round(18 * SIM.priceMult); a.cash -= amt;
+      a.happy += (7 + t.social*11) * joy(a); a.energy -= 7; a.lastSocial = SIM.day;
+      break;
+    }
+    case "FUN": {
+      amt = Math.round(42 * SIM.priceMult); a.cash -= amt;
+      a.happy += (11 + t.hedon*6) * joy(a); a.energy -= 5; a.streak = 0;   // il cinema azzera lo stress
+      a.craving = Math.max(0, a.craving - 14);
+      break;
+    }
+    case "EAT": {
+      amt = Math.round(58 * SIM.priceMult); a.cash -= amt;
+      a.happy += (9 + t.social*4) * joy(a); a.energy += 9;
+      break;
+    }
+    case "GAMBLE": {
+      amt = Math.round(clamp(a.cash * (0.09 + t.risk*0.26), 25, 900));
+      a.cash -= amt; a.cooldownGamble = 2;
+      if (rnd() < 0.41){
+        const w = Math.round(amt * rr(1.9, 3.4));
+        a.cash += w; a.happy += 16 * joy(a); a.wins++;
+        extra = " e vince " + money(w) + "!";
+      } else { a.happy -= 13; a.losses++; extra = " e perde tutto."; }
+      a.energy -= 9;
+      break;
+    }
+    case "STUDY": {
+      amt = Math.round(70 * SIM.priceMult); a.cash -= amt;
+      a.skill += 0.06; a.energy -= 14; a.happy -= 1.5;
+      break;
+    }
+    case "TRAIN": {
+      amt = Math.round(26 * SIM.priceMult); a.cash -= amt;
+      a.health = clamp(a.health + 17, 0, 100); a.energy -= 11; a.happy += 4;
+      break;
+    }
+    case "HEAL": {
+      amt = Math.round(140 * SIM.priceMult); a.cash -= amt;
+      a.health = clamp(a.health + 46, 0, 100); a.energy += 22; a.happy += 3;
+      break;
+    }
+    default: { // REST
+      a.energy += 34 + rnd()*12; a.happy += 4.5; a.health += 1.6;
+      a.streak = Math.max(0, a.streak - 1);
+      break;
+    }
+  }
+  a.energy = clamp(a.energy, 0, 100);
+  a.happy  = clamp(a.happy, 0, 100);
+  a.health = clamp(a.health, 0, 100);
+  a.cooldownGamble = Math.max(0, a.cooldownGamble - 1);
+  return { act, amt, extra };
+}
+
+/* ------------------------- voce dei personaggi ---------------------- */
+const LINES = {
+  WORK:    ["timbra il cartellino alla NexCorp","si fa un altro turno in ufficio","lavora fino a tardi"],
+  SIDEHUST:["porta avanti il progetto personale","tenta il colpo con la sua idea","lavora al side project"],
+  INVEST:  ["investe {amt} sull'indice NX-500","punta {amt} sui mercati","compra azioni per {amt}"],
+  SELL:    ["liquida {amt} di portafoglio","vende posizioni per {amt}","monetizza {amt} di investimenti"],
+  SAVE:    ["deposita {amt} in banca","mette {amt} da parte","sposta {amt} sul conto risparmio"],
+  LOAN:    ["accende un prestito da {amt}","chiede {amt} in prestito alla banca"],
+  SHOP:    ["spende {amt} al mercato","fa shopping per {amt}","si concede {amt} di acquisti"],
+  SOCIAL:  ["passa il pomeriggio al parco","incontra gli altri al parco","chiacchiera in centro"],
+  FUN:     ["va al Cinema Neon","si guarda un film","stacca la spina al cinema"],
+  EAT:     ["cena al Diner Elettrico","si siede al diner","ordina ramen al diner"],
+  GAMBLE:  ["punta {amt} al Casinò Fortuna","scommette {amt} alla roulette"],
+  STUDY:   ["segue un corso all'Università","studia per migliorare le competenze"],
+  TRAIN:   ["si allena in palestra","fa un'ora di pesi"],
+  HEAL:    ["si fa visitare all'Ospedale Civico","corre in ospedale"],
+  REST:    ["resta a casa a riposare","dorme dodici ore filate","si prende un giorno di stacco"]
+};
+const VOICE = {
+  0:{ good:["Te l'avevo detto che era il momento giusto.","Chi non risica…","Scalabile. Molto scalabile."],
+      bad:["È solo una correzione temporanea.","Il mercato non capisce la mia visione.","Raddoppio la puntata."] },
+  1:{ good:["La costanza paga sempre.","Nessuna sorpresa. Perfetto.","Turno completato."],
+      bad:["Domani si ricomincia comunque.","Non è nulla che un turno in più non risolva.","Procedura standard."] },
+  2:{ good:["L'ispirazione era nell'aria!","Questo lo trasformo in un'opera.","Il caos è bellissimo."],
+      bad:["L'arte non si misura in dollari.","Il conto in rosso è una scelta estetica.","Nessuno capisce il mio lavoro."] },
+  3:{ good:["Tutto secondo il foglio di calcolo.","Il fondo di emergenza cresce.","Prudenza premiata."],
+      bad:["Riduco le spese non essenziali.","Meglio non toccare i risparmi.","Rivedo il budget stasera."] },
+  4:{ good:["LOL, ha funzionato davvero.","Non chiedetemi come.","Il caos è la mia strategia."],
+      bad:["Ok, quello era prevedibile. Forse.","Prossima idea, prossima settimana.","Nessun rimpianto. Quasi."] }
+};
+const voiceLine = a => pick(VOICE[a.id][a.deltaCash >= 0 ? "good" : "bad"]);
+
+/* =====================================================================
+   EVENT ENGINE — eventi urbani + reazioni caratteriali
+   ===================================================================== */
+const EVENTS = [
+  /* ------------------------------ CATASTROFI ------------------------ */
+  { id:"TAX", kind:"bad", icon:"🧾", name:"Aumento delle tasse",
+    desc:"Il comune alza l'aliquota: ogni cittadino paga subito una quota sul patrimonio.",
+    weight:9, bias:{ SAVE:14, WORK:16, SHOP:-24 },
+    global(){ SIM.taxRate = clamp(SIM.taxRate + 0.05, 0, .34); },
+    onAgent(a){ const q = Math.round(Math.max(0, net(a)) * 0.05); charge(a, q); return "paga " + money(q) + " di tasse"; },
+    react(a){ const t=a.traits;
+      if (t.thrift>.8) return "aveva già accantonato la cifra esatta.";
+      if (t.risk>.8)   return "definisce lo Stato «un socio di minoranza molto invadente».";
+      if (t.chaos>.8)  return "prova a pagare in criptovalute. Non funziona.";
+      if (t.work>.9)   return "fa un'ora di straordinario per compensare.";
+      return "guarda la ricevuta con aria smarrita."; } },
+
+  { id:"CRASH", kind:"bad", icon:"📉", name:"Crollo del mercato",
+    desc:"L'indice NX-500 perde tra il 18% e il 34% in una sola sessione.",
+    weight:5, bias:{ SELL:34, INVEST:-10, WORK:14 },
+    global(){ const d = rr(.14,.26); SIM.market *= (1-d); SIM.mood="Panico"; },
+    onAgent(a){ const l = Math.round(a.invested * rr(.14,.26) * a.leverage); a.invested = Math.max(0, a.invested - l); a.happy -= 12;
+      return l>0 ? "brucia " + money(l) + " di portafoglio" : "non era esposto"; },
+    react(a){ const t=a.traits;
+      if (t.risk>.85) return "«Saldi!» — e cerca liquidità per comprare il ribasso.";
+      if (t.thrift>.8) return "controlla il conto risparmio e tira un sospiro di sollievo.";
+      if (t.hedon>.8) return "decide che è il momento perfetto per un aperitivo.";
+      if (t.work>.9)  return "spegne il telefono e torna a lavorare.";
+      return "fissa il grafico rosso senza dire niente."; } },
+
+  { id:"FINE", kind:"bad", icon:"🚓", name:"Multa a sorpresa",
+    desc:"Un controllo della polizia urbana colpisce un cittadino a caso.",
+    weight:10, bias:{ WORK:10 },
+    global(){}, single:true,
+    onAgent(a){ const q = Math.round(rr(90,260)); charge(a,q); a.happy -= 8; a.fined++;
+      return "beccato: " + money(q) + " di multa"; },
+    react(a){ const t=a.traits;
+      if (t.chaos>.8) return "sostiene che il cartello non c'era. C'era.";
+      if (t.thrift>.8) return "fa ricorso lo stesso pomeriggio, con allegati.";
+      if (t.risk>.8) return "la considera «un costo operativo».";
+      return "paga in silenzio e cambia strada."; } },
+
+  { id:"INFL", kind:"bad", icon:"🔥", name:"Ondata di inflazione",
+    desc:"I prezzi in città salgono del 20%: vivere costa di più, per tutti.",
+    weight:8, bias:{ WORK:18, SHOP:-16, SAVE:10 },
+    global(){ SIM.priceMult *= 1.16; SIM.inflation *= 1.16; },
+    onAgent(a){ a.happy -= 4; return "vede i prezzi salire"; },
+    react(a){ const t=a.traits;
+      if (t.thrift>.8) return "riscrive il budget mensile riga per riga.";
+      if (t.hedon>.8) return "compra tutto ora «prima che rincari ancora».";
+      if (t.risk>.8) return "ci vede un'occasione: si indebita a tasso fisso.";
+      return "riduce le uscite e stringe la cinghia."; } },
+
+  { id:"LAYOFF", kind:"bad", icon:"📦", name:"Licenziamenti alla NexCorp",
+    desc:"Ristrutturazione aziendale: gli stipendi cittadini calano del 25%.",
+    weight:6, bias:{ SIDEHUST:26, STUDY:20, WORK:-8 },
+    global(){ SIM.wageMult *= 0.82; },
+    onAgent(a){ a.happy -= 9; a.jobLevel = Math.max(1, a.jobLevel - .08); return "stipendio tagliato"; },
+    react(a){ const t=a.traits;
+      if (t.work>.9) return "chiede di coprire anche i turni dei colleghi licenziati.";
+      if (t.risk>.8) return "annuncia che «era ora di mettersi in proprio».";
+      if (t.hedon>.8) return "va a bere per dimenticare la riunione.";
+      return "aggiorna il curriculum, per sicurezza."; } },
+
+  { id:"FLU", kind:"bad", icon:"🤒", name:"Influenza stagionale",
+    desc:"Un virus gira per la città: salute ed energia crollano.",
+    weight:7, bias:{ REST:40, HEAL:24, WORK:-22 },
+    global(){}, onAgent(a){ a.health -= rr(14,30); a.energy -= rr(10,24); return "si ammala"; },
+    react(a){ const t=a.traits;
+      if (t.work>.9) return "va in ufficio comunque. Contagia due colleghi.";
+      if (t.hedon>.8) return "resta a letto con una serie tv e zero rimorsi.";
+      if (t.thrift>.8) return "cura tutto con tisane per non pagare il ticket.";
+      return "si mette a riposo obbediente."; } },
+
+  { id:"SCAM", kind:"bad", icon:"🎣", name:"Truffa telematica",
+    desc:"Una mail perfetta gira in città. Chi rischia di più, ci casca di più.",
+    weight:6, bias:{}, global(){},
+    onAgent(a){ const p = 0.2 + a.traits.risk*0.45 + a.traits.chaos*0.2;
+      if (rnd() < p){ const q = Math.round(clamp(a.cash*rr(.12,.3), 30, 700)); charge(a,q); a.happy -= 10;
+        return "abbocca e perde " + money(q); }
+      return "riconosce la truffa e la cestina"; },
+    react(a){ const t=a.traits;
+      if (t.thrift>.8) return "aveva già attivato l'autenticazione a due fattori.";
+      if (t.chaos>.8) return "risponde alla mail per «trollare i truffatori». Male.";
+      if (t.risk>.8) return "aveva cliccato prima ancora di leggere.";
+      return "segnala la mail alla polizia postale."; } },
+
+  { id:"RENT", kind:"bad", icon:"🏚", name:"Caro affitti",
+    desc:"I padroni di casa alzano i canoni: stangata immediata sul contante.",
+    weight:5, bias:{ WORK:20, SAVE:-10 },
+    global(){ SIM.priceMult *= 1.06; },
+    onAgent(a){ const q = Math.round(rr(110,240)); charge(a,q); a.happy -= 6; return "paga " + money(q) + " di aumento"; },
+    react(a){ const t=a.traits;
+      if (t.social>.75) return "propone una petizione di quartiere.";
+      if (t.risk>.8) return "valuta di comprare il palazzo. Con che soldi, non è chiaro.";
+      if (t.thrift>.8) return "calcola che conviene ancora restare. Per ora.";
+      return "firma il nuovo contratto senza leggerlo."; } },
+
+  /* ------------------------------ OPPORTUNITÀ ----------------------- */
+  { id:"BOOM", kind:"good", icon:"🚀", name:"Boom tecnologico",
+    desc:"Il distretto tech esplode: l'indice sale e gli stipendi con lui.",
+    weight:8, bias:{ INVEST:30, WORK:12 },
+    global(){ SIM.market *= rr(1.12,1.26); SIM.wageMult *= 1.1; SIM.mood="Euforia"; },
+    onAgent(a){ const g = Math.round(a.invested*rr(.1,.22)*a.leverage); a.invested += g; a.happy += 7;
+      return g>0 ? "guadagna " + money(g) : "guarda il rally da fuori"; },
+    react(a){ const t=a.traits;
+      if (t.risk>.85) return "aumenta l'esposizione. Ovviamente.";
+      if (t.thrift>.8) return "non si fida: «tutto ciò che sale così, scende».";
+      if (t.chaos>.8) return "compra qualsiasi cosa abbia «AI» nel nome.";
+      return "sorride guardando il portafoglio."; } },
+
+  { id:"BUBBLE", kind:"good", icon:"🫧", name:"Bolla speculativa",
+    desc:"Euforia irrazionale: l'indice vola, ma il rischio di scoppio raddoppia.",
+    weight:6, bias:{ INVEST:44, GAMBLE:18, SAVE:-14 },
+    global(){ SIM.market *= rr(1.2,1.45); SIM.volatility = 2.4; SIM.mood="Bolla"; SIM.bubble = 3; },
+    onAgent(a){ const g = Math.round(a.invested*rr(.18,.4)*a.leverage); a.invested += g; a.happy += 9;
+      return g>0 ? "il portafoglio gonfia di " + money(g) : "resta a bocca asciutta"; },
+    react(a){ const t=a.traits;
+      if (t.risk>.85) return "ipoteca tutto per entrare. «Stavolta è diverso».";
+      if (t.thrift>.8) return "vende metà posizione mentre gli altri comprano.";
+      if (t.chaos>.8) return "apre un canale di segnali finanziari. In un pomeriggio.";
+      return "entra piano, con una posizione piccola."; } },
+
+  { id:"DEAL", kind:"good", icon:"🤝", name:"Opportunità d'affare",
+    desc:"Un contratto lampo arriva in città: paga bene chi ha il coraggio di firmarlo.",
+    weight:9, bias:{ SIDEHUST:34, INVEST:16 },
+    global(){},
+    onAgent(a){ const t=a.traits; const p = .25 + t.risk*.5;
+      if (rnd()<p){ const g = Math.round(rr(220,700)*(0.6+t.risk)); a.cash += g; a.happy += 10; a.wins++;
+        return "chiude l'affare: " + money(g); }
+      return "lascia perdere l'offerta"; },
+    react(a){ const t=a.traits;
+      if (t.risk>.85) return "firma senza leggere gli allegati.";
+      if (t.thrift>.8) return "chiede tre giorni per fare due conti. Glieli danno.";
+      if (t.work>.9) return "lo incastra tra due turni.";
+      return "valuta, esita, poi decide."; } },
+
+  { id:"GRANT", kind:"good", icon:"🏛", name:"Sussidio comunale",
+    desc:"Il comune distribuisce un contributo una tantum a ogni residente.",
+    weight:7, bias:{ SHOP:12 },
+    global(){ SIM.taxRate = clamp(SIM.taxRate + 0.01, 0, .34); },
+    onAgent(a){ const g = Math.round(rr(180,320)); a.cash += g; a.happy += 6; return "riceve " + money(g); },
+    react(a){ const t=a.traits;
+      if (t.thrift>.8) return "lo mette in banca il giorno stesso.";
+      if (t.hedon>.8) return "lo spende entro sera. Tutto.";
+      if (t.risk>.8) return "lo usa come capitale di rischio.";
+      return "lo tiene per le spese correnti."; } },
+
+  { id:"FEST", kind:"good", icon:"🎆", name:"Festival della città",
+    desc:"Tre giorni di luci e musica: la felicità sale, i portafogli si alleggeriscono.",
+    weight:8, bias:{ SOCIAL:30, FUN:26, WORK:-14 },
+    global(){}, onAgent(a){ const c = Math.round(rr(30,90)); charge(a,c);
+      a.happy += 14 + a.traits.social*10; a.energy -= 6; return "si unisce alla festa"; },
+    react(a){ const t=a.traits;
+      if (t.social>.75) return "conosce mezza città entro mezzanotte.";
+      if (t.work>.9) return "passa dal festival venti minuti, poi torna a casa.";
+      if (t.hedon>.8) return "è il primo ad arrivare e l'ultimo ad andarsene.";
+      return "si gode i fuochi d'artificio in disparte."; } },
+
+  { id:"BONUS", kind:"good", icon:"💰", name:"Bonus aziendale",
+    desc:"La NexCorp chiude un trimestre record e premia chi ha lavorato di più.",
+    weight:7, bias:{ WORK:16 },
+    global(){},
+    onAgent(a){ const g = Math.round(a.salary * (1 + a.daysWorked*0.12) * a.jobLevel);
+      a.cash += g; a.happy += 8; return "incassa un bonus di " + money(g); },
+    react(a){ const t=a.traits;
+      if (t.work>.9) return "lo considera semplicemente dovuto.";
+      if (t.hedon>.8) return "ha già prenotato una cena costosa.";
+      if (t.thrift>.8) return "lo destina interamente al fondo di emergenza.";
+      return "resta piacevolmente sorpreso."; } },
+
+  { id:"LOTTO", kind:"good", icon:"🎫", name:"Estrazione della lotteria",
+    desc:"Un solo biglietto vincente in tutta AI Town.",
+    weight:5, single:true, bias:{ GAMBLE:20 },
+    global(){},
+    onAgent(a){ const g = Math.round(rr(900,2200)); a.cash += g; a.happy += 25; a.wins++;
+      return "VINCE " + money(g) + " alla lotteria!"; },
+    react(a){ const t=a.traits;
+      if (t.thrift>.8) return "vincita in banca prima ancora di festeggiare.";
+      if (t.risk>.8) return "la reinveste tutta entro ventiquattro ore.";
+      if (t.chaos>.8) return "offre da bere a tutta la città. Letteralmente.";
+      return "non ci crede e ricontrolla il biglietto sei volte."; } },
+
+  /* ------------------------------ CAOS ------------------------------ */
+  { id:"CRYPTO", kind:"wild", icon:"🪙", name:"Mania speculativa",
+    desc:"Un asset assurdo diventa virale. Chi entra, entra al buio.",
+    weight:6, bias:{ GAMBLE:30, INVEST:24 },
+    global(){ SIM.volatility = 2.8; SIM.mood="Delirio"; },
+    onAgent(a){ const t=a.traits; if (rnd() < .3 + t.risk*.5 + t.chaos*.2){
+        const d = Math.round(clamp(a.cash*rr(.1,.35),40,900)) * (rnd()<.5?-1:2);
+        a.cash += d; a.happy += d>0?12:-12;
+        return d>0 ? "cavalca l'onda: +" + money(d) : "resta col cerino: " + money(d); }
+      return "guarda la mania da lontano"; },
+    react(a){ const t=a.traits;
+      if (t.chaos>.8) return "ha già creato il suo token concorrente.";
+      if (t.thrift>.8) return "spiega a tutti perché è una pessima idea. Nessuno ascolta.";
+      if (t.risk>.85) return "è entrato prima ancora dell'annuncio.";
+      return "resta a guardare, indeciso."; } },
+
+  { id:"STORM", kind:"wild", icon:"⛈", name:"Tempesta sulla città",
+    desc:"Blackout e strade allagate: si esce poco e si guadagna meno.",
+    weight:6, bias:{ REST:34, WORK:-26, SOCIAL:-20 },
+    global(){ SIM.weather = "storm"; },
+    onAgent(a){ a.energy -= 8; const c = Math.round(rr(20,70)); charge(a,c); return "resta bloccato dalla tempesta"; },
+    react(a){ const t=a.traits;
+      if (t.work>.9) return "lavora in remoto con la torcia accesa.";
+      if (t.hedon>.8) return "accende le candele e apre una bottiglia.";
+      if (t.chaos>.8) return "esce comunque. Torna fradicio.";
+      return "aspetta che smetta, guardando fuori."; } },
+
+  { id:"VIRAL", kind:"wild", icon:"📣", name:"Trend virale",
+    desc:"Un cittadino a caso finisce sotto i riflettori della città.",
+    weight:6, single:true, bias:{ SOCIAL:22 },
+    global(){},
+    onAgent(a){ const g = Math.round(rr(150,900)); a.cash += g; a.happy += 18; a.skill += .03;
+      return "diventa virale e monetizza " + money(g); },
+    react(a){ const t=a.traits;
+      if (t.social>.75) return "risponde a ogni singolo commento.";
+      if (t.hedon>.8) return "ci costruisce sopra un'intera carriera. Per due giorni.";
+      if (t.work>.9) return "non se ne accorge nemmeno: era in riunione.";
+      return "non sa bene cosa farsene della fama."; } },
+
+  { id:"HEIST", kind:"wild", icon:"🦹", name:"Colpo alla banca",
+    desc:"Rapina alla Banca Centrale: i depositi subiscono un taglio d'emergenza.",
+    weight:4, bias:{ SAVE:-30, INVEST:12 },
+    global(){ SIM.mood="Allarme"; },
+    onAgent(a){ const l = Math.round(a.savings * rr(.1,.28)); a.savings -= l; a.happy -= 8;
+      return l>0 ? "perde " + money(l) + " dai depositi" : "non aveva depositi"; },
+    react(a){ const t=a.traits;
+      if (t.thrift>.9) return "perde per la prima volta fiducia nel sistema bancario.";
+      if (t.chaos>.8) return "chiede se stanno assumendo.";
+      if (t.risk>.8) return "commenta: «diversificare, sempre».";
+      return "ritira quel che resta, in contanti."; } },
+
+  { id:"UBI", kind:"wild", icon:"🌐", name:"Reddito universale",
+    desc:"Il consiglio comunale approva un reddito di base. Le tasse salgono di conseguenza.",
+    weight:4, bias:{ FUN:16, STUDY:18, WORK:-12 },
+    global(){ SIM.taxRate = clamp(SIM.taxRate + .06, 0, .34); SIM.ubi = 90; },
+    onAgent(a){ a.cash += 90; a.happy += 5; return "riceve il primo assegno di " + money(90); },
+    react(a){ const t=a.traits;
+      if (t.work>.9) return "continua a lavorare esattamente come prima.";
+      if (t.hedon>.8) return "si licenzia mentalmente per tre giorni.";
+      if (t.risk>.8) return "lo definisce «capitale di rischio pubblico».";
+      return "aspetta di vedere come va."; } }
+];
+
+function charge(a, q){
+  a.cash -= q;
+  if (a.cash < 0 && a.savings > 0){
+    const take = Math.min(a.savings, -a.cash);
+    a.savings -= take; a.cash += take;
+  }
+}
+
+/* =====================================================================
+   CICLO DELLA CITTÀ
+   ===================================================================== */
+function resetSim(seed){
+  seedRng(seed || 20260903);
+  SIM.day = 0; SIM.market = 100; SIM.marketPrev = 100; SIM.history = [100];
+  SIM.taxRate = .12; SIM.priceMult = 1; SIM.wageMult = 1; SIM.inflation = 1;
+  SIM.volatility = 1; SIM.weather = "clear"; SIM.ubi = 0; SIM.bubble = 0;
+  SIM.mood = "Stabile"; SIM.activeEvents = []; SIM.feed = []; SIM.selected = null; SIM.evCooldown = 0;
+  SIM.agents = ROSTER.map(makeAgent);
+  document.getElementById("feedBody").innerHTML = "";
+  logLine("sys", "Sistema", "AI Town inizializzata — 5 cittadini, " + money(1000) + " ciascuno.");
+}
+
+function gauss(){ return (rnd()+rnd()+rnd()-1.5)/1.5; }
+
+/* Le crisi non sono permanenti: prezzi, salari e tasse tornano lentamente
+   verso la normalità, altrimenti ogni evento negativo sarebbe un cricchetto
+   a senso unico e la città collasserebbe in modo irreversibile. */
+function economyDrift(){
+  SIM.priceMult = clamp(lerp(SIM.priceMult, 1, .05), .8, 1.7);
+  SIM.wageMult  = clamp(lerp(SIM.wageMult, 1, .06), .7, 1.45);
+  SIM.taxRate   = clamp(lerp(SIM.taxRate, .12, .05), .05, .34);
+  SIM.inflation = lerp(SIM.inflation, 1, .05);
+  if (SIM.ubi) SIM.ubi = Math.max(0, SIM.ubi - 8);
+}
+
+function marketStep(){
+  economyDrift();
+  SIM.marketPrev = SIM.market;
+  const revert = Math.log(104 / Math.max(20, SIM.market)) * 0.05;   // ritorno alla media
+  let ret = 0.0068 + clamp(revert, -.02, .045) + gauss() * 0.028 * SIM.volatility;
+  if (SIM.bubble > 0){
+    SIM.bubble--;
+    ret += 0.03;
+    if (SIM.bubble === 0 && rnd() < 0.6){
+      ret = -rr(.22,.38);
+      setTimeout(()=>logLine("ev","Mercato","💥 <b>La bolla è scoppiata.</b> L'indice si sgonfia di colpo."), 260);
+      SIM.mood = "Panico";
+    }
+  }
+  SIM.market = clamp(SIM.market * (1 + ret), 32, 900);
+  SIM.history.push(SIM.market);
+  if (SIM.history.length > 90) SIM.history.shift();
+  SIM.volatility = lerp(SIM.volatility, 1, .25);
+  /* chi rischia investe a leva: stesse notizie, oscillazioni molto più violente */
+  for (const a of SIM.agents)
+    a.invested = Math.max(0, a.invested * (1 + ret * a.leverage));
+  const chg = (SIM.market/SIM.marketPrev - 1) * 100;
+  if (Math.abs(chg) > 6) SIM.mood = chg > 0 ? "Euforia" : "Panico";
+  else if (SIM.mood !== "Bolla") SIM.mood = Math.abs(chg) > 2 ? (chg>0?"Ottimista":"Nervoso") : "Stabile";
+  return chg;
+}
+
+function fireEvent(ev, manual){
+  logLine("ev" + (ev.kind==="good"?" good":""), "EVENTO",
+    ev.icon + " <b>" + ev.name.toUpperCase() + "</b> — " + ev.desc + (manual ? " <i>(lanciato dall'utente)</i>" : ""));
+  toast(ev.icon, ev.name);
+  if (ev.global) ev.global();
+  const targets = ev.single ? [pick(SIM.agents)] : SIM.agents.slice();
+  let d = 130;
+  for (const a of targets){
+    const before = net(a);
+    const msg = ev.onAgent ? ev.onAgent(a) : "";
+    const rx  = ev.react ? ev.react(a) : "";
+    const delta = net(a) - before;
+    const nm = "<b style='color:" + a.color + "'>" + a.name + "</b>";
+    const dl = Math.abs(delta) > 1
+      ? " <span class='money " + (delta>0?"up":"down") + "'>" + (delta>0?"+":"") + money(delta) + "</span>" : "";
+    setTimeout(()=>logLine("talk", "", nm + " " + msg + dl + (rx ? " <i>— " + rx + "</i>" : "")), d);
+    d += 110;
+  }
+  if (ev.bias) SIM.activeEvents.push({ bias: ev.bias, ttl: 2, id: ev.id });
+  refreshUI();
+}
+
+function maybeRandomEvent(){
+  if (SIM.day < 2) return;
+  if (SIM.evCooldown > 0){ SIM.evCooldown--; return; }
+  if (rnd() > 0.3) return;
+  SIM.evCooldown = 2;
+  const pool = EVENTS.filter(e => !SIM.activeEvents.some(x => x.id === e.id));
+  let total = pool.reduce((s,e)=>s+e.weight, 0), r = rnd()*total;
+  for (const e of pool){ r -= e.weight; if (r <= 0){ fireEvent(e, false); return; } }
+  SIM.evCooldown = 0;
+}
+
+function upkeep(a){
+  const cost = Math.round((32 + a.traits.hedon*30) * SIM.priceMult);
+  charge(a, cost);
+  if (SIM.ubi) a.cash += SIM.ubi;
+  a.savings *= 1.004;
+  if (a.debt > 0) a.debt *= 1.013;
+  a.energy = clamp(a.energy - 5, 0, 100);
+  a.health = clamp(a.health - 1.9, 0, 100);
+  a.craving += 1.5 + a.traits.hedon*6;
+  a.happy  = clamp(a.happy + (45 - a.happy) * (a.happy > 70 ? .12 : .05), 0, 100);
+  if (a.cash < 0){ a.debt += Math.round(-a.cash * 1.1); a.cash = 0; }
+  if (net(a) < -1800 && !a.justFailed){
+    a.debt = 0; a.invested = 0; a.savings = 0; a.cash = 250;
+    a.happy = clamp(a.happy - 22, 0, 100); a.bankrupt = true; a.justFailed = 2;
+    logLine("ev","", "<b style='color:" + a.color + "'>" + a.name + "</b> dichiara <b>bancarotta</b>. " +
+      "I debiti vengono azzerati, riparte da " + money(250) + ". <i>— " + pick(VOICE[a.id].bad) + "</i>");
+  }
+  if (a.justFailed) a.justFailed--;
+  a.mood = a.happy > 70 ? "euforico" : a.happy > 48 ? "sereno" : a.happy > 28 ? "teso" : "a pezzi";
+  a.history.push(net(a));
+  if (a.history.length > 90) a.history.shift();
+}
+
+function socialize(){
+  const byPlace = {};
+  for (const a of SIM.agents){
+    const p = a.target;
+    if (!p || p.startsWith("HOME")) continue;
+    (byPlace[p] = byPlace[p] || []).push(a);
+  }
+  for (const p in byPlace){
+    const g = byPlace[p];
+    if (g.length < 2) continue;
+    const [x,y] = [g[0], g[1]];
+    x.happy = clamp(x.happy + 3 + x.traits.social*4, 0, 100);
+    y.happy = clamp(y.happy + 3 + y.traits.social*4, 0, 100);
+    const talk = pick([
+      "si scambiano consigli finanziari discutibili",
+      "finiscono a discutere di soldi",
+      "si incrociano e parlano del più e del meno",
+      "commentano l'andamento dell'indice",
+      "si lamentano del costo della vita"
+    ]);
+    setTimeout(()=>logLine("talk","",
+      "<b style='color:" + x.color + "'>" + x.name + "</b> e <b style='color:" + y.color + "'>" + y.name +
+      "</b> " + talk + " a " + PLACES[p].name + ". <i>« " + pick(VOICE[x.id][x.deltaCash>=0?"good":"bad"]) + " »</i>"), 900);
+  }
+}
+
+let dayTimer = null;
+function runDay(){
+  if (SIM.busy) return;
+  SIM.busy = true;
+  SIM.day++;
+  const dur = 2700 / speedFactor();
+
+  document.getElementById("hint").style.display = "none";
+  logLine("day", "", "── Giorno " + SIM.day + " ──");
+
+  SIM.activeEvents = SIM.activeEvents.filter(e => --e.ttl > 0);
+  marketStep();
+  maybeRandomEvent();
+
+  const order = SIM.agents.slice().sort(()=>rnd()-.5);
+  let delay = 220;
+  for (const a of order){
+    const before = net(a), cashBefore = a.cash;
+    const act = decide(a);
+    const res = resolve(a, act);
+    if (res.act !== "WORK") a.streak = Math.max(0, a.streak - 1);
+    a.lastAction = a.action; a.action = res.act;
+    a.deltaCash = a.cash - cashBefore;
+    const dest = ACTIONS[res.act].place || homeKey(a.id);
+    a.target = dest;
+    walkTo(a, dest, dur);
+
+    const tmpl = pick(LINES[res.act] || LINES.REST);
+    const txt  = tmpl.replace("{amt}", "<span class='money'>" + money(res.amt) + "</span>");
+    const dn   = net(a) - before;
+    const dl   = Math.abs(dn) > 1
+      ? " <span class='money " + (dn>0?"up":"down") + "'>" + (dn>0?"+":"") + money(dn) + "</span>" : "";
+    const voice = rnd() < .45 ? " <i>« " + voiceLine(a) + " »</i>" : "";
+    setTimeout(()=>logLine("", ACTIONS[res.act].icon,
+      "<b style='color:" + a.color + "'>" + a.name + "</b> " + txt + (res.extra||"") + dl + voice), delay);
+    delay += Math.max(90, 260 / speedFactor());
+  }
+
+  socialize();
+  for (const a of SIM.agents) upkeep(a);
+
+  animClock(dur);
+  refreshUI();
+  setTimeout(()=>{
+    SIM.busy = false;
+    refreshUI();
+    if (SIM.running) dayTimer = setTimeout(runDay, 260 / speedFactor());
+  }, dur + 200);
+}
+function speedFactor(){ return 0.4 + SIM.speed * 0.85; }
+
+/* =====================================================================
+   MONDO 3D — Three.js
+   ===================================================================== */
+let renderer, scene, camera, sun, hemi, clockT = 0;
+const WORLD = { lamps:[], windows:[], cars:[], peds:[], avatars:[], markers:[], signs:[] };
+const V3 = (x,y,z)=>new THREE.Vector3(x,y,z);
+
+const ROADS_X = [-96,-32,32,96];
+const ROADS_Z = [-96,-32,32,96];
+const nearestRoadX = x => ROADS_X.reduce((p,c)=>Math.abs(c-x)<Math.abs(p-x)?c:p);
+const nearestRoadZ = z => ROADS_Z.reduce((p,c)=>Math.abs(c-z)<Math.abs(p-z)?c:p);
+
+function canvasTex(w,h,draw,rep){
+  const c = document.createElement("canvas"); c.width=w; c.height=h;
+  draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (rep){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); }
+  return t;
+}
+function windowTexture(tint){
+  return canvasTex(64,128,(g,w,h)=>{
+    g.fillStyle = tint; g.fillRect(0,0,w,h);
+    for (let y=6; y<h-6; y+=12) for (let x=5; x<w-5; x+=11){
+      const lit = Math.random() < .55;
+      g.fillStyle = lit ? "rgba(255,224,150,.95)" : "rgba(10,16,32,.9)";
+      g.fillRect(x, y, 7, 8);
+    }
+  });
+}
+function roadTexture(vertical){
+  return canvasTex(64,256,(g,w,h)=>{
+    g.fillStyle = "#14161f"; g.fillRect(0,0,w,h);
+    g.fillStyle = "#1b1e2b"; g.fillRect(0,0,4,h); g.fillRect(w-4,0,4,h);
+    g.fillStyle = "rgba(255,225,120,.55)";
+    for (let y=10; y<h; y+=44) g.fillRect(w/2-1.5, y, 3, 22);
+  }, vertical ? [1,10] : [1,10]);
+}
+
+const MATS = {};
+function initMats(){
+  MATS.ground   = new THREE.MeshLambertMaterial({ color:0x0b0f18 });
+  MATS.grass    = new THREE.MeshLambertMaterial({ color:0x18351f });
+  MATS.pave     = new THREE.MeshLambertMaterial({ color:0x1d2130 });
+  MATS.curb     = new THREE.MeshLambertMaterial({ color:0x2a3044 });
+  MATS.trunk    = new THREE.MeshLambertMaterial({ color:0x3a2a1c });
+  MATS.leaf     = new THREE.MeshLambertMaterial({ color:0x1f6b34 });
+  MATS.metal    = new THREE.MeshLambertMaterial({ color:0x39415a });
+  MATS.water    = new THREE.MeshLambertMaterial({ color:0x14506b });
+  MATS.roadV    = new THREE.MeshLambertMaterial({ map: roadTexture(true) });
+  MATS.roadH    = new THREE.MeshLambertMaterial({ map: roadTexture(false) });
+  MATS.win = [
+    new THREE.MeshLambertMaterial({ map: windowTexture("#232a3d"), emissiveMap: windowTexture("#000"), emissive:0xffb95e, emissiveIntensity:0 }),
+    new THREE.MeshLambertMaterial({ map: windowTexture("#1b2334"), emissive:0xffb95e, emissiveIntensity:0 }),
+    new THREE.MeshLambertMaterial({ map: windowTexture("#2b2438"), emissive:0xff9fd0, emissiveIntensity:0 })
+  ];
+  MATS.win.forEach(m => { m.emissiveMap = m.map; WORLD.windows.push(m); });
+}
+
+function box(w,h,d,mat,x,y,z,rotY){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); if (rotY) m.rotation.y = rotY;
+  m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
+}
+function plane(w,d,mat,x,y,z,rotY){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w,d), mat);
+  m.rotation.x = -Math.PI/2; if (rotY) m.rotation.z = rotY;
+  m.position.set(x,y,z); m.receiveShadow = true; scene.add(m); return m;
+}
+function tower(x,z,w,d,h,winIdx,baseColor){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), MATS.win[winIdx % 3]);
+  body.position.y = h/2; body.castShadow = true; body.receiveShadow = true; g.add(body);
+  const capM = new THREE.MeshLambertMaterial({ color: baseColor || 0x252c3e });
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(w*1.06, 1.4, d*1.06), capM);
+  cap.position.y = h + .7; cap.castShadow = true; g.add(cap);
+  const skirt = new THREE.Mesh(new THREE.BoxGeometry(w*1.12, 2.2, d*1.12), capM);
+  skirt.position.y = 1.1; skirt.castShadow = true; g.add(skirt);
+  g.position.set(x, 0, z); scene.add(g); return g;
+}
+function neon(text, color, x, y, z, scale){
+  const t = canvasTex(512,128,(g,w,h)=>{
+    g.clearRect(0,0,w,h);
+    g.font = "bold 62px monospace"; g.textAlign="center"; g.textBaseline="middle";
+    g.shadowColor = color; g.shadowBlur = 34;
+    g.fillStyle = color; g.fillText(text, w/2, h/2);
+    g.shadowBlur = 14; g.fillStyle = "#ffffff"; g.fillText(text, w/2, h/2);
+  });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:t, transparent:true, depthWrite:false }));
+  s.scale.set(scale||22, (scale||22)/4, 1); s.position.set(x,y,z);
+  scene.add(s); WORLD.signs.push(s); return s;
+}
+function tree(x,z,s){
+  s = s || 1;
+  const g = new THREE.Group();
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(.35*s,.5*s,3.4*s,6), MATS.trunk);
+  tr.position.y = 1.7*s; tr.castShadow = true; g.add(tr);
+  const lf = new THREE.Mesh(new THREE.ConeGeometry(2.3*s, 5.4*s, 7), MATS.leaf);
+  lf.position.y = 5.4*s; lf.castShadow = true; g.add(lf);
+  const lf2 = new THREE.Mesh(new THREE.ConeGeometry(1.7*s, 3.6*s, 7), MATS.leaf);
+  lf2.position.y = 7.6*s; lf2.castShadow = true; g.add(lf2);
+  g.position.set(x,0,z); scene.add(g); return g;
+}
+function lamp(x,z){
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(.16,.22,7,6), MATS.metal);
+  pole.position.y = 3.5; pole.castShadow = true; g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(1.8,.22,.22), MATS.metal);
+  arm.position.set(.9,7,0); g.add(arm);
+  const bulbM = new THREE.MeshBasicMaterial({ color:0x2a2a20 });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(.42,8,8), bulbM);
+  bulb.position.set(1.7,6.86,0); g.add(bulb);
+  WORLD.lamps.push(bulbM);
+  g.position.set(x,0,z); scene.add(g); return g;
+}
+function car(lane, axis, dir, color){
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.BoxGeometry(2.1,1.1,4.2), new THREE.MeshLambertMaterial({color}));
+  b.position.y = .95; b.castShadow = true; g.add(b);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.85,.85,2.1), new THREE.MeshLambertMaterial({color:0x0d1220}));
+  top.position.set(0,1.75,-.2); g.add(top);
+  const hl = new THREE.Mesh(new THREE.BoxGeometry(1.7,.16,.1), new THREE.MeshBasicMaterial({color:0xfff0b0}));
+  hl.position.set(0,.95,2.15); g.add(hl);
+  const tl = new THREE.Mesh(new THREE.BoxGeometry(1.7,.16,.1), new THREE.MeshBasicMaterial({color:0xff3344}));
+  tl.position.set(0,.95,-2.15); g.add(tl);
+  scene.add(g);
+  const c = { g, lane, axis, dir, t: rnd()*260-130, speed: rr(9,17) };
+  WORLD.cars.push(c); return c;
+}
+function pedestrian(x,z){
+  const g = new THREE.Group();
+  const col = new THREE.Color().setHSL(rnd(), .35, .45);
+  const geo = THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(.32,.9,3,6)
+                                    : new THREE.CylinderGeometry(.32,.32,1.5,6);
+  const b = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color:col }));
+  b.position.y = 1.1; b.castShadow = true; g.add(b);
+  const h = new THREE.Mesh(new THREE.SphereGeometry(.34,7,7), new THREE.MeshLambertMaterial({ color:0xd9b48a }));
+  h.position.y = 2.05; g.add(h);
+  g.position.set(x,0,z); scene.add(g);
+  const p = { g, x, z, tx:x, tz:z, speed: rr(2.2,4.4) };
+  WORLD.peds.push(p); return p;
+}
+
+/* ------------------------- costruzione della città ------------------ */
+const BLOCK = [-64, 0, 64];
+const OCCUPIED = [];
+function occupy(x,z,r){ OCCUPIED.push({x,z,r}); }
+function free(x,z,r){ return !OCCUPIED.some(o => Math.hypot(o.x-x, o.z-z) < o.r + r); }
+
+function house(x,z,color){
+  const g = new THREE.Group();
+  const wallM = new THREE.MeshLambertMaterial({ color:0x3b4460 });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(11,7,10), wallM);
+  b.position.y = 3.5; b.castShadow = true; b.receiveShadow = true; g.add(b);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.9,4.8,4), new THREE.MeshLambertMaterial({ color }));
+  roof.position.y = 9.4; roof.rotation.y = Math.PI/4; roof.castShadow = true; g.add(roof);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(2,3.4,.3), new THREE.MeshBasicMaterial({ color:0x1a1f2e }));
+  door.position.set(0,1.7,5.1); g.add(door);
+  const wM = new THREE.MeshBasicMaterial({ color:0x2a2b22 });
+  [[-3.2,4.6],[3.2,4.6]].forEach(p=>{
+    const w = new THREE.Mesh(new THREE.BoxGeometry(2.4,2.2,.3), wM);
+    w.position.set(p[0],4.6,5.1); g.add(w); WORLD.lamps.push(wM);
+  });
+  g.position.set(x,0,z); scene.add(g); occupy(x,z,10); return g;
+}
+
+function buildLandmarks(){
+  const gold = 0xffc247, cyan = 0x39e7ff, mag = 0xff3ea5;
+
+  /* --- Banca Centrale --- */
+  (()=>{ const [x,z] = PLACES.BANK.pos;
+    box(30,12,20, new THREE.MeshLambertMaterial({color:0x3a4157}), x, 6, z);
+    box(34,1.4,24, MATS.curb, x, .7, z);
+    for (let i=-2;i<=2;i++){
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,11,10), new THREE.MeshLambertMaterial({color:0x4c556f}));
+      c.position.set(x + i*5.6, 5.5, z + 11); c.castShadow = true; scene.add(c);
+    }
+    const ped = new THREE.Mesh(new THREE.ConeGeometry(6,3.4,4), new THREE.MeshLambertMaterial({color:0x4c556f}));
+    ped.position.set(x, 13.6, z); ped.rotation.y = Math.PI/4; scene.add(ped);
+    neon("🏦 BANCA", "#ffc247", x, 18, z+12, 24); occupy(x,z,22);
+  })();
+
+  /* --- Borsa NX-500 --- */
+  (()=>{ const [x,z] = PLACES.EXCHANGE.pos;
+    tower(x,z,14,14,34,1,0x2f3a52);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(11,7),
+      new THREE.MeshBasicMaterial({ color:0x0d2a1e }));
+    scr.position.set(x, 20, z+7.1); scene.add(scr);
+    WORLD.tickerScreen = scr;
+    neon("📈 NX-500", "#8dff5a", x, 30, z+7.5, 20); occupy(x,z,14);
+  })();
+
+  /* --- NexCorp Tower (lavoro) --- */
+  (()=>{ const [x,z] = PLACES.WORK.pos;
+    tower(x,z,20,20,62,0,0x39415a);
+    tower(x-16,z+16,11,11,34,1,0x2e3448);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.3,.5,14,6), MATS.metal);
+    ant.position.set(x,70,z); scene.add(ant);
+    const blinkM = new THREE.MeshBasicMaterial({ color:0xff3344 });
+    const blink = new THREE.Mesh(new THREE.SphereGeometry(.8,8,8), blinkM);
+    blink.position.set(x,77.5,z); scene.add(blink); WORLD.blink = blinkM;
+    neon("NEXCORP", "#39e7ff", x, 66, z+10.5, 26); occupy(x,z,26); occupy(x-16,z+16,10);
+  })();
+
+  /* --- Ospedale --- */
+  (()=>{ const [x,z] = PLACES.HOSPITAL.pos;
+    box(26,16,18, new THREE.MeshLambertMaterial({color:0x46506b}), x, 8, z);
+    const cm = new THREE.MeshBasicMaterial({ color:0xff4d5e });
+    const c1 = new THREE.Mesh(new THREE.BoxGeometry(7,2.2,.4), cm); c1.position.set(x,12,z+9.3); scene.add(c1);
+    const c2 = new THREE.Mesh(new THREE.BoxGeometry(2.2,7,.4), cm); c2.position.set(x,12,z+9.3); scene.add(c2);
+    neon("OSPEDALE", "#ff6b7a", x, 20, z+9.5, 22); occupy(x,z,18);
+  })();
+
+  /* --- Università --- */
+  (()=>{ const [x,z] = PLACES.SCHOOL.pos;
+    box(34,11,16, new THREE.MeshLambertMaterial({color:0x3d4459}), x, 5.5, z);
+    box(9,24,9, new THREE.MeshLambertMaterial({color:0x474e66}), x-13, 12, z);
+    const cl = new THREE.Mesh(new THREE.CircleGeometry(2.6,16), new THREE.MeshBasicMaterial({color:0xf3e6c8}));
+    cl.position.set(x-13,21,z+4.6); scene.add(cl);
+    neon("🎓 UNIVERSITÀ", "#a86bff", x+3, 15, z+8.5, 24); occupy(x,z,22);
+  })();
+
+  /* --- Palestra --- */
+  (()=>{ const [x,z] = PLACES.GYM.pos;
+    box(18,9,14, new THREE.MeshLambertMaterial({color:0x333a4e}), x, 4.5, z);
+    neon("IRON GYM", "#ff9445", x, 12.5, z+7.5, 16); occupy(x,z,12);
+  })();
+
+  /* --- Mercato --- */
+  (()=>{ const [x,z] = PLACES.MARKET.pos;
+    box(30,8,22, new THREE.MeshLambertMaterial({color:0x363d52}), x, 4, z);
+    const cols = [0xff5468,0x8dff5a,0x39e7ff,0xffc247,0xff3ea5];
+    for (let i=0;i<5;i++){
+      const cx = x - 12 + i*6, cz = z + 16;
+      box(5,.5,5, new THREE.MeshLambertMaterial({color:cols[i]}), cx, 4.2, cz);
+      const p1 = new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,4,5), MATS.metal);
+      p1.position.set(cx-2,2,cz-2); scene.add(p1);
+      const p2 = p1.clone(); p2.position.set(cx+2,2,cz+2); scene.add(p2);
+      box(4.4,1.4,4.4, MATS.curb, cx, .7, cz);
+    }
+    neon("🛒 MERCATO", "#8dff5a", x, 12, z+9, 24); occupy(x,z,20);
+  })();
+
+  /* --- Cinema --- */
+  (()=>{ const [x,z] = PLACES.CINEMA.pos;
+    box(24,14,18, new THREE.MeshLambertMaterial({color:0x2f2740}), x, 7, z);
+    const mq = new THREE.Mesh(new THREE.BoxGeometry(26,3.4,3),
+      new THREE.MeshBasicMaterial({ color:0x2a1830 }));
+    mq.position.set(x,9,z+9.6); scene.add(mq);
+    neon("CINEMA NEON", "#ff3ea5", x, 16, z+10, 26); occupy(x,z,18);
+  })();
+
+  /* --- Diner --- */
+  (()=>{ const [x,z] = PLACES.DINER.pos;
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(9,9,7,14),
+      new THREE.MeshLambertMaterial({color:0x3b4155}));
+    b.position.set(x,3.5,z); b.castShadow = true; b.receiveShadow = true; scene.add(b);
+    const rf = new THREE.Mesh(new THREE.CylinderGeometry(9.6,9.6,.8,14), new THREE.MeshLambertMaterial({color:0xd94f5c}));
+    rf.position.set(x,7.4,z); scene.add(rf);
+    neon("🍜 DINER", "#ffc247", x, 12, z+6, 18); occupy(x,z,12);
+  })();
+
+  /* --- Casinò --- */
+  (()=>{ const [x,z] = PLACES.CASINO.pos;
+    tower(x,z,18,18,26,2,0x4a3a1e);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(7,14,10,0,Math.PI*2,0,Math.PI/2),
+      new THREE.MeshLambertMaterial({color:0xd4a72c}));
+    dome.position.set(x,27,z); dome.castShadow = true; scene.add(dome);
+    neon("🎰 FORTUNA", "#ffd24a", x, 37, z, 24); occupy(x,z,16);
+  })();
+
+  /* --- Polizia --- */
+  (()=>{ const [x,z] = PLACES.POLICE.pos;
+    box(18,9,13, new THREE.MeshLambertMaterial({color:0x2b3a5c}), x, 4.5, z);
+    const lb = new THREE.MeshBasicMaterial({ color:0x2244ff });
+    const l = new THREE.Mesh(new THREE.BoxGeometry(4,.8,1), lb);
+    l.position.set(x,9.8,z); scene.add(l); WORLD.police = lb;
+    neon("POLIZIA", "#5a8dff", x, 13, z+7, 16); occupy(x,z,12);
+  })();
+
+  /* --- Parco centrale --- */
+  (()=>{ const [x,z] = PLACES.PARK.pos;
+    plane(52,52, MATS.grass, x, .06, z);
+    plane(52,6, MATS.pave, x, .1, z);
+    plane(6,52, MATS.pave, x, .1, z);
+    const basin = new THREE.Mesh(new THREE.CylinderGeometry(7,7,1.2,20), MATS.curb);
+    basin.position.set(x,.6,z); basin.receiveShadow = true; scene.add(basin);
+    const wat = new THREE.Mesh(new THREE.CylinderGeometry(6.2,6.2,1.3,20), MATS.water);
+    wat.position.set(x,.72,z); scene.add(wat);
+    const jet = new THREE.Mesh(new THREE.CylinderGeometry(.5,1.1,6,8), new THREE.MeshLambertMaterial({color:0x3fa8cf}));
+    jet.position.set(x,3.6,z); scene.add(jet); WORLD.jet = jet;
+    for (let i=0;i<12;i++){
+      const a = i/12*Math.PI*2, r = 19 + (i%3)*2.5;
+      tree(x + Math.cos(a)*r, z + Math.sin(a)*r, .9 + (i%3)*.15);
+    }
+    for (let i=0;i<4;i++){
+      const a = i/4*Math.PI*2 + .4;
+      box(4,.4,1.4, MATS.curb, x+Math.cos(a)*11, 1.2, z+Math.sin(a)*11, -a);
+    }
+    occupy(x,z,26);
+  })();
+
+  /* --- Case dei cittadini --- */
+  const roofCols = [0x4fa8ff,0x10d9a0,0xff3ea5,0xff9445,0xa86bff];
+  ROSTER.forEach((r,i)=>{ const [x,z] = PLACES[homeKey(i)].pos; house(x,z,roofCols[i]); });
+}
+
+function buildFillers(){
+  const skins = [0x252c3e,0x2a3145,0x1f2536,0x303852];
+  for (const cx of BLOCK) for (const cz of BLOCK){
+    for (let k=0;k<7;k++){
+      const x = cx + rr(-19,19), z = cz + rr(-19,19);
+      const w = rr(8,15), d = rr(8,15), h = rr(10,44);
+      if (!free(x,z, Math.max(w,d)/2 + 3)) continue;
+      tower(x, z, w, d, h, ri(0,2), pick(skins));
+      occupy(x, z, Math.max(w,d)/2 + 2.5);
+    }
+  }
+}
+
+function buildCity(){
+  scene.add(new THREE.AmbientLight(0x3a4a6a, .55));
+  hemi = new THREE.HemisphereLight(0x9fc6ff, 0x1a2030, .55); scene.add(hemi);
+  sun = new THREE.DirectionalLight(0xffe6c0, 1.05);
+  sun.position.set(90,140,60); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048,2048);
+  const S = 150, c = sun.shadow.camera;
+  c.left=-S; c.right=S; c.top=S; c.bottom=-S; c.near=1; c.far=460;
+  scene.add(sun);
+
+  plane(320,320, MATS.ground, 0, 0, 0);
+  for (const x of ROADS_X) plane(14,300, MATS.roadV, x, .02, 0);
+  for (const z of ROADS_Z) plane(300,14, MATS.roadH, 0, .03, z);
+  for (const cx of BLOCK) for (const cz of BLOCK)
+    if (!(cx===0 && cz===0)) plane(50,50, MATS.pave, cx, .04, cz);
+
+  buildLandmarks();
+  buildFillers();
+
+  for (const x of ROADS_X) for (let z=-120; z<=120; z+=30) lamp(x + 8.6, z);
+  for (const z of ROADS_Z) for (let x=-120; x<=120; x+=30) if (Math.abs(x)>12) lamp(x, z + 8.6);
+  for (const cx of BLOCK) for (const cz of BLOCK){
+    if (cx===0 && cz===0) continue;
+    tree(cx-24, cz-24, .8); tree(cx+24, cz+24, .8);
+  }
+
+  const carCols = [0xd94f5c,0x39e7ff,0xf0f2f7,0x8dff5a,0xffc247,0x8a94ad,0xa86bff];
+  for (const x of ROADS_X){ car(x-3.4,"z", 1, pick(carCols)); car(x+3.4,"z",-1, pick(carCols)); }
+  for (const z of ROADS_Z){ car(z-3.4,"x",-1, pick(carCols)); car(z+3.4,"x", 1, pick(carCols)); }
+  for (let i=0;i<7;i++) car(pick(ROADS_X) + (rnd()<.5?-3.4:3.4), "z", rnd()<.5?1:-1, pick(carCols));
+
+  for (let i=0;i<26;i++){
+    const onX = rnd() < .5;
+    const x = onX ? pick(ROADS_X) + (rnd()<.5?-8.5:8.5) : rr(-120,120);
+    const z = onX ? rr(-120,120) : pick(ROADS_Z) + (rnd()<.5?-8.5:8.5);
+    pedestrian(x,z);
+  }
+}
+
+/* ------------------------- avatar dei cittadini --------------------- */
+function labelTex(a){
+  return canvasTex(512,128,(g,w,h)=>{
+    g.clearRect(0,0,w,h);
+    g.fillStyle = "rgba(6,10,20,.78)";
+    if (g.roundRect){ g.beginPath(); g.roundRect(6,26,w-12,76,14); g.fill(); }
+    else g.fillRect(6,26,w-12,76);
+    g.strokeStyle = a.color; g.lineWidth = 3;
+    if (g.roundRect){ g.beginPath(); g.roundRect(6,26,w-12,76,14); g.stroke(); }
+    g.font = "bold 40px monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = a.color; g.shadowColor = a.color; g.shadowBlur = 18;
+    const ic = a.action ? ACTIONS[a.action].icon + " " : "";
+    g.fillText(ic + a.name, w/2, 64);
+  });
+}
+function buildAvatars(){
+  SIM.agents.forEach((a,i)=>{
+    const col = new THREE.Color(a.color);
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7,2.5,1.1),
+      new THREE.MeshLambertMaterial({ color: col }));
+    body.position.y = 2.3; body.castShadow = true; g.add(body);
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(1.4,1.3,.95),
+      new THREE.MeshLambertMaterial({ color: col.clone().multiplyScalar(.45) }));
+    legs.position.y = .75; legs.castShadow = true; g.add(legs);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(1.35,1.25,1.25),
+      new THREE.MeshLambertMaterial({ color: 0xe9eef8 }));
+    head.position.y = 4.2; head.castShadow = true; g.add(head);
+    const visorM = new THREE.MeshBasicMaterial({ color: col });
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(1.15,.42,.12), visorM);
+    visor.position.set(0,4.3,.66); g.add(visor);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.9,5), MATS.metal);
+    ant.position.y = 5.2; g.add(ant);
+    const tipM = new THREE.MeshBasicMaterial({ color: col });
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(.2,7,7), tipM);
+    tip.position.y = 5.7; g.add(tip);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.9,2.5,22),
+      new THREE.MeshBasicMaterial({ color: col, transparent:true, opacity:.5, side:THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI/2; ring.position.y = .08; g.add(ring);
+    const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(a), transparent:true, depthTest:false }));
+    lab.scale.set(11,2.75,1); lab.position.y = 7.6; g.add(lab);
+
+    const [hx,hz] = PLACES[homeKey(i)].pos;
+    g.position.set(hx + (i-2)*2.4, 0, hz + 9);
+    scene.add(g);
+    const av = { g, ring, lab, body, visorM, tipM, agent:a, path:[], t:0, dur:1, moving:false, bob:rnd()*6 };
+    a.av = av; WORLD.avatars.push(av);
+  });
+}
+function refreshLabel(a){
+  if (!a.av) return;
+  a.av.lab.material.map.dispose();
+  a.av.lab.material.map = labelTex(a);
+  a.av.lab.material.needsUpdate = true;
+}
+function slotOffset(a){
+  const k = a.id * 1.2566;
+  return [Math.cos(k)*6.5, Math.sin(k)*6.5];
+}
+function walkTo(a, placeKey, durMs){
+  const av = a.av; if (!av) return;
+  const [px,pz] = PLACES[placeKey].pos;
+  const [ox,oz] = slotOffset(a);
+  const dx = px + ox, dz = pz + oz;
+  const cur = av.g.position;
+  const rz1 = nearestRoadZ(cur.z), rx2 = nearestRoadX(dx), rz2 = nearestRoadZ(dz);
+  const pts = [ V3(cur.x,0,cur.z), V3(cur.x,0,rz1), V3(rx2,0,rz1), V3(rx2,0,rz2), V3(dx,0,rz2), V3(dx,0,dz) ];
+  const path = [pts[0]];
+  for (let i=1;i<pts.length;i++) if (pts[i].distanceTo(path[path.length-1]) > 1.2) path.push(pts[i]);
+  av.path = path; av.t = 0; av.dur = Math.max(600, durMs*0.85); av.moving = path.length > 1;
+  a.place = placeKey;
+  refreshLabel(a);
+}
+function stepAvatar(av, dt){
+  if (!av.moving) {
+    av.g.position.y = 0;
+    return;
+  }
+  av.t += dt*1000;
+  const p = clamp(av.t / av.dur, 0, 1);
+  const path = av.path;
+  let total = 0; const segs = [];
+  for (let i=1;i<path.length;i++){ const l = path[i].distanceTo(path[i-1]); segs.push(l); total += l; }
+  let want = p*total, i = 0;
+  while (i < segs.length && want > segs[i]){ want -= segs[i]; i++; }
+  if (i >= segs.length){ av.g.position.copy(path[path.length-1]); av.moving = false; av.g.position.y = 0; return; }
+  const a0 = path[i], a1 = path[i+1], f = segs[i] ? want/segs[i] : 0;
+  av.g.position.set(lerp(a0.x,a1.x,f), 0, lerp(a0.z,a1.z,f));
+  av.g.rotation.y = Math.atan2(a1.x-a0.x, a1.z-a0.z);
+  av.bob += dt*13;
+  av.g.position.y = Math.abs(Math.sin(av.bob))*0.22;
+}
+
+/* ------------------------- camera + input --------------------------- */
+const CAM = { theta:.72, phi:.86, radius:245, target:V3(0,6,0), mode:"orbit", follow:null };
+function updateCamera(dt){
+  if (CAM.mode === "follow" && SIM.selected != null){
+    const av = SIM.agents[SIM.selected].av;
+    if (av) CAM.target.lerp(V3(av.g.position.x, 4.5, av.g.position.z), Math.min(1, dt*9));
+  }
+  const ph = clamp(CAM.phi, .06, 1.5);
+  /* I pannelli coprono la fascia sinistra dello schermo: nelle inquadrature
+     ravvicinate il soggetto va spostato nella porzione realmente visibile,
+     altrimenti finisce esattamente dietro il Dossier. */
+  const bias = (CAM.mode === "follow" || CAM.mode === "street") && innerWidth > 1000 ? -0.27*CAM.radius : 0;
+  const look = V3(
+    CAM.target.x + Math.cos(CAM.theta)*bias, CAM.target.y,
+    CAM.target.z - Math.sin(CAM.theta)*bias
+  );
+  camera.position.set(
+    look.x + CAM.radius*Math.sin(ph)*Math.sin(CAM.theta),
+    look.y + CAM.radius*Math.cos(ph),
+    look.z + CAM.radius*Math.sin(ph)*Math.cos(CAM.theta)
+  );
+  camera.lookAt(look);
+}
+function setCamMode(m){
+  CAM.mode = m;
+  if (m === "orbit"){ CAM.phi=.86; CAM.radius=245; CAM.target.set(0,6,0); }
+  if (m === "top"){ CAM.phi=.06; CAM.radius=340; CAM.target.set(0,0,0); }
+  if (m === "street"){ CAM.phi=1.34; CAM.radius=64;
+    const s = SIM.selected != null ? SIM.agents[SIM.selected].av.g.position : V3(0,0,0);
+    CAM.target.set(s.x, 5, s.z); }
+  if (m === "follow"){
+    CAM.phi = 0.98; CAM.radius = 58;
+    if (SIM.selected == null){ SIM.selected = 0; refreshUI(); }
+    const av = SIM.agents[SIM.selected].av;               // aggancio immediato, senza inseguimento
+    if (av) CAM.target.set(av.g.position.x, 4.5, av.g.position.z);
+  }
+  document.querySelectorAll("#cam .pill").forEach(b=>b.classList.toggle("on", b.dataset.cam===m));
+}
+function bindInput(cv){
+  let down=false, lx=0, ly=0, moved=0, pinch=0;
+  const start=(x,y)=>{ down=true; lx=x; ly=y; moved=0; };
+  const move=(x,y)=>{
+    if(!down) return;
+    const dx=x-lx, dy=y-ly; lx=x; ly=y; moved += Math.abs(dx)+Math.abs(dy);
+    CAM.theta -= dx*0.005; CAM.phi = clamp(CAM.phi - dy*0.004, .06, 1.5);
+    if (CAM.mode !== "follow") CAM.mode = "orbit";
+    document.querySelectorAll("#cam .pill").forEach(b=>b.classList.toggle("on", b.dataset.cam===CAM.mode));
+  };
+  cv.addEventListener("mousedown", e=>start(e.clientX,e.clientY));
+  window.addEventListener("mousemove", e=>move(e.clientX,e.clientY));
+  window.addEventListener("mouseup", e=>{ if (down && moved < 5) pickAt(e.clientX, e.clientY); down=false; });
+  cv.addEventListener("wheel", e=>{ e.preventDefault(); CAM.radius = clamp(CAM.radius * (1 + Math.sign(e.deltaY)*.11), 22, 480); }, {passive:false});
+  cv.addEventListener("touchstart", e=>{
+    if (e.touches.length===1) start(e.touches[0].clientX, e.touches[0].clientY);
+    else if (e.touches.length===2) pinch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+  }, {passive:true});
+  cv.addEventListener("touchmove", e=>{
+    if (e.touches.length===1) move(e.touches[0].clientX, e.touches[0].clientY);
+    else if (e.touches.length===2){
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      if (pinch) CAM.radius = clamp(CAM.radius * (pinch/d), 22, 480);
+      pinch = d;
+    }
+  }, {passive:true});
+  cv.addEventListener("touchend", ()=>{ down=false; pinch=0; });
+}
+const RAY = new THREE.Raycaster(), NDC = new THREE.Vector2();
+function pickAt(cx, cy){
+  NDC.x = (cx/window.innerWidth)*2 - 1;
+  NDC.y = -(cy/window.innerHeight)*2 + 1;
+  RAY.setFromCamera(NDC, camera);
+  const hits = RAY.intersectObjects(WORLD.avatars.map(a=>a.g), true);
+  if (hits.length){
+    const g = hits[0].object.parent;
+    const av = WORLD.avatars.find(a => a.g === g || a.g === g.parent);
+    if (av) selectAgent(av.agent.id);
+  }
+}
+
+/* ------------------------- ciclo di rendering ----------------------- */
+let dayPhase = .28, phaseRate = 0.014, lastT = 0;
+function animClock(durMs){ phaseRate = 1 / (durMs/1000); dayPhase = .06;
+  setTimeout(()=>{ phaseRate = 0.012; }, durMs); }
+
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt = Math.min(.05, (now - lastT)/1000 || .016); lastT = now;
+
+  dayPhase += phaseRate * dt;
+  if (dayPhase > 1) dayPhase = SIM.busy ? 1 : 0;
+
+  const ang = dayPhase * Math.PI;
+  const sy = Math.sin(ang), night = clamp(1 - sy*1.7, 0, 1);
+  sun.position.set(Math.cos(ang)*180, Math.max(4, sy*190), 70);
+  sun.intensity = Math.max(0, sy) * 1.15;
+  sun.color.setHSL(.09, .55, clamp(.55 + sy*.3, .3, .85));
+  hemi.intensity = .16 + Math.max(0, sy)*.55;
+  const skyDay = new THREE.Color(0x35597f), skyNight = new THREE.Color(0x05070f);
+  const sky = skyNight.clone().lerp(skyDay, clamp(sy*1.5, 0, 1));
+  scene.background = sky; scene.fog.color = sky;
+  for (const m of WORLD.windows) m.emissiveIntensity = night * 1.15;
+  const lampCol = new THREE.Color(0x2a2a20).lerp(new THREE.Color(0xffdc9b), night);
+  for (const m of WORLD.lamps) m.color.copy(lampCol);
+  const hh = 6 + dayPhase*18;
+  const clk = String(Math.floor(hh)%24).padStart(2,"0") + ":" + String(Math.floor((hh%1)*60)).padStart(2,"0");
+  const cEl = document.getElementById("sClock"); if (cEl) cEl.textContent = clk;
+
+  for (const av of WORLD.avatars) stepAvatar(av, dt);
+  for (const c of WORLD.cars){
+    c.t += c.speed * c.dir * dt;
+    if (c.t > 150) c.t = -150; if (c.t < -150) c.t = 150;
+    if (c.axis === "z"){ c.g.position.set(c.lane, 0, c.t); c.g.rotation.y = c.dir>0 ? 0 : Math.PI; }
+    else { c.g.position.set(c.t, 0, c.lane); c.g.rotation.y = c.dir>0 ? Math.PI/2 : -Math.PI/2; }
+  }
+  for (const p of WORLD.peds){
+    const dx = p.tx-p.g.position.x, dz = p.tz-p.g.position.z;
+    const d = Math.hypot(dx,dz);
+    if (d < 1.5){
+      const onX = rnd()<.5;
+      p.tx = onX ? nearestRoadX(p.g.position.x) + (rnd()<.5?-8.5:8.5) : clamp(p.g.position.x + rr(-40,40), -120,120);
+      p.tz = onX ? clamp(p.g.position.z + rr(-40,40), -120,120) : nearestRoadZ(p.g.position.z) + (rnd()<.5?-8.5:8.5);
+    } else {
+      p.g.position.x += dx/d * p.speed * dt;
+      p.g.position.z += dz/d * p.speed * dt;
+      p.g.rotation.y = Math.atan2(dx,dz);
+      p.g.position.y = Math.abs(Math.sin(now/160 + p.speed))*.13;
+    }
+  }
+  if (WORLD.blink){
+    const k = .3 + Math.abs(Math.sin(now/420))*.7;
+    WORLD.blink.color.setRGB(k, k*.12, k*.18);
+  }
+  if (WORLD.police) WORLD.police.color.setRGB(Math.abs(Math.sin(now/300)), .25, 1);
+  if (WORLD.jet) WORLD.jet.scale.y = 1 + Math.sin(now/300)*.12;
+  if (WORLD.tickerScreen){
+    const up = SIM.market >= SIM.marketPrev;
+    WORLD.tickerScreen.material.color.setRGB(up?.05:.28, up?.32:.05, .12);
+  }
+  for (const av of WORLD.avatars){
+    const sel = SIM.selected === av.agent.id;
+    av.ring.material.opacity = sel ? .5 + Math.abs(Math.sin(now/260))*.5 : .3;
+    av.ring.scale.setScalar(sel ? 1.25 + Math.sin(now/300)*.08 : 1);
+    const h = av.agent.happy/100;
+    av.visorM.color.setStyle(av.agent.happy < 30 ? "#ff4455" : av.agent.color);
+    av.tipM.color.setStyle(av.agent.energy < 25 ? "#ff9445" : av.agent.color);
+    av.lab.material.opacity = clamp(1.6 - CAM.radius/300, .25, 1);
+  }
+  updateCamera(dt);
+  renderer.render(scene, camera);
+}
+
+function initThree(){
+  const cv = document.getElementById("scene");
+  renderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070f);
+  scene.fog = new THREE.Fog(0x05070f, 260, 560);
+  camera = new THREE.PerspectiveCamera(48, innerWidth/innerHeight, .5, 1200);
+  initMats();
+  buildCity();
+  bindInput(cv);
+  addEventListener("resize", ()=>{
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+  requestAnimationFrame(animate);
+}
+
+/* =====================================================================
+   INTERFACCIA
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+
+function logLine(cls, tag, html){
+  const box = $("feedBody");
+  const el = document.createElement("div");
+  el.className = "ln " + (cls||"");
+  el.innerHTML = "<div class='d'>" + (tag ? tag : "G" + SIM.day) + "</div><div class='m'>" + html + "</div>";
+  box.appendChild(el);
+  while (box.children.length > 320) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+let toastTimer;
+function toast(icon, txt){
+  $("toastIc").textContent = icon; $("toastTx").textContent = txt;
+  $("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>$("toast").classList.remove("show"), 2600);
+}
+
+function drawSpark(){
+  const c = $("spark"), g = c.getContext("2d");
+  const w = c.width, h = c.height, hs = SIM.history;
+  g.clearRect(0,0,w,h);
+  if (hs.length < 2) return;
+  const mn = Math.min(...hs), mx = Math.max(...hs), rg = Math.max(1, mx-mn);
+  const X = i => i/(hs.length-1)*w;
+  const Y = v => h - 6 - (v-mn)/rg*(h-14);
+  const up = hs[hs.length-1] >= hs[0];
+  const col = up ? "#8dff5a" : "#ff5468";
+  g.beginPath(); g.moveTo(X(0), Y(hs[0]));
+  hs.forEach((v,i)=>g.lineTo(X(i), Y(v)));
+  g.lineTo(w,h); g.lineTo(0,h); g.closePath();
+  const grd = g.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0, up ? "rgba(141,255,90,.32)" : "rgba(255,84,104,.32)");
+  grd.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grd; g.fill();
+  g.beginPath(); g.moveTo(X(0), Y(hs[0]));
+  hs.forEach((v,i)=>g.lineTo(X(i), Y(v)));
+  g.strokeStyle = col; g.lineWidth = 2; g.shadowColor = col; g.shadowBlur = 8; g.stroke();
+  g.shadowBlur = 0;
+  g.beginPath(); g.arc(X(hs.length-1), Y(hs[hs.length-1]), 3, 0, 7); g.fillStyle = col; g.fill();
+}
+
+function barColor(k, v){
+  if (k === "energy") return v > 60 ? "#39e7ff" : v > 30 ? "#ffc247" : "#ff5468";
+  if (k === "happy")  return v > 60 ? "#8dff5a" : v > 30 ? "#ffc247" : "#ff5468";
+  return "#a86bff";
+}
+function refreshUI(){
+  const ag = SIM.agents;
+  const tot = ag.reduce((s,a)=>s+net(a), 0);
+  $("sDay").textContent = SIM.day;
+  $("sMkt").textContent = SIM.market.toFixed(1);
+  $("sMkt").className = "v " + (SIM.market >= SIM.marketPrev ? "up" : "down");
+  $("sTot").textContent = money(tot);
+  $("sTax").textContent = Math.round(SIM.taxRate*100) + "%";
+  $("sMood").textContent = SIM.mood;
+  $("popTag").textContent = ag.length + " attivi";
+
+  const chg = (SIM.market/ (SIM.marketPrev||1) - 1) * 100;
+  $("mktVal").textContent = SIM.market.toFixed(1);
+  const ce = $("mktChg");
+  ce.textContent = (chg>=0?"+":"") + chg.toFixed(1) + "%";
+  ce.className = "ch " + (chg > .2 ? "up" : chg < -.2 ? "down" : "flat");
+  $("mktPhase").textContent = SIM.mood.toLowerCase();
+  $("mktNote").textContent = SIM.bubble > 0
+    ? "⚠ bolla in corso — rischio di scoppio elevato"
+    : "sessione " + SIM.day + " · volatilità " + SIM.volatility.toFixed(2) + "x · inflazione " + SIM.inflation.toFixed(2) + "x";
+  drawSpark();
+
+  const key = SIM.sortKey;
+  const val = a => key === "net" ? net(a) : key === "happy" ? a.happy : a.energy;
+  const sorted = ag.slice().sort((a,b)=>val(b)-val(a));
+  $("lbBody").innerHTML = sorted.map((a,i)=>{
+    const prev = a.history.length>1 ? a.history[a.history.length-2] : 1000;
+    const d = key === "net" ? net(a)-prev : 0;
+    const dl = key === "net" && Math.abs(d) > 1
+      ? "<span class='delta " + (d>0?"up":"down") + "'>" + (d>0?"▲":"▼") + money(Math.abs(d)) + "</span>" : "";
+    const v = key === "net" ? money(net(a)) : Math.round(val(a)) + (key==="happy"?" 😊":" ⚡");
+    return "<div class='lb-row " + (i===0?"p1":"") + "' data-id='" + a.id + "'>" +
+      "<div class='rank'>" + (i+1) + "</div>" +
+      "<div class='who'><span class='chip' style='background:" + a.color + "'></span><span class='nm'>" + a.name + "</span></div>" +
+      "<div class='val'>" + v + dl + "</div></div>";
+  }).join("");
+  $("lbBody").querySelectorAll(".lb-row").forEach(r =>
+    r.onclick = ()=>selectAgent(+r.dataset.id));
+
+  $("rosterBody").innerHTML = ag.map(a=>{
+    const flags = [];
+    if (a.debt > 0) flags.push("<span class='flag debt'>debito " + money(a.debt) + "</span>");
+    if (a.invested > 0) flags.push("<span class='flag inv'>investito " + money(a.invested) + "</span>");
+    if (a.health < 50) flags.push("<span class='flag sick'>salute " + Math.round(a.health) + "</span>");
+    if (a.energy < 25) flags.push("<span class='flag burn'>esausto</span>");
+    const bar = (k,lbl,v) =>
+      "<div class='bar'><span class='bl'>" + lbl + "</span><span class='bt'><span class='bf' style='width:" +
+      Math.round(v) + "%;background:" + barColor(k,v) + "'></span></span><span class='bv'>" + Math.round(v) + "</span></div>";
+    return "<div class='card " + (SIM.selected===a.id?"sel":"") + "' style='--accent:" + a.color + "' data-id='" + a.id + "'>" +
+      "<div class='hd'><div class='av'>" + a.initial + "</div>" +
+      "<div class='id'><div class='n'>" + a.name + "</div><div class='r'>" + a.role + "</div></div>" +
+      "<div class='cash'>" + money(net(a)) + "<small>patrimonio</small></div></div>" +
+      "<div class='bars'>" + bar("energy","Energia",a.energy) + bar("happy","Felicità",a.happy) + "</div>" +
+      "<div class='act'>" + (a.action ? ACTIONS[a.action].icon + " <b>" + ACTIONS[a.action].label + "</b> · " +
+        PLACES[a.place].name : "in attesa del primo giorno") + "</div>" +
+      (flags.length ? "<div class='flags'>" + flags.join("") + "</div>" : "") + "</div>";
+  }).join("");
+  $("rosterBody").querySelectorAll(".card").forEach(c =>
+    c.onclick = ()=>selectAgent(+c.dataset.id));
+
+  $("bNext").disabled = SIM.busy;
+  renderDossier();
+}
+
+function selectAgent(id){
+  SIM.selected = SIM.selected === id ? null : id;
+  if (SIM.selected != null && CAM.mode === "follow") { /* la camera segue */ }
+  refreshUI();
+}
+function renderDossier(){
+  const d = $("dossier");
+  if (SIM.selected == null){ d.classList.remove("open"); return; }
+  const a = SIM.agents[SIM.selected];
+  d.classList.add("open");
+  d.style.setProperty("--accent", a.color);
+  const tr = (l,v)=>"<div class='trait'><span class='tl'>" + l + "</span><span class='tt'><span class='tf' style='width:" +
+    Math.round(v*100) + "%'></span></span><span class='tv'>" + Math.round(v*100) + "</span></div>";
+  const kv = (k,v)=>"<div class='kv'><span class='k'>" + k + "</span><span class='v'>" + v + "</span></div>";
+  $("dossierBody").innerHTML =
+    "<div style='font-size:15px;font-weight:700;color:" + a.color + "'>" + a.name + "</div>" +
+    "<div style='font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:8px'>" + a.role + "</div>" +
+    "<div class='quote'>« " + a.motto + " »</div>" +
+    "<div style='font-size:10.5px;line-height:1.6;color:var(--txt-dim);margin-bottom:10px'>" + a.bio + "</div>" +
+    kv("Contante", money(a.cash)) + kv("Investito", money(a.invested)) + kv("Risparmi", money(a.savings)) +
+    kv("Debiti", money(a.debt)) + kv("Patrimonio netto", money(net(a))) +
+    kv("Stipendio base", money(a.salary) + "/g") + kv("Competenza", "×" + a.skill.toFixed(2)) +
+    kv("Leva sugli investimenti", "×" + a.leverage.toFixed(2)) +
+    kv("Impresa", "×" + a.venture.toFixed(2)) +
+    kv("Livello carriera", "×" + a.jobLevel.toFixed(2)) + kv("Giorni lavorati", a.daysWorked) +
+    kv("Salute", Math.round(a.health)) + kv("Umore", a.mood) +
+    kv("Colpi riusciti / falliti", a.wins + " / " + a.losses) + kv("Multe", a.fined) +
+    kv("Ora si trova a", PLACES[a.place].icon + " " + PLACES[a.place].name) +
+    "<div style='margin:11px 0 5px;font-size:9px;letter-spacing:.16em;color:var(--txt-dim);text-transform:uppercase'>Profilo caratteriale</div>" +
+    tr("Rischio",a.traits.risk) + tr("Lavoro",a.traits.work) + tr("Edonismo",a.traits.hedon) +
+    tr("Socialità",a.traits.social) + tr("Parsimonia",a.traits.thrift) + tr("Caos",a.traits.chaos);
+}
+
+/* ------------------------- console eventi --------------------------- */
+function buildEventMenu(){
+  const map = { bad:"evBad", good:"evGood", wild:"evWild" };
+  const cols = { bad:"#ff5468", good:"#8dff5a", wild:"#a86bff" };
+  const lbl  = { bad:"Catastrofe", good:"Opportunità", wild:"Caos" };
+  for (const k in map) $(map[k]).innerHTML = "";
+  EVENTS.forEach((ev,i)=>{
+    const b = document.createElement("button");
+    b.className = "ev-card"; b.style.setProperty("--kc", cols[ev.kind]);
+    b.innerHTML = "<div class='t'><span class='ic'>" + ev.icon + "</span>" + ev.name + "</div>" +
+      "<div class='d'>" + ev.desc + "</div><span class='b'>" + lbl[ev.kind] + "</span>";
+    b.onclick = ()=>{ fireEvent(ev, true); $("evOverlay").classList.remove("open"); };
+    $(map[ev.kind]).appendChild(b);
+  });
+}
+
+/* ------------------------- controlli -------------------------------- */
+function toggleAuto(){
+  SIM.running = !SIM.running;
+  const b = $("bAuto");
+  b.classList.toggle("on", SIM.running);
+  b.textContent = SIM.running ? "⏸ Pausa" : "⏩ Autoplay";
+  if (SIM.running && !SIM.busy) runDay();
+}
+function bindUI(){
+  $("bNext").onclick = ()=>{ if (!SIM.busy) runDay(); };
+  $("bAuto").onclick = toggleAuto;
+  $("bEvents").onclick = ()=>$("evOverlay").classList.add("open");
+  $("evX").onclick = ()=>$("evOverlay").classList.remove("open");
+  $("evOverlay").onclick = e=>{ if (e.target === $("evOverlay")) $("evOverlay").classList.remove("open"); };
+  $("dossierX").onclick = ()=>{ SIM.selected = null; refreshUI(); };
+  $("bReset").onclick = ()=>{
+    SIM.running = false; $("bAuto").classList.remove("on"); $("bAuto").textContent = "⏩ Autoplay";
+    clearTimeout(dayTimer);
+    resetSim(Date.now() % 100000);
+    SIM.agents.forEach((a,i)=>{
+      a.av = WORLD.avatars[i]; WORLD.avatars[i].agent = a;
+      const [hx,hz] = PLACES[homeKey(i)].pos;
+      WORLD.avatars[i].g.position.set(hx + (i-2)*2.4, 0, hz + 9);
+      WORLD.avatars[i].moving = false;
+      refreshLabel(a);
+    });
+    $("hint").style.display = "";
+    refreshUI();
+  };
+  $("rSpeed").oninput = e=>{ SIM.speed = +e.target.value; $("spdTag").textContent = (speedFactor()/1.25).toFixed(1) + "x"; };
+  document.querySelectorAll("#board .tab").forEach(t => t.onclick = ()=>{
+    document.querySelectorAll("#board .tab").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on"); SIM.sortKey = t.dataset.sort; refreshUI();
+  });
+  document.querySelectorAll("#cam .pill").forEach(p => p.onclick = ()=>setCamMode(p.dataset.cam));
+  addEventListener("keydown", e=>{
+    if (e.code === "Space"){ e.preventDefault(); if (!SIM.busy) runDay(); }
+    if (e.key === "a" || e.key === "A") toggleAuto();
+    if (e.key === "e" || e.key === "E") $("evOverlay").classList.toggle("open");
+    if (e.key === "Escape"){ $("evOverlay").classList.remove("open"); SIM.selected = null; refreshUI(); }
+  });
+}
+
+/* ------------------------- avvio ------------------------------------ */
+function boot(){
+  try {
+    resetSim(20260903);
+    initThree();
+    buildAvatars();
+    buildEventMenu();
+    bindUI();
+    refreshUI();
+    $("spdTag").textContent = (speedFactor()/1.25).toFixed(1) + "x";
+    setTimeout(()=>$("loading").classList.add("gone"), 420);
+  } catch (err){
+    $("loadTxt").textContent = "Errore di avvio: " + err.message;
+    console.error(err);
+  }
+}
+if (typeof THREE === "undefined"){
+  $("loadTxt").innerHTML = "Impossibile caricare Three.js dalla CDN.<br>Serve una connessione al primo avvio.";
+} else boot();
+</script>
+</body>
+</html>
