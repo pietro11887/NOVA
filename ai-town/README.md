@@ -82,8 +82,10 @@ diversa per ciascuna personalità**. Esempio reale dal feed:
 Nove isolati su griglia stradale, con Banca Centrale, Borsa NX-500, NexCorp
 Tower, Ospedale, Università, palestra, mercato, cinema, diner, casinò, stazione
 di polizia, parco con fontana e cinque case private. Traffico, pedoni,
-lampioni che si accendono, finestre illuminate e ciclo giorno/notte continuo
-(un giro completo ogni ottanta secondi, indipendente dalla velocità dei turni).
+lampioni che si accendono, finestre illuminate e ciclo giorno/notte continuo:
+un giro completo ogni 110 secondi, indipendente dalla velocità dei turni, con
+circa il 45% del tempo in pieno giorno, due passaggi di alba e tramonto e una
+notte breve — quella in cui la città accende neon e vetrine.
 
 **Gli edifici** hanno piano terra commerciale illuminato, corpo con finestre,
 marcapiano, cornicione, ingresso con pensilina e gradini, e impianti sul tetto
@@ -91,11 +93,13 @@ marcapiano, cornicione, ingresso con pensilina e gradini, e impianti sul tetto
 vialetto e staccionata.
 
 **I cittadini entrano davvero negli edifici.** Percorrono le strade fino alla
-porta, e quando entrano il corpo scompare: resta la loro etichetta sospesa sul
-tetto con l'icona di quello che stanno facendo, così si legge a colpo d'occhio
-chi c'è dentro e perché. Il giorno dopo escono dalla stessa porta e ripartono.
-Mercato e parco sono all'aperto: lì restano visibili tra le bancarelle e gli
-alberi.
+porta ed entrano: il corpo scompare e resta la loro etichetta sospesa sul tetto
+con l'icona di quello che stanno facendo, così si legge a colpo d'occhio chi c'è
+dentro e perché. Dopo un momento riescono e restano davanti all'edificio fino al
+turno seguente — entrare è un passaggio, non uno stato: lasciarli dentro fino al
+giorno dopo svuotava la città, e in pausa li faceva sparire tutti. In autoplay i
+cittadini sono visibili circa l'83% del tempo, in pausa sempre tutti e cinque.
+Mercato e parco sono all'aperto: lì restano tra le bancarelle e gli alberi.
 
 **E si parlano.** Quando due cittadini scelgono la stessa destinazione si
 fermano fuori, si girano uno verso l'altro e si scambiano due battute in
