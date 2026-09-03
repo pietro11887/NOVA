@@ -82,8 +82,24 @@ diversa per ciascuna personalità**. Esempio reale dal feed:
 Nove isolati su griglia stradale, con Banca Centrale, Borsa NX-500, NexCorp
 Tower, Ospedale, Università, palestra, mercato, cinema, diner, casinò, stazione
 di polizia, parco con fontana e cinque case private. Traffico, pedoni,
-lampioni che si accendono, finestre illuminate e ciclo giorno/notte.
-I personaggi si muovono davvero lungo le strade fino alla destinazione scelta.
+lampioni che si accendono, finestre illuminate e ciclo giorno/notte continuo
+(un giro completo ogni ottanta secondi, indipendente dalla velocità dei turni).
+
+**Gli edifici** hanno piano terra commerciale illuminato, corpo con finestre,
+marcapiano, cornicione, ingresso con pensilina e gradini, e impianti sul tetto
+(serbatoi d'acqua e condizionatori). Le case hanno tetto a falde, comignolo,
+vialetto e staccionata.
+
+**I cittadini entrano davvero negli edifici.** Percorrono le strade fino alla
+porta, e quando entrano il corpo scompare: resta la loro etichetta sospesa sul
+tetto con l'icona di quello che stanno facendo, così si legge a colpo d'occhio
+chi c'è dentro e perché. Il giorno dopo escono dalla stessa porta e ripartono.
+Mercato e parco sono all'aperto: lì restano visibili tra le bancarelle e gli
+alberi.
+
+**E si parlano.** Quando due cittadini scelgono la stessa destinazione si
+fermano fuori, si girano uno verso l'altro e si scambiano due battute in
+fumetti sopra la testa — le stesse che finiscono nel feed — prima di entrare.
 
 ## Controlli
 
