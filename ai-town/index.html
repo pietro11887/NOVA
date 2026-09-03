@@ -280,11 +280,15 @@
 
   /* ---------- hint + toast ---------- */
   #hint{
-    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;
-    text-align:center;padding:26px 34px;pointer-events:none;
+    position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:30;
+    text-align:center;padding:14px 26px;pointer-events:none;
+    background:rgba(6,10,20,.72);border:1px solid var(--line);border-radius:10px;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    max-width:min(560px,92vw);transition:opacity .6s;
   }
-  #hint .t{font-size:20px;letter-spacing:.3em;color:#fff;text-shadow:0 0 18px var(--cyan);margin-bottom:8px}
-  #hint .s{font-size:11px;color:var(--txt-dim);letter-spacing:.1em;line-height:1.9}
+  #hint.fade{opacity:0}
+  #hint .t{font-size:15px;letter-spacing:.24em;color:#fff;text-shadow:0 0 18px var(--cyan);margin-bottom:6px}
+  #hint .s{font-size:10.5px;color:var(--txt-dim);letter-spacing:.06em;line-height:1.8}
   #toast{
     position:fixed;left:50%;top:88px;transform:translateX(-50%) translateY(-16px);z-index:35;
     padding:11px 22px;border-radius:8px;font-size:12.5px;letter-spacing:.06em;font-weight:700;
@@ -305,6 +309,10 @@
   .pill:hover{border-color:var(--line-strong);color:var(--txt)}
   .pill.on{background:var(--cyan);border-color:var(--cyan);color:#04121a;font-weight:700}
 
+  /* vista libera: i pannelli si tolgono di mezzo */
+  body.hud-off #left, body.hud-off #right, body.hud-off #cam{display:none}
+  body.hud-off #dossier{display:none!important}
+
   ::-webkit-scrollbar{width:7px;height:7px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:rgba(120,190,255,.2);border-radius:4px}
@@ -322,16 +330,28 @@
     #left{width:290px} #right{width:300px} #cam{right:324px} #dossier{left:312px}
   }
   @media (max-width:1000px){
-    #left,#right{position:fixed;top:auto;bottom:78px;height:38vh;width:calc(50% - 16px)}
+    #left,#right{position:fixed;top:auto;bottom:78px;height:30vh;min-height:170px;width:calc(50% - 16px)}
     #left{left:12px} #right{right:12px} #cam{display:none} #dossier{display:none!important}
-    #brand .sub{display:none} .stats{display:none}
+    #brand .sub{display:none}
+    .stats .stat:nth-child(2), .stats .stat:nth-child(4),
+    .stats .stat:nth-child(5), .stats .stat:nth-child(6){display:none}
+    .stat{padding:8px 10px} .stat .v{font-size:13px}
     #dock{left:8px;right:8px;bottom:8px;transform:none;justify-content:center;
           flex-wrap:wrap;gap:6px;padding:7px 8px}
     #dock .speed,#dock .sep{display:none}
+    /* il feed è il cuore della simulazione: sugli schermi stretti
+       il pannello mercato si riduce a due righe per lasciargli spazio */
+    #ticker .spark,#ticker .mkt-note{display:none}
+    #tickerBody{padding:6px 11px}
+    #left,#right{height:34vh}
     button.btn{padding:8px 11px;font-size:10px;letter-spacing:.06em}
   }
   @media (max-width:1000px) and (orientation:landscape){
     #left,#right{height:44vh}
+  }
+  @media (max-width:560px){
+    .stats .stat:nth-child(3){display:none}
+    #brand{padding:8px 12px} #brand .logo{font-size:15px}
   }
 </style>
 </head>
@@ -413,6 +433,7 @@
     <span class="tag" id="spdTag" style="font-size:9px;color:var(--txt-dim);width:26px">1.0x</span>
   </div>
   <div class="sep"></div>
+  <button class="btn" id="bUI" title="Mostra/nascondi i pannelli (P)">◱ Pannelli</button>
   <button class="btn danger" id="bEvents">⚡ Eventi</button>
   <button class="btn" id="bReset">⟲ Reset</button>
 </div>
@@ -433,10 +454,10 @@
 </div>
 
 <div id="hint">
-  <div class="t">AI TOWN</div>
+  <div class="t">LA CITTÀ È PARTITA</div>
   <div class="s">
-    5 intelligenze artificiali vivono, lavorano e vanno in rovina in questa città.<br>
-    Premi <b style="color:var(--cyan)">PROSSIMO GIORNO</b> per far partire la simulazione.<br>
+    5 intelligenze artificiali vivono, lavorano e vanno in rovina qui dentro.<br>
+    <b style="color:var(--lime)">⏸ PAUSA</b> per fermarla · <b style="color:var(--cyan)">◱ PANNELLI</b> per vedere la città a schermo intero<br>
     Trascina per ruotare · rotellina per lo zoom · clicca un cittadino per seguirlo.
   </div>
 </div>
@@ -1179,7 +1200,6 @@ function runDay(){
   SIM.day++;
   const dur = 2700 / speedFactor();
 
-  document.getElementById("hint").style.display = "none";
   logLine("day", "", "── Giorno " + SIM.day + " ──");
 
   SIM.activeEvents = SIM.activeEvents.filter(e => --e.ttl > 0);
@@ -2021,6 +2041,11 @@ function toggleAuto(){
 function bindUI(){
   $("bNext").onclick = ()=>{ if (!SIM.busy) runDay(); };
   $("bAuto").onclick = toggleAuto;
+  $("bUI").onclick = ()=>{
+    const off = document.body.classList.toggle("hud-off");
+    $("bUI").classList.toggle("on", off);
+    $("bUI").textContent = off ? "◨ Mostra pannelli" : "◱ Pannelli";
+  };
   $("bEvents").onclick = ()=>$("evOverlay").classList.add("open");
   $("evX").onclick = ()=>$("evOverlay").classList.remove("open");
   $("evOverlay").onclick = e=>{ if (e.target === $("evOverlay")) $("evOverlay").classList.remove("open"); };
@@ -2036,7 +2061,8 @@ function bindUI(){
       WORLD.avatars[i].moving = false;
       refreshLabel(a);
     });
-    $("hint").style.display = "";
+    $("hint").classList.remove("fade");
+    clearTimeout(hintTimer); hintTimer = setTimeout(fadeHint, 7000);
     refreshUI();
   };
   $("rSpeed").oninput = e=>{ SIM.speed = +e.target.value; $("spdTag").textContent = (speedFactor()/1.25).toFixed(1) + "x"; };
@@ -2049,11 +2075,15 @@ function bindUI(){
     if (e.code === "Space"){ e.preventDefault(); if (!SIM.busy) runDay(); }
     if (e.key === "a" || e.key === "A") toggleAuto();
     if (e.key === "e" || e.key === "E") $("evOverlay").classList.toggle("open");
+    if (e.key === "p" || e.key === "P") $("bUI").click();
     if (e.key === "Escape"){ $("evOverlay").classList.remove("open"); SIM.selected = null; refreshUI(); }
   });
 }
 
 /* ------------------------- avvio ------------------------------------ */
+let hintTimer = null;
+const fadeHint = ()=>$("hint").classList.add("fade");
+
 function boot(){
   try {
     resetSim(20260903);
@@ -2064,6 +2094,10 @@ function boot(){
     refreshUI();
     $("spdTag").textContent = (speedFactor()/1.25).toFixed(1) + "x";
     setTimeout(()=>$("loading").classList.add("gone"), 420);
+    /* La simulazione parte da sola: un'app che si apre ferma sembra rotta.
+       Resta comunque tutto controllabile con Pausa e Prossimo giorno. */
+    setTimeout(()=>{ if (SIM.day === 0 && !SIM.running) toggleAuto(); }, 1100);
+    hintTimer = setTimeout(fadeHint, 7000);
   } catch (err){
     $("loadTxt").textContent = "Errore di avvio: " + err.message;
     console.error(err);

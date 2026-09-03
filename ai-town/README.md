@@ -4,7 +4,8 @@ Una città in 3D dove cinque intelligenze artificiali vivono, lavorano, investon
 si divertono e ogni tanto vanno in rovina. Un solo file HTML: nessun build,
 nessuna dipendenza da installare, nessuna chiamata a modelli esterni.
 
-Apri `index.html` in un browser e premi **Prossimo giorno**.
+Apri `index.html` in un browser: **la simulazione parte da sola**. Usa
+**⏸ Pausa** per fermarla e **▶ Prossimo giorno** per avanzare un turno alla volta.
 (La prima apertura richiede connessione: Three.js viene caricato da CDN.)
 
 ---
@@ -89,7 +90,8 @@ I personaggi si muovono davvero lungo le strade fino alla destinazione scelta.
 | | |
 |---|---|
 | **Prossimo giorno** / `Spazio` | avanza di un turno |
-| **Autoplay** / `A` | esecuzione continua, fino a ~2 giorni al secondo |
+| **Autoplay / Pausa** / `A` | esecuzione continua, fino a ~2 giorni al secondo (attiva all'avvio) |
+| **Pannelli** / `P` | nasconde classifica e feed per vedere la città a schermo intero |
 | **Eventi** / `E` | console per lanciare a mano uno dei 20 eventi |
 | **Reset** | nuova partita con un nuovo seed |
 | trascina · rotella | ruota e zooma la camera |
@@ -108,3 +110,9 @@ suo arco narrativo, non un bug.
 
 HTML5 + CSS custom (estetica cyberpunk) + JavaScript vanilla, Three.js r128 da
 CDN per il 3D. ~2.000 righe in un unico file, commentate in italiano.
+
+## Schermi stretti
+
+Sotto i 1000 px di larghezza classifica e feed scendono in fondo allo schermo,
+il pannello mercato si riduce a due righe e i comandi vanno a capo. Con il
+pulsante **Pannelli** si libera completamente la vista sulla città.
