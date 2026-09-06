@@ -1,0 +1,10 @@
+{
+  "name": "NOVA CITY — Open World 3D",
+  "short_name": "NOVA CITY",
+  "description": "Open world 3D giocabile da telefono: guida, esplora la città, entra nei negozi.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0d14",
+  "theme_color": "#0a0d14"
+}

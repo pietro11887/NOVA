@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#0a0d14" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>NOVA CITY — Open World</title>
+<link rel="stylesheet" href="./styles.css" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0d14'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23ffd23f' font-family='Arial'%3EN%3C/text%3E%3C/svg%3E" />
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ============================ HUD ============================ -->
+<div id="hud" class="hidden">
+  <div id="topleft">
+    <div class="bars">
+      <div class="bar"><i id="bar-health"></i></div>
+      <div class="bar armor"><i id="bar-armor"></i></div>
+    </div>
+    <div id="stars" aria-label="livello sospetto"></div>
+    <div id="weapon" class="hidden"></div>
+  </div>
+
+  <div id="topright">
+    <div id="money">$0</div>
+    <div id="clock">08:00</div>
+    <canvas id="minimap" width="220" height="220"></canvas>
+  </div>
+
+  <div id="mission-panel" class="hidden">
+    <div id="mission-title"></div>
+    <div id="mission-sub"></div>
+  </div>
+
+  <div id="speedo" class="hidden">
+    <span id="speed-val">0</span><span class="unit">km/h</span>
+    <div class="gear" id="gear">D</div>
+  </div>
+
+  <div id="prompt" class="hidden"></div>
+  <div id="toasts"></div>
+  <div id="subtitle" class="hidden"></div>
+  <div id="flash"></div>
+
+  <button id="btn-pause" class="sysbtn" aria-label="pausa">II</button>
+</div>
+
+<!-- ======================= TOUCH CONTROLS ======================= -->
+<div id="touch" class="hidden">
+  <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+  <div id="pad">
+    <button class="tbtn big" data-btn="action"><span>E</span><em id="lbl-action">AZIONE</em></button>
+    <button class="tbtn" data-btn="attack"><span>✊</span><em id="lbl-attack">COLPO</em></button>
+    <button class="tbtn" data-btn="jump"><span>⤒</span><em id="lbl-jump">SALTA</em></button>
+    <button class="tbtn" data-btn="run"><span>»</span><em id="lbl-run">CORSA</em></button>
+  </div>
+</div>
+
+<!-- =========================== SHOP UI ========================== -->
+<div id="shop" class="overlay hidden">
+  <div class="panel">
+    <h2 id="shop-name">Negozio</h2>
+    <p id="shop-desc"></p>
+    <div id="shop-items"></div>
+    <button class="btn ghost" id="shop-close">Esci (E)</button>
+  </div>
+</div>
+
+<!-- ========================= PAUSE MENU ========================= -->
+<div id="pause" class="overlay hidden">
+  <div class="panel">
+    <h2>PAUSA</h2>
+    <div class="stats" id="pause-stats"></div>
+    <button class="btn" id="btn-resume">Riprendi</button>
+    <button class="btn ghost" id="btn-quality">Qualità: Auto</button>
+    <button class="btn ghost" id="btn-invert">Camera: Normale</button>
+    <button class="btn ghost" id="btn-fullscreen">Schermo intero</button>
+    <button class="btn danger" id="btn-reset">Ricomincia (azzera salvataggio)</button>
+    <p class="hint">Tastiera: WASD muovi · Shift corri · Spazio salta/freno · E entra/interagisci · Click colpisci/spara · Mouse guarda</p>
+  </div>
+</div>
+
+<!-- ========================== BOOT MENU ========================= -->
+<div id="boot" class="overlay">
+  <div class="panel wide">
+    <h1>NOVA<span>CITY</span></h1>
+    <p class="tag">Open world 3D · guida, esplora, entra nei negozi · giocabile da telefono</p>
+    <div id="boot-progress"><i></i></div>
+    <div id="boot-status">Caricamento città…</div>
+    <button class="btn play hidden" id="btn-play">GIOCA</button>
+    <div class="legend">
+      <div><b>Telefono</b> — joystick a sinistra, trascina a destra per la camera, pulsanti in basso a destra.</div>
+      <div><b>PC</b> — WASD, mouse, E per entrare in auto / nei negozi, click per colpire.</div>
+    </div>
+  </div>
+</div>
+
+<div id="rotate" class="overlay hidden"><div class="panel"><h2>Ruota il telefono</h2><p>Il gioco è pensato in orizzontale.</p></div></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
