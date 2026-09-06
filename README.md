@@ -41,6 +41,19 @@ npm i -D esbuild
 node tools/build-single.mjs
 ```
 
+## Mettere il gioco online (una volta sola)
+
+Per giocarlo a schermo pieno — e per poter giocare in due — conviene
+pubblicarlo con GitHub Pages, che è gratis per i repository pubblici:
+
+1. sul repo vai su **Settings → Pages**;
+2. in *Build and deployment* scegli **Deploy from a branch**;
+3. branch `claude/gta6-mobile-3d-game-ynutgy`, cartella `/ (root)`, **Save**.
+
+Dopo un minuto il gioco è su **https://pietro11887.github.io/NOVA/**.
+Aprilo dal telefono e usa *Aggiungi alla schermata Home*: grazie al
+manifest parte a tutto schermo come un'app, senza barre del browser.
+
 ## Giocare online con un amico
 
 Dalla schermata iniziale: **GIOCA ONLINE CON UN AMICO**. Il collegamento è

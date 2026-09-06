@@ -3,11 +3,10 @@
 # schermata home come app).
 name: Pubblica il gioco su GitHub Pages
 
+# Serve solo se in Settings > Pages scegli "GitHub Actions" come sorgente.
+# Se invece pubblichi direttamente dal branch (piu' semplice), questo
+# workflow non serve: si lancia solo a mano.
 on:
-  push:
-    branches:
-      - claude/gta6-mobile-3d-game-ynutgy
-      - main
   workflow_dispatch:
 
 permissions:
