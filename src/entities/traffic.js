@@ -10,16 +10,29 @@ export function driveTo(v, tx, tz, cruise = 0.6) {
   const dx = tx - v.x, dz = tz - v.z;
   const want = Math.atan2(-dz, dx);
   const err = angleDelta(v.a, want);
-  const steer = clamp(err * 1.9, -1, 1);
+  const steer = clamp(err * 1.45, -1, 1);
   // in curva si alza il piede
   const throttle = cruise * clamp(1.15 - Math.abs(err) * 0.9, 0.18, 1);
   return { throttle, steer, hand: false, err, dist: Math.hypot(dx, dz) };
 }
 
+// il traffico non e' fatto solo di berline: ogni tipo ha il suo peso
+const TYPE_WEIGHTS = [
+  ['sedan', 30], ['suv', 18], ['pickup', 12], ['sport', 10],
+  ['van', 10], ['bus', 6], ['ambulance', 4],
+];
+function weightedType() {
+  const total = TYPE_WEIGHTS.reduce((a, t) => a + t[1], 0);
+  let r = Math.random() * total;
+  for (const [name, w] of TYPE_WEIGHTS) { r -= w; if (r <= 0) return name; }
+  return 'sedan';
+}
+
 class TrafficCar {
   constructor(city, kind = 'civil') {
-    const type = pick(Object.keys(CAR_TYPES));
-    this.v = new Vehicle(city, { type, kind, color: pick(CAR_COLORS) });
+    const type = kind === 'taxi' ? 'sedan' : weightedType();
+    const forced = type === 'ambulance' ? 'ambulance' : type === 'bus' ? 'bus' : kind;
+    this.v = new Vehicle(city, { type, kind: forced, color: pick(CAR_COLORS) });
     this.city = city;
     this.node = null;
     this.target = null;

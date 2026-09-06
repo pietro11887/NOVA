@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CFG, road, blockBounds, WORLD_MIN, WORLD_MAX } from '../core/config.js';
+import { CFG, roadX, roadZ, blockBounds, WORLD_MIN, WORLD_MAX } from '../core/config.js';
 import { GeoBuilder, mulberry32, clamp, rand, randInt, pick } from '../core/utils.js';
 import * as TX from './textures.js';
 import { Props } from './props.js';
@@ -20,6 +20,16 @@ const SHOP_KINDS = [
   { type: 'garage',   name: 'GARAGE PIT',   color: '#ffb020' },
   { type: 'home',     name: 'CASA',         color: '#ffe9a8' },
 ];
+
+/** Luoghi fissi: la citta' ha dei punti di riferimento riconoscibili. */
+const LANDMARKS = {
+  '1,2': 'police',
+  '6,2': 'hospital',
+  '2,5': 'gas',
+  '5,4': 'gas',
+  '3,3': 'sport',
+  '0,6': 'gas',
+};
 
 const BILLBOARDS = [
   ['NOVA COLA', 'la sete non dorme'],
@@ -65,10 +75,12 @@ export class City {
     this.roadNodes = [];
     this.parkSpots = [];
     this.lamps = [];
+    this.landmarks = [];
     this.limit = 620;
     this._tmp = [];
     this.rng = mulberry32(20260906);
     this.beachRow = CFG.N - 1;      // ultima fila di isolati: spiaggia
+    this.shore = WORLD_MAX + 70;    // dove comincia l'acqua
   }
 
   build() {
@@ -130,8 +142,8 @@ export class City {
       }),
       leaf: new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
       water: new THREE.MeshStandardMaterial({
-        color: 0x1d6d92, roughness: 0.08, metalness: 0.5, envMapIntensity: 1.6,
-        normalMap: TX.waterNormal(), normalScale: new THREE.Vector2(0.35, 0.35),
+        color: 0x14607f, roughness: 0.22, metalness: 0.25, envMapIntensity: 0.7,
+        normalMap: TX.waterNormal(), normalScale: new THREE.Vector2(0.55, 0.55),
       }),
       neon: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
       lamp: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
@@ -159,9 +171,14 @@ export class City {
 
   // --------------------------------------------------------------- terreno
   _ground() {
-    const span = (WORLD_MAX - WORLD_MIN) + 700;
-    const g = new THREE.PlaneGeometry(span, span, 1, 1);
+    // il terreno arriva fino alla battigia e non oltre, altrimenti coprirebbe
+    // il mare (che sta piu' in basso)
+    const gx0 = WORLD_MIN - 400, gx1 = WORLD_MAX + 400;
+    const gz0 = WORLD_MIN - 400, gz1 = this.shore - 34;
+    const g = new THREE.PlaneGeometry(gx1 - gx0, gz1 - gz0, 1, 1);
     g.rotateX(-Math.PI / 2);
+    g.translate((gx0 + gx1) / 2, 0, (gz0 + gz1) / 2);
+    const span = Math.max(gx1 - gx0, gz1 - gz0);
     // materiale dedicato: quello dell'erba usa i vertex color, che questo
     // piano non ha (e senza attributo il terreno veniva nero)
     this.mats.ground = new THREE.MeshStandardMaterial({
@@ -174,19 +191,34 @@ export class City {
     this.group.add(dirt);
 
     // oceano: un piano enorme oltre la citta', con normal map animata
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), this.mats.water);
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), this.mats.water);
     sea.rotateX(-Math.PI / 2);
-    sea.position.set(0, -0.55, WORLD_MAX + 3000 - 120);
+    sea.position.set(0, -1.1, this.shore + 3500 - 12);
     this.group.add(sea);
     this.sea = sea;
 
-    // spiaggia continua lungo tutto il lato sud
+    // spiaggia con battigia: sabbia piana, poi la scarpata fino all'acqua
     const sandGB = new GeoBuilder();
-    sandGB.quadY(WORLD_MIN - 200, WORLD_MAX - CFG.CELL - 4, WORLD_MAX + 200, WORLD_MAX + 120, -0.05,
-      0xffffff, (WORLD_MAX - WORLD_MIN + 400) / 10, (CFG.CELL + 124) / 10);
+    const beachStart = roadZ(this.beachRow) - CFG.ROAD;
+    const x0 = WORLD_MIN - 300, x1 = WORLD_MAX + 300;
+    const flatEnd = this.shore - 26;
+    const wet = this.shore + 6;
+    sandGB.quadY(x0, beachStart, x1, flatEnd, -0.05, 0xffffff, (x1 - x0) / 10, (flatEnd - beachStart) / 10);
+    sandGB.quad([x0, -0.05, flatEnd], [x1, -0.05, flatEnd], [x1, -1.25, wet], [x0, -1.25, wet],
+      0xf0e2c4, (x1 - x0) / 10, 3);
     const beach = new THREE.Mesh(sandGB.build(), this.mats.sand);
     beach.receiveShadow = this.quality.shadows;
     this.group.add(beach);
+
+    // schiuma sulla battigia
+    const foam = new THREE.Mesh(
+      new THREE.PlaneGeometry(x1 - x0, 9),
+      new THREE.MeshBasicMaterial({ color: 0xf2f8fb, transparent: true, opacity: 0.55, depthWrite: false })
+    );
+    foam.rotateX(-Math.PI / 2);
+    foam.position.set((x0 + x1) / 2, -1.02, this.shore + 2);
+    this.group.add(foam);
+    this.foam = foam;
   }
 
   // ---------------------------------------------------------------- strade
@@ -199,9 +231,12 @@ export class City {
     const T = 1 / 8;   // texture asfalto ogni 8 m
 
     for (let i = 0; i <= N; i++) {
-      const x = road(i), z = road(i);
+      const x = roadX(i);
       rgb.quadY(x - DRIVE, WORLD_MIN, x + DRIVE, WORLD_MAX, 0.0,
         0xffffff, DRIVE * 2 * T, (WORLD_MAX - WORLD_MIN) * T);
+    }
+    for (let j = 0; j <= N; j++) {
+      const z = roadZ(j);
       rgb.quadY(WORLD_MIN, z - DRIVE, WORLD_MAX, z + DRIVE, 0.005,
         0xffffff, (WORLD_MAX - WORLD_MIN) * T, DRIVE * 2 * T);
     }
@@ -210,19 +245,22 @@ export class City {
     const dash = (x0, z0, x1, z1) => paint.quadY(x0, z0, x1, z1, 0.02, 0xe8e2c8);
     const line = (x0, z0, x1, z1) => paint.quadY(x0, z0, x1, z1, 0.02, 0xe9e6dc);
     for (let i = 0; i <= N; i++) {
-      const c = road(i);
+      const c = roadX(i);
       for (let j = 0; j < N; j++) {
-        const a = road(j) + DRIVE + 2.4, b = road(j + 1) - DRIVE - 2.4;
-        // mezzeria tratteggiata
-        for (let t = a; t < b; t += 6) {
-          const e = Math.min(t + 3, b);
-          dash(c - 0.16, t, c + 0.16, e);
-          dash(t, c - 0.16, e, c + 0.16);
+        const a = roadZ(j) + DRIVE + 2.4, b = roadZ(j + 1) - DRIVE - 2.4;
+        for (let t = a; t < b; t += 6) dash(c - 0.16, t, c + 0.16, Math.min(t + 3, b));
+        for (const sgn of [-1, 1]) {
+          line(c + sgn * (DRIVE - 0.42) - 0.1, a, c + sgn * (DRIVE - 0.42) + 0.1, b);
         }
-        // linee di margine continue
-        for (const s of [-1, 1]) {
-          line(c + s * (DRIVE - 0.42) - 0.1, a, c + s * (DRIVE - 0.42) + 0.1, b);
-          line(a, c + s * (DRIVE - 0.42) - 0.1, b, c + s * (DRIVE - 0.42) + 0.1);
+      }
+    }
+    for (let j = 0; j <= N; j++) {
+      const c = roadZ(j);
+      for (let i = 0; i < N; i++) {
+        const a = roadX(i) + DRIVE + 2.4, b = roadX(i + 1) - DRIVE - 2.4;
+        for (let t = a; t < b; t += 6) dash(t, c - 0.16, Math.min(t + 3, b), c + 0.16);
+        for (const sgn of [-1, 1]) {
+          line(a, c + sgn * (DRIVE - 0.42) - 0.1, b, c + sgn * (DRIVE - 0.42) + 0.1);
         }
       }
     }
@@ -230,7 +268,7 @@ export class City {
     // --- incroci: strisce pedonali e linee d'arresto
     for (let i = 0; i <= N; i++) {
       for (let j = 0; j <= N; j++) {
-        const x = road(i), z = road(j);
+        const x = roadX(i), z = roadZ(j);
         for (const s of [-1, 1]) {
           for (let k = 0; k < 8; k++) {
             const o = (k - 3.5) * 1.15;
@@ -306,15 +344,21 @@ export class City {
         const B = this._newBuilders();
         B.props = new Props(B);
 
-        let kind;
-        if (j === this.beachRow) kind = 'beach';
-        else if (ring <= 1.2) kind = 'downtown';
-        else if (ring <= 2.6) kind = rng() < 0.12 ? 'park' : 'commercial';
-        else kind = rng() < 0.16 ? 'park' : rng() < 0.12 ? 'parking' : 'suburb';
+        let kind = LANDMARKS[`${i},${j}`];
+        if (!kind) {
+          if (j === this.beachRow) kind = 'beach';
+          else if (ring <= 1.2) kind = 'downtown';
+          else if (ring <= 2.6) kind = rng() < 0.12 ? 'park' : 'commercial';
+          else kind = rng() < 0.16 ? 'park' : rng() < 0.12 ? 'parking' : 'suburb';
+        }
 
-        if (kind === 'beach') this._beachBlock(b, B, rng);
+        if (kind === 'beach') this._beachBlock(b, B, rng, i === 3);
         else if (kind === 'park') this._park(b, B, rng);
         else if (kind === 'parking') this._parking(b, B, rng);
+        else if (kind === 'gas') this._gasStation(b, B, rng);
+        else if (kind === 'police') this._policeStation(b, B, rng);
+        else if (kind === 'hospital') this._hospital(b, B, rng);
+        else if (kind === 'sport') this._sportsBlock(b, B, rng);
         else this._builtBlock(b, kind, B, rng, shopQueue, billboards);
 
         this._streetProps(b, i, j, B, rng);
@@ -325,7 +369,7 @@ export class City {
 
     // semafori e lampioni agli incroci
     for (let i = 0; i <= N; i++) {
-      for (let j = 0; j <= N; j++) this._intersection(road(i), road(j), G.props);
+      for (let j = 0; j <= N; j++) this._intersection(roadX(i), roadZ(j), G.props);
     }
     for (const bb of billboards) this._billboard(bb.x, bb.y, bb.z, bb.rot);
     G.props.finish(this.group, this.mats);
@@ -537,7 +581,7 @@ export class City {
     B.props.clutter(b.x0 + 4, b.cz, rng);
   }
 
-  _beachBlock(b, B, rng) {
+  _beachBlock(b, B, rng, pier = false) {
     B.sand.quadY(b.x0 - CFG.WALK, b.z0 - CFG.WALK, b.x1 + CFG.WALK, b.z1 + 60, 0.04,
       0xffffff, (b.x1 - b.x0) / 10, (b.z1 - b.z0 + 60) / 10);
     // passeggiata in legno
@@ -565,6 +609,223 @@ export class City {
     this.grid.add({ x: tx, z: tz, hx: 1.6, hz: 1.6 });
     B.props.streetlight(b.x0 + 6, b.z0 + 1, Math.PI / 2, 7);
     B.props.streetlight(b.x1 - 6, b.z0 + 1, Math.PI / 2, 7);
+    if (pier) { this.landmarks.push({ kind: 'pier', x: b.cx, z: b.z1 + 40 }); this._pier(b, B, rng); }
+  }
+
+  /** Molo in legno sull'acqua, con chiosco, lampioni e barche ormeggiate. */
+  _pier(b, B, rng) {
+    const px = b.cx;
+    const z0 = b.z1 + 6, z1 = this.shore + 46;
+    const w = 11;
+    // impalcato
+    for (let z = z0; z < z1; z += 2) {
+      B.detail.box(px, 0.62, z + 1, w, 0.18, 1.9, rng() < 0.5 ? 0xb08b5e : 0xa8845a);
+    }
+    // pali e parapetti
+    for (let z = z0; z < z1; z += 4) {
+      for (const s of [-1, 1]) {
+        B.detail.box(px + s * (w / 2 - 0.3), -0.35, z, 0.34, 2.2, 0.34, 0x6b573f);
+        B.detail.box(px + s * (w / 2 - 0.3), 1.15, z, 0.14, 0.9, 0.14, 0x8a6f4f);
+      }
+    }
+    for (const s of [-1, 1]) {
+      B.detail.box(px + s * (w / 2 - 0.3), 1.5, (z0 + z1) / 2, 0.1, 0.12, z1 - z0, 0x8a6f4f);
+      B.detail.box(px + s * (w / 2 - 0.3), 1.15, (z0 + z1) / 2, 0.1, 0.12, z1 - z0, 0x8a6f4f);
+    }
+    this.grid.add({ x: px - w / 2, z: (z0 + z1) / 2, hx: 0.3, hz: (z1 - z0) / 2 });
+    this.grid.add({ x: px + w / 2, z: (z0 + z1) / 2, hx: 0.3, hz: (z1 - z0) / 2 });
+    // chiosco in fondo al molo
+    const kz = z1 - 8;
+    B.store.box(px, 2.2, kz, 7, 4.4, 6, 0xffffff, 1 / 9, 0, null, 1 / 4.4);
+    B.detail.gableRoof(px, 4.4, kz, 7, 6, 1.5, 0xc0392b, 'x', 0.6);
+    this.grid.add({ x: px, z: kz, hx: 3.5, hz: 3 });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.3),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture('PIER 44', '#4cc2ff'), toneMapped: false }));
+    sign.position.set(px, 4.9, kz - 3.2);
+    sign.rotation.y = Math.PI;
+    this.group.add(sign);
+    for (let z = z0 + 8; z < z1 - 10; z += 16) {
+      B.props.streetlight(px + (rng() < 0.5 ? -1 : 1) * (w / 2 - 0.8), z, 0, 4.6);
+    }
+    // barche ormeggiate
+    for (const s of [-1, 1]) {
+      const bx = px + s * (w / 2 + 3.4), bz = z1 - 22 + s * 6;
+      B.detail.box(bx, 0.3, bz, 2.4, 0.7, 6, 0xf0efe8);
+      B.detail.box(bx, 0.75, bz - 1, 1.6, 0.7, 2.4, 0xe8e2d4);
+      B.detail.box(bx, 2.2, bz - 1, 0.12, 3.2, 0.12, 0xd8d4cc);
+    }
+  }
+
+  /** Distributore: pensilina illuminata, pompe, minimarket e totem prezzi. */
+  _gasStation(b, B, rng) {
+    const P = B.props;
+    this.landmarks.push({ kind: 'gas', x: b.cx, z: b.cz });
+    B.road = B.road || new GeoBuilder();
+    B.road.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 0xffffff, (b.x1 - b.x0) / 8, (b.z1 - b.z0) / 8);
+
+    // negozio sul fondo
+    const sw = Math.min(b.x1 - b.x0 - 8, 22), sd = 10;
+    const sx = b.cx, sz = b.z0 + sd / 2 + 1;
+    B.store.box(sx, 2.2, sz, sw, 4.4, sd, 0xffffff, 1 / 9, 0, null, 1 / 4.4);
+    B.detail.box(sx, 4.75, sz, sw + 1, 1.1, sd + 1, 0xe8e2d4);
+    B.roof.quadY(sx - sw / 2, sz - sd / 2, sx + sw / 2, sz + sd / 2, 4.6, 0xffffff, sw / 6, sd / 6);
+    this.grid.add({ x: sx, z: sz, hx: sw / 2, hz: sd / 2 });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(sw * 0.7, 9), 1.6),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture('NOVA GAS', '#ff5a2a'), toneMapped: false }));
+    sign.position.set(sx, 4.75, sz + sd / 2 + 0.6);
+    this.group.add(sign);
+
+    // pensilina
+    const cx = b.cx, cz = b.cz + 6;
+    const cw = Math.min(b.x1 - b.x0 - 10, 26), cd = 13;
+    for (const dx of [-1, 1]) for (const dz of [-1, 1]) {
+      const px = cx + dx * (cw / 2 - 1.2), pz = cz + dz * (cd / 2 - 1.2);
+      B.detail.box(px, 2.6, pz, 0.7, 5.2, 0.7, 0xe8e6e2);
+      this.grid.add({ x: px, z: pz, hx: 0.45, hz: 0.45 });
+    }
+    B.detail.box(cx, 5.5, cz, cw, 0.9, cd, 0xf2f0ec);
+    B.detail.box(cx, 5.9, cz, cw + 0.6, 0.5, cd + 0.6, 0xff5a2a);
+    B.glow.quadY(cx - cw / 2, cz - cd / 2, cx + cw / 2, cz + cd / 2, 4.98, 0xfff2d8);
+
+    // pompe di benzina
+    for (const dx of [-1, 1]) {
+      for (const dz of [-1, 1]) {
+        const px = cx + dx * 4.5, pz = cz + dz * 3.4;
+        B.detail.box(px, 0.12, pz, 3.4, 0.24, 1.6, 0xd8d4cc);
+        B.detail.box(px, 0.95, pz, 0.9, 1.6, 0.7, 0xf0f2f4);
+        B.detail.box(px, 1.45, pz + dz * 0.36, 0.6, 0.5, 0.06, 0x1b2027);
+        B.neon.box(px, 1.45, pz + dz * 0.38, 0.5, 0.36, 0.02, 0x6fd0ff);
+        B.detail.box(px + 0.55, 0.9, pz, 0.2, 0.6, 0.14, 0x2b3038);
+        this.grid.add({ x: px, z: pz, hx: 1.7, hz: 0.8 });
+      }
+    }
+    // totem prezzi
+    const tx = b.x1 - 5, tz = b.z1 - 5;
+    B.detail.box(tx, 3, tz, 0.5, 6, 0.5, 0xd8d4cc);
+    B.detail.box(tx, 6.4, tz, 3.2, 2.2, 0.4, 0xff5a2a);
+    B.neon.box(tx, 6.4, tz + 0.24, 2.6, 1.6, 0.04, 0xfff0d0);
+    this.grid.add({ x: tx, z: tz, hx: 0.4, hz: 0.4 });
+
+    P.streetlight(b.x0 + 4, b.z1 - 4, 0, 7);
+    for (const dx of [-1, 1]) this.parkSpots.push({ x: cx + dx * 4.5, z: cz + 6.5, rot: Math.PI / 2 });
+  }
+
+  /** Commissariato: si riconosce da lontano, e' dove finisci se ti arrestano. */
+  _policeStation(b, B, rng) {
+    this.landmarks.push({ kind: 'police', x: b.cx, z: b.cz });
+    const w = Math.min(b.x1 - b.x0 - 10, 34), d = Math.min(b.z1 - b.z0 - 12, 22);
+    const cx = b.cx, cz = b.cz - 2;
+    B.walk = B.walk || new GeoBuilder();
+    B.walk.quadY(b.x0, b.z0, b.x1, b.z1, 0.015, 0xdedad2, (b.x1 - b.x0) / 2, (b.z1 - b.z0) / 2);
+    B.concrete.box(cx, 4.2, cz, w, 8.4, d, 0xdfe3e6, -12);
+    B.detail.box(cx, 8.7, cz, w + 1.2, 0.8, d + 1.2, 0xc9ccd0);
+    B.roof.quadY(cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, 9.1, 0xffffff, w / 6, d / 6);
+    // fascia blu e scalinata
+    B.detail.box(cx, 5.6, cz + d / 2 + 0.1, w, 0.9, 0.3, 0x1e3a6b);
+    for (let i = 0; i < 3; i++) {
+      B.detail.box(cx, 0.12 + i * 0.18, cz + d / 2 + 2.2 - i * 0.7, 12, 0.22, 1.6 - i * 0.1, 0xd2cec6);
+    }
+    for (const dx of [-1, 1]) {
+      B.detail.box(cx + dx * 4, 2.4, cz + d / 2 + 0.9, 0.7, 4.8, 0.7, 0xeceae4);
+    }
+    B.detail.box(cx, 5.1, cz + d / 2 + 0.9, 10, 0.7, 1.6, 0xeceae4);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.7),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture('POLIZIA', '#4cc2ff'), toneMapped: false }));
+    sign.position.set(cx, 6.6, cz + d / 2 + 0.35);
+    this.group.add(sign);
+    // pennone
+    B.detail.box(cx - w / 2 - 3, 4, cz + 4, 0.16, 8, 0.16, 0xd8dade);
+    this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d / 2 });
+    // parcheggio delle volanti
+    for (let k = -2; k <= 2; k++) {
+      B.paint.quadY(cx + k * 3 - 0.08, b.z1 - 12, cx + k * 3 + 0.08, b.z1 - 3, 0.03, 0xd8d2be);
+      if (k < 2) this.parkSpots.push({ x: cx + k * 3 + 1.5, z: b.z1 - 7.5, rot: Math.PI / 2, police: true });
+    }
+    // verde, alberi e recinzione perimetrale: il piazzale nudo sembrava finto
+    for (const sx of [-1, 1]) {
+      B.grass.quadY(sx > 0 ? cx + w / 2 + 1 : b.x0 + 1, b.z0 + 1,
+        sx > 0 ? b.x1 - 1 : cx - w / 2 - 1, b.z1 - 1, 0.02, 0xffffff, 3, 4);
+      for (let k = 0; k < 3; k++) {
+        const p = B.props.palm(sx > 0 ? b.x1 - 5 : b.x0 + 5, b.z0 + 8 + k * 12, rng);
+        this.grid.add({ x: p.x, z: p.z, hx: p.r, hz: p.r });
+      }
+    }
+    for (let x = b.x0 + 2; x < b.x1 - 2; x += 3) {
+      B.detail.box(x, 0.7, b.z1 - 1.2, 0.12, 1.4, 0.12, 0x6f7680);
+    }
+    B.detail.box(b.cx, 1.3, b.z1 - 1.2, b.x1 - b.x0 - 4, 0.1, 0.08, 0x6f7680);
+    B.props.streetlight(b.x0 + 4, b.z1 - 4, 0, 7);
+    B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+    this.policeStation = { x: cx, z: cz + d / 2 + 6 };
+  }
+
+  /** Ospedale: e' qui che ti risvegli dopo un brutto incontro. */
+  _hospital(b, B, rng) {
+    this.landmarks.push({ kind: 'hospital', x: b.cx, z: b.cz });
+    const w = Math.min(b.x1 - b.x0 - 8, 36), d = Math.min(b.z1 - b.z0 - 14, 24);
+    const cx = b.cx, cz = b.cz - 3;
+    B.walk = B.walk || new GeoBuilder();
+    B.walk.quadY(b.x0, b.z0, b.x1, b.z1, 0.015, 0xe2e6e8, (b.x1 - b.x0) / 2, (b.z1 - b.z0) / 2);
+    B.concrete.box(cx, 7, cz, w, 14, d, 0xf2f4f6, -12);
+    B.detail.box(cx, 14.3, cz, w + 1, 0.7, d + 1, 0xd8dcdf);
+    B.roof.quadY(cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, 14.7, 0xffffff, w / 6, d / 6);
+    // piazzola dell'elicottero
+    B.paint.quadY(cx - 5, cz - 5, cx + 5, cz + 5, 14.72, 0x2b2f36, 1, 1);
+    B.paint.quadY(cx - 3.4, cz - 0.6, cx + 3.4, cz + 0.6, 14.74, 0xf0ece0, 1, 1);
+    B.paint.quadY(cx - 3.4, cz - 3.4, cx - 2.2, cz + 3.4, 14.74, 0xf0ece0, 1, 1);
+    B.paint.quadY(cx + 2.2, cz - 3.4, cx + 3.4, cz + 3.4, 14.74, 0xf0ece0, 1, 1);
+    // pensilina delle ambulanze
+    B.detail.box(cx, 4.4, cz + d / 2 + 3, w * 0.6, 0.5, 6, 0xeef2f4);
+    for (const dx of [-1, 1]) {
+      B.detail.box(cx + dx * (w * 0.3 - 0.6), 2.2, cz + d / 2 + 5.6, 0.5, 4.4, 0.5, 0xdfe3e6);
+    }
+    // croce rossa
+    B.neon.box(cx, 9.5, cz + d / 2 + 0.2, 3, 0.9, 0.12, 0xff3b3b);
+    B.neon.box(cx, 9.5, cz + d / 2 + 0.2, 0.9, 3, 0.12, 0xff3b3b);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.7),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture('OSPEDALE', '#ff6b6b'), toneMapped: false }));
+    sign.position.set(cx, 6.2, cz + d / 2 + 0.3);
+    this.group.add(sign);
+    this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d / 2 });
+    this.hospital = { x: cx, z: cz + d / 2 + 8 };
+    B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+  }
+
+  /** Campo da basket e pista: un isolato sportivo. */
+  _sportsBlock(b, B, rng) {
+    this.landmarks.push({ kind: 'sport', x: b.cx, z: b.cz });
+    B.grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 0xffffff, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
+    const cw = Math.min(b.x1 - b.x0 - 10, 28), cd = Math.min(b.z1 - b.z0 - 10, 16);
+    const cx = b.cx, cz = b.cz;
+    B.road = B.road || new GeoBuilder();
+    B.road.quadY(cx - cw / 2, cz - cd / 2, cx + cw / 2, cz + cd / 2, 0.03, 0xffffff, cw / 8, cd / 8);
+    // linee del campo
+    const line = (x0, z0, x1, z1) => B.paint.quadY(x0, z0, x1, z1, 0.05, 0xf0ece0);
+    line(cx - cw / 2 + 1, cz - cd / 2 + 1, cx + cw / 2 - 1, cz - cd / 2 + 1.16);
+    line(cx - cw / 2 + 1, cz + cd / 2 - 1.16, cx + cw / 2 - 1, cz + cd / 2 - 1);
+    line(cx - cw / 2 + 1, cz - cd / 2 + 1, cx - cw / 2 + 1.16, cz + cd / 2 - 1);
+    line(cx + cw / 2 - 1.16, cz - cd / 2 + 1, cx + cw / 2 - 1, cz + cd / 2 - 1);
+    line(cx - 0.08, cz - cd / 2 + 1, cx + 0.08, cz + cd / 2 - 1);
+    // canestri
+    for (const s of [-1, 1]) {
+      const px = cx + s * (cw / 2 - 2);
+      B.detail.box(px, 1.7, cz, 0.18, 3.4, 0.18, 0x9aa0a6);
+      B.detail.box(px - s * 0.5, 3.3, cz, 1.0, 0.12, 0.18, 0x9aa0a6);
+      B.detail.box(px - s * 1.0, 3.05, cz, 0.12, 0.9, 1.4, 0xf0ece0);
+      B.neon.box(px - s * 1.2, 2.75, cz, 0.06, 0.06, 0.9, 0xff7a3d);
+      this.grid.add({ x: px, z: cz, hx: 0.2, hz: 0.2 });
+    }
+    // recinzione a rete
+    for (const s of [-1, 1]) {
+      B.detail.box(cx, 1.6, cz + s * (cd / 2 + 0.6), cw + 2, 3.2, 0.1, 0x8a9098);
+      B.detail.box(cx + s * (cw / 2 + 1), 1.6, cz, 0.1, 3.2, cd + 2, 0x8a9098);
+    }
+    for (let k = 0; k < 4; k++) {
+      const p = B.props.palm(b.x0 + 4 + rng() * 4, b.z0 + 5 + k * ((b.z1 - b.z0 - 10) / 3), rng);
+      this.grid.add({ x: p.x, z: p.z, hx: p.r, hz: p.r });
+    }
+    B.props.bench(cx - cw / 2 - 3, cz, Math.PI / 2);
+    B.props.bench(cx + cw / 2 + 3, cz, -Math.PI / 2);
   }
 
   // --------------------------------------------------------------- utility
@@ -692,7 +953,7 @@ export class City {
     const N = CFG.N;
     this.roadIndex = (i, j) => i * (N + 1) + j;
     for (let i = 0; i <= N; i++) {
-      for (let j = 0; j <= N; j++) this.roadNodes.push({ i, j, x: road(i), z: road(j), links: [] });
+      for (let j = 0; j <= N; j++) this.roadNodes.push({ i, j, x: roadX(i), z: roadZ(j), links: [] });
     }
     for (const n of this.roadNodes) {
       const { i, j } = n;
@@ -769,5 +1030,9 @@ export class City {
   animate(t) {
     const n = this.mats.water.normalMap;
     n.offset.set(t * 0.008, t * 0.011);
+    if (this.foam) {
+      this.foam.position.z = this.shore + 2 + Math.sin(t * 0.4) * 2.5;
+      this.foam.material.opacity = 0.42 + Math.sin(t * 0.4) * 0.16;
+    }
   }
 }

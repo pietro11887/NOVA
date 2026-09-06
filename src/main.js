@@ -685,13 +685,13 @@ class Game {
       if (ped) {
         ped.knockDown(this, v);
         this.audio.crash(6);
-        v.speed *= 0.75;
+        v.setVelocity(v.speed * 0.75, 0);
         if (byPlayer) { this.addWanted(2, 'investimento'); this.toast('Hai investito qualcuno!', 'bad'); }
       }
       // pedoni investiti dalla polizia o dal traffico spaventano la folla
       if (!p.inCar && Math.hypot(px - p.x, pz - p.z) < 1.7) {
         p.damage(Math.abs(v.speed) * 1.9, 'investito');
-        v.speed *= 0.6;
+        v.setVelocity(v.speed * 0.6, 0);
       }
     };
     for (const v of this.traffic.all()) check(v, v.driver === 'player');
@@ -755,8 +755,8 @@ class Game {
     this.police.reset();
     if (p.inCar) p.exitCar();
     p.heal(100);
-    const n = this.city.randomWalkNode(p.x, p.z, 40, 120);
-    p.place(n.x, n.z, 0);
+    const n = this.city.policeStation || this.city.randomWalkNode(p.x, p.z, 40, 120);
+    p.place(n.x, n.z, Math.PI / 2);
     this.toast(`ARRESTATO — multa $${fine}`, 'bad');
     this.audio.blip(140, 0.5, 'square', 0.3);
     this.save();
@@ -775,12 +775,15 @@ class Game {
     p.pay(100);
     this.setWanted(0);
     this.police.reset();
-    // rinasce davanti alla farmacia piu' vicina, se esiste
-    let spot = null, bd = Infinity;
-    for (const d of this.city.doors) {
-      if (d.type !== 'pharmacy') continue;
-      const dd = Math.hypot(d.x - p.x, d.z - p.z);
-      if (dd < bd) { bd = dd; spot = d; }
+    // ci si risveglia davanti all'ospedale
+    let spot = this.city.hospital;
+    if (!spot) {
+      let bd = Infinity;
+      for (const d of this.city.doors) {
+        if (d.type !== 'pharmacy') continue;
+        const dd = Math.hypot(d.x - p.x, d.z - p.z);
+        if (dd < bd) { bd = dd; spot = d; }
+      }
     }
     if (!spot) spot = this.city.randomWalkNode(p.x, p.z, 20, 90);
     p.place(spot.x, spot.z, 0);

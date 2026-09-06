@@ -155,6 +155,32 @@ export const CAR_TYPES = {
   },
 };
 
+CAR_TYPES.bus = {
+  L: 9.6, W: 2.55, top: 3.2, mass: 3.4, speed: 0.62, wheel: 0.52, wx: 3.3,
+  body: [
+    { x: 4.8, hw: 1.16, yb: 0.62, yt: 2.95 }, { x: 4.2, hw: 1.26, yb: 0.55, yt: 3.05 },
+    { x: 0.0, hw: 1.28, yb: 0.52, yt: 3.08 }, { x: -4.2, hw: 1.26, yb: 0.55, yt: 3.05 },
+    { x: -4.8, hw: 1.18, yb: 0.62, yt: 2.98 },
+  ],
+  cabin: [
+    { x: 4.75, hw: 1.14, yb: 1.75, yt: 2.72 }, { x: 4.0, hw: 1.27, yb: 1.75, yt: 2.72 },
+    { x: -4.0, hw: 1.27, yb: 1.75, yt: 2.72 }, { x: -4.75, hw: 1.16, yb: 1.75, yt: 2.7 },
+  ],
+};
+
+CAR_TYPES.ambulance = {
+  L: 5.6, W: 2.2, top: 2.6, mass: 1.9, speed: 0.95, wheel: 0.44, wx: 1.85,
+  body: [
+    { x: 2.8, hw: 0.92, yb: 0.5, yt: 1.35 }, { x: 2.2, hw: 1.05, yb: 0.44, yt: 1.75 },
+    { x: 0.9, hw: 1.1, yb: 0.42, yt: 2.45 }, { x: -1.6, hw: 1.1, yb: 0.42, yt: 2.5 },
+    { x: -2.8, hw: 1.04, yb: 0.48, yt: 2.45 },
+  ],
+  cabin: [
+    { x: 2.25, hw: 0.98, yb: 1.4, yt: 1.72 }, { x: 1.5, hw: 1.06, yb: 1.42, yt: 2.05 },
+    { x: 0.95, hw: 1.08, yb: 1.42, yt: 2.1 },
+  ],
+};
+
 export const CAR_COLORS = [
   0xb02b2b, 0x22528f, 0xe8e6e0, 0x15171c, 0x2b7a4b, 0xd9a520, 0x7d848c,
   0x5a3f8f, 0xd06a20, 0x1f8f9c, 0x9aa3ad, 0x53331f, 0xc9b8a0, 0x2f3f55,
@@ -207,6 +233,20 @@ function buildCarGeo(t, kind) {
   }
   if (kind === 'taxi') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.18, 0, 0.85, 0.3, 0.42, 0xf4c920);
+  }
+  if (kind === 'ambulance') {
+    trim.box(t.cabin[1].x, t.cabin[1].yt + 0.14, 0, 1.2, 0.16, 1.3, 0xe8ecef);
+    for (const s of [-1, 1]) {
+      trim.box(0, 1.5, s * (t.W / 2 - 0.01), 3.2, 0.34, 0.05, 0xd0342c);       // fascia rossa
+      trim.box(0.4, 2.0, s * (t.W / 2 - 0.01), 0.9, 0.24, 0.06, 0xd0342c);     // croce
+      trim.box(0.4, 2.0, s * (t.W / 2 - 0.01), 0.24, 0.9, 0.06, 0xd0342c);
+    }
+  }
+  if (kind === 'bus') {
+    for (const s of [-1, 1]) {
+      trim.box(0, 1.15, s * (t.W / 2 - 0.01), 8.6, 0.24, 0.05, 0x2f6fd0);
+    }
+    trim.box(4.1, 2.85, 0, 1.2, 0.34, 1.6, 0x1b2027);      // display di linea
   }
   return {
     body: smoothNormals(body.build(), 0.95),

@@ -31,7 +31,7 @@ export class Player {
 
     this.camYaw = 0;
     this.camPitch = 0.22;
-    this.camDist = 6.2;
+    this.camDist = 4.3;
     this.indoor = false;
     this.camPos = new THREE.Vector3(0, 5, 10);
     this.camLook = new THREE.Vector3();
@@ -163,7 +163,7 @@ export class Player {
     const car = this.car;
     if (!car) return;
     car.driver = null;
-    car.speed *= 0.2;
+    car.setVelocity(car.speed * 0.2, 0);
     this.car = null;
     car.doorPos(TMP);
     this.x = TMP.x; this.z = TMP.z;
@@ -209,10 +209,10 @@ export class Player {
       this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt * 2.4, 0, 0.14);
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
-    const dist = this.indoor ? 4.3 : dead ? 7 : inCar ? 8.4 + Math.abs(this.car.speed) * 0.12 : this.camDist;
-    const height = this.indoor ? 0.95 : dead ? 3.2 : inCar ? 3.0 : 2.15;
+    const dist = this.indoor ? 4.0 : dead ? 5.5 : inCar ? 6.4 + Math.abs(this.car.speed) * 0.09 : this.camDist;
+    const height = this.indoor ? 0.9 : dead ? 2.6 : inCar ? 2.35 : 1.75;
     const tx = this.x, tz = this.z;
-    const ty = (inCar ? 1.1 : 1.35) + this.y;
+    const ty = (inCar ? 1.0 : 1.25) + this.y;
 
     const cp = Math.cos(this.camPitch);
     V.set(

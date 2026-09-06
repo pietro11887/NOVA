@@ -1,4 +1,4 @@
-import { CFG, road, WORLD_MIN, WORLD_MAX } from '../core/config.js';
+import { CFG, ROAD_X, ROAD_Z, WORLD_MIN, WORLD_MAX } from '../core/config.js';
 import { clamp } from '../core/utils.js';
 
 const $ = (id) => document.getElementById(id);
@@ -143,11 +143,8 @@ export class HUD {
     ctx.strokeStyle = '#4a586e';
     ctx.lineWidth = CFG.ROAD * 0.8;
     ctx.beginPath();
-    for (let i = 0; i <= CFG.N; i++) {
-      const c = road(i);
-      ctx.moveTo(c, WORLD_MIN); ctx.lineTo(c, WORLD_MAX);
-      ctx.moveTo(WORLD_MIN, c); ctx.lineTo(WORLD_MAX, c);
-    }
+    for (const c of ROAD_X) { ctx.moveTo(c, WORLD_MIN); ctx.lineTo(c, WORLD_MAX); }
+    for (const c of ROAD_Z) { ctx.moveTo(WORLD_MIN, c); ctx.lineTo(WORLD_MAX, c); }
     ctx.stroke();
 
     const blip = (x, z, color, r = 5) => {
@@ -159,6 +156,8 @@ export class HUD {
       if (Math.abs(d.x - p.x) > 260 || Math.abs(d.z - p.z) > 260) continue;
       blip(d.x, d.z, d.type === 'home' ? '#ffe9a8' : '#3ddc84', 4);
     }
+    const LANDMARK_COLOR = { police: '#4cc2ff', hospital: '#ff6b6b', gas: '#ff9d3f', sport: '#a8e05f', pier: '#8ad8ff' };
+    for (const l of g.city.landmarks) blip(l.x, l.z, LANDMARK_COLOR[l.kind] || '#ffffff', 8);
     for (const m of g.missions.markers) blip(m.x, m.z, '#ffd23f', 7);
     if (g.missions.objective) blip(g.missions.objective.x, g.missions.objective.z, '#ff9d3f', 8);
     for (const v of g.traffic.all()) {

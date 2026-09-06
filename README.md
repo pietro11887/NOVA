@@ -62,6 +62,13 @@ Tutto è generato a runtime, senza un solo file di asset:
 
 ## Cosa c'è nella città
 
+- **Griglia irregolare**: ogni colonna e ogni riga di isolati ha la sua
+  larghezza (da 56 a 128 m), quindi la mappa non è un foglio a quadretti:
+  strade a distanze diverse, isolati corti e isolati lunghi.
+- **Luoghi riconoscibili** segnati sulla minimappa: commissariato (è lì che
+  ti portano se ti arrestano), ospedale con elisuperficie (è lì che ti
+  risvegli), tre distributori con pensilina e pompe, campo da basket
+  recintato e un molo di legno che entra nel mare con chiosco e barche.
 - **Città procedurale 8×8 isolati**: centro con grattacieli a vetri e
   arretramenti, fascia commerciale con palazzine colorate, balconi e scale
   antincendio, periferia con villette, garage e giardini, parchi con fontana,
@@ -76,7 +83,11 @@ Tutto è generato a runtime, senza un solo file di asset:
   stender, camerini e manichini; il bar con bottiglie, sgabelli e biliardo;
   il garage col ponte sollevatore e il banco attrezzi; casa tua con letto,
   divano, TV e cucina. Ogni locale ha luci proprie, commesso e menu.
-- **Traffico vero**: le auto seguono il grafo stradale, tengono la destra,
+- **Guida vera**: modello a bicicletta con angolo di sterzo, aderenza
+  laterale e freno a mano — l'auto non ruota più sul posto e in curva
+  scivola invece di girare come una trottola.
+- **Traffico vero**: berline, SUV, pick-up, sportive, furgoni, autobus e
+  ambulanze seguono il grafo stradale, tengono la destra,
   si fermano al rosso e in coda, suonano il clacson. Le auto in sosta si
   possono rubare; quelle in marcia anche, ma costa una stella.
 - **Pedoni** che camminano sui marciapiedi, attraversano agli incroci,

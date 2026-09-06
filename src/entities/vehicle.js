@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, pick } from '../core/utils.js';
+import { clamp, lerp, pick } from '../core/utils.js';
 import { makeCar, CAR_TYPES, CAR_COLORS } from '../world/models.js';
 
 const TMP = { x: 0, z: 0 };
@@ -17,25 +17,32 @@ export class Vehicle {
     this.color = opts.color ?? pick(CAR_COLORS);
     if (this.kind === 'police') { this.type = 'suv'; this.color = 0x1c2740; }
     if (this.kind === 'taxi') { this.type = 'sedan'; this.color = 0xf2c832; }
+    if (this.kind === 'ambulance') { this.type = 'ambulance'; this.color = 0xf2f4f6; }
+    if (this.kind === 'bus') { this.type = 'bus'; this.color = pick([0x2f6fd0, 0xd8dce0, 0x2b8f5f]); }
 
     this.spec = CAR_TYPES[this.type];
     this.mesh = makeCar(this.type, this.color, this.kind);
     this.mesh.userData.vehicle = this;
 
     this.x = 0; this.z = 0; this.a = 0;
-    this.speed = 0;
+    this.speed = 0;      // componente longitudinale, usata da HUD e IA
+    this.vx = 0; this.vz = 0;
     this.steer = 0;
+    this.slip = 0;
     this.health = 100;
     this.driver = null;         // 'player' | ped | null
     this.locked = false;
 
     this.topSpeed = 27 * this.spec.speed;
     this.accel = 11 / this.spec.mass;
+    this.brake = 20 / this.spec.mass;
   }
 
   place(x, z, a) {
     this.x = x; this.z = z; this.a = a;
     this.speed = 0;
+    this.vx = 0; this.vz = 0;
+    this.steer = 0;
     this.sync();
     return this;
   }
@@ -54,38 +61,52 @@ export class Vehicle {
 
   update(dt, ctrl) {
     const c = ctrl || { throttle: 0, steer: 0, hand: false };
-    const sp = this.speed;
+    const spec = this.spec;
 
-    // --- motore / freni
-    if (c.throttle > 0) {
-      this.speed += c.throttle * this.accel * dt * (sp < 0 ? 2.2 : 1);
-    } else if (c.throttle < 0) {
-      this.speed += c.throttle * this.accel * dt * (sp > 0 ? 2.0 : 0.55);
-    }
-    // resistenza
-    const drag = 0.5 + (c.throttle === 0 ? 1.4 : 0) + (c.hand ? 5.5 : 0);
-    this.speed -= this.speed * drag * dt;
-    if (Math.abs(this.speed) < 0.05) this.speed = 0;
-    this.speed = clamp(this.speed, -9, this.topSpeed);
+    // --- assi del veicolo
+    const fx = this.fx, fz = this.fz;      // avanti
+    const rx = Math.sin(this.a), rz = Math.cos(this.a);   // destra
+    let vLong = this.vx * fx + this.vz * fz;
+    let vLat = this.vx * rx + this.vz * rz;
 
-    // --- sterzo: piu' stretto a bassa velocita', piu' dolce in corsa
-    const grip = clamp(1.15 - Math.abs(this.speed) / 46, 0.34, 1);
-    const target = c.steer * 2.35 * grip;
-    this.steer += (target - this.steer) * clamp(dt * 9, 0, 1);
-    const dir = this.speed >= 0 ? 1 : -1;
-    const turnAmount = this.steer * clamp(Math.abs(this.speed) / 4.5, 0, 1) * dir;
-    this.a += turnAmount * dt * (c.hand ? 1.7 : 1);
+    // --- sterzo: angolo delle ruote, non rotazione diretta della scocca.
+    // A velocita' alta l'angolo massimo si riduce, altrimenti basta un
+    // tocco per mandare l'auto in testacoda.
+    const maxSteer = lerp(0.58, 0.14, clamp(Math.abs(vLong) / 30, 0, 1));
+    this.steer += (c.steer * maxSteer - this.steer) * clamp(dt * 7, 0, 1);
+
+    // --- motore e freni
+    if (c.throttle > 0) vLong += this.accel * c.throttle * dt * (vLong < -0.5 ? 2.2 : 1);
+    else if (c.throttle < 0) vLong += c.throttle * (vLong > 0.5 ? this.brake : this.accel * 0.5) * dt;
+    const rolling = 0.35 + (c.throttle === 0 ? 0.75 : 0) + (c.hand ? 1.5 : 0);
+    vLong -= vLong * rolling * dt;
+    if (Math.abs(vLong) < 0.06) vLong = 0;
+    vLong = clamp(vLong, -9, this.topSpeed);
+
+    // --- imbardata dal modello a bicicletta: la rotazione dipende da
+    //     quanto si va, non solo da quanto si gira il volante
+    const wheelbase = spec.L * 0.58;
+    const yawRate = (vLong / wheelbase) * Math.tan(this.steer);
+    this.a += yawRate * dt;
+
+    // --- aderenza laterale: un po' di scivolamento, tanto col freno a mano
+    vLat += vLong * yawRate * dt * (c.hand ? 0.85 : 0.3);
+    const grip = c.hand ? 1.3 : 8.5;
+    vLat -= vLat * clamp(grip * dt, 0, 1);
+    this.slip = Math.abs(vLat);
 
     // --- integrazione
-    const nx = this.x + this.fx * this.speed * dt;
-    const nz = this.z + this.fz * this.speed * dt;
-    this.x = nx; this.z = nz;
+    this.vx = fx * vLong + rx * vLat;
+    this.vz = fz * vLong + rz * vLat;
+    this.x += this.vx * dt;
+    this.z += this.vz * dt;
+    this.speed = vLong;
 
     // --- collisione con la citta' (muso e coda)
-    const r = this.spec.W * 0.55;
+    const r = spec.W * 0.5;
     let bumped = false;
-    for (const off of [this.spec.L * 0.34, -this.spec.L * 0.34]) {
-      const px = this.x + this.fx * off, pz = this.z + this.fz * off;
+    for (const off of [spec.L * 0.34, -spec.L * 0.34]) {
+      const px = this.x + fx * off, pz = this.z + fz * off;
       if (this.city.resolve(px, pz, r, TMP)) {
         const dx = TMP.x - px, dz = TMP.z - pz;
         this.x += dx; this.z += dz;
@@ -93,20 +114,29 @@ export class Vehicle {
       }
     }
     if (bumped) {
-      const impact = Math.abs(this.speed);
+      const impact = Math.abs(vLong);
       if (impact > 4) {
         this.health -= impact * 0.9;
         this.lastCrash = impact;
       }
-      this.speed *= -0.22;
+      this.setVelocity(-vLong * 0.18, vLat * 0.3);
     }
     if (!this.city.inBounds(this.x, this.z)) {
-      this.speed *= -0.4;
-      this.x = clamp(this.x, -600, 600);
-      this.z = clamp(this.z, -600, 600);
+      this.setVelocity(-Math.abs(vLong) * 0.4, 0);
+      this.x = clamp(this.x, -640, 640);
+      this.z = clamp(this.z, -640, 700);
     }
 
     this.sync();
+  }
+
+  /** Imposta la velocita' in coordinate del veicolo. */
+  setVelocity(long, lat) {
+    const fx = this.fx, fz = this.fz;
+    const rx = Math.sin(this.a), rz = Math.cos(this.a);
+    this.vx = fx * long + rx * lat;
+    this.vz = fz * long + rz * lat;
+    this.speed = long;
   }
 
   /** Urto tra veicoli: separazione elastica semplificata. */
@@ -120,7 +150,8 @@ export class Vehicle {
     this.x -= nx * push; this.z -= nz * push;
     o.x += nx * push; o.z += nz * push;
     const rel = Math.abs(this.speed - o.speed);
-    this.speed *= 0.55; o.speed = o.speed * 0.55 + this.speed * 0.25;
+    this.setVelocity(this.speed * 0.5, 0);
+    o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
     if (rel > 6) { this.health -= rel * 0.5; o.health -= rel * 0.5; }
     return rel;
   }
