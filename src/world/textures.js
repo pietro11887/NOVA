@@ -682,3 +682,29 @@ export function plateTexture(lines, bg = '#1f2a35', fg = '#e9eef7') {
   });
   return tex(c, { repeat: false });
 }
+
+/** Ciuffo d'erba: fili verticali con alpha, per i piani incrociati istanziati. */
+export function grassTuftTexture() {
+  const W = 64, H = 64;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  for (let i = 0; i < 22; i++) {
+    const x = 4 + Math.random() * (W - 8);
+    const h = H * (0.45 + Math.random() * 0.55);
+    const lean = (Math.random() - 0.5) * 16;
+    const w = 1.2 + Math.random() * 1.8;
+    const g = 104 + Math.random() * 46;
+    ctx.strokeStyle = `rgb(${(g * 0.78) | 0},${g | 0},${(g * 0.56) | 0})`;
+    ctx.lineWidth = w;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, H);
+    ctx.quadraticCurveTo(x + lean * 0.4, H - h * 0.55, x + lean, H - h);
+    ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}

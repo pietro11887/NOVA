@@ -67,6 +67,28 @@ export function dome(gb, x, y, z, r, color, sides = 12, rings = 4, squash = 1) {
   }
 }
 
+/** Due quad incrociati alti 1: da qualsiasi angolo il ciuffo ha volume. */
+function crossedQuads() {
+  const pos = [], nor = [], uv = [], idx = [];
+  const planes = [
+    { px: 0.5, pz: 0, nx: 0, nz: 1 },
+    { px: 0, pz: 0.5, nx: 1, nz: 0 },
+  ];
+  planes.forEach((pl, k) => {
+    const o = k * 4;
+    pos.push(-pl.px, 0, -pl.pz, pl.px, 0, pl.pz, pl.px, 1, pl.pz, -pl.px, 1, -pl.pz);
+    for (let i = 0; i < 4; i++) nor.push(pl.nx, 0, pl.nz);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+
 export class Props {
   constructor(builders) {
     this.B = builders;
@@ -74,6 +96,29 @@ export class Props {
     this.leaves = [];     // chiome degli alberi
     this.lampPos = [];
     this.benches = [];
+    this.tufts = [];      // ciuffi d'erba e fiori
+  }
+
+  /**
+   * Semina ciuffi d'erba (e qualche fiore) su un rettangolo di prato.
+   * Sono piani incrociati istanziati: costano una sola draw call per tutta la citta'.
+   */
+  grassPatch(x0, z0, x1, z1, rng, density = 1) {
+    const area = Math.max(0, (x1 - x0) * (z1 - z0));
+    const n = Math.min(520, Math.round(area * 0.16 * density));
+    for (let i = 0; i < n; i++) {
+      const x = x0 + rng() * (x1 - x0);
+      const z = z0 + rng() * (z1 - z0);
+      const s = 0.34 + rng() * 0.36;
+      // il colore dell'istanza e' solo una sfumatura: il verde sta gia' nella texture
+      const k = 0.78 + rng() * 0.34;
+      const warm = 0.92 + rng() * 0.2;
+      const c = (v) => Math.min(255, Math.round(v));
+      this.tufts.push({
+        x, z, s, rot: rng() * TAU,
+        color: (c(255 * k * warm) << 16) | (c(255 * k) << 8) | c(255 * k * 0.86),
+      });
+    }
   }
 
   /** Palma: tronco curvo + corona di foglie. */
@@ -278,6 +323,23 @@ export class Props {
 
   /** Chiude gli oggetti ripetuti in InstancedMesh e li aggiunge alla scena. */
   finish(group, mats) {
+    if (this.tufts.length && mats.tuft) {
+      const geo = crossedQuads();
+      const mesh = new THREE.InstancedMesh(geo, mats.tuft, this.tufts.length);
+      const m = new THREE.Matrix4();
+      const col = new THREE.Color();
+      this.tufts.forEach((t, i) => {
+        m.compose(new THREE.Vector3(t.x, 0.02, t.z),
+          new THREE.Quaternion().setFromEuler(new THREE.Euler(0, t.rot, 0)),
+          new THREE.Vector3(t.s * 1.1, t.s, t.s * 1.1));
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, col.setHex(t.color));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    }
     if (this.fronds.length) {
       const geo = new THREE.PlaneGeometry(1, 1);
       geo.translate(0.42, 0, 0);

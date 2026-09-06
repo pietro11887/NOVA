@@ -62,6 +62,22 @@ export class SkySystem {
     this.bounce.position.set(-80, 40, -60);
     scene.add(this.bounce);
 
+    // --- stelle e luna, accese solo di notte
+    this.stars = new THREE.Mesh(
+      new THREE.SphereGeometry(2600, 24, 12),
+      new THREE.MeshBasicMaterial({
+        map: starTexture(), side: THREE.BackSide, transparent: true,
+        opacity: 0, depthWrite: false, fog: false, toneMapped: false,
+      })
+    );
+    scene.add(this.stars);
+    this.moon = new THREE.Mesh(
+      new THREE.PlaneGeometry(260, 260),
+      new THREE.MeshBasicMaterial({ map: moonTexture(), transparent: true, opacity: 0,
+        depthWrite: false, fog: false, toneMapped: false })
+    );
+    scene.add(this.moon);
+
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.pmrem.compileEquirectangularShader();
     this._envScene = new THREE.Scene();
@@ -132,6 +148,14 @@ export class SkySystem {
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new THREE.Color(0xffffff), day * 0.7);
     this.clouds.rotation.y += 0.00004;
+    // stelle e luna: compaiono col buio, la luna sta all'opposto del sole
+    const nightK = clamp((0.35 - day) / 0.35, 0, 1);
+    this.stars.material.opacity = nightK * 0.9;
+    this.stars.rotation.y += 0.000012;
+    this.moon.material.opacity = nightK * 0.95;
+    this.moon.position.copy(this.sunDir).multiplyScalar(-2100);
+    this.moon.position.y = Math.abs(this.moon.position.y) * 0.75 + 300;
+    this.moon.lookAt(0, 0, 0);
     this.horizonColor = horizon;
 
     // --- mappa d'ambiente: si rigenera solo quando il sole si e' mosso
@@ -156,6 +180,9 @@ export class SkySystem {
   follow(pos) {
     this.sky.position.set(pos.x, 0, pos.z);
     this.clouds.position.set(pos.x, -140, pos.z);
+    this.stars.position.set(pos.x, 0, pos.z);
+    this.moon.position.x += pos.x;
+    this.moon.position.z += pos.z;
   }
 }
 
@@ -167,6 +194,63 @@ function skyIntensity(sky, value) {
     .replace('varying vec3 vSunDirection;', 'varying vec3 vSunDirection;\nuniform float skyIntensity;')
     .replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * skyIntensity, 1.0 );');
   m.needsUpdate = true;
+}
+
+/** Cielo stellato: puntini di dimensione e luminosita' diverse. */
+function starTexture() {
+  const W = 2048, H = 1024;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.random() * W;
+    const y = Math.pow(Math.random(), 1.4) * H * 0.62;   // piu' fitte in alto
+    const r = Math.random() < 0.92 ? Math.random() * 1.3 + 0.3 : Math.random() * 2.4 + 1;
+    const a = 0.35 + Math.random() * 0.65;
+    const tint = Math.random();
+    ctx.fillStyle = tint < 0.75 ? `rgba(255,255,255,${a})`
+      : tint < 0.9 ? `rgba(190,215,255,${a})` : `rgba(255,225,190,${a})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  // via lattea appena accennata
+  ctx.globalAlpha = 0.08;
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * W;
+    const y = H * 0.22 + Math.sin(x / W * 6) * 90 + (Math.random() - 0.5) * 120;
+    ctx.fillStyle = '#cfe0ff';
+    ctx.beginPath(); ctx.arc(x, y, 8 + Math.random() * 22, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Luna con crateri e alone. */
+function moonTexture() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const glow = ctx.createRadialGradient(S / 2, S / 2, S * 0.16, S / 2, S / 2, S * 0.5);
+  glow.addColorStop(0, 'rgba(232,238,255,0.55)');
+  glow.addColorStop(0.5, 'rgba(200,215,255,0.12)');
+  glow.addColorStop(1, 'rgba(200,215,255,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = '#eef1f6';
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.17, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(180,188,200,0.55)';
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * S * 0.13;
+    ctx.beginPath();
+    ctx.arc(S / 2 + Math.cos(a) * r, S / 2 + Math.sin(a) * r, 2 + Math.random() * 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** Nuvole procedurali: fbm su canvas, niente asset da scaricare. */

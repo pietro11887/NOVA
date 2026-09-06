@@ -15,6 +15,7 @@ export class HUD {
       shopDesc: $('shop-desc'), shopItems: $('shop-items'), lblAction: $('lbl-action'),
       lblAttack: $('lbl-attack'), lblJump: $('lbl-jump'), lblRun: $('lbl-run'), weapon: $('weapon'),
       evade: $('evade'), evadeBar: $('evade').firstElementChild,
+      wayDist: $('waydist'), wayVal: $('way-dist'), friendLine: $('friendline'), friendVal: $('friend-dist'),
     };
     this.map = $('minimap');
     this.ctx = this.map.getContext('2d');
@@ -108,6 +109,16 @@ export class HUD {
       this.el.weapon.innerHTML = `🔫 <b>${p.ammo}</b>`;
     } else this.el.weapon.classList.add('hidden');
 
+    // distanza dalla destinazione e dall'amico
+    const way = g.waypoint;
+    this.el.wayDist.classList.toggle('hidden', !way);
+    if (way) this.el.wayVal.textContent = `${Math.round(Math.hypot(way.x - p.x, way.z - p.z))} m`;
+    const friend = g.mp && g.mp.position;
+    this.el.friendLine.classList.toggle('hidden', !friend);
+    if (friend) {
+      this.el.friendVal.textContent = `${g.mp.name} · ${Math.round(Math.hypot(friend.x - p.x, friend.z - p.z))} m`;
+    }
+
     if (p.inCar) {
       this.el.speedo.classList.remove('hidden');
       this.el.speed.textContent = Math.round(p.car.kmh);
@@ -172,11 +183,57 @@ export class HUD {
       blip(v.x, v.z, '#98a3b5', 3);
     }
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, '#4cc2ff', 6);
-    // l'amico collegato ha il suo puntino viola
-    const peer = g.mp && g.mp.position;
-    if (peer) blip(peer.x, peer.z, '#c56bff', 9);
 
     ctx.restore();
+
+    /**
+     * Segnaposto che restano visibili: se il bersaglio esce dalla
+     * minimappa compare una freccia sul bordo con la sua direzione.
+     */
+    const edgeMarker = (wx, wz, color, label) => {
+      const dx = wx - p.x, dz = wz - p.z;
+      // stesse trasformazioni della mappa, ma calcolate a mano
+      const rot = p.a - Math.PI / 2;
+      const cos = Math.cos(rot), sin = Math.sin(rot);
+      let sx = (dx * cos - dz * sin) * scale;
+      let sy = (dx * sin + dz * cos) * scale;
+      const r = half - 12;
+      const dist = Math.hypot(sx, sy);
+      const outside = dist > r;
+      if (outside) { sx = (sx / dist) * r; sy = (sy / dist) * r; }
+      ctx.save();
+      ctx.translate(half + sx, half + sy);
+      ctx.fillStyle = color;
+      if (outside) {
+        ctx.rotate(Math.atan2(sy, sx) + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(-7, 7);
+        ctx.closePath(); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#0d1119'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      if (label) {
+        ctx.rotate(0);
+        ctx.fillStyle = '#0d1119cc';
+        ctx.fillRect(-16, 9, 32, 12);
+        ctx.fillStyle = color;
+        ctx.font = 'bold 9px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, 0, 18);
+      }
+      ctx.restore();
+    };
+
+    if (g.waypoint) {
+      const d = Math.round(Math.hypot(g.waypoint.x - p.x, g.waypoint.z - p.z));
+      edgeMarker(g.waypoint.x, g.waypoint.z, '#ff9d3f', `${d}m`);
+    }
+    const friendPos = g.mp && g.mp.position;
+    if (friendPos) {
+      const d = Math.round(Math.hypot(friendPos.x - p.x, friendPos.z - p.z));
+      edgeMarker(friendPos.x, friendPos.z, '#c56bff', `${d}m`);
+    }
 
     // freccia del giocatore sempre al centro
     ctx.save();

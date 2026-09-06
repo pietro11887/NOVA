@@ -18,6 +18,7 @@ import { Missions } from './systems/missions.js';
 import { Casino } from './systems/casino.js';
 import { Net } from './systems/net.js';
 import { Multiplayer } from './systems/multiplayer.js';
+import { MapView } from './systems/map.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -27,6 +28,8 @@ class Game {
     this.canvas = $('scene');
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas, antialias: !IS_MOBILE, powerPreference: 'high-performance', stencil: false,
+      // ?shot=1 tiene il frame nel buffer: serve solo per catturare screenshot puliti
+      preserveDrawingBuffer: new URLSearchParams(location.search).has('shot'),
     });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.92;
@@ -47,6 +50,7 @@ class Game {
       shadowRange: IS_MOBILE ? 46 : 74,
       bloom: !IS_MOBILE,
       grade: true,
+      samples: IS_MOBILE ? 2 : 4,
     };
     const forced = new URLSearchParams(location.search).get('q');
     if (forced !== null) {
@@ -149,6 +153,8 @@ class Game {
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
     this._applyTier();
     this.casino = new Casino(this);
+    this.map = new MapView(this);
+    this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
     this._tracers();
@@ -314,9 +320,14 @@ class Game {
       location.reload();
     });
     addEventListener('keydown', (e) => {
-      if (e.code === 'Escape') this.setPaused(!this.paused);
+      if (e.code === 'Escape') { if (this.map.open) this.map.hide(); else this.setPaused(!this.paused); }
       if (e.code === 'KeyP') this.setPaused(!this.paused);
+      if (e.code === 'KeyM' && this.running) this.map.toggle();
     });
+    const mini = $('minimap');
+    mini.style.pointerEvents = 'auto';
+    mini.addEventListener('click', () => { if (this.running) this.map.toggle(); });
+    addEventListener('resize', () => { if (this.map && this.map.open) { this.map.resize(); this.map.draw(); } });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.setPaused(true); });
   }
 
@@ -511,6 +522,12 @@ class Game {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses;
+      if (this.post.composer && this.post.composer.renderTarget1) {
+        const n = tier >= 3 ? (IS_MOBILE ? 2 : 4) : tier >= 2 ? 2 : 0;
+        for (const rt of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
+          if (rt.samples !== n) { rt.samples = n; rt.dispose(); }
+        }
+      }
       if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
@@ -573,8 +590,8 @@ class Game {
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
     this.input.setDriveMode(p.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open) p.attack();
-    p.update(dt, (this.hud.shopOpen || this.casino.open) ? this.frozenInput : this.input);
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) p.attack();
+    p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open) ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
       this.interiors.update(dt);
@@ -590,6 +607,7 @@ class Game {
     }
 
     if (this.mp) this.mp.update(dt);
+    this._markers(dt);
     this._tracerUpdate(dt);
     this._effectsUpdate(dt);
     this._updateStreetLights(dt);
@@ -754,6 +772,62 @@ class Game {
     this.toast(`${item.name} ✔`, 'good');
     this.hud.refreshShop(menu, (i) => this.buy(i, menu));
     this.save();
+  }
+
+  _markers(dt) {
+    const p = this.player;
+    // la destinazione segue l'amico quando e' agganciata a lui
+    const friend = this.mp && this.mp.position;
+    if (this.waypoint && this.waypoint.friend && friend) {
+      this.waypoint.x = friend.x; this.waypoint.z = friend.z;
+    }
+    if (this.waypoint) {
+      this.wayBeam.position.set(this.waypoint.x, 0, this.waypoint.z);
+      const d = Math.hypot(this.waypoint.x - p.x, this.waypoint.z - p.z);
+      this.wayBeam.visible = d > 4;
+      if (d < 6 && !this.waypoint.friend) this.setWaypoint(null);
+    }
+    this.friendBeam.visible = !!friend;
+    if (friend) this.friendBeam.position.set(friend.x, 0, friend.z);
+    if (this.map.open) this.map.draw();
+  }
+
+  /** Colonna di luce sulla destinazione e sull'amico: si vede da lontano. */
+  _waypointMarker() {
+    const beam = (color) => {
+      const g = new THREE.CylinderGeometry(0.9, 1.4, 60, 12, 1, true);
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.28, side: THREE.DoubleSide,
+        depthWrite: false, depthTest: false, toneMapped: false,
+      }));
+      m.position.y = 30;
+      m.renderOrder = 4;
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.6, 2.4, 24),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, toneMapped: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.08;
+      const group = new THREE.Group();
+      group.add(m, ring);
+      group.visible = false;
+      this.scene.add(group);
+      return group;
+    };
+    this.wayBeam = beam(0xff9d3f);
+    this.friendBeam = beam(0xc56bff);
+    this.waypoint = null;
+  }
+
+  /** Mette (o toglie) la destinazione. */
+  setWaypoint(w) {
+    this.waypoint = w ? { x: w.x, z: w.z, friend: !!w.friend } : null;
+    if (this.waypoint) {
+      this.wayBeam.position.set(w.x, 0, w.z);
+      this.toast('Destinazione impostata', 'good');
+      this.audio.blip(760, 0.08);
+    }
+    this.wayBeam.visible = !!this.waypoint;
   }
 
   /** Apre i tavoli del casino'. */

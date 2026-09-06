@@ -143,6 +143,10 @@ export class City {
         roughness: 0.85, metalness: 0, envMapIntensity: 0.5,
       }),
       leaf: new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
+      tuft: new THREE.MeshStandardMaterial({
+        map: TX.grassTuftTexture(), alphaTest: 0.5, side: THREE.DoubleSide,
+        roughness: 0.95, metalness: 0, envMapIntensity: 0.35,
+      }),
       water: new THREE.MeshStandardMaterial({
         color: 0x14607f, roughness: 0.22, metalness: 0.25, envMapIntensity: 0.7,
         normalMap: TX.waterNormal(), normalScale: new THREE.Vector2(0.55, 0.55),
@@ -452,6 +456,7 @@ export class City {
       if (kind === 'suburb') {
         B.grass.quadY(lot.x0 + 0.4, lot.z0 + 0.4, lot.x1 - 0.4, lot.z1 - 0.4, 0.02, 0xffffff,
           (lot.x1 - lot.x0) / 5, (lot.z1 - lot.z0) / 5);
+        B.props.grassPatch(lot.x0 + 0.6, lot.z0 + 0.6, lot.x1 - 0.6, lot.z1 - 0.6, rng, 0.8);
       }
       // vialetto d'accesso per le villette
       if (kind === 'suburb' && face) {
@@ -555,6 +560,7 @@ export class City {
     for (let k = 0; k < 4; k++) {
       B.props.bench(b.cx + (k < 2 ? -6 : 6), b.cz + (k % 2 ? -6 : 6), k < 2 ? 0 : Math.PI);
     }
+    B.props.grassPatch(b.x0 + 1.5, b.z0 + 1.5, b.x1 - 1.5, b.z1 - 1.5, rng, 0.9);
     B.props.bin(b.cx + 8, b.cz + 8);
     for (const [sx, sz] of [[-1, -1], [1, 1]]) {
       B.props.streetlight(b.cx + sx * (b.x1 - b.x0) * 0.28, b.cz + sz * (b.z1 - b.z0) * 0.28, 0, 5.4);
@@ -863,6 +869,7 @@ export class City {
   _sportsBlock(b, B, rng) {
     this.landmarks.push({ kind: 'sport', x: b.cx, z: b.cz });
     B.grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 0xffffff, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
+    B.props.grassPatch(b.x0 + 1, b.z0 + 1, b.x1 - 1, b.z1 - 1, rng, 0.55);
     const cw = Math.min(b.x1 - b.x0 - 10, 28), cd = Math.min(b.z1 - b.z0 - 10, 16);
     const cx = b.cx, cz = b.cz;
     B.road = B.road || new GeoBuilder();

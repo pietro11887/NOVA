@@ -48,8 +48,18 @@ export class Post {
     this.quality = quality;
     if (!this.enabled) return;
     const size = renderer.getSize(new THREE.Vector2());
-    this.composer = new EffectComposer(renderer);
-    this.composer.setPixelRatio(renderer.getPixelRatio());
+    // render target multicampione: senza, la post-produzione azzera
+    // l'antialiasing e tutti i bordi diventano scalettati
+    const dpr = renderer.getPixelRatio();
+    const samples = quality.samples ?? 4;
+    // NB: EffectComposer usa width/height del target come dimensione "logica"
+    // e poi la moltiplica per il pixel ratio, quindi qui va la misura CSS.
+    const rt = new THREE.WebGLRenderTarget(
+      Math.max(2, Math.floor(size.width)), Math.max(2, Math.floor(size.height)),
+      { type: THREE.HalfFloatType, samples }
+    );
+    this.composer = new EffectComposer(renderer, rt);
+    this.composer.setPixelRatio(dpr);
     this.composer.addPass(new RenderPass(scene, camera));
     // il bloom viene sempre creato ma si accende solo al livello massimo
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
