@@ -30,6 +30,17 @@ Su GitHub Pages basta pubblicare la branch: il gioco è già pronto così com'è
 | Colpisci / spara / clacson | pulsante **COLPO** | click sinistro |
 | Pausa | pulsante **II** in alto | `Esc` |
 
+### Versione in un unico file
+
+`dist/nova-city.html` contiene tutto il gioco (CSS, JavaScript e three.js) in
+un solo file: si apre con un doppio clic, si manda via chat o si carica dove
+non è possibile pubblicare più file. Per rigenerarlo dopo una modifica:
+
+```bash
+npm i -D esbuild
+node tools/build-single.mjs
+```
+
 ## Cosa c'è nella città
 
 - **Città procedurale 8×8 isolati**: centro con grattacieli, zona commerciale,
