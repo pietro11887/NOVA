@@ -27,6 +27,11 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ddc84,#a6f36b);transition:width .18s}
 .bar.armor i{background:linear-gradient(90deg,#4cc2ff,#a9e6ff)}
 #stars{margin-top:7px;font-size:19px;letter-spacing:2px;color:var(--acc);text-shadow:0 2px 6px #000c;height:22px}
+#evade{width:150px;height:5px;margin-top:4px;background:#0009;border:1px solid #ffffff2e;border-radius:4px;
+  overflow:hidden}
+#evade i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd23f,#3ddc84);transition:width .2s}
+#stars.evading{animation:blink .5s steps(2,end) infinite}
+@keyframes blink{50%{opacity:.25}}
 #weapon{margin-top:2px;font-size:12.5px;font-weight:700;letter-spacing:.5px;text-shadow:0 2px 6px #000c;opacity:.9}
 #weapon b{color:var(--acc)}
 
@@ -78,6 +83,18 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #stick-base.on{opacity:1}
 #stick-knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
   background:#ffffffcc;box-shadow:0 3px 14px #0008}
+#stick-zone-r{position:absolute;right:0;bottom:0;width:34%;height:62%;pointer-events:auto}
+#stick-base-r{position:absolute;width:92px;height:150px;border-radius:46px;border:2px solid #ffffff33;
+  background:#ffffff12;left:0;top:0;opacity:0;transition:opacity .14s;backdrop-filter:blur(2px)}
+#stick-base-r.on{opacity:1}
+#stick-base-r.ghost{opacity:.45}
+#stick-knob-r{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+  background:#ffd23fdd;box-shadow:0 3px 14px #0008}
+#stick-base-r em{position:absolute;left:0;right:0;text-align:center;font-style:normal;font-size:9px;
+  letter-spacing:1px;color:#ffffffb0}
+#stick-base-r .lever-up{top:6px}
+#stick-base-r .lever-down{bottom:6px}
+
 #pad{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + var(--pad));
   width:158px;height:150px;pointer-events:none}
 .tbtn{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid #ffffff3d;background:#00000073;
@@ -141,6 +158,83 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   #speed-val{font-size:34px}
 }
 
+/* ============================== CASINÒ ============================== */
+.casino-panel{width:min(560px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:10px;
+  background:linear-gradient(180deg,#1a1024f2,#0d0a14fa);border-color:#ffd23f3d}
+.casino-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.casino-head h2{margin:0;color:#ffd23f;text-shadow:0 0 18px #ffd23f66}
+.casino-bank{font-size:12px;opacity:.8}
+.casino-bank b{color:var(--good);font-size:16px}
+.casino-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.casino-tabs button{flex:1;min-width:74px;padding:9px 6px;border-radius:10px;border:1px solid #ffffff1f;
+  background:#ffffff0d;color:#fff;font-size:12.5px;font-weight:700}
+.casino-tabs button.on{background:linear-gradient(180deg,#ffd23f,#e0a000);color:#1a1206;border-color:transparent}
+.casino-body{min-height:180px}
+.casino-body section{display:flex;flex-direction:column;gap:10px;align-items:center}
+
+.reels{display:flex;gap:10px;justify-content:center;margin-top:6px}
+.reels span{width:74px;height:88px;display:flex;align-items:center;justify-content:center;font-size:44px;
+  background:#0c0a12;border:2px solid #ffd23f5c;border-radius:12px;box-shadow:inset 0 0 24px #ffd23f22}
+.paytable{font-size:11px;opacity:.7;text-align:center;line-height:1.6}
+
+.wheel{width:120px;height:120px;border-radius:50%;border:6px solid #ffd23f55;display:flex;
+  align-items:center;justify-content:center;background:radial-gradient(circle,#1c1330,#090610)}
+.wheel div{font-size:38px;font-weight:900}
+.wheel .red{color:#ff5252}.wheel .black{color:#c8d0dc}.wheel .green{color:#3ddc84}
+.bets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%}
+.bets button{padding:9px 4px;border-radius:9px;border:1px solid #ffffff1f;background:#ffffff0d;color:#fff;font-size:12px}
+.bets button small{display:block;opacity:.6;font-size:10px}
+.bets button:active{background:#ffd23f33}
+.numpick{display:flex;gap:6px;align-items:center;width:100%;font-size:12px}
+.numpick input{width:64px;padding:8px;border-radius:8px;border:1px solid #ffffff26;background:#0d0a14;color:#fff;
+  font-size:15px;text-align:center}
+.numpick .btn{margin:0;flex:1;padding:9px}
+
+.bj-row{display:flex;align-items:center;gap:10px;width:100%;font-size:12px;opacity:.9}
+.bj-row span{width:52px;opacity:.7}
+.bj-row b{margin-left:auto;font-size:16px;color:var(--acc)}
+.cards{display:flex;gap:5px;flex-wrap:wrap}
+.cards i{font-style:normal;min-width:34px;height:46px;display:flex;align-items:center;justify-content:center;
+  background:#f4f1ea;color:#15171c;border-radius:6px;font-weight:800;font-size:13px;box-shadow:0 2px 6px #0007}
+.cards i.r{color:#c0392b}
+.cards i.back{background:linear-gradient(135deg,#3a2f5f,#241c3d);color:#ffffff88}
+.bj-actions{display:flex;gap:8px;width:100%}
+.bj-actions .btn{margin:0;flex:1}
+
+.duel-info{font-size:12.5px;opacity:.85;text-align:center;margin:0}
+#duel-log{font-size:11.5px;opacity:.75;line-height:1.7;max-height:80px;overflow:auto;width:100%}
+
+.casino-foot{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.chip{padding:8px 12px;border-radius:999px;border:1px solid #ffffff26;background:#ffffff0d;color:#fff;
+  font-size:12.5px;font-weight:700}
+.chip.on{background:linear-gradient(180deg,#3ddc84,#1f9e5c);color:#04240f;border-color:transparent}
+.chip.cant{opacity:.35}
+.casino-msg{font-size:12.5px;text-align:center;min-height:18px;opacity:.9}
+.casino-msg.good{color:#8affc0}
+.casino-msg.bad{color:#ffb3ba}
+
+/* ============================ MENU ONLINE ============================ */
+#menu-main{display:flex;flex-direction:column;gap:2px}
+#player-name{width:100%;padding:12px;border-radius:12px;border:1px solid #ffffff26;background:#0d1119;
+  color:#fff;font-size:15px;text-align:center;font-family:var(--font)}
+.btn.online{background:linear-gradient(180deg,#2f8fd0,#1c5f9e);border:none;font-weight:800;letter-spacing:1px}
+#menu-online{text-align:left}
+#menu-online h2{text-align:center}
+.panel .tag.small{font-size:12px;margin-bottom:14px;text-align:center}
+#menu-online .step{font-size:12px;opacity:.8;margin:12px 0 6px}
+#menu-online textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #ffffff26;background:#0b0f16;
+  color:#a9e6ff;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;resize:vertical;
+  word-break:break-all}
+#menu-online .row{display:flex;gap:8px}
+#menu-online .row .btn{margin:8px 0 0;flex:1}
+#online-status{margin-top:12px;font-size:12.5px;text-align:center;opacity:.9;min-height:20px}
+#online-status.ok{color:#8affc0}
+#online-status.err{color:#ffb3ba}
+#netbadge{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));left:14px;font-size:12px;
+  background:#000000a8;border:1px solid #4cc2ff55;color:#a9e6ff;padding:3px 9px;border-radius:999px}
+#netbadge b{color:#fff}
+
 </style>
 <canvas id="scene"></canvas>
 
@@ -152,6 +246,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
       <div class="bar armor"><i id="bar-armor"></i></div>
     </div>
     <div id="stars" aria-label="livello sospetto"></div>
+    <div id="evade" class="hidden"><i></i></div>
     <div id="weapon" class="hidden"></div>
   </div>
 
@@ -173,6 +268,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 
   <div id="prompt" class="hidden"></div>
   <div id="toasts"></div>
+  <div id="netbadge" class="hidden">🌐 <b id="net-name">Amico</b></div>
   <div id="subtitle" class="hidden"></div>
   <div id="flash"></div>
 
@@ -182,6 +278,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 <!-- ======================= TOUCH CONTROLS ======================= -->
 <div id="touch" class="hidden">
   <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+  <div id="stick-zone-r" class="hidden"><div id="stick-base-r"><div id="stick-knob-r"></div>
+    <em class="lever-up">GAS</em><em class="lever-down">FRENO</em></div></div>
   <div id="pad">
     <button class="tbtn big" data-btn="action"><span>E</span><em id="lbl-action">AZIONE</em></button>
     <button class="tbtn" data-btn="attack"><span>✊</span><em id="lbl-attack">COLPO</em></button>
@@ -221,9 +319,53 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
     <p class="tag">Open world 3D · guida, esplora, entra nei negozi · giocabile da telefono</p>
     <div id="boot-progress"><i></i></div>
     <div id="boot-status">Caricamento città…</div>
-    <button class="btn play hidden" id="btn-play">GIOCA</button>
+    <div id="menu-main" class="hidden">
+      <input id="player-name" maxlength="14" placeholder="Il tuo nome" />
+      <button class="btn play" id="btn-play">GIOCA DA SOLO</button>
+      <button class="btn online" id="btn-online">🌐 GIOCA ONLINE CON UN AMICO</button>
+    </div>
+
+    <div id="menu-online" class="hidden">
+      <h2>Gioca online</h2>
+      <p class="tag small">Collegamento diretto tra i due telefoni: nessun server, nessuna registrazione.
+        Serve solo scambiarsi due codici su WhatsApp.</p>
+
+      <div id="online-pick">
+        <button class="btn" id="btn-create">1 · CREA LA PARTITA</button>
+        <button class="btn" id="btn-join">2 · ENTRA CON IL CODICE</button>
+      </div>
+
+      <div id="online-create" class="hidden">
+        <p class="step">Manda questo codice al tuo amico:</p>
+        <textarea id="my-code" readonly rows="3"></textarea>
+        <div class="row">
+          <button class="btn ghost" id="btn-copy1">Copia</button>
+          <button class="btn ghost" id="btn-share1">Condividi</button>
+        </div>
+        <p class="step">Incolla qui il codice di risposta che ti manda lui:</p>
+        <textarea id="their-answer" rows="3" placeholder="codice di risposta…"></textarea>
+        <button class="btn" id="btn-connect">COLLEGA</button>
+      </div>
+
+      <div id="online-join" class="hidden">
+        <p class="step">Incolla il codice che ti ha mandato il tuo amico:</p>
+        <textarea id="their-code" rows="3" placeholder="codice invito…"></textarea>
+        <button class="btn" id="btn-answer">GENERA LA RISPOSTA</button>
+        <p class="step hidden" id="answer-label">Rimandagli questo codice e aspetta:</p>
+        <textarea id="my-answer" readonly rows="3" class="hidden"></textarea>
+        <div class="row hidden" id="answer-actions">
+          <button class="btn ghost" id="btn-copy2">Copia</button>
+          <button class="btn ghost" id="btn-share2">Condividi</button>
+        </div>
+      </div>
+
+      <div id="online-status">—</div>
+      <button class="btn ghost" id="btn-back">Indietro</button>
+    </div>
+
     <div class="legend">
       <div><b>Telefono</b> — joystick a sinistra, trascina a destra per la camera, pulsanti in basso a destra.</div>
+      <div><b>In auto</b> — levetta sinistra per sterzare, levetta destra per gas e freno.</div>
       <div><b>PC</b> — WASD, mouse, E per entrare in auto / nei negozi, click per colpire.</div>
     </div>
   </div>
@@ -7259,7 +7401,147 @@ var tc = class extends Nr {
     return null !== this.fog && (e.object.fog = this.fog.toJSON()), this.backgroundBlurriness > 0 && (e.object.backgroundBlurriness = this.backgroundBlurriness), 1 !== this.backgroundIntensity && (e.object.backgroundIntensity = this.backgroundIntensity), e;
   }
 };
+var ec = class {
+  constructor(t2, e) {
+    this.isInterleavedBuffer = true, this.array = t2, this.stride = e, this.count = void 0 !== t2 ? t2.length / e : 0, this.usage = wn, this._updateRange = { offset: 0, count: -1 }, this.updateRanges = [], this.version = 0, this.uuid = Xn();
+  }
+  onUploadCallback() {
+  }
+  set needsUpdate(t2) {
+    true === t2 && this.version++;
+  }
+  get updateRange() {
+    return console.warn("THREE.InterleavedBuffer: updateRange() is deprecated and will be removed in r169. Use addUpdateRange() instead."), this._updateRange;
+  }
+  setUsage(t2) {
+    return this.usage = t2, this;
+  }
+  addUpdateRange(t2, e) {
+    this.updateRanges.push({ start: t2, count: e });
+  }
+  clearUpdateRanges() {
+    this.updateRanges.length = 0;
+  }
+  copy(t2) {
+    return this.array = new t2.array.constructor(t2.array), this.count = t2.count, this.stride = t2.stride, this.usage = t2.usage, this;
+  }
+  copyAt(t2, e, n) {
+    t2 *= this.stride, n *= e.stride;
+    for (let i = 0, r = this.stride; i < r; i++) this.array[t2 + i] = e.array[n + i];
+    return this;
+  }
+  set(t2, e = 0) {
+    return this.array.set(t2, e), this;
+  }
+  clone(t2) {
+    void 0 === t2.arrayBuffers && (t2.arrayBuffers = {}), void 0 === this.array.buffer._uuid && (this.array.buffer._uuid = Xn()), void 0 === t2.arrayBuffers[this.array.buffer._uuid] && (t2.arrayBuffers[this.array.buffer._uuid] = this.array.slice(0).buffer);
+    const e = new this.array.constructor(t2.arrayBuffers[this.array.buffer._uuid]), n = new this.constructor(e, this.stride);
+    return n.setUsage(this.usage), n;
+  }
+  onUpload(t2) {
+    return this.onUploadCallback = t2, this;
+  }
+  toJSON(t2) {
+    return void 0 === t2.arrayBuffers && (t2.arrayBuffers = {}), void 0 === this.array.buffer._uuid && (this.array.buffer._uuid = Xn()), void 0 === t2.arrayBuffers[this.array.buffer._uuid] && (t2.arrayBuffers[this.array.buffer._uuid] = Array.from(new Uint32Array(this.array.buffer))), { uuid: this.uuid, buffer: this.array.buffer._uuid, type: this.array.constructor.name, stride: this.stride };
+  }
+};
 var nc = new Ui();
+var ic = class _ic {
+  constructor(t2, e, n, i = false) {
+    this.isInterleavedBufferAttribute = true, this.name = "", this.data = t2, this.itemSize = e, this.offset = n, this.normalized = i;
+  }
+  get count() {
+    return this.data.count;
+  }
+  get array() {
+    return this.data.array;
+  }
+  set needsUpdate(t2) {
+    this.data.needsUpdate = t2;
+  }
+  applyMatrix4(t2) {
+    for (let e = 0, n = this.data.count; e < n; e++) nc.fromBufferAttribute(this, e), nc.applyMatrix4(t2), this.setXYZ(e, nc.x, nc.y, nc.z);
+    return this;
+  }
+  applyNormalMatrix(t2) {
+    for (let e = 0, n = this.count; e < n; e++) nc.fromBufferAttribute(this, e), nc.applyNormalMatrix(t2), this.setXYZ(e, nc.x, nc.y, nc.z);
+    return this;
+  }
+  transformDirection(t2) {
+    for (let e = 0, n = this.count; e < n; e++) nc.fromBufferAttribute(this, e), nc.transformDirection(t2), this.setXYZ(e, nc.x, nc.y, nc.z);
+    return this;
+  }
+  setX(t2, e) {
+    return this.normalized && (e = $n(e, this.array)), this.data.array[t2 * this.data.stride + this.offset] = e, this;
+  }
+  setY(t2, e) {
+    return this.normalized && (e = $n(e, this.array)), this.data.array[t2 * this.data.stride + this.offset + 1] = e, this;
+  }
+  setZ(t2, e) {
+    return this.normalized && (e = $n(e, this.array)), this.data.array[t2 * this.data.stride + this.offset + 2] = e, this;
+  }
+  setW(t2, e) {
+    return this.normalized && (e = $n(e, this.array)), this.data.array[t2 * this.data.stride + this.offset + 3] = e, this;
+  }
+  getX(t2) {
+    let e = this.data.array[t2 * this.data.stride + this.offset];
+    return this.normalized && (e = Kn(e, this.array)), e;
+  }
+  getY(t2) {
+    let e = this.data.array[t2 * this.data.stride + this.offset + 1];
+    return this.normalized && (e = Kn(e, this.array)), e;
+  }
+  getZ(t2) {
+    let e = this.data.array[t2 * this.data.stride + this.offset + 2];
+    return this.normalized && (e = Kn(e, this.array)), e;
+  }
+  getW(t2) {
+    let e = this.data.array[t2 * this.data.stride + this.offset + 3];
+    return this.normalized && (e = Kn(e, this.array)), e;
+  }
+  setXY(t2, e, n) {
+    return t2 = t2 * this.data.stride + this.offset, this.normalized && (e = $n(e, this.array), n = $n(n, this.array)), this.data.array[t2 + 0] = e, this.data.array[t2 + 1] = n, this;
+  }
+  setXYZ(t2, e, n, i) {
+    return t2 = t2 * this.data.stride + this.offset, this.normalized && (e = $n(e, this.array), n = $n(n, this.array), i = $n(i, this.array)), this.data.array[t2 + 0] = e, this.data.array[t2 + 1] = n, this.data.array[t2 + 2] = i, this;
+  }
+  setXYZW(t2, e, n, i, r) {
+    return t2 = t2 * this.data.stride + this.offset, this.normalized && (e = $n(e, this.array), n = $n(n, this.array), i = $n(i, this.array), r = $n(r, this.array)), this.data.array[t2 + 0] = e, this.data.array[t2 + 1] = n, this.data.array[t2 + 2] = i, this.data.array[t2 + 3] = r, this;
+  }
+  clone(t2) {
+    if (void 0 === t2) {
+      console.log("THREE.InterleavedBufferAttribute.clone(): Cloning an interleaved buffer attribute will de-interleave buffer data.");
+      const t3 = [];
+      for (let e = 0; e < this.count; e++) {
+        const n = e * this.data.stride + this.offset;
+        for (let e2 = 0; e2 < this.itemSize; e2++) t3.push(this.data.array[n + e2]);
+      }
+      return new cs(new this.array.constructor(t3), this.itemSize, this.normalized);
+    }
+    return void 0 === t2.interleavedBuffers && (t2.interleavedBuffers = {}), void 0 === t2.interleavedBuffers[this.data.uuid] && (t2.interleavedBuffers[this.data.uuid] = this.data.clone(t2)), new _ic(t2.interleavedBuffers[this.data.uuid], this.itemSize, this.offset, this.normalized);
+  }
+  toJSON(t2) {
+    if (void 0 === t2) {
+      console.log("THREE.InterleavedBufferAttribute.toJSON(): Serializing an interleaved buffer attribute will de-interleave buffer data.");
+      const t3 = [];
+      for (let e = 0; e < this.count; e++) {
+        const n = e * this.data.stride + this.offset;
+        for (let e2 = 0; e2 < this.itemSize; e2++) t3.push(this.data.array[n + e2]);
+      }
+      return { itemSize: this.itemSize, type: this.array.constructor.name, array: t3, normalized: this.normalized };
+    }
+    return void 0 === t2.interleavedBuffers && (t2.interleavedBuffers = {}), void 0 === t2.interleavedBuffers[this.data.uuid] && (t2.interleavedBuffers[this.data.uuid] = this.data.toJSON(t2)), { isInterleavedBufferAttribute: true, itemSize: this.itemSize, data: this.data.uuid, offset: this.offset, normalized: this.normalized };
+  }
+};
+var rc = class extends ts {
+  constructor(t2) {
+    super(), this.isSpriteMaterial = true, this.type = "SpriteMaterial", this.color = new Kr(16777215), this.map = null, this.alphaMap = null, this.rotation = 0, this.sizeAttenuation = true, this.transparent = true, this.fog = true, this.setValues(t2);
+  }
+  copy(t2) {
+    return super.copy(t2), this.color.copy(t2.color), this.map = t2.map, this.alphaMap = t2.alphaMap, this.rotation = t2.rotation, this.sizeAttenuation = t2.sizeAttenuation, this.fog = t2.fog, this;
+  }
+};
+var sc;
 var ac = new Ui();
 var oc = new Ui();
 var lc = new Ui();
@@ -7272,6 +7554,34 @@ var mc = new Ui();
 var fc = new ti();
 var gc = new ti();
 var _c = new ti();
+var vc = class extends Nr {
+  constructor(t2 = new rc()) {
+    if (super(), this.isSprite = true, this.type = "Sprite", void 0 === sc) {
+      sc = new As();
+      const t3 = new Float32Array([-0.5, -0.5, 0, 0, 0, 0.5, -0.5, 0, 1, 0, 0.5, 0.5, 0, 1, 1, -0.5, 0.5, 0, 0, 1]), e = new ec(t3, 5);
+      sc.setIndex([0, 1, 2, 0, 2, 3]), sc.setAttribute("position", new ic(e, 3, 0, false)), sc.setAttribute("uv", new ic(e, 2, 3, false));
+    }
+    this.geometry = sc, this.material = t2, this.center = new ti(0.5, 0.5);
+  }
+  raycast(t2, e) {
+    null === t2.camera && console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.'), oc.setFromMatrixScale(this.matrixWorld), uc.copy(t2.camera.matrixWorld), this.modelViewMatrix.multiplyMatrices(t2.camera.matrixWorldInverse, this.matrixWorld), lc.setFromMatrixPosition(this.modelViewMatrix), t2.camera.isPerspectiveCamera && false === this.material.sizeAttenuation && oc.multiplyScalar(-lc.z);
+    const n = this.material.rotation;
+    let i, r;
+    0 !== n && (r = Math.cos(n), i = Math.sin(n));
+    const s = this.center;
+    xc(dc.set(-0.5, -0.5, 0), lc, s, oc, i, r), xc(pc.set(0.5, -0.5, 0), lc, s, oc, i, r), xc(mc.set(0.5, 0.5, 0), lc, s, oc, i, r), fc.set(0, 0), gc.set(1, 0), _c.set(1, 1);
+    let a = t2.ray.intersectTriangle(dc, pc, mc, false, ac);
+    if (null === a && (xc(pc.set(-0.5, 0.5, 0), lc, s, oc, i, r), gc.set(0, 1), a = t2.ray.intersectTriangle(dc, mc, pc, false, ac), null === a)) return;
+    const o = t2.ray.origin.distanceTo(ac);
+    o < t2.near || o > t2.far || e.push({ distance: o, point: ac.clone(), uv: jr.getInterpolation(ac, dc, pc, mc, fc, gc, _c, new ti()), face: null, object: this });
+  }
+  copy(t2, e) {
+    return super.copy(t2, e), void 0 !== t2.center && this.center.copy(t2.center), this.material = t2.material, this;
+  }
+};
+function xc(t2, e, n, i, r, s) {
+  cc.subVectors(t2, n).addScalar(0.5).multiply(i), void 0 !== r ? (hc.x = s * cc.x - r * cc.y, hc.y = r * cc.x + s * cc.y) : hc.copy(cc), t2.copy(e), t2.x += hc.x, t2.y += hc.y, t2.applyMatrix4(uc);
+}
 var yc = new Ui();
 var Mc = new Ui();
 var bc = new Ui();
@@ -9898,6 +10208,8 @@ var Input = class {
   constructor(canvas2) {
     this.canvas = canvas2;
     this.move = { x: 0, y: 0 };
+    this.move2 = { x: 0, y: 0 };
+    this.driveMode = false;
     this.look = { x: 0, y: 0 };
     this.keys = /* @__PURE__ */ new Set();
     this.btn = { action: false, attack: false, jump: false, run: false };
@@ -9958,6 +10270,53 @@ var Input = class {
     const knob = document.getElementById("stick-knob");
     const R = 52;
     let stickId = null, ox = 0, oy = 0;
+    const zoneR = document.getElementById("stick-zone-r");
+    const baseR = document.getElementById("stick-base-r");
+    const knobR = document.getElementById("stick-knob-r");
+    const RY = 58;
+    let stickR = null, oyR = 0;
+    const startR = (t2) => {
+      stickR = t2.identifier;
+      oyR = t2.clientY;
+      baseR.style.left = `${t2.clientX - 46}px`;
+      baseR.style.top = `${oyR - 75}px`;
+      baseR.classList.add("on");
+      baseR.classList.remove("ghost");
+    };
+    const moveR = (t2) => {
+      let dy = t2.clientY - oyR;
+      if (dy > RY) {
+        oyR = t2.clientY - RY;
+        dy = RY;
+      }
+      if (dy < -RY) {
+        oyR = t2.clientY + RY;
+        dy = -RY;
+      }
+      knobR.style.transform = `translateY(${dy}px)`;
+      this.move2.y = clamp(-dy / RY, -1, 1);
+    };
+    const endR = () => {
+      stickR = null;
+      this.move2.y = 0;
+      baseR.classList.remove("on");
+      if (this.driveMode) {
+        baseR.classList.add("ghost");
+        baseR.style.left = `${innerWidth - 250}px`;
+        baseR.style.top = `${innerHeight - 210}px`;
+      }
+      knobR.style.transform = "";
+    };
+    zoneR.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (stickR === null) {
+        startR(e.changedTouches[0]);
+        moveR(e.changedTouches[0]);
+      }
+    }, { passive: false });
+    this._endR = endR;
+    this._moveR = moveR;
+    this._stickR = () => stickR;
     const startStick = (t2) => {
       stickId = t2.identifier;
       ox = t2.clientX;
@@ -9994,7 +10353,7 @@ var Input = class {
     addEventListener("touchstart", (e) => {
       if (!this.enabled) return;
       for (const t2 of e.changedTouches) {
-        if (t2.target.closest("#stick-zone") || t2.target.closest(".tbtn") || t2.target.closest(".overlay")) continue;
+        if (t2.target.closest("#stick-zone") || t2.target.closest("#stick-zone-r") || t2.target.closest(".tbtn") || t2.target.closest(".overlay")) continue;
         lookTouches.set(t2.identifier, { x: t2.clientX, y: t2.clientY });
       }
     }, { passive: true });
@@ -10002,6 +10361,10 @@ var Input = class {
       for (const t2 of e.changedTouches) {
         if (t2.identifier === stickId) {
           moveStick(t2);
+          continue;
+        }
+        if (t2.identifier === this._stickR()) {
+          this._moveR(t2);
           continue;
         }
         const p2 = lookTouches.get(t2.identifier);
@@ -10017,6 +10380,7 @@ var Input = class {
     const end = (e) => {
       for (const t2 of e.changedTouches) {
         if (t2.identifier === stickId) endStick();
+        if (t2.identifier === this._stickR()) this._endR();
         lookTouches.delete(t2.identifier);
       }
     };
@@ -10050,6 +10414,28 @@ var Input = class {
   }
   pressed(name) {
     return this._edge[name];
+  }
+  /** Attiva la doppia levetta: sinistra sterza, destra accelera e frena. */
+  setDriveMode(on) {
+    if (this.driveMode === on) return;
+    this.driveMode = on;
+    const zoneR = document.getElementById("stick-zone-r");
+    const baseR = document.getElementById("stick-base-r");
+    if (zoneR) zoneR.classList.toggle("hidden", !on);
+    if (baseR) {
+      baseR.classList.toggle("ghost", on);
+      if (on) {
+        baseR.style.left = `${innerWidth - 250}px`;
+        baseR.style.top = `${innerHeight - 210}px`;
+      } else if (this._endR) this._endR();
+    }
+  }
+  /** Acceleratore: levetta destra su telefono, W/S da tastiera. */
+  get throttle() {
+    let v = this.driveMode ? this.move2.y : this.move.y;
+    if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) v += 1;
+    if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) v -= 1;
+    return clamp(v, -1, 1);
   }
   get forward() {
     let v = this.move.y;
@@ -10874,7 +11260,41 @@ function interiorTextures() {
     }
   }
   pctx.putImageData(pimg, 0, 0);
+  const [cq, qctx] = canvas(S);
+  qctx.fillStyle = "#5c1220";
+  qctx.fillRect(0, 0, S, S);
+  const qn2 = valueNoise(617);
+  for (let y = 0; y < S; y += 32) {
+    for (let x = 0; x < S; x += 32) {
+      qctx.fillStyle = (x + y) / 32 % 2 ? "#6b1626" : "#4a0e1a";
+      qctx.fillRect(x, y, 32, 32);
+    }
+  }
+  qctx.strokeStyle = "rgba(214,175,90,0.5)";
+  qctx.lineWidth = 2;
+  for (let i = -S; i < S * 2; i += 32) {
+    qctx.beginPath();
+    qctx.moveTo(i, 0);
+    qctx.lineTo(i + S, S);
+    qctx.stroke();
+    qctx.beginPath();
+    qctx.moveTo(i, S);
+    qctx.lineTo(i + S, 0);
+    qctx.stroke();
+  }
+  {
+    const img2 = qctx.getImageData(0, 0, S, S);
+    for (let i = 0; i < img2.data.length; i += 4) {
+      const n = fbm(qn2, i / 4 % S / S * 40, Math.floor(i / 4 / S) / S * 40, 3);
+      const k = 0.82 + n * 0.36;
+      img2.data[i] *= k;
+      img2.data[i + 1] *= k;
+      img2.data[i + 2] *= k;
+    }
+    qctx.putImageData(img2, 0, 0);
+  }
   return {
+    carpet: { map: tex(cq), normal: normalFrom(cq, 0.3) },
     plaster: { map: tex(cp), normal: normalFrom(cp, 0.35) },
     tile: { map: tex(ct2), normal: normalFrom(ct2, 0.6) },
     checker: { map: tex(cc2), normal: normalFrom(cc2, 0.25) },
@@ -11480,6 +11900,7 @@ var LANDMARKS = {
   "2,5": "gas",
   "5,4": "gas",
   "3,3": "sport",
+  "4,5": "casino",
   "0,6": "gas"
 };
 var BILLBOARDS = [
@@ -11853,6 +12274,7 @@ var City = class {
         else if (kind === "police") this._policeStation(b, B, rng);
         else if (kind === "hospital") this._hospital(b, B, rng);
         else if (kind === "sport") this._sportsBlock(b, B, rng);
+        else if (kind === "casino") this._casinoBlock(b, B, rng);
         else this._builtBlock(b, kind, B, rng, shopQueue, billboards);
         this._streetProps(b, i, j, B, rng);
         B.props.finish(this.group, this.mats);
@@ -12316,6 +12738,64 @@ var City = class {
     this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d2 / 2 });
     this.hospital = { x: cx, z: cz + d2 / 2 + 8 };
     B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+  }
+  /** Il casino': insegna al neon, colonnato e fontana. Si vede da lontano. */
+  _casinoBlock(b, B, rng) {
+    this.landmarks.push({ kind: "casino", x: b.cx, z: b.cz });
+    B.walk = B.walk || new GeoBuilder();
+    B.walk.quadY(b.x0, b.z0, b.x1, b.z1, 0.015, 14735560, (b.x1 - b.x0) / 2, (b.z1 - b.z0) / 2);
+    const w = Math.min(b.x1 - b.x0 - 12, 40), d2 = Math.min(b.z1 - b.z0 - 18, 26);
+    const cx = b.cx, cz = b.cz - 4;
+    B.concrete.box(cx, 7, cz, w, 14, d2, 15786696, -12);
+    B.detail.box(cx, 14.4, cz, w + 1.4, 0.9, d2 + 1.4, 14069594);
+    B.roof.quadY(cx - w / 2, cz - d2 / 2, cx + w / 2, cz + d2 / 2, 14.9, 16777215, w / 6, d2 / 6);
+    for (const s of [-1, 1]) {
+      B.concrete.box(cx + s * (w / 2 - 3), 10, cz, 6, 20, 8, 16181970, -12);
+      B.detail.box(cx + s * (w / 2 - 3), 20.5, cz, 7, 1, 9, 14069594);
+      B.neon.box(cx + s * (w / 2 - 3), 21.4, cz, 1.2, 1.2, 1.2, 16765503);
+    }
+    this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d2 / 2 });
+    const fz = cz + d2 / 2;
+    B.detail.box(cx, 6.2, fz + 4, 16, 0.7, 8, 15918796);
+    B.detail.box(cx, 6.7, fz + 4, 17, 0.5, 9, 14069594);
+    for (const dx of [-6.5, -2.2, 2.2, 6.5]) {
+      for (const dz of [1.2, 7.2]) {
+        B.detail.box(cx + dx, 3.1, fz + dz, 0.9, 6.2, 0.9, 16181970);
+        this.grid.add({ x: cx + dx, z: fz + dz, hx: 0.6, hz: 0.6 });
+      }
+    }
+    B.paint.quadY(cx - 3, fz + 1, cx + 3, b.z1 - 1, 0.03, 9379888, 1, 4);
+    const fx = cx, fzz = b.z1 - 8;
+    B.detail.box(fx, 0.4, fzz, 7, 0.8, 7, 14735042);
+    B.water.box(fx, 0.75, fzz, 6.2, 0.2, 6.2, 3116984);
+    B.detail.box(fx, 1.6, fzz, 1, 2.4, 1, 15261644);
+    B.glow.box(fx, 2.9, fzz, 1.6, 0.5, 1.6, 7327999);
+    this.grid.add({ x: fx, z: fzz, hx: 3.6, hz: 3.6 });
+    const sign = new Xs(
+      new ma(Math.min(w * 0.8, 26), 4.2),
+      new es({ map: signTexture("CASINO NOVA", "#ffd23f"), toneMapped: false })
+    );
+    sign.position.set(cx, 11.5, fz + 0.4);
+    this.group.add(sign);
+    B.neon.box(cx, 11.5, fz + 0.2, Math.min(w * 0.82, 27), 4.6, 0.2, 16765503);
+    for (let i = -5; i <= 5; i++) {
+      B.neon.box(cx + i * (w / 12), 7.2, fz + 0.2, 0.5, 0.5, 0.2, i % 2 ? 16734880 : 7327999);
+    }
+    for (const s of [-1, 1]) {
+      const p2 = B.props.palm(cx + s * (w / 2 + 4), fz + 6, rng);
+      this.grid.add({ x: p2.x, z: p2.z, hx: p2.r, hz: p2.r });
+    }
+    B.props.streetlight(b.x0 + 4, b.z1 - 4, 0, 7);
+    B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+    for (const dx of [-12, 12]) this.parkSpots.push({ x: cx + dx, z: b.z1 - 4, rot: Math.PI });
+    this.doors.push({
+      type: "casino",
+      name: "CASIN\xD2 NOVA",
+      color: "#ffd23f",
+      x: cx,
+      z: fz + 2.4,
+      face: -Math.PI / 2
+    });
   }
   /** Campo da basket e pista: un isolato sportivo. */
   _sportsBlock(b, B, rng) {
@@ -13826,7 +14306,7 @@ function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
   }
 }
 function wheel(gb, x, y, z, r, w, side) {
-  const N = 14;
+  const N = 16;
   const ringZ = (zz, rr2) => {
     const out = [];
     for (let i = 0; i < N; i++) {
@@ -13835,24 +14315,34 @@ function wheel(gb, x, y, z, r, w, side) {
     }
     return out;
   };
-  const inner = ringZ(z - side * w / 2, r), outer = ringZ(z + side * w / 2, r);
+  const zi2 = z - side * w / 2, zo2 = z + side * w / 2;
+  const tread = ringZ(zi2 + side * w * 0.12, r);
+  const treadO = ringZ(zo2 - side * w * 0.12, r);
+  const shoulderI = ringZ(zi2, r * 0.93);
+  const shoulderO = ringZ(zo2, r * 0.93);
+  const rim = ringZ(zo2 + side * 4e-3, r * 0.6);
+  const hub = ringZ(zo2 + side * 8e-3, r * 0.2);
   const flip = side > 0;
+  const q = (a, b, c2, d2, col) => flip ? gb.quad(a, b, c2, d2, col, 1, 1) : gb.quad(d2, c2, b, a, col, 1, 1);
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
-    if (flip) gb.quad(inner[i], inner[j], outer[j], outer[i], 1316378, 1, 1);
-    else gb.quad(inner[i], outer[i], outer[j], inner[j], 1316378, 1, 1);
-  }
-  const rimO = ringZ(z + side * (w / 2 + 5e-3), r * 0.62);
-  const hub = [x, y, z + side * (w / 2 + 0.01)];
-  for (let i = 0; i < N; i++) {
-    const j = (i + 1) % N;
-    if (flip) {
-      gb.quad(outer[i], outer[j], rimO[j], rimO[i], 1842980, 1, 1);
-      gb.quad(hub, rimO[i], rimO[j], rimO[j], 11054774, 1, 1);
-    } else {
-      gb.quad(outer[j], outer[i], rimO[i], rimO[j], 1842980, 1, 1);
-      gb.quad(hub, rimO[j], rimO[i], rimO[i], 11054774, 1, 1);
+    q(tread[i], tread[j], treadO[j], treadO[i], 1579293);
+    q(shoulderI[i], shoulderI[j], tread[j], tread[i], 1250327);
+    q(treadO[i], treadO[j], shoulderO[j], shoulderO[i], 1250327);
+    q(shoulderO[i], shoulderO[j], rim[j], rim[i], 2369067);
+    q(rim[i], rim[j], hub[j], hub[i], 12173512);
+    if (i % 3 === 0) {
+      q(
+        [x + Math.cos(i / N * TAU) * r * 0.55, y + Math.sin(i / N * TAU) * r * 0.55, zo2 + side * 0.012],
+        [x + Math.cos((i + 1) / N * TAU) * r * 0.55, y + Math.sin((i + 1) / N * TAU) * r * 0.55, zo2 + side * 0.012],
+        [x + Math.cos((i + 1) / N * TAU) * r * 0.26, y + Math.sin((i + 1) / N * TAU) * r * 0.26, zo2 + side * 0.012],
+        [x + Math.cos(i / N * TAU) * r * 0.26, y + Math.sin(i / N * TAU) * r * 0.26, zo2 + side * 0.012],
+        2830134
+      );
     }
+  }
+  for (let i = 1; i < N - 1; i++) {
+    q(hub[0], hub[i], hub[i + 1], hub[i + 1], 14673128);
   }
 }
 var CAR_TYPES = {
@@ -13972,6 +14462,31 @@ var CAR_TYPES = {
     ]
   }
 };
+CAR_TYPES.muscle = {
+  L: 5,
+  W: 2.02,
+  top: 1.36,
+  mass: 1.15,
+  speed: 1.22,
+  wheel: 0.38,
+  wx: 1.62,
+  spoiler: true,
+  body: [
+    { x: 2.5, hw: 0.88, yb: 0.3, yt: 0.78 },
+    { x: 1.9, hw: 0.98, yb: 0.26, yt: 0.86 },
+    { x: 0.7, hw: 1, yb: 0.24, yt: 0.9 },
+    { x: -0.6, hw: 1, yb: 0.24, yt: 0.92 },
+    { x: -1.8, hw: 0.97, yb: 0.26, yt: 0.9 },
+    { x: -2.5, hw: 0.9, yb: 0.3, yt: 0.84 }
+  ],
+  cabin: [
+    { x: 0.55, hw: 0.8, yb: 0.88, yt: 0.96 },
+    { x: 0, hw: 0.88, yb: 0.9, yt: 1.3 },
+    { x: -1, hw: 0.9, yb: 0.9, yt: 1.32 },
+    { x: -2.1, hw: 0.84, yb: 0.88, yt: 1.02 }
+  ]
+};
+CAR_TYPES.sport.spoiler = true;
 CAR_TYPES.bus = {
   L: 9.6,
   W: 2.55,
@@ -14016,20 +14531,26 @@ CAR_TYPES.ambulance = {
   ]
 };
 var CAR_COLORS = [
-  11545387,
-  2249359,
-  15263456,
-  1382172,
-  2849355,
-  14263584,
-  8225932,
-  5914511,
-  13658656,
-  2068380,
-  10134445,
-  5452575,
-  1322e4,
-  3096405
+  11019051,
+  1920911,
+  15131870,
+  1184792,
+  2062922,
+  14722604,
+  7304830,
+  5451919,
+  13917976,
+  1019816,
+  11121341,
+  4860952,
+  14076334,
+  2372941,
+  9379647,
+  3116911,
+  15788248,
+  3817287,
+  12540447,
+  1338280
 ];
 var shared = {};
 function buildCarGeo(t2, kind) {
@@ -14042,6 +14563,20 @@ function buildCarGeo(t2, kind) {
   const roof = t2.cabin.map((s) => ({ x: s.x, hw: s.hw * 0.93, yb: s.yt - 0.1, yt: s.yt }));
   hull(body, roof, 16777215);
   const fr2 = t2.body[0], rr2 = t2.body[t2.body.length - 1];
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < t2.cabin.length - 1; i++) {
+      const a = t2.cabin[i], b = t2.cabin[i + 1];
+      trim.quad(
+        [a.x, a.yt - 0.02, s * (a.hw + 0.012)],
+        [b.x, b.yt - 0.02, s * (b.hw + 0.012)],
+        [b.x, b.yb + 0.02, s * (b.hw + 0.012)],
+        [a.x, a.yb + 0.02, s * (a.hw + 0.012)],
+        10134187,
+        1,
+        1
+      );
+    }
+  }
   trim.box(fr2.x - 0.06, fr2.yb + 0.16, 0, 0.28, 0.3, t2.W * 0.9, 2830391);
   trim.box(rr2.x + 0.06, rr2.yb + 0.16, 0, 0.28, 0.3, t2.W * 0.9, 2830391);
   trim.box(fr2.x - 0.1, fr2.yb + 0.42, 0, 0.16, 0.22, t2.W * 0.62, 3488579);
@@ -14056,6 +14591,11 @@ function buildCarGeo(t2, kind) {
       body.box(sx * t2.wx, wr2 + 0.42, sz * (t2.W / 2 - 0.1), wr2 * 2.4, 0.26, 0.32, 16777215);
     }
   }
+  trim.box(fr2.x - 0.12, fr2.yb + 0.12, 0, 0.06, 0.16, 0.55, 15263454);
+  trim.box(rr2.x + 0.12, rr2.yb + 0.12, 0, 0.06, 0.16, 0.55, 15263454);
+  trim.box(rr2.x + 0.06, rr2.yb - 0.02, 0.42, 0.28, 0.11, 0.11, 9278620);
+  const roofTop = t2.cabin.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 5e-3 }));
+  hull(body, roofTop, 14211288);
   lights.box(fr2.x - 0.02, fr2.yb + 0.42, t2.W * 0.3, 0.1, 0.22, 0.5, 16773324);
   lights.box(fr2.x - 0.02, fr2.yb + 0.42, -t2.W * 0.3, 0.1, 0.22, 0.5, 16773324);
   lights.box(rr2.x + 0.02, rr2.yb + 0.44, t2.W * 0.31, 0.09, 0.2, 0.46, 14166814);
@@ -14067,6 +14607,11 @@ function buildCarGeo(t2, kind) {
   }
   if (kind === "taxi") {
     trim.box(t2.cabin[1].x, t2.cabin[1].yt + 0.18, 0, 0.85, 0.3, 0.42, 16042272);
+  }
+  if (t2.spoiler) {
+    const rrx = rr2.x + 0.35;
+    for (const s of [-1, 1]) trim.box(rrx, rr2.yt + 0.12, s * t2.W * 0.32, 0.12, 0.24, 0.1, 2830134);
+    body.box(rrx, rr2.yt + 0.27, 0, 0.42, 0.07, t2.W * 0.84, 16777215);
   }
   if (kind === "ambulance") {
     trim.box(t2.cabin[1].x, t2.cabin[1].yt + 0.14, 0, 1.2, 0.16, 1.3, 15265007);
@@ -14481,6 +15026,13 @@ var H = 3.5;
 var HALF_W = W / 2;
 var HALF_D = D / 2;
 var SHOP_MENUS = {
+  casino: {
+    title: "CASIN\xD2 NOVA",
+    desc: "Slot, roulette e blackjack. Il banco ringrazia.",
+    items: [
+      { id: "chips", icon: "\u{1F3B2}", name: "Vai ai tavoli", desc: "Apri il casin\xF2", price: 0, effect: (g) => g.openCasino("slot") }
+    ]
+  },
   burger: {
     title: "BURGER SHOT",
     desc: "Doppio cheese e patatine. La salute passa dallo stomaco.",
@@ -14627,7 +15179,8 @@ var STYLE = {
   clothes: { floor: "wood", wall: 16183028, trim: 14969855, light: 16774399, glow: 14969855 },
   bar: { floor: "wood", wall: 8018758, trim: 16765503, light: 16767392, glow: 16765503 },
   garage: { floor: "concrete", wall: 10134445, trim: 16756768, light: 15791359, glow: 16756768 },
-  home: { floor: "wood", wall: 15260870, trim: 9071172, light: 16771520, glow: 16767392 }
+  home: { floor: "wood", wall: 15260870, trim: 9071172, light: 16771520, glow: 16767392 },
+  casino: { floor: "carpet", wall: 3807280, trim: 16765503, light: 16768160, glow: 16765503 }
 };
 function shelf(B, x, z, w, d2, h2, rot, rng, dense = true) {
   const wood = B.wood, prod = B.prod;
@@ -14763,6 +15316,7 @@ var Interior = class {
     }
     this.exit = { x: ox + 2.2, z: oz + HALF_D - 1.6 };
     this.counter = { x: ox, z: oz - 3.4 };
+    this.spots = [];
     this[`_${type}`] ? this[`_${type}`](B, st, rng) : this._store(B, st, rng);
     const add = (gb, mat, opts = {}) => {
       if (gb.empty) return;
@@ -14983,6 +15537,45 @@ var Interior = class {
       B.prod.box(this.ox + dx, 2.2, this.oz - HALF_D + 0.26, 1, 0.7, 0.03, pick([4156298, 9071172, 7047770]));
     }
   }
+  _casino(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    this.counter = { x: ox - 5.5, z: oz - 5.2 };
+    for (let i = 0; i < 4; i++) {
+      const x = ox - HALF_W + 1.5, z = oz - 4 + i * 2.4;
+      B.wood.box(x, 0.55, z, 1.1, 1.1, 1.5, 7018022);
+      B.metal.box(x, 1.35, z, 1.2, 0.6, 1.6, 14069594);
+      B.glowB.box(x + 0.62, 1.35, z, 0.06, 0.5, 1.2, 16765503);
+      B.metal.box(x + 0.6, 0.95, z + 0.55, 0.16, 0.16, 0.5, 13225170);
+      B.prod.box(x + 0.66, 0.78, z + 0.55, 0.12, 0.2, 0.12, 14236475);
+      B.solid.push({ x, z, hx: 0.8, hz: 0.9 });
+    }
+    this.spots.push({ x: ox - HALF_W + 3.2, z: oz - 1.2, r: 3.2, kind: "slot", label: "gioca alle slot" });
+    const rx = ox + 3.6, rz = oz - 3.2;
+    B.wood.box(rx, 0.45, rz, 4.6, 0.9, 2.6, 3809044);
+    B.prod.box(rx, 0.93, rz, 4.4, 0.08, 2.4, 2059071);
+    B.metal.box(rx - 1.5, 1, rz, 1.5, 0.2, 1.5, 14069594);
+    B.prod.box(rx - 1.5, 1.12, rz, 1.2, 0.06, 1.2, 2824208);
+    B.glowB.box(rx + 0.8, 1, rz, 2.2, 0.02, 1.6, 16769162);
+    B.solid.push({ x: rx, z: rz, hx: 2.5, hz: 1.5 });
+    this.spots.push({ x: rx, z: rz + 2.4, r: 2.8, kind: "roulette", label: "gioca alla roulette" });
+    const bx = ox + 3.2, bz = oz + 3.4;
+    B.wood.box(bx, 0.45, bz, 3.8, 0.9, 2.2, 3809044);
+    B.prod.box(bx, 0.93, bz, 3.6, 0.08, 2, 2059071);
+    B.prod.box(bx, 0.98, bz - 0.6, 2.6, 0.02, 0.5, 14069594);
+    for (const dx of [-1.1, 0, 1.1]) stool(B, bx + dx, bz + 1.7);
+    B.solid.push({ x: bx, z: bz, hx: 2, hz: 1.3 });
+    this.spots.push({ x: bx, z: bz + 2.2, r: 2.6, kind: "black", label: "gioca a blackjack" });
+    counter(B, this.counter.x, this.counter.z, 5, 1.1, 3809044, st.trim);
+    B.glowB.box(this.counter.x, 2.9, oz - HALF_D + 0.25, 6, 0.7, 0.06, 16765503);
+    for (const dx of [-4, 4]) {
+      for (const dz of [-3, 3]) {
+        B.metal.box(ox + dx, H - 0.5, oz + dz, 0.9, 0.1, 0.9, 14069594);
+        B.glowB.box(ox + dx, H - 0.62, oz + dz, 0.8, 0.16, 0.8, 16769184);
+      }
+    }
+    plant(B, ox + HALF_W - 1.3, oz - 5.6);
+    plant(B, ox + HALF_W - 1.3, oz + 5.6);
+  }
   /* -------------------------------------------------------------- servizi */
   resolve(x, z, r, out) {
     let hit = false;
@@ -15076,6 +15669,19 @@ var InteriorManager = class {
     const c2 = this.current.counter;
     return Math.hypot(p2.x - c2.x, p2.z - (c2.z + 1.7)) < 2.6;
   }
+  /** Punto d'interazione piu' vicino (tavoli del casino', banconi…). */
+  nearestSpot(p2) {
+    if (!this.current || !this.current.spots.length) return null;
+    let best = null, bd2 = Infinity;
+    for (const s of this.current.spots) {
+      const d2 = Math.hypot(p2.x - s.x, p2.z - s.z);
+      if (d2 < (s.r || 2.6) && d2 < bd2) {
+        bd2 = d2;
+        best = s;
+      }
+    }
+    return best;
+  }
   atExit(p2) {
     if (!this.current) return false;
     return Math.hypot(p2.x - this.current.exit.x, p2.z - this.current.exit.z) < 2.4;
@@ -15089,6 +15695,7 @@ function interiorMaterials() {
       tile: std({ map: tx.tile.map, normalMap: tx.tile.normal, roughness: 0.5, metalness: 0.04, envMapIntensity: 0.15 }),
       checker: std({ map: tx.checker.map, normalMap: tx.checker.normal, roughness: 0.46, metalness: 0.04, envMapIntensity: 0.15 }),
       wood: std({ map: tx.wood.map, normalMap: tx.wood.normal, roughness: 0.55, metalness: 0, envMapIntensity: 0.15 }),
+      carpet: std({ map: tx.carpet.map, normalMap: tx.carpet.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.06 }),
       concrete: std({ map: tx.concrete.map, normalMap: tx.concrete.normal, roughness: 0.92, metalness: 0, envMapIntensity: 0.1 })
     },
     wall: std({ map: tx.plaster.map, normalMap: tx.plaster.normal, roughness: 0.95, metalness: 0, envMapIntensity: 0.06 }),
@@ -15253,7 +15860,7 @@ var Player = class {
   }
   _driving(dt2, input) {
     const car = this.car;
-    const throttle = input.forward;
+    const throttle = input.throttle !== void 0 ? input.throttle : input.forward;
     const steer = -input.strafe;
     car.update(dt2, { throttle, steer, hand: input.braking });
     this.x = car.x;
@@ -15332,7 +15939,7 @@ var Player = class {
       this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt2 * 2.4, 0, 0.14);
     }
     const dist = this.indoor ? 3.4 : dead ? 5 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
-    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 2.15 : 1.5;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1 : 1.25) + this.y;
     const cp = Math.cos(this.camPitch);
@@ -15348,7 +15955,12 @@ var Player = class {
     V.y = clamp(V.y, 0.9, this.indoor ? 2.9 : 400);
     const k = clamp(dt2 * (inCar ? 7 : 11), 0, 1);
     this.camPos.lerp(V, k);
-    this._lookTarget.set(tx, ty + 0.5, tz);
+    const ahead = inCar ? 3.5 + Math.abs(this.car.speed) * 0.25 : 0;
+    this._lookTarget.set(
+      tx + Math.cos(this.camYaw) * ahead,
+      ty + (inCar ? 0.9 : 0.5),
+      tz - Math.sin(this.camYaw) * ahead
+    );
     this.camLook.lerp(this._lookTarget, clamp(dt2 * 14, 0, 1));
   }
   applyCamera(camera) {
@@ -15453,7 +16065,7 @@ var Vehicle = class {
     const rx = Math.sin(this.a), rz = Math.cos(this.a);
     let vLong = this.vx * fx + this.vz * fz;
     let vLat = this.vx * rx + this.vz * rz;
-    const maxSteer = lerp(0.58, 0.14, clamp(Math.abs(vLong) / 30, 0, 1));
+    const maxSteer = lerp(0.46, 0.11, clamp(Math.abs(vLong) / 28, 0, 1));
     this.steer += (c2.steer * maxSteer - this.steer) * clamp(dt2 * 7, 0, 1);
     if (c2.throttle > 0) vLong += this.accel * c2.throttle * dt2 * (vLong < -0.5 ? 2.2 : 1);
     else if (c2.throttle < 0) vLong += c2.throttle * (vLong > 0.5 ? this.brake : this.accel * 0.5) * dt2;
@@ -15958,10 +16570,11 @@ function driveTo(v, tx, tz, cruise = 0.6) {
   return { throttle, steer, hand: false, err, dist: Math.hypot(dx, dz) };
 }
 var TYPE_WEIGHTS = [
-  ["sedan", 30],
-  ["suv", 18],
-  ["pickup", 12],
-  ["sport", 10],
+  ["sedan", 26],
+  ["suv", 16],
+  ["pickup", 10],
+  ["sport", 9],
+  ["muscle", 9],
   ["van", 10],
   ["bus", 6],
   ["ambulance", 4]
@@ -16208,7 +16821,7 @@ var PoliceManager = class {
     const wanted = game2.wanted;
     this.spawnCd -= dt2;
     const wantCars = wanted === 0 ? 0 : clamp(wanted, 1, MAX_CARS);
-    if (this.activeCars.length < wantCars && this.spawnCd <= 0) {
+    if (this.activeCars.length < wantCars && this.spawnCd <= 0 && !game2.evading) {
       this._spawnCar();
       this.spawnCd = 3.5 - wanted * 0.4;
     }
@@ -16301,6 +16914,19 @@ var PoliceManager = class {
       }
     }
   }
+  /** Fine dell'inseguimento: le pattuglie si ritirano. */
+  standDown() {
+    for (const v of this.cars) {
+      v.active = false;
+      v.mesh.visible = false;
+      v.copsOut = false;
+    }
+    for (const c2 of this.cops) {
+      c2.active = false;
+      c2.mesh.visible = false;
+    }
+    this.arrestT = 0;
+  }
   /** Il poliziotto piu' vicino (per colpi del giocatore). */
   nearestCop(x, z, maxD) {
     let best = null, bd2 = maxD * maxD;
@@ -16346,7 +16972,9 @@ var HUD = class {
       lblAttack: $2("lbl-attack"),
       lblJump: $2("lbl-jump"),
       lblRun: $2("lbl-run"),
-      weapon: $2("weapon")
+      weapon: $2("weapon"),
+      evade: $2("evade"),
+      evadeBar: $2("evade").firstElementChild
     };
     this.map = $2("minimap");
     this.ctx = this.map.getContext("2d");
@@ -16433,6 +17061,10 @@ var HUD = class {
     const hh = Math.floor(g.clock) % 24, mm2 = Math.floor(g.clock % 1 * 60);
     this.el.clock.textContent = `${String(hh).padStart(2, "0")}:${String(mm2).padStart(2, "0")}`;
     this.el.stars.textContent = "\u2605".repeat(g.wanted) + "\u2606".repeat(Math.max(0, 5 - g.wanted));
+    const chasing = g.wanted > 0;
+    this.el.evade.classList.toggle("hidden", !chasing);
+    this.el.stars.classList.toggle("evading", chasing && g.evading);
+    if (chasing) this.el.evadeBar.style.width = `${clamp(g.wantedT / g.evadeTime * 100, 0, 100)}%`;
     if (p2.weapon === "pistol") {
       this.el.weapon.classList.remove("hidden");
       this.el.weapon.innerHTML = `\u{1F52B} <b>${p2.ammo}</b>`;
@@ -16493,7 +17125,14 @@ var HUD = class {
       if (Math.abs(d2.x - p2.x) > 260 || Math.abs(d2.z - p2.z) > 260) continue;
       blip(d2.x, d2.z, d2.type === "home" ? "#ffe9a8" : "#3ddc84", 4);
     }
-    const LANDMARK_COLOR = { police: "#4cc2ff", hospital: "#ff6b6b", gas: "#ff9d3f", sport: "#a8e05f", pier: "#8ad8ff" };
+    const LANDMARK_COLOR = {
+      police: "#4cc2ff",
+      hospital: "#ff6b6b",
+      gas: "#ff9d3f",
+      sport: "#a8e05f",
+      pier: "#8ad8ff",
+      casino: "#ffd23f"
+    };
     for (const l2 of g.city.landmarks) blip(l2.x, l2.z, LANDMARK_COLOR[l2.kind] || "#ffffff", 8);
     for (const m of g.missions.markers) blip(m.x, m.z, "#ffd23f", 7);
     if (g.missions.objective) blip(g.missions.objective.x, g.missions.objective.z, "#ff9d3f", 8);
@@ -16502,6 +17141,8 @@ var HUD = class {
       blip(v.x, v.z, "#98a3b5", 3);
     }
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, "#4cc2ff", 6);
+    const peer = g.mp && g.mp.position;
+    if (peer) blip(peer.x, peer.z, "#c56bff", 9);
     ctx.restore();
     ctx.save();
     ctx.translate(half, half);
@@ -16691,6 +17332,731 @@ var Missions = class {
   }
 };
 
+// src/systems/casino.js
+var SYMBOLS = [
+  { s: "\u{1F352}", w: 26, pay: 4 },
+  { s: "\u{1F34B}", w: 22, pay: 5 },
+  { s: "\u{1F514}", w: 18, pay: 8 },
+  { s: "\u{1F48E}", w: 12, pay: 15 },
+  { s: "\u{1F3B0}", w: 8, pay: 30 },
+  { s: "7\uFE0F\u20E3", w: 5, pay: 60 }
+];
+var RED = /* @__PURE__ */ new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+var CARD_NAMES = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+var SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"];
+var pickSymbol = () => {
+  const total = SYMBOLS.reduce((a, s) => a + s.w, 0);
+  let r = Math.random() * total;
+  for (const s of SYMBOLS) {
+    r -= s.w;
+    if (r <= 0) return s;
+  }
+  return SYMBOLS[0];
+};
+var Casino = class {
+  constructor(game2) {
+    this.game = game2;
+    this.bet = 50;
+    this.open = false;
+    this.tab = "slot";
+    this.busy = false;
+    this._build();
+  }
+  // ------------------------------------------------------------------ DOM
+  _build() {
+    const el2 = document.createElement("div");
+    el2.id = "casino";
+    el2.className = "overlay hidden";
+    el2.innerHTML = `
+      <div class="panel casino-panel">
+        <div class="casino-head">
+          <h2>CASIN\xD2 NOVA</h2>
+          <div class="casino-bank">Saldo <b id="cas-money">$0</b></div>
+        </div>
+        <div class="casino-tabs">
+          <button data-tab="slot" class="on">\u{1F3B0} Slot</button>
+          <button data-tab="roulette">\u{1F3AF} Roulette</button>
+          <button data-tab="black">\u{1F0CF} Blackjack</button>
+          <button data-tab="duel" id="cas-tab-duel" class="hidden">\u2694\uFE0F Sfida</button>
+        </div>
+
+        <div class="casino-body">
+          <section data-view="slot">
+            <div class="reels"><span id="r0">\u{1F352}</span><span id="r1">\u{1F514}</span><span id="r2">\u{1F48E}</span></div>
+            <div class="paytable">
+              7\uFE0F\u20E3\xD73 = 60\xD7 \xB7 \u{1F3B0}\xD73 = 30\xD7 \xB7 \u{1F48E}\xD73 = 15\xD7 \xB7 \u{1F514}\xD73 = 8\xD7 \xB7 \u{1F34B}\xD73 = 5\xD7 \xB7 \u{1F352}\xD73 = 4\xD7 \xB7 due uguali = 1,5\xD7
+            </div>
+            <button class="btn play" id="cas-spin">GIRA</button>
+          </section>
+
+          <section data-view="roulette" class="hidden">
+            <div class="wheel"><div id="cas-ball">\u2014</div></div>
+            <div class="bets" id="cas-rbets">
+              <button data-b="red">Rosso <small>2\xD7</small></button>
+              <button data-b="black">Nero <small>2\xD7</small></button>
+              <button data-b="even">Pari <small>2\xD7</small></button>
+              <button data-b="odd">Dispari <small>2\xD7</small></button>
+              <button data-b="low">1-18 <small>2\xD7</small></button>
+              <button data-b="high">19-36 <small>2\xD7</small></button>
+              <button data-b="dozen1">1-12 <small>3\xD7</small></button>
+              <button data-b="dozen2">13-24 <small>3\xD7</small></button>
+              <button data-b="dozen3">25-36 <small>3\xD7</small></button>
+            </div>
+            <div class="numpick">
+              <label>Numero pieno <small>36\xD7</small></label>
+              <input id="cas-num" type="number" min="0" max="36" value="7" />
+              <button class="btn ghost" id="cas-num-go">Punta sul numero</button>
+            </div>
+          </section>
+
+          <section data-view="black" class="hidden">
+            <div class="bj-row"><span>Banco</span><div class="cards" id="bj-dealer">\u2014</div><b id="bj-dv"></b></div>
+            <div class="bj-row"><span>Tu</span><div class="cards" id="bj-player">\u2014</div><b id="bj-pv"></b></div>
+            <div class="bj-actions">
+              <button class="btn" id="bj-deal">Distribuisci</button>
+              <button class="btn ghost hidden" id="bj-hit">Carta</button>
+              <button class="btn ghost hidden" id="bj-stand">Stai</button>
+            </div>
+          </section>
+
+          <section data-view="duel" class="hidden">
+            <p class="duel-info" id="duel-info">Sfida il tuo amico: vincitore prende tutto.</p>
+            <button class="btn play" id="duel-go">LANCIA LA SFIDA</button>
+            <div id="duel-log"></div>
+          </section>
+        </div>
+
+        <div class="casino-foot">
+          <div class="chips" id="cas-chips"></div>
+          <div class="casino-msg" id="cas-msg">Scegli la puntata e tenta la fortuna.</div>
+          <button class="btn ghost" id="cas-close">Esci (E)</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el2);
+    this.el = el2;
+    const $4 = (id) => el2.querySelector(`#${id}`);
+    this.ui = {
+      money: $4("cas-money"),
+      msg: $4("cas-msg"),
+      chips: $4("cas-chips"),
+      reels: [$4("r0"), $4("r1"), $4("r2")],
+      spin: $4("cas-spin"),
+      ball: $4("cas-ball"),
+      num: $4("cas-num"),
+      dealer: $4("bj-dealer"),
+      player: $4("bj-player"),
+      dv: $4("bj-dv"),
+      pv: $4("bj-pv"),
+      deal: $4("bj-deal"),
+      hit: $4("bj-hit"),
+      stand: $4("bj-stand"),
+      duelInfo: $4("duel-info"),
+      duelGo: $4("duel-go"),
+      duelLog: $4("duel-log"),
+      tabDuel: $4("cas-tab-duel")
+    };
+    for (const b of el2.querySelectorAll(".casino-tabs button")) {
+      b.addEventListener("click", () => this._setTab(b.dataset.tab));
+    }
+    for (const amount of [10, 50, 100, 500, 2e3]) {
+      const c2 = document.createElement("button");
+      c2.className = "chip";
+      c2.textContent = `$${amount}`;
+      c2.addEventListener("click", () => {
+        this.bet = amount;
+        this._refresh();
+      });
+      c2.dataset.amount = amount;
+      this.ui.chips.appendChild(c2);
+    }
+    $4("cas-close").addEventListener("click", () => this.hide());
+    this.ui.spin.addEventListener("click", () => this.spinSlot());
+    for (const b of el2.querySelectorAll("#cas-rbets button")) {
+      b.addEventListener("click", () => this.spinRoulette(b.dataset.b));
+    }
+    $4("cas-num-go").addEventListener("click", () => this.spinRoulette("number"));
+    this.ui.deal.addEventListener("click", () => this.bjDeal());
+    this.ui.hit.addEventListener("click", () => this.bjHit());
+    this.ui.stand.addEventListener("click", () => this.bjStand());
+    this.ui.duelGo.addEventListener("click", () => this.duel());
+  }
+  _setTab(tab) {
+    this.tab = tab;
+    for (const b of this.el.querySelectorAll(".casino-tabs button")) b.classList.toggle("on", b.dataset.tab === tab);
+    for (const s of this.el.querySelectorAll(".casino-body section")) s.classList.toggle("hidden", s.dataset.view !== tab);
+  }
+  _refresh() {
+    const p2 = this.game.player;
+    this.ui.money.textContent = `$${p2.money.toLocaleString("it-IT")}`;
+    for (const c2 of this.ui.chips.children) {
+      c2.classList.toggle("on", +c2.dataset.amount === this.bet);
+      c2.classList.toggle("cant", +c2.dataset.amount > p2.money);
+    }
+    const online = this.game.net && this.game.net.connected;
+    this.ui.tabDuel.classList.toggle("hidden", !online);
+    if (!online && this.tab === "duel") this._setTab("slot");
+  }
+  msg(text, kind = "") {
+    this.ui.msg.textContent = text;
+    this.ui.msg.className = `casino-msg ${kind}`;
+  }
+  show(spot = "slot") {
+    this.open = true;
+    this.el.classList.remove("hidden");
+    this._setTab(spot === "roulette" || spot === "black" ? spot : "slot");
+    this._refresh();
+    this.msg("Scegli la puntata e tenta la fortuna.");
+  }
+  hide() {
+    this.open = false;
+    this.el.classList.add("hidden");
+  }
+  /** Toglie la puntata dal saldo; false se non bastano i soldi. */
+  _stake() {
+    const p2 = this.game.player;
+    if (this.busy) return false;
+    if (p2.money < this.bet) {
+      this.msg("Saldo insufficiente per questa puntata", "bad");
+      this.game.audio.blip(160, 0.12);
+      return false;
+    }
+    p2.pay(this.bet);
+    this._refresh();
+    return true;
+  }
+  _win(amount, text) {
+    const p2 = this.game.player;
+    if (amount > 0) {
+      p2.earn(amount);
+      this.game.stats.casinoWon = (this.game.stats.casinoWon || 0) + amount;
+      this.msg(`${text} +$${amount}`, "good");
+    } else {
+      this.game.stats.casinoLost = (this.game.stats.casinoLost || 0) + this.bet;
+      this.msg(text, "bad");
+      this.game.audio.blip(150, 0.18, "sawtooth", 0.2);
+    }
+    this._refresh();
+    this.game.save();
+  }
+  // ------------------------------------------------------------------ slot
+  spinSlot() {
+    if (!this._stake()) return;
+    this.busy = true;
+    this.ui.spin.disabled = true;
+    const result = [pickSymbol(), pickSymbol(), pickSymbol()];
+    let ticks = 0;
+    const roll = () => {
+      ticks++;
+      for (let i = 0; i < 3; i++) {
+        if (ticks > 8 + i * 5) this.ui.reels[i].textContent = result[i].s;
+        else this.ui.reels[i].textContent = pickSymbol().s;
+      }
+      this.game.audio.blip(420 + ticks % 3 * 90, 0.03, "square", 0.08);
+      if (ticks < 24) {
+        setTimeout(roll, 55 + ticks * 4);
+      } else {
+        this.busy = false;
+        this.ui.spin.disabled = false;
+        const [a, b, c2] = result;
+        if (a.s === b.s && b.s === c2.s) {
+          this._win(this.bet * a.pay, `Tris di ${a.s}!`);
+          this.game.audio.cash();
+        } else if (a.s === b.s || b.s === c2.s || a.s === c2.s) {
+          this._win(Math.round(this.bet * 1.5), "Due uguali:");
+        } else {
+          this._win(0, "Niente. Riprova.");
+        }
+      }
+    };
+    roll();
+  }
+  // -------------------------------------------------------------- roulette
+  spinRoulette(kind) {
+    if (!this._stake()) return;
+    this.busy = true;
+    const n = Math.floor(Math.random() * 37);
+    const target = kind === "number" ? clamp0(this.ui.num.value) : null;
+    let ticks = 0;
+    const roll = () => {
+      ticks++;
+      this.ui.ball.textContent = ticks < 22 ? String(Math.floor(Math.random() * 37)) : String(n);
+      this.ui.ball.className = ticks < 22 ? "" : n === 0 ? "green" : RED.has(n) ? "red" : "black";
+      this.game.audio.blip(700 - ticks * 12, 0.03, "square", 0.07);
+      if (ticks < 22) return setTimeout(roll, 60 + ticks * 6);
+      this.busy = false;
+      const color = n === 0 ? "verde" : RED.has(n) ? "rosso" : "nero";
+      let mult = 0;
+      if (kind === "red" && RED.has(n)) mult = 2;
+      else if (kind === "black" && n !== 0 && !RED.has(n)) mult = 2;
+      else if (kind === "even" && n !== 0 && n % 2 === 0) mult = 2;
+      else if (kind === "odd" && n % 2 === 1) mult = 2;
+      else if (kind === "low" && n >= 1 && n <= 18) mult = 2;
+      else if (kind === "high" && n >= 19) mult = 2;
+      else if (kind === "dozen1" && n >= 1 && n <= 12) mult = 3;
+      else if (kind === "dozen2" && n >= 13 && n <= 24) mult = 3;
+      else if (kind === "dozen3" && n >= 25) mult = 3;
+      else if (kind === "number" && n === target) mult = 36;
+      if (mult) {
+        this._win(this.bet * mult, `Esce ${n} ${color}:`);
+        this.game.audio.cash();
+      } else this._win(0, `Esce ${n} ${color}. Puntata persa.`);
+    };
+    roll();
+  }
+  // ------------------------------------------------------------- blackjack
+  _card() {
+    const v = CARD_NAMES[Math.floor(Math.random() * CARD_NAMES.length)];
+    return { v, s: SUITS[Math.floor(Math.random() * 4)] };
+  }
+  _score(cards) {
+    let total = 0, aces = 0;
+    for (const c2 of cards) {
+      if (c2.v === "A") {
+        total += 11;
+        aces++;
+      } else if (["J", "Q", "K", "10"].includes(c2.v)) total += 10;
+      else total += +c2.v;
+    }
+    while (total > 21 && aces) {
+      total -= 10;
+      aces--;
+    }
+    return total;
+  }
+  _renderBJ(hideDealer) {
+    const fmt = (c2) => `<i class="${c2.s === "\u2665" || c2.s === "\u2666" ? "r" : ""}">${c2.v}${c2.s}</i>`;
+    this.ui.player.innerHTML = this.hand.map(fmt).join("");
+    this.ui.dealer.innerHTML = hideDealer ? fmt(this.dealer[0]) + '<i class="back">?</i>' : this.dealer.map(fmt).join("");
+    this.ui.pv.textContent = this._score(this.hand);
+    this.ui.dv.textContent = hideDealer ? "" : this._score(this.dealer);
+  }
+  bjDeal() {
+    if (!this._stake()) return;
+    this.hand = [this._card(), this._card()];
+    this.dealer = [this._card(), this._card()];
+    this.busy = true;
+    this.ui.deal.classList.add("hidden");
+    this.ui.hit.classList.remove("hidden");
+    this.ui.stand.classList.remove("hidden");
+    this._renderBJ(true);
+    this.game.audio.blip(520, 0.05, "square", 0.1);
+    if (this._score(this.hand) === 21) this.bjStand();
+    else this.msg("Carta o stai?");
+  }
+  bjHit() {
+    if (!this.hand) return;
+    this.hand.push(this._card());
+    this.game.audio.blip(480, 0.05, "square", 0.1);
+    this._renderBJ(true);
+    if (this._score(this.hand) > 21) this._bjEnd("Sballato!");
+  }
+  bjStand() {
+    if (!this.hand || !this.dealer) return;
+    while (this._score(this.dealer) < 17) this.dealer.push(this._card());
+    this._bjEnd();
+  }
+  _bjEnd(forced) {
+    this.busy = false;
+    this.ui.deal.classList.remove("hidden");
+    this.ui.hit.classList.add("hidden");
+    this.ui.stand.classList.add("hidden");
+    this._renderBJ(false);
+    const me2 = this._score(this.hand), him = this._score(this.dealer);
+    if (forced || me2 > 21) this._win(0, forced || "Sballato!");
+    else if (me2 === 21 && this.hand.length === 2) {
+      this._win(Math.round(this.bet * 2.5), "Blackjack!");
+      this.game.audio.cash();
+    } else if (him > 21) {
+      this._win(this.bet * 2, "Il banco sballa:");
+      this.game.audio.cash();
+    } else if (me2 > him) {
+      this._win(this.bet * 2, `${me2} contro ${him}:`);
+      this.game.audio.cash();
+    } else if (me2 === him) {
+      this._win(this.bet, "Pareggio, puntata resa.");
+    } else this._win(0, `${me2} contro ${him}. Vince il banco.`);
+  }
+  // ------------------------------------------------------------ sfida P2P
+  duel() {
+    const net = this.game.net;
+    if (!net || !net.connected) {
+      this.msg("Nessun amico collegato", "bad");
+      return;
+    }
+    if (!this._stake()) return;
+    this.pendingDuel = { bet: this.bet, mine: Math.floor(Math.random() * 100) + 1 };
+    this.ui.duelGo.disabled = true;
+    this._logDuel(`Hai puntato $${this.bet} e tirato ${this.pendingDuel.mine}. Aspetto l'amico\u2026`);
+    net.send({ t: "duel", bet: this.bet, roll: this.pendingDuel.mine });
+  }
+  /** L'amico non ha accettato: la puntata torna indietro. */
+  onDuelRefused() {
+    if (!this.pendingDuel) return;
+    this.game.player.earn(this.pendingDuel.bet);
+    this._logDuel("Il tuo amico non ha accettato la sfida: puntata restituita.");
+    this.pendingDuel = null;
+    this.ui.duelGo.disabled = false;
+    this._refresh();
+  }
+  /** Arriva il tiro dell'amico: chi fa il numero piu' alto prende il piatto. */
+  onDuel(msg) {
+    const p2 = this.game.player;
+    if (!this.pendingDuel) {
+      if (p2.money < msg.bet) {
+        this.game.net.send({ t: "duelNo" });
+        return;
+      }
+      p2.pay(msg.bet);
+      this.pendingDuel = { bet: msg.bet, mine: Math.floor(Math.random() * 100) + 1 };
+      this.game.net.send({ t: "duel", bet: msg.bet, roll: this.pendingDuel.mine });
+      this.game.toast(`Sfida al casin\xF2: $${msg.bet}`, "good");
+    }
+    const mine = this.pendingDuel.mine, his = msg.roll, pot = this.pendingDuel.bet * 2;
+    let text;
+    if (mine > his) {
+      p2.earn(pot);
+      text = `${mine} contro ${his}: vinci $${pot}!`;
+      this.game.audio.cash();
+    } else if (mine < his) {
+      text = `${mine} contro ${his}: vince il tuo amico.`;
+    } else {
+      p2.earn(this.pendingDuel.bet);
+      text = `Pareggio a ${mine}, puntata resa.`;
+    }
+    this._logDuel(text);
+    this.game.toast(text, mine > his ? "good" : "");
+    this.pendingDuel = null;
+    this.ui.duelGo.disabled = false;
+    this._refresh();
+    this.game.save();
+  }
+  _logDuel(text) {
+    const d2 = document.createElement("div");
+    d2.textContent = text;
+    this.ui.duelLog.prepend(d2);
+    while (this.ui.duelLog.children.length > 6) this.ui.duelLog.lastChild.remove();
+  }
+};
+function clamp0(v) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? Math.min(36, Math.max(0, n)) : 0;
+}
+
+// src/systems/net.js
+var ICE = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:global.stun.twilio.com:3478" }
+];
+var b64 = (bytes) => {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+var unb64 = (str) => {
+  const s = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+};
+async function pack(obj) {
+  const json = JSON.stringify(obj);
+  if (typeof CompressionStream === "undefined") return `r${b64(new TextEncoder().encode(json))}`;
+  const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  return `z${b64(buf)}`;
+}
+async function unpack(code) {
+  const body = code.trim().replace(/\s+/g, "");
+  const bytes = unb64(body.slice(1));
+  if (body[0] === "r") return JSON.parse(new TextDecoder().decode(bytes));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return JSON.parse(await new Response(stream).text());
+}
+var Net = class {
+  constructor() {
+    this.pc = null;
+    this.ch = null;
+    this.connected = false;
+    this.isHost = false;
+    this.lastSeen = 0;
+    this.peerName = "Amico";
+    this.handlers = {};
+    this.onState = null;
+  }
+  /** Piu' ascoltatori per evento: menu e gioco si iscrivono entrambi. */
+  on(type, fn) {
+    (this.handlers[type] = this.handlers[type] || []).push(fn);
+  }
+  _emit(type, msg) {
+    const list = this.handlers[type];
+    if (list) for (const fn of list) fn(msg);
+  }
+  _setup() {
+    this.pc = new RTCPeerConnection({ iceServers: ICE });
+    this.pc.onconnectionstatechange = () => {
+      const s = this.pc.connectionState;
+      if (s === "failed" || s === "disconnected" || s === "closed") this._drop();
+    };
+  }
+  _bind(ch) {
+    this.ch = ch;
+    ch.onopen = () => {
+      this.connected = true;
+      this.lastSeen = performance.now();
+      this._emit("open");
+    };
+    ch.onclose = () => this._drop();
+    ch.onmessage = (e) => {
+      this.lastSeen = performance.now();
+      let msg;
+      try {
+        msg = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      if (msg.t === "s") this.onState?.(msg);
+      else this._emit(msg.t, msg);
+    };
+  }
+  _drop() {
+    if (!this.connected) return;
+    this.connected = false;
+    this._emit("close");
+  }
+  /** Aspetta che il browser abbia raccolto tutti i candidati ICE. */
+  _gather() {
+    return new Promise((resolve) => {
+      if (this.pc.iceGatheringState === "complete") return resolve();
+      const done = () => {
+        if (this.pc.iceGatheringState === "complete") {
+          this.pc.removeEventListener("icegatheringstatechange", done);
+          resolve();
+        }
+      };
+      this.pc.addEventListener("icegatheringstatechange", done);
+      setTimeout(resolve, 3e3);
+    });
+  }
+  /** Chi ospita: crea il canale e restituisce il codice da mandare. */
+  async host() {
+    this._setup();
+    this.isHost = true;
+    this._bind(this.pc.createDataChannel("nova", { ordered: true }));
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    await this._gather();
+    return pack({ t: "o", sdp: this.pc.localDescription.sdp });
+  }
+  /** Chi ospita incolla la risposta dell'amico. */
+  async accept(code) {
+    const data = await unpack(code);
+    if (data.t !== "a") throw new Error("Questo non \xE8 un codice di risposta");
+    await this.pc.setRemoteDescription({ type: "answer", sdp: data.sdp });
+  }
+  /** Chi entra: incolla il codice ricevuto e ne genera uno di ritorno. */
+  async join(code) {
+    const data = await unpack(code);
+    if (data.t !== "o") throw new Error("Questo non \xE8 un codice di invito");
+    this._setup();
+    this.isHost = false;
+    this.pc.ondatachannel = (e) => this._bind(e.channel);
+    await this.pc.setRemoteDescription({ type: "offer", sdp: data.sdp });
+    const answer = await this.pc.createAnswer();
+    await this.pc.setLocalDescription(answer);
+    await this._gather();
+    return pack({ t: "a", sdp: this.pc.localDescription.sdp });
+  }
+  send(obj) {
+    if (!this.connected || this.ch.readyState !== "open") return false;
+    try {
+      this.ch.send(JSON.stringify(obj));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /** Nessun pacchetto da troppo tempo: la connessione e' andata. */
+  tick() {
+    if (this.connected && performance.now() - this.lastSeen > 9e3) this._drop();
+  }
+  close() {
+    try {
+      this.ch?.close();
+      this.pc?.close();
+    } catch {
+    }
+    this._drop();
+  }
+};
+
+// src/systems/multiplayer.js
+var SEND_HZ = 14;
+function nameTag(text) {
+  const c2 = document.createElement("canvas");
+  c2.width = 256;
+  c2.height = 64;
+  const ctx = c2.getContext("2d");
+  ctx.fillStyle = "rgba(10,13,20,0.72)";
+  ctx.roundRect(4, 10, 248, 44, 12);
+  ctx.fill();
+  ctx.fillStyle = "#ffd23f";
+  ctx.font = 'bold 26px "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text.slice(0, 14), 128, 33);
+  const tex2 = new Uh(c2);
+  tex2.colorSpace = qe;
+  const sprite = new vc(new rc({ map: tex2, depthTest: false, transparent: true }));
+  sprite.scale.set(2.2, 0.55, 1);
+  sprite.position.y = 2.5;
+  sprite.renderOrder = 5;
+  return sprite;
+}
+var Multiplayer = class {
+  constructor(game2, net) {
+    this.game = game2;
+    this.net = net;
+    this.avatar = null;
+    this.car = null;
+    this.carKey = "";
+    this.target = { x: 0, z: 0, a: 0, sp: 0, st: "walk", inCar: false };
+    this.view = { x: 0, z: 0, a: 0 };
+    this.acc = 0;
+    this.name = "Amico";
+    net.onState = (m) => this._onState(m);
+    net.on("hello", (m) => {
+      this.name = m.name || "Amico";
+      this._retag();
+      const badge = document.getElementById("net-name");
+      if (badge) badge.textContent = this.name;
+    });
+    net.on("hit", (m) => {
+      const p2 = game2.player;
+      p2.damage(m.dmg || 8, "il tuo amico");
+      game2.toast(`${this.name} ti ha colpito!`, "bad");
+    });
+    net.on("chat", (m) => game2.subtitle(`${this.name}: ${m.m}`));
+    net.on("duel", (m) => game2.casino.onDuel(m));
+    net.on("duelNo", () => {
+      game2.casino.onDuelRefused();
+      game2.toast("Il tuo amico ha rifiutato la sfida");
+    });
+    net.on("close", () => this._hide());
+    net.on("open", () => {
+      net.send({ t: "hello", name: this.game.playerName });
+      game2.toast("Amico collegato!", "good");
+    });
+  }
+  _ensureAvatar() {
+    if (this.avatar) return;
+    this.avatar = makeCharacter({ shirt: 10170303, pants: 2041394 });
+    this.tag = nameTag(this.name);
+    this.avatar.add(this.tag);
+    this.game.worldGroup.add(this.avatar);
+  }
+  _retag() {
+    if (!this.avatar) return;
+    this.avatar.remove(this.tag);
+    this.tag = nameTag(this.name);
+    this.avatar.add(this.tag);
+  }
+  _ensureCar(type, color) {
+    const key = `${type}_${color}`;
+    if (this.carKey === key && this.car) return;
+    if (this.car) this.game.worldGroup.remove(this.car);
+    this.car = makeCar(CAR_TYPES[type] ? type : "sedan", color, "civil");
+    this.carKey = key;
+    this.game.worldGroup.add(this.car);
+  }
+  _hide() {
+    if (this.avatar) this.avatar.visible = false;
+    if (this.car) this.car.visible = false;
+  }
+  _onState(m) {
+    this.target = m;
+    if (!this.seen) {
+      this.seen = true;
+      this.view.x = m.x;
+      this.view.z = m.z;
+      this.view.a = m.a;
+    }
+  }
+  update(dt2) {
+    const net = this.net;
+    net.tick();
+    const p2 = this.game.player;
+    this.acc += dt2;
+    if (net.connected && this.acc > 1 / SEND_HZ) {
+      this.acc = 0;
+      net.send({
+        t: "s",
+        x: +p2.x.toFixed(2),
+        z: +p2.z.toFixed(2),
+        a: +p2.a.toFixed(2),
+        sp: +p2.speed.toFixed(1),
+        st: p2.dead ? "down" : "walk",
+        inCar: !!p2.car,
+        ct: p2.car ? p2.car.type : null,
+        cc: p2.car ? p2.car.color : 0,
+        hp: Math.round(p2.health)
+      });
+    }
+    if (!net.connected || !this.seen) {
+      this._hide();
+      return;
+    }
+    if (Math.hypot(this.target.x - this.view.x, this.target.z - this.view.z) > 25) {
+      this.view.x = this.target.x;
+      this.view.z = this.target.z;
+      this.view.a = this.target.a;
+    }
+    const k = clamp(dt2 * 9, 0, 1);
+    this.view.x = lerp(this.view.x, this.target.x, k);
+    this.view.z = lerp(this.view.z, this.target.z, k);
+    let da2 = this.target.a - this.view.a;
+    while (da2 > Math.PI) da2 -= Math.PI * 2;
+    while (da2 < -Math.PI) da2 += Math.PI * 2;
+    this.view.a += da2 * k;
+    const inCar = this.target.inCar;
+    this._ensureAvatar();
+    if (inCar) {
+      this._ensureCar(this.target.ct || "sedan", this.target.cc || 11545387);
+      this.car.visible = true;
+      this.car.position.set(this.view.x, 0, this.view.z);
+      this.car.rotation.y = this.view.a;
+      this.avatar.visible = false;
+      this.tag.position.set(0, 0, 0);
+    } else {
+      if (this.car) this.car.visible = false;
+      this.avatar.visible = true;
+      this.avatar.position.set(this.view.x, 0, this.view.z);
+      this.avatar.rotation.y = this.view.a;
+      animateCharacter(
+        this.avatar,
+        Math.abs(this.target.sp || 0),
+        this.game.time,
+        this.target.st === "down" ? "down" : "walk",
+        0
+      );
+      this.tag.position.set(0, 2.5, 0);
+    }
+    if (inCar && this.car) {
+      this.tag.position.set(0, 0, 0);
+      this.avatar.position.set(this.view.x, 1.9, this.view.z);
+      this.avatar.visible = false;
+      this.car.add(this.tag);
+      this.tag.position.set(0, 2.6, 0);
+    } else if (this.tag.parent === this.car && this.avatar) {
+      this.avatar.add(this.tag);
+      this.tag.position.set(0, 2.5, 0);
+    }
+  }
+  /** Distanza dall'amico, per il pugno e per la minimappa. */
+  get position() {
+    return this.seen ? this.view : null;
+  }
+};
+
 // src/main.js
 var $3 = (id) => document.getElementById(id);
 var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -16742,6 +18108,8 @@ var Game = class {
     this.clock = 8.5;
     this.wanted = 0;
     this.wantedT = 0;
+    this.evadeTime = 18;
+    this.evading = false;
     this.trafficAxis = 0;
     this.trafficT = 0;
     this.paused = true;
@@ -16750,6 +18118,8 @@ var Game = class {
     this.saveT = 0;
     this._tmp = { x: 0, z: 0 };
     this._focus = new Ui();
+    this.stats = { casinoWon: 0, casinoLost: 0 };
+    this.playerName = localStorage.getItem("novacity.name") || "Tu";
     this.lastCar = null;
     this.audio = new Audio();
     this.input = new Input(this.canvas);
@@ -16757,6 +18127,7 @@ var Game = class {
       look: { x: 0, y: 0 },
       forward: 0,
       strafe: 0,
+      throttle: 0,
       running: false,
       braking: false,
       invertY: false,
@@ -16812,14 +18183,19 @@ var Game = class {
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
     this._applyTier();
+    this.casino = new Casino(this);
+    this.net = new Net();
+    this.mp = new Multiplayer(this, this.net);
     this._tracers();
     this._headlightBeam();
     this._effects();
     this._streetLights();
     this.load();
     await step(100, "Pronto!");
-    $3("btn-play").classList.remove("hidden");
-    status.textContent = "Tocca GIOCA per entrare a Nova City";
+    $3("menu-main").classList.remove("hidden");
+    $3("boot-progress").classList.add("hidden");
+    $3("player-name").value = this.playerName;
+    status.textContent = "Pronto: gioca da solo o collega un amico";
     this._menus();
   }
   _tracers() {
@@ -16952,6 +18328,7 @@ var Game = class {
   }
   _menus() {
     $3("btn-play").addEventListener("click", () => this.start());
+    this._onlineMenu();
     $3("btn-resume").addEventListener("click", () => this.setPaused(false));
     $3("btn-pause").addEventListener("click", () => this.setPaused(true));
     $3("btn-fullscreen").addEventListener("click", () => this.toggleFullscreen());
@@ -16970,6 +18347,103 @@ var Game = class {
     });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.setPaused(true);
+    });
+  }
+  /** Schermata di gioco online: due codici e si e' collegati. */
+  _onlineMenu() {
+    const name = $3("player-name");
+    name.addEventListener("change", () => {
+      this.playerName = (name.value || "Tu").slice(0, 14);
+      localStorage.setItem("novacity.name", this.playerName);
+    });
+    const status = (text, cls = "") => {
+      const el2 = $3("online-status");
+      el2.textContent = text;
+      el2.className = cls;
+    };
+    const show = (id) => {
+      for (const k of ["online-pick", "online-create", "online-join"]) {
+        $3(k).classList.toggle("hidden", k !== id);
+      }
+    };
+    const copy = async (el2) => {
+      try {
+        await navigator.clipboard.writeText(el2.value);
+        status("Codice copiato: mandalo al tuo amico", "ok");
+      } catch {
+        el2.select();
+        status("Seleziona e copia il codice a mano");
+      }
+    };
+    const share = async (el2) => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: "NOVA CITY", text: el2.value });
+          return;
+        } catch {
+        }
+      }
+      copy(el2);
+    };
+    $3("btn-online").addEventListener("click", () => {
+      this.playerName = ($3("player-name").value || "Tu").slice(0, 14);
+      localStorage.setItem("novacity.name", this.playerName);
+      $3("menu-main").classList.add("hidden");
+      $3("menu-online").classList.remove("hidden");
+      show("online-pick");
+      status("Uno crea la partita, l'altro entra col codice.");
+    });
+    $3("btn-back").addEventListener("click", () => {
+      $3("menu-online").classList.add("hidden");
+      $3("menu-main").classList.remove("hidden");
+    });
+    $3("btn-create").addEventListener("click", async () => {
+      show("online-create");
+      status("Preparo il codice\u2026");
+      try {
+        $3("my-code").value = await this.net.host();
+        status("Manda il codice al tuo amico e aspetta la sua risposta");
+      } catch (e) {
+        status(`Errore: ${e.message}`, "err");
+      }
+    });
+    $3("btn-join").addEventListener("click", () => {
+      show("online-join");
+      status("Incolla il codice che hai ricevuto");
+    });
+    $3("btn-copy1").addEventListener("click", () => copy($3("my-code")));
+    $3("btn-share1").addEventListener("click", () => share($3("my-code")));
+    $3("btn-copy2").addEventListener("click", () => copy($3("my-answer")));
+    $3("btn-share2").addEventListener("click", () => share($3("my-answer")));
+    $3("btn-connect").addEventListener("click", async () => {
+      status("Collegamento in corso\u2026");
+      try {
+        await this.net.accept($3("their-answer").value);
+      } catch (e) {
+        status(`Codice non valido: ${e.message}`, "err");
+      }
+    });
+    $3("btn-answer").addEventListener("click", async () => {
+      status("Preparo la risposta\u2026");
+      try {
+        $3("my-answer").value = await this.net.join($3("their-code").value);
+        for (const k of ["answer-label", "my-answer", "answer-actions"]) $3(k).classList.remove("hidden");
+        status("Rimanda questo codice al tuo amico: parte tutto da solo");
+      } catch (e) {
+        status(`Codice non valido: ${e.message}`, "err");
+      }
+    });
+    this.net.on("open", () => {
+      status("Collegato! Buon divertimento.", "ok");
+      this.playerName = ($3("player-name").value || this.playerName || "Tu").slice(0, 14);
+      this.net.send({ t: "hello", name: this.playerName });
+      $3("net-name").textContent = this.mp.name;
+      $3("netbadge").classList.remove("hidden");
+      if (this.paused || !this.running) setTimeout(() => this.start(), 700);
+    });
+    this.net.on("close", () => {
+      $3("netbadge").classList.add("hidden");
+      this.toast("Amico scollegato", "bad");
     });
   }
   start() {
@@ -17111,8 +18585,9 @@ var Game = class {
       this.trafficAxis ^= 1;
       this.city.setTrafficAxis(this.trafficAxis);
     }
-    if (this.input.attacking && !this.hud.shopOpen) p2.attack();
-    p2.update(dt2, this.hud.shopOpen ? this.frozenInput : this.input);
+    this.input.setDriveMode(p2.inCar && !this.interiors.current);
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open) p2.attack();
+    p2.update(dt2, this.hud.shopOpen || this.casino.open ? this.frozenInput : this.input);
     if (this.interiors.current) {
       this.interiors.update(dt2);
       this._interiorPrompt();
@@ -17125,6 +18600,7 @@ var Game = class {
       this.missions.update(dt2);
       this._wanted(dt2);
     }
+    if (this.mp) this.mp.update(dt2);
     this._tracerUpdate(dt2);
     this._effectsUpdate(dt2);
     this._updateStreetLights(dt2);
@@ -17200,7 +18676,7 @@ var Game = class {
     }
     if (p2.inCar) {
       this.hud.prompt("<b>E</b> scendi dal veicolo");
-      this.hud.touchLabels("ESCI", "CLACSON", "FRENO");
+      this.hud.touchLabels("ESCI", "CLACSON", "MANO");
       if (act) p2.exitCar();
       else if (this.input.btn.attack && this.time - (this._hornT || -9) > 0.45) {
         this._hornT = this.time;
@@ -17233,10 +18709,23 @@ var Game = class {
     const p2 = this.player;
     const act = this.input.pressed("action");
     const menu = SHOP_MENUS[this.interiors.door.type] || SHOP_MENUS.store;
+    if (this.casino.open) {
+      this.hud.prompt("<b>E</b> lascia il tavolo");
+      this.hud.touchLabels("ESCI", "-", "-");
+      if (act) this.casino.hide();
+      return;
+    }
     if (this.hud.shopOpen) {
       this.hud.prompt("<b>E</b> chiudi il menu");
       this.hud.touchLabels("CHIUDI", "-", "-");
       if (act) this.hud.hideShop();
+      return;
+    }
+    const spot = this.interiors.nearestSpot(p2);
+    if (spot) {
+      this.hud.prompt(`<b>E</b> ${spot.label}`);
+      this.hud.touchLabels("GIOCA", "-", "-");
+      if (act) this.openCasino(spot.kind);
       return;
     }
     if (this.interiors.atCounter(p2)) {
@@ -17254,7 +18743,8 @@ var Game = class {
   }
   enterDoor(door) {
     this.interiors.enter(door);
-    this.hud.mission(door.name, "Vai al bancone per comprare. Torna alla porta per uscire.");
+    const hint = door.type === "casino" ? "Avvicinati a slot, roulette o blackjack per giocare. Torna alla porta per uscire." : "Vai al bancone per comprare. Torna alla porta per uscire.";
+    this.hud.mission(door.name, hint);
   }
   buy(item, menu) {
     const p2 = this.player;
@@ -17270,6 +18760,11 @@ var Game = class {
     this.toast(`${item.name} \u2714`, "good");
     this.hud.refreshShop(menu, (i) => this.buy(i, menu));
     this.save();
+  }
+  /** Apre i tavoli del casino'. */
+  openCasino(kind = "slot") {
+    this.hud.hideShop();
+    this.casino.show(kind);
   }
   dressPlayer(shirt, pants) {
     dressCharacter(this.player.mesh, shirt, pants);
@@ -17292,6 +18787,14 @@ var Game = class {
   }
   // ------------------------------------------------------------- combattimento
   melee(from, range, dmg) {
+    const peer = this.mp && this.mp.position;
+    if (peer) {
+      const px = from.x + Math.cos(from.a) * 1.1, pz = from.z - Math.sin(from.a) * 1.1;
+      if (Math.hypot(peer.x - px, peer.z - pz) < range) {
+        this.net.send({ t: "hit", dmg });
+        this.toast("Colpito il tuo amico!", "good");
+      }
+    }
     const target = this.peds.nearest(from.x + Math.cos(from.a) * 1.1, from.z - Math.sin(from.a) * 1.1, range);
     const cop = this.police.nearestCop(from.x + Math.cos(from.a) * 1.1, from.z - Math.sin(from.a) * 1.1, range);
     const hit = cop || target;
@@ -17394,20 +18897,35 @@ var Game = class {
     this.wanted = clamp(n, 0, 5);
     this.wantedT = 0;
   }
+  /**
+   * Ricercato in stile GTA: se resti abbastanza a lungo fuori dal raggio
+   * d'azione delle pattuglie il livello si azzera del tutto. Finche' scappi
+   * la barra si riempie e le stelle lampeggiano.
+   */
   _wanted(dt2) {
-    if (this.wanted <= 0) return;
+    if (this.wanted <= 0) {
+      this.evading = false;
+      this.wantedT = 0;
+      return;
+    }
     const p2 = this.player;
     let nearest = 999;
     for (const v of this.police.cars) if (v.active) nearest = Math.min(nearest, Math.hypot(v.x - p2.x, v.z - p2.z));
     for (const c2 of this.police.cops) if (c2.active) nearest = Math.min(nearest, Math.hypot(c2.x - p2.x, c2.z - p2.z));
-    if (nearest > 95) {
+    this.copDistance = nearest;
+    this.evading = nearest > 68;
+    this.evadeTime = 12 + this.wanted * 6;
+    if (this.evading) {
       this.wantedT += dt2;
-      if (this.wantedT > CFG.WANTED_DECAY) {
-        this.wantedT = 0;
-        this.wanted--;
-        this.toast(this.wanted ? `Ricercato ${this.wanted}\u2605` : "Hai seminato la polizia", "good");
+      if (this.wantedT >= this.evadeTime) {
+        this.setWanted(0);
+        this.police.standDown();
+        this.toast("Hai seminato la polizia", "good");
+        this.audio.blip(880, 0.2, "sine", 0.2);
       }
-    } else this.wantedT = 0;
+    } else {
+      this.wantedT = Math.max(0, this.wantedT - dt2 * 1.6);
+    }
   }
   alarm(x, z, r, source = null) {
     this.peds.alarm(x, z, r, source);
@@ -17499,7 +19017,9 @@ var Game = class {
       localStorage.setItem(CFG.SAVE_KEY, JSON.stringify({
         player: this.player.serialize(),
         clock: this.clock,
-        missions: this.missions.completed
+        missions: this.missions.completed,
+        stats: this.stats,
+        name: this.playerName
       }));
     } catch (e) {
     }
@@ -17512,6 +19032,8 @@ var Game = class {
       this.player.restore(s.player);
       this.clock = s.clock ?? 8.5;
       this.missions.completed = s.missions ?? 0;
+      this.stats = Object.assign(this.stats, s.stats || {});
+      if (s.name) this.playerName = s.name;
     } catch (e) {
     }
   }

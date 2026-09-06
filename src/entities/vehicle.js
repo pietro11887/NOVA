@@ -72,7 +72,7 @@ export class Vehicle {
     // --- sterzo: angolo delle ruote, non rotazione diretta della scocca.
     // A velocita' alta l'angolo massimo si riduce, altrimenti basta un
     // tocco per mandare l'auto in testacoda.
-    const maxSteer = lerp(0.58, 0.14, clamp(Math.abs(vLong) / 30, 0, 1));
+    const maxSteer = lerp(0.46, 0.11, clamp(Math.abs(vLong) / 28, 0, 1));
     this.steer += (c.steer * maxSteer - this.steer) * clamp(dt * 7, 0, 1);
 
     // --- motore e freni

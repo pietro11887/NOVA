@@ -14,6 +14,7 @@ export class HUD {
       mSub: $('mission-sub'), shop: $('shop'), shopName: $('shop-name'),
       shopDesc: $('shop-desc'), shopItems: $('shop-items'), lblAction: $('lbl-action'),
       lblAttack: $('lbl-attack'), lblJump: $('lbl-jump'), lblRun: $('lbl-run'), weapon: $('weapon'),
+      evade: $('evade'), evadeBar: $('evade').firstElementChild,
     };
     this.map = $('minimap');
     this.ctx = this.map.getContext('2d');
@@ -97,6 +98,11 @@ export class HUD {
     const hh = Math.floor(g.clock) % 24, mm = Math.floor((g.clock % 1) * 60);
     this.el.clock.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
     this.el.stars.textContent = '★'.repeat(g.wanted) + '☆'.repeat(Math.max(0, 5 - g.wanted));
+    // barra di fuga: quando e' piena le stelle spariscono
+    const chasing = g.wanted > 0;
+    this.el.evade.classList.toggle('hidden', !chasing);
+    this.el.stars.classList.toggle('evading', chasing && g.evading);
+    if (chasing) this.el.evadeBar.style.width = `${clamp((g.wantedT / g.evadeTime) * 100, 0, 100)}%`;
     if (p.weapon === 'pistol') {
       this.el.weapon.classList.remove('hidden');
       this.el.weapon.innerHTML = `🔫 <b>${p.ammo}</b>`;
@@ -156,7 +162,8 @@ export class HUD {
       if (Math.abs(d.x - p.x) > 260 || Math.abs(d.z - p.z) > 260) continue;
       blip(d.x, d.z, d.type === 'home' ? '#ffe9a8' : '#3ddc84', 4);
     }
-    const LANDMARK_COLOR = { police: '#4cc2ff', hospital: '#ff6b6b', gas: '#ff9d3f', sport: '#a8e05f', pier: '#8ad8ff' };
+    const LANDMARK_COLOR = { police: '#4cc2ff', hospital: '#ff6b6b', gas: '#ff9d3f',
+      sport: '#a8e05f', pier: '#8ad8ff', casino: '#ffd23f' };
     for (const l of g.city.landmarks) blip(l.x, l.z, LANDMARK_COLOR[l.kind] || '#ffffff', 8);
     for (const m of g.missions.markers) blip(m.x, m.z, '#ffd23f', 7);
     if (g.missions.objective) blip(g.missions.objective.x, g.missions.objective.z, '#ff9d3f', 8);
@@ -165,6 +172,9 @@ export class HUD {
       blip(v.x, v.z, '#98a3b5', 3);
     }
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, '#4cc2ff', 6);
+    // l'amico collegato ha il suo puntino viola
+    const peer = g.mp && g.mp.position;
+    if (peer) blip(peer.x, peer.z, '#c56bff', 9);
 
     ctx.restore();
 

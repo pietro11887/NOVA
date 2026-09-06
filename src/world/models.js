@@ -54,9 +54,9 @@ function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
   }
 }
 
-/** Ruota completa (pneumatico + cerchio), asse lungo Z. */
+/** Ruota completa: pneumatico con spalla, cerchio in lega e mozzo. */
 function wheel(gb, x, y, z, r, w, side) {
-  const N = 14;
+  const N = 16;
   const ringZ = (zz, rr) => {
     const out = [];
     for (let i = 0; i < N; i++) {
@@ -65,26 +65,34 @@ function wheel(gb, x, y, z, r, w, side) {
     }
     return out;
   };
-  const inner = ringZ(z - side * w / 2, r), outer = ringZ(z + side * w / 2, r);
+  const zi = z - side * w / 2, zo = z + side * w / 2;
+  const tread = ringZ(zi + side * w * 0.12, r);
+  const treadO = ringZ(zo - side * w * 0.12, r);
+  const shoulderI = ringZ(zi, r * 0.93);
+  const shoulderO = ringZ(zo, r * 0.93);
+  const rim = ringZ(zo + side * 0.004, r * 0.6);
+  const hub = ringZ(zo + side * 0.008, r * 0.2);
   const flip = side > 0;
+  const q = (a, b, c, d, col) => (flip ? gb.quad(a, b, c, d, col, 1, 1) : gb.quad(d, c, b, a, col, 1, 1));
+
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
-    // battistrada: il verso dipende da quale fianco stiamo costruendo
-    if (flip) gb.quad(inner[i], inner[j], outer[j], outer[i], 0x14161a, 1, 1);
-    else gb.quad(inner[i], outer[i], outer[j], inner[j], 0x14161a, 1, 1);
-  }
-  // fianco e cerchio
-  const rimO = ringZ(z + side * (w / 2 + 0.005), r * 0.62);
-  const hub = [x, y, z + side * (w / 2 + 0.01)];
-  for (let i = 0; i < N; i++) {
-    const j = (i + 1) % N;
-    if (flip) {
-      gb.quad(outer[i], outer[j], rimO[j], rimO[i], 0x1c1f24, 1, 1);
-      gb.quad(hub, rimO[i], rimO[j], rimO[j], 0xa8aeb6, 1, 1);
-    } else {
-      gb.quad(outer[j], outer[i], rimO[i], rimO[j], 0x1c1f24, 1, 1);
-      gb.quad(hub, rimO[j], rimO[i], rimO[i], 0xa8aeb6, 1, 1);
+    q(tread[i], tread[j], treadO[j], treadO[i], 0x18191d);                 // battistrada
+    q(shoulderI[i], shoulderI[j], tread[j], tread[i], 0x131417);           // spalle
+    q(treadO[i], treadO[j], shoulderO[j], shoulderO[i], 0x131417);
+    q(shoulderO[i], shoulderO[j], rim[j], rim[i], 0x24262b);               // fianco interno
+    q(rim[i], rim[j], hub[j], hub[i], 0xb9c0c8);                           // cerchio in lega
+    // razze scure ogni tre settori: da fuori sembra un cerchio a raggi
+    if (i % 3 === 0) {
+      q([x + Math.cos((i / N) * TAU) * r * 0.55, y + Math.sin((i / N) * TAU) * r * 0.55, zo + side * 0.012],
+        [x + Math.cos(((i + 1) / N) * TAU) * r * 0.55, y + Math.sin(((i + 1) / N) * TAU) * r * 0.55, zo + side * 0.012],
+        [x + Math.cos(((i + 1) / N) * TAU) * r * 0.26, y + Math.sin(((i + 1) / N) * TAU) * r * 0.26, zo + side * 0.012],
+        [x + Math.cos((i / N) * TAU) * r * 0.26, y + Math.sin((i / N) * TAU) * r * 0.26, zo + side * 0.012],
+        0x2b2f36);
     }
+  }
+  for (let i = 1; i < N - 1; i++) {
+    q(hub[0], hub[i], hub[i + 1], hub[i + 1], 0xdfe4e8);                   // mozzo
   }
 }
 
@@ -155,6 +163,20 @@ export const CAR_TYPES = {
   },
 };
 
+CAR_TYPES.muscle = {
+  L: 5.0, W: 2.02, top: 1.36, mass: 1.15, speed: 1.22, wheel: 0.38, wx: 1.62, spoiler: true,
+  body: [
+    { x: 2.5, hw: 0.88, yb: 0.3, yt: 0.78 }, { x: 1.9, hw: 0.98, yb: 0.26, yt: 0.86 },
+    { x: 0.7, hw: 1.0, yb: 0.24, yt: 0.9 }, { x: -0.6, hw: 1.0, yb: 0.24, yt: 0.92 },
+    { x: -1.8, hw: 0.97, yb: 0.26, yt: 0.9 }, { x: -2.5, hw: 0.9, yb: 0.3, yt: 0.84 },
+  ],
+  cabin: [
+    { x: 0.55, hw: 0.8, yb: 0.88, yt: 0.96 }, { x: 0.0, hw: 0.88, yb: 0.9, yt: 1.3 },
+    { x: -1.0, hw: 0.9, yb: 0.9, yt: 1.32 }, { x: -2.1, hw: 0.84, yb: 0.88, yt: 1.02 },
+  ],
+};
+CAR_TYPES.sport.spoiler = true;
+
 CAR_TYPES.bus = {
   L: 9.6, W: 2.55, top: 3.2, mass: 3.4, speed: 0.62, wheel: 0.52, wx: 3.3,
   body: [
@@ -182,8 +204,9 @@ CAR_TYPES.ambulance = {
 };
 
 export const CAR_COLORS = [
-  0xb02b2b, 0x22528f, 0xe8e6e0, 0x15171c, 0x2b7a4b, 0xd9a520, 0x7d848c,
-  0x5a3f8f, 0xd06a20, 0x1f8f9c, 0x9aa3ad, 0x53331f, 0xc9b8a0, 0x2f3f55,
+  0xa8232b, 0x1d4f8f, 0xe6e4de, 0x121418, 0x1f7a4a, 0xe0a62c, 0x6f767e,
+  0x53308f, 0xd45f18, 0x0f8fa8, 0xa9b2bd, 0x4a2c18, 0xd6c9ae, 0x24354d,
+  0x8f1f3f, 0x2f8f6f, 0xf0e8d8, 0x3a3f47, 0xbf5a1f, 0x146ba8,
 ];
 
 const shared = {};
@@ -201,8 +224,18 @@ function buildCarGeo(t, kind) {
   const roof = t.cabin.map((s) => ({ x: s.x, hw: s.hw * 0.93, yb: s.yt - 0.1, yt: s.yt }));
   hull(body, roof, 0xffffff);
 
-  // paraurti e mascherina
+  // paraurti, mascherina, cromature
   const fr = t.body[0], rr = t.body[t.body.length - 1];
+  // profilo cromato attorno ai vetri
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < t.cabin.length - 1; i++) {
+      const a = t.cabin[i], b = t.cabin[i + 1];
+      trim.quad(
+        [a.x, a.yt - 0.02, s * (a.hw + 0.012)], [b.x, b.yt - 0.02, s * (b.hw + 0.012)],
+        [b.x, b.yb + 0.02, s * (b.hw + 0.012)], [a.x, a.yb + 0.02, s * (a.hw + 0.012)],
+        0x9aa2ab, 1, 1);
+    }
+  }
   trim.box(fr.x - 0.06, fr.yb + 0.16, 0, 0.28, 0.3, t.W * 0.9, 0x2b3037);
   trim.box(rr.x + 0.06, rr.yb + 0.16, 0, 0.28, 0.3, t.W * 0.9, 0x2b3037);
   trim.box(fr.x - 0.1, fr.yb + 0.42, 0, 0.16, 0.22, t.W * 0.62, 0x353b43);
@@ -220,6 +253,15 @@ function buildCarGeo(t, kind) {
       body.box(sx * t.wx, wr + 0.42, sz * (t.W / 2 - 0.1), wr * 2.4, 0.26, 0.32, 0xffffff);
     }
   }
+  // targhe
+  trim.box(fr.x - 0.12, fr.yb + 0.12, 0, 0.06, 0.16, 0.55, 0xe8e6de);
+  trim.box(rr.x + 0.12, rr.yb + 0.12, 0, 0.06, 0.16, 0.55, 0xe8e6de);
+  // scarico
+  trim.box(rr.x + 0.06, rr.yb - 0.02, 0.42, 0.28, 0.11, 0.11, 0x8d949c);
+  // tetto leggermente piu' scuro: due tinte senza costare nulla
+  const roofTop = t.cabin.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 0.005 }));
+  hull(body, roofTop, 0xd8d8d8);
+
   // fari e stop
   lights.box(fr.x - 0.02, fr.yb + 0.42, t.W * 0.3, 0.1, 0.22, 0.5, 0xfff0cc);
   lights.box(fr.x - 0.02, fr.yb + 0.42, -t.W * 0.3, 0.1, 0.22, 0.5, 0xfff0cc);
@@ -233,6 +275,11 @@ function buildCarGeo(t, kind) {
   }
   if (kind === 'taxi') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.18, 0, 0.85, 0.3, 0.42, 0xf4c920);
+  }
+  if (t.spoiler) {
+    const rrx = rr.x + 0.35;
+    for (const s of [-1, 1]) trim.box(rrx, rr.yt + 0.12, s * t.W * 0.32, 0.12, 0.24, 0.1, 0x2b2f36);
+    body.box(rrx, rr.yt + 0.27, 0, 0.42, 0.07, t.W * 0.84, 0xffffff);
   }
   if (kind === 'ambulance') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.14, 0, 1.2, 0.16, 1.3, 0xe8ecef);

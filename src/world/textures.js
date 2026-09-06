@@ -615,7 +615,34 @@ export function interiorTextures() {
   }
   pctx.putImageData(pimg, 0, 0);
 
+  // --- moquette del casino': rombi rossi e oro
+  const [cq, qctx] = canvas(S);
+  qctx.fillStyle = '#5c1220'; qctx.fillRect(0, 0, S, S);
+  const qn = valueNoise(617);
+  for (let y = 0; y < S; y += 32) {
+    for (let x = 0; x < S; x += 32) {
+      qctx.fillStyle = ((x + y) / 32) % 2 ? '#6b1626' : '#4a0e1a';
+      qctx.fillRect(x, y, 32, 32);
+    }
+  }
+  qctx.strokeStyle = 'rgba(214,175,90,0.5)';
+  qctx.lineWidth = 2;
+  for (let i = -S; i < S * 2; i += 32) {
+    qctx.beginPath(); qctx.moveTo(i, 0); qctx.lineTo(i + S, S); qctx.stroke();
+    qctx.beginPath(); qctx.moveTo(i, S); qctx.lineTo(i + S, 0); qctx.stroke();
+  }
+  {
+    const img2 = qctx.getImageData(0, 0, S, S);
+    for (let i = 0; i < img2.data.length; i += 4) {
+      const n = fbm(qn, (i / 4 % S) / S * 40, Math.floor(i / 4 / S) / S * 40, 3);
+      const k = 0.82 + n * 0.36;
+      img2.data[i] *= k; img2.data[i + 1] *= k; img2.data[i + 2] *= k;
+    }
+    qctx.putImageData(img2, 0, 0);
+  }
+
   return {
+    carpet: { map: tex(cq), normal: normalFrom(cq, 0.3) },
     plaster: { map: tex(cp), normal: normalFrom(cp, 0.35) },
     tile: { map: tex(ct), normal: normalFrom(ct, 0.6) },
     checker: { map: tex(cc), normal: normalFrom(cc, 0.25) },

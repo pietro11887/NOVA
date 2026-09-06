@@ -41,6 +41,32 @@ npm i -D esbuild
 node tools/build-single.mjs
 ```
 
+## Giocare online con un amico
+
+Dalla schermata iniziale: **GIOCA ONLINE CON UN AMICO**. Il collegamento è
+diretto tra i due browser (WebRTC), senza server e senza registrazione:
+
+1. uno dei due tocca **CREA LA PARTITA** e manda su WhatsApp il codice che
+   compare (c'è il pulsante Copia/Condividi);
+2. l'altro tocca **ENTRA CON IL CODICE**, lo incolla e tocca *Genera la
+   risposta*;
+3. rimanda indietro il codice di risposta, il primo lo incolla e tocca
+   **COLLEGA**. La partita parte da sola per entrambi.
+
+In città vi vedete a vicenda — a piedi e in auto — con il nome sopra la
+testa e il puntino viola sulla minimappa; potete prendervi a pugni e
+sfidarvi al casinò mettendo i soldi nel piatto.
+
+## Il casinò
+
+Il palazzo con l'insegna al neon (blip giallo sulla minimappa) ha tre
+tavoli, ognuno con il suo punto d'interazione:
+
+- **Slot** a tre rulli, con tris che paga fino a 60 volte la puntata;
+- **Roulette** europea: rosso/nero, pari/dispari, dozzine e numero pieno a 36×;
+- **Blackjack** contro il banco, con blackjack pagato 2,5×;
+- **Sfida** (solo online): entrambi puntano, il numero più alto prende tutto.
+
 ## Come è fatta la grafica
 
 Tutto è generato a runtime, senza un solo file di asset:

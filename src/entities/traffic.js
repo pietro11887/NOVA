@@ -18,7 +18,7 @@ export function driveTo(v, tx, tz, cruise = 0.6) {
 
 // il traffico non e' fatto solo di berline: ogni tipo ha il suo peso
 const TYPE_WEIGHTS = [
-  ['sedan', 30], ['suv', 18], ['pickup', 12], ['sport', 10],
+  ['sedan', 26], ['suv', 16], ['pickup', 10], ['sport', 9], ['muscle', 9],
   ['van', 10], ['bus', 6], ['ambulance', 4],
 ];
 function weightedType() {

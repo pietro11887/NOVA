@@ -15,6 +15,9 @@ import { TrafficManager } from './entities/traffic.js';
 import { PoliceManager } from './entities/police.js';
 import { HUD } from './systems/hud.js';
 import { Missions } from './systems/missions.js';
+import { Casino } from './systems/casino.js';
+import { Net } from './systems/net.js';
+import { Multiplayer } from './systems/multiplayer.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -67,6 +70,8 @@ class Game {
     this.clock = 8.5;              // ora del giorno
     this.wanted = 0;
     this.wantedT = 0;
+    this.evadeTime = 18;
+    this.evading = false;
     this.trafficAxis = 0;
     this.trafficT = 0;
     this.paused = true;
@@ -75,13 +80,15 @@ class Game {
     this.saveT = 0;
     this._tmp = { x: 0, z: 0 };
     this._focus = new THREE.Vector3();
+    this.stats = { casinoWon: 0, casinoLost: 0 };
+    this.playerName = localStorage.getItem('novacity.name') || 'Tu';
     this.lastCar = null;
 
     this.audio = new Audio();
     this.input = new Input(this.canvas);
     // ingressi neutri: quando un menu e' aperto il personaggio resta fermo
     this.frozenInput = {
-      look: { x: 0, y: 0 }, forward: 0, strafe: 0, running: false, braking: false,
+      look: { x: 0, y: 0 }, forward: 0, strafe: 0, throttle: 0, running: false, braking: false,
       invertY: false, btn: { action: false, attack: false, jump: false, run: false },
       pressed: () => false,
     };
@@ -141,6 +148,9 @@ class Game {
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
     this._applyTier();
+    this.casino = new Casino(this);
+    this.net = new Net();
+    this.mp = new Multiplayer(this, this.net);
     this._tracers();
     this._headlightBeam();
     this._effects();
@@ -148,8 +158,10 @@ class Game {
     this.load();
 
     await step(100, 'Pronto!');
-    $('btn-play').classList.remove('hidden');
-    status.textContent = 'Tocca GIOCA per entrare a Nova City';
+    $('menu-main').classList.remove('hidden');
+    $('boot-progress').classList.add('hidden');
+    $('player-name').value = this.playerName;
+    status.textContent = 'Pronto: gioca da solo o collega un amico';
     this._menus();
   }
 
@@ -287,6 +299,7 @@ class Game {
 
   _menus() {
     $('btn-play').addEventListener('click', () => this.start());
+    this._onlineMenu();
     $('btn-resume').addEventListener('click', () => this.setPaused(false));
     $('btn-pause').addEventListener('click', () => this.setPaused(true));
     $('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
@@ -304,6 +317,98 @@ class Game {
       if (e.code === 'KeyP') this.setPaused(!this.paused);
     });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.setPaused(true); });
+  }
+
+  /** Schermata di gioco online: due codici e si e' collegati. */
+  _onlineMenu() {
+    const name = $('player-name');
+    name.addEventListener('change', () => {
+      this.playerName = (name.value || 'Tu').slice(0, 14);
+      localStorage.setItem('novacity.name', this.playerName);
+    });
+    const status = (text, cls = '') => {
+      const el = $('online-status');
+      el.textContent = text;
+      el.className = cls;
+    };
+    const show = (id) => {
+      for (const k of ['online-pick', 'online-create', 'online-join']) {
+        $(k).classList.toggle('hidden', k !== id);
+      }
+    };
+    const copy = async (el) => {
+      try {
+        await navigator.clipboard.writeText(el.value);
+        status('Codice copiato: mandalo al tuo amico', 'ok');
+      } catch {
+        el.select();
+        status('Seleziona e copia il codice a mano');
+      }
+    };
+    const share = async (el) => {
+      if (navigator.share) {
+        try { await navigator.share({ title: 'NOVA CITY', text: el.value }); return; } catch { /* annullato */ }
+      }
+      copy(el);
+    };
+
+    $('btn-online').addEventListener('click', () => {
+      this.playerName = ($('player-name').value || 'Tu').slice(0, 14);
+      localStorage.setItem('novacity.name', this.playerName);
+      $('menu-main').classList.add('hidden');
+      $('menu-online').classList.remove('hidden');
+      show('online-pick');
+      status('Uno crea la partita, l\'altro entra col codice.');
+    });
+    $('btn-back').addEventListener('click', () => {
+      $('menu-online').classList.add('hidden');
+      $('menu-main').classList.remove('hidden');
+    });
+
+    $('btn-create').addEventListener('click', async () => {
+      show('online-create');
+      status('Preparo il codice…');
+      try {
+        $('my-code').value = await this.net.host();
+        status('Manda il codice al tuo amico e aspetta la sua risposta');
+      } catch (e) { status(`Errore: ${e.message}`, 'err'); }
+    });
+    $('btn-join').addEventListener('click', () => {
+      show('online-join');
+      status('Incolla il codice che hai ricevuto');
+    });
+    $('btn-copy1').addEventListener('click', () => copy($('my-code')));
+    $('btn-share1').addEventListener('click', () => share($('my-code')));
+    $('btn-copy2').addEventListener('click', () => copy($('my-answer')));
+    $('btn-share2').addEventListener('click', () => share($('my-answer')));
+
+    $('btn-connect').addEventListener('click', async () => {
+      status('Collegamento in corso…');
+      try {
+        await this.net.accept($('their-answer').value);
+      } catch (e) { status(`Codice non valido: ${e.message}`, 'err'); }
+    });
+    $('btn-answer').addEventListener('click', async () => {
+      status('Preparo la risposta…');
+      try {
+        $('my-answer').value = await this.net.join($('their-code').value);
+        for (const k of ['answer-label', 'my-answer', 'answer-actions']) $(k).classList.remove('hidden');
+        status('Rimanda questo codice al tuo amico: parte tutto da solo');
+      } catch (e) { status(`Codice non valido: ${e.message}`, 'err'); }
+    });
+
+    this.net.on('open', () => {
+      status('Collegato! Buon divertimento.', 'ok');
+      this.playerName = ($('player-name').value || this.playerName || 'Tu').slice(0, 14);
+      this.net.send({ t: 'hello', name: this.playerName });
+      $('net-name').textContent = this.mp.name;
+      $('netbadge').classList.remove('hidden');
+      if (this.paused || !this.running) setTimeout(() => this.start(), 700);
+    });
+    this.net.on('close', () => {
+      $('netbadge').classList.add('hidden');
+      this.toast('Amico scollegato', 'bad');
+    });
   }
 
   start() {
@@ -446,8 +551,9 @@ class Game {
     this.trafficT += dt;
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
-    if (this.input.attacking && !this.hud.shopOpen) p.attack();
-    p.update(dt, this.hud.shopOpen ? this.frozenInput : this.input);
+    this.input.setDriveMode(p.inCar && !this.interiors.current);
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open) p.attack();
+    p.update(dt, (this.hud.shopOpen || this.casino.open) ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
       this.interiors.update(dt);
@@ -462,6 +568,7 @@ class Game {
       this._wanted(dt);
     }
 
+    if (this.mp) this.mp.update(dt);
     this._tracerUpdate(dt);
     this._effectsUpdate(dt);
     this._updateStreetLights(dt);
@@ -537,7 +644,7 @@ class Game {
 
     if (p.inCar) {
       this.hud.prompt('<b>E</b> scendi dal veicolo');
-      this.hud.touchLabels('ESCI', 'CLACSON', 'FRENO');
+      this.hud.touchLabels('ESCI', 'CLACSON', 'MANO');
       if (act) p.exitCar();
       else if (this.input.btn.attack && this.time - (this._hornT || -9) > 0.45) {
         this._hornT = this.time;
@@ -576,10 +683,23 @@ class Game {
     const act = this.input.pressed('action');
     const menu = SHOP_MENUS[this.interiors.door.type] || SHOP_MENUS.store;
 
+    if (this.casino.open) {
+      this.hud.prompt('<b>E</b> lascia il tavolo');
+      this.hud.touchLabels('ESCI', '-', '-');
+      if (act) this.casino.hide();
+      return;
+    }
     if (this.hud.shopOpen) {
       this.hud.prompt('<b>E</b> chiudi il menu');
       this.hud.touchLabels('CHIUDI', '-', '-');
       if (act) this.hud.hideShop();
+      return;
+    }
+    const spot = this.interiors.nearestSpot(p);
+    if (spot) {
+      this.hud.prompt(`<b>E</b> ${spot.label}`);
+      this.hud.touchLabels('GIOCA', '-', '-');
+      if (act) this.openCasino(spot.kind);
       return;
     }
     if (this.interiors.atCounter(p)) {
@@ -598,7 +718,10 @@ class Game {
 
   enterDoor(door) {
     this.interiors.enter(door);
-    this.hud.mission(door.name, 'Vai al bancone per comprare. Torna alla porta per uscire.');
+    const hint = door.type === 'casino'
+      ? 'Avvicinati a slot, roulette o blackjack per giocare. Torna alla porta per uscire.'
+      : 'Vai al bancone per comprare. Torna alla porta per uscire.';
+    this.hud.mission(door.name, hint);
   }
 
   buy(item, menu) {
@@ -610,6 +733,12 @@ class Game {
     this.toast(`${item.name} ✔`, 'good');
     this.hud.refreshShop(menu, (i) => this.buy(i, menu));
     this.save();
+  }
+
+  /** Apre i tavoli del casino'. */
+  openCasino(kind = 'slot') {
+    this.hud.hideShop();
+    this.casino.show(kind);
   }
 
   dressPlayer(shirt, pants) {
@@ -634,6 +763,15 @@ class Game {
 
   // ------------------------------------------------------------- combattimento
   melee(from, range, dmg) {
+    // se l'amico e' a tiro il colpo parte anche in rete
+    const peer = this.mp && this.mp.position;
+    if (peer) {
+      const px = from.x + Math.cos(from.a) * 1.1, pz = from.z - Math.sin(from.a) * 1.1;
+      if (Math.hypot(peer.x - px, peer.z - pz) < range) {
+        this.net.send({ t: 'hit', dmg });
+        this.toast('Colpito il tuo amico!', 'good');
+      }
+    }
     const target = this.peds.nearest(from.x + Math.cos(from.a) * 1.1, from.z - Math.sin(from.a) * 1.1, range);
     const cop = this.police.nearestCop(from.x + Math.cos(from.a) * 1.1, from.z - Math.sin(from.a) * 1.1, range);
     const hit = cop || target;
@@ -734,20 +872,31 @@ class Game {
 
   setWanted(n) { this.wanted = clamp(n, 0, 5); this.wantedT = 0; }
 
+  /**
+   * Ricercato in stile GTA: se resti abbastanza a lungo fuori dal raggio
+   * d'azione delle pattuglie il livello si azzera del tutto. Finche' scappi
+   * la barra si riempie e le stelle lampeggiano.
+   */
   _wanted(dt) {
-    if (this.wanted <= 0) return;
+    if (this.wanted <= 0) { this.evading = false; this.wantedT = 0; return; }
     const p = this.player;
     let nearest = 999;
     for (const v of this.police.cars) if (v.active) nearest = Math.min(nearest, Math.hypot(v.x - p.x, v.z - p.z));
     for (const c of this.police.cops) if (c.active) nearest = Math.min(nearest, Math.hypot(c.x - p.x, c.z - p.z));
-    if (nearest > 95) {
+    this.copDistance = nearest;
+    this.evading = nearest > 68;
+    this.evadeTime = 12 + this.wanted * 6;
+    if (this.evading) {
       this.wantedT += dt;
-      if (this.wantedT > CFG.WANTED_DECAY) {
-        this.wantedT = 0;
-        this.wanted--;
-        this.toast(this.wanted ? `Ricercato ${this.wanted}★` : 'Hai seminato la polizia', 'good');
+      if (this.wantedT >= this.evadeTime) {
+        this.setWanted(0);
+        this.police.standDown();
+        this.toast('Hai seminato la polizia', 'good');
+        this.audio.blip(880, 0.2, 'sine', 0.2);
       }
-    } else this.wantedT = 0;
+    } else {
+      this.wantedT = Math.max(0, this.wantedT - dt * 1.6);
+    }
   }
 
   alarm(x, z, r, source = null) { this.peds.alarm(x, z, r, source); }
@@ -836,6 +985,7 @@ class Game {
     try {
       localStorage.setItem(CFG.SAVE_KEY, JSON.stringify({
         player: this.player.serialize(), clock: this.clock, missions: this.missions.completed,
+        stats: this.stats, name: this.playerName,
       }));
     } catch (e) { /* quota piena o modalita' privata: si gioca lo stesso */ }
   }
@@ -848,6 +998,8 @@ class Game {
       this.player.restore(s.player);
       this.clock = s.clock ?? 8.5;
       this.missions.completed = s.missions ?? 0;
+      this.stats = Object.assign(this.stats, s.stats || {});
+      if (s.name) this.playerName = s.name;
     } catch (e) { /* salvataggio corrotto: si riparte da zero */ }
   }
 }

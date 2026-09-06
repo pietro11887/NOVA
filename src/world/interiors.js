@@ -10,6 +10,12 @@ const HALF_W = W / 2, HALF_D = D / 2;
 /* --------------------------------------------------------------- cataloghi */
 
 export const SHOP_MENUS = {
+  casino: {
+    title: 'CASINÒ NOVA', desc: 'Slot, roulette e blackjack. Il banco ringrazia.',
+    items: [
+      { id: 'chips', icon: '🎲', name: 'Vai ai tavoli', desc: 'Apri il casinò', price: 0, effect: (g) => g.openCasino('slot') },
+    ],
+  },
   burger: {
     title: 'BURGER SHOT', desc: 'Doppio cheese e patatine. La salute passa dallo stomaco.',
     items: [
@@ -92,6 +98,7 @@ const STYLE = {
   bar:      { floor: 'wood',    wall: 0x7a5b46, trim: 0xffd23f, light: 0xffd9a0, glow: 0xffd23f },
   garage:   { floor: 'concrete',wall: 0x9aa3ad, trim: 0xffb020, light: 0xf0f4ff, glow: 0xffb020 },
   home:     { floor: 'wood',    wall: 0xe8dcc6, trim: 0x8a6a44, light: 0xffe9c0, glow: 0xffd9a0 },
+  casino:   { floor: 'carpet',  wall: 0x3a1830, trim: 0xffd23f, light: 0xffdca0, glow: 0xffd23f },
 };
 
 /* ------------------------------------------------------------- arredamento */
@@ -233,6 +240,7 @@ class Interior {
 
     this.exit = { x: ox + 2.2, z: oz + HALF_D - 1.6 };
     this.counter = { x: ox, z: oz - 3.4 };
+    this.spots = [];    // punti d'interazione: negozi ne hanno uno, il casino' tre
     this[`_${type}`] ? this[`_${type}`](B, st, rng) : this._store(B, st, rng);
 
     // --- meshes
@@ -471,6 +479,55 @@ class Interior {
     }
   }
 
+  _casino(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    this.counter = { x: ox - 5.5, z: oz - 5.2 };
+
+    // --- slot machine lungo la parete sinistra
+    for (let i = 0; i < 4; i++) {
+      const x = ox - HALF_W + 1.5, z = oz - 4 + i * 2.4;
+      B.wood.box(x, 0.55, z, 1.1, 1.1, 1.5, 0x6b1626);
+      B.metal.box(x, 1.35, z, 1.2, 0.6, 1.6, 0xd6af5a);
+      B.glowB.box(x + 0.62, 1.35, z, 0.06, 0.5, 1.2, 0xffd23f);
+      B.metal.box(x + 0.6, 0.95, z + 0.55, 0.16, 0.16, 0.5, 0xc9ccd2);   // leva
+      B.prod.box(x + 0.66, 0.78, z + 0.55, 0.12, 0.2, 0.12, 0xd93b3b);
+      B.solid.push({ x, z, hx: 0.8, hz: 0.9 });
+    }
+    this.spots.push({ x: ox - HALF_W + 3.2, z: oz - 1.2, r: 3.2, kind: 'slot', label: 'gioca alle slot' });
+
+    // --- tavolo della roulette
+    const rx = ox + 3.6, rz = oz - 3.2;
+    B.wood.box(rx, 0.45, rz, 4.6, 0.9, 2.6, 0x3a1f14);
+    B.prod.box(rx, 0.93, rz, 4.4, 0.08, 2.4, 0x1f6b3f);
+    B.metal.box(rx - 1.5, 1.0, rz, 1.5, 0.2, 1.5, 0xd6af5a);
+    B.prod.box(rx - 1.5, 1.12, rz, 1.2, 0.06, 1.2, 0x2b1810);
+    B.glowB.box(rx + 0.8, 1.0, rz, 2.2, 0.02, 1.6, 0xffe08a);
+    B.solid.push({ x: rx, z: rz, hx: 2.5, hz: 1.5 });
+    this.spots.push({ x: rx, z: rz + 2.4, r: 2.8, kind: 'roulette', label: 'gioca alla roulette' });
+
+    // --- tavolo del blackjack
+    const bx = ox + 3.2, bz = oz + 3.4;
+    B.wood.box(bx, 0.45, bz, 3.8, 0.9, 2.2, 0x3a1f14);
+    B.prod.box(bx, 0.93, bz, 3.6, 0.08, 2.0, 0x1f6b3f);
+    B.prod.box(bx, 0.98, bz - 0.6, 2.6, 0.02, 0.5, 0xd6af5a);
+    for (const dx of [-1.1, 0, 1.1]) stool(B, bx + dx, bz + 1.7);
+    B.solid.push({ x: bx, z: bz, hx: 2, hz: 1.3 });
+    this.spots.push({ x: bx, z: bz + 2.2, r: 2.6, kind: 'black', label: 'gioca a blackjack' });
+
+    // --- cassa con la cambiavalute
+    counter(B, this.counter.x, this.counter.z, 5, 1.1, 0x3a1f14, st.trim);
+    B.glowB.box(this.counter.x, 2.9, oz - HALF_D + 0.25, 6, 0.7, 0.06, 0xffd23f);
+    // lampadari
+    for (const dx of [-4, 4]) {
+      for (const dz of [-3, 3]) {
+        B.metal.box(ox + dx, H - 0.5, oz + dz, 0.9, 0.1, 0.9, 0xd6af5a);
+        B.glowB.box(ox + dx, H - 0.62, oz + dz, 0.8, 0.16, 0.8, 0xffe0a0);
+      }
+    }
+    plant(B, ox + HALF_W - 1.3, oz - 5.6);
+    plant(B, ox + HALF_W - 1.3, oz + 5.6);
+  }
+
   /* -------------------------------------------------------------- servizi */
 
   resolve(x, z, r, out) {
@@ -570,6 +627,17 @@ export class InteriorManager {
     return Math.hypot(p.x - c.x, p.z - (c.z + 1.7)) < 2.6;
   }
 
+  /** Punto d'interazione piu' vicino (tavoli del casino', banconi…). */
+  nearestSpot(p) {
+    if (!this.current || !this.current.spots.length) return null;
+    let best = null, bd = Infinity;
+    for (const s of this.current.spots) {
+      const d = Math.hypot(p.x - s.x, p.z - s.z);
+      if (d < (s.r || 2.6) && d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
   atExit(p) {
     if (!this.current) return false;
     return Math.hypot(p.x - this.current.exit.x, p.z - this.current.exit.z) < 2.4;
@@ -585,6 +653,7 @@ function interiorMaterials() {
       tile: std({ map: tx.tile.map, normalMap: tx.tile.normal, roughness: 0.5, metalness: 0.04, envMapIntensity: 0.15 }),
       checker: std({ map: tx.checker.map, normalMap: tx.checker.normal, roughness: 0.46, metalness: 0.04, envMapIntensity: 0.15 }),
       wood: std({ map: tx.wood.map, normalMap: tx.wood.normal, roughness: 0.55, metalness: 0, envMapIntensity: 0.15 }),
+      carpet: std({ map: tx.carpet.map, normalMap: tx.carpet.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.06 }),
       concrete: std({ map: tx.concrete.map, normalMap: tx.concrete.normal, roughness: 0.92, metalness: 0, envMapIntensity: 0.1 }),
     },
     wall: std({ map: tx.plaster.map, normalMap: tx.plaster.normal, roughness: 0.95, metalness: 0, envMapIntensity: 0.06 }),

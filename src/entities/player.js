@@ -138,7 +138,7 @@ export class Player {
 
   _driving(dt, input) {
     const car = this.car;
-    const throttle = input.forward;
+    const throttle = input.throttle !== undefined ? input.throttle : input.forward;
     const steer = -input.strafe;
     car.update(dt, { throttle, steer, hand: input.braking });
     this.x = car.x; this.z = car.z; this.y = 0;
@@ -220,7 +220,7 @@ export class Player {
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
     const dist = this.indoor ? 3.4 : dead ? 5.0 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
-    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 2.15 : 1.5;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1.0 : 1.25) + this.y;
 
@@ -236,7 +236,10 @@ export class Player {
 
     const k = clamp(dt * (inCar ? 7 : 11), 0, 1);
     this.camPos.lerp(V, k);
-    this._lookTarget.set(tx, ty + 0.5, tz);
+    // guidando si guarda avanti all'auto, non il tetto
+    const ahead = inCar ? 3.5 + Math.abs(this.car.speed) * 0.25 : 0;
+    this._lookTarget.set(tx + Math.cos(this.camYaw) * ahead, ty + (inCar ? 0.9 : 0.5),
+                         tz - Math.sin(this.camYaw) * ahead);
     this.camLook.lerp(this._lookTarget, clamp(dt * 14, 0, 1));
   }
 

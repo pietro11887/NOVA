@@ -28,6 +28,7 @@ const LANDMARKS = {
   '2,5': 'gas',
   '5,4': 'gas',
   '3,3': 'sport',
+  '4,5': 'casino',
   '0,6': 'gas',
 };
 
@@ -360,6 +361,7 @@ export class City {
         else if (kind === 'police') this._policeStation(b, B, rng);
         else if (kind === 'hospital') this._hospital(b, B, rng);
         else if (kind === 'sport') this._sportsBlock(b, B, rng);
+        else if (kind === 'casino') this._casinoBlock(b, B, rng);
         else this._builtBlock(b, kind, B, rng, shopQueue, billboards);
 
         this._streetProps(b, i, j, B, rng);
@@ -791,6 +793,70 @@ export class City {
     this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d / 2 });
     this.hospital = { x: cx, z: cz + d / 2 + 8 };
     B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+  }
+
+  /** Il casino': insegna al neon, colonnato e fontana. Si vede da lontano. */
+  _casinoBlock(b, B, rng) {
+    this.landmarks.push({ kind: 'casino', x: b.cx, z: b.cz });
+    B.walk = B.walk || new GeoBuilder();
+    B.walk.quadY(b.x0, b.z0, b.x1, b.z1, 0.015, 0xe0d8c8, (b.x1 - b.x0) / 2, (b.z1 - b.z0) / 2);
+
+    const w = Math.min(b.x1 - b.x0 - 12, 40), d = Math.min(b.z1 - b.z0 - 18, 26);
+    const cx = b.cx, cz = b.cz - 4;
+    // corpo principale con due torri laterali
+    B.concrete.box(cx, 7, cz, w, 14, d, 0xf0e2c8, -12);
+    B.detail.box(cx, 14.4, cz, w + 1.4, 0.9, d + 1.4, 0xd6af5a);
+    B.roof.quadY(cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, 14.9, 0xffffff, w / 6, d / 6);
+    for (const s of [-1, 1]) {
+      B.concrete.box(cx + s * (w / 2 - 3), 10, cz, 6, 20, 8, 0xf6ead2, -12);
+      B.detail.box(cx + s * (w / 2 - 3), 20.5, cz, 7, 1, 9, 0xd6af5a);
+      B.neon.box(cx + s * (w / 2 - 3), 21.4, cz, 1.2, 1.2, 1.2, 0xffd23f);
+    }
+    this.grid.add({ x: cx, z: cz, hx: w / 2, hz: d / 2 });
+
+    // pensilina d'ingresso con colonne
+    const fz = cz + d / 2;
+    B.detail.box(cx, 6.2, fz + 4, 16, 0.7, 8, 0xf2e6cc);
+    B.detail.box(cx, 6.7, fz + 4, 17, 0.5, 9, 0xd6af5a);
+    for (const dx of [-6.5, -2.2, 2.2, 6.5]) {
+      for (const dz of [1.2, 7.2]) {
+        B.detail.box(cx + dx, 3.1, fz + dz, 0.9, 6.2, 0.9, 0xf6ead2);
+        this.grid.add({ x: cx + dx, z: fz + dz, hx: 0.6, hz: 0.6 });
+      }
+    }
+    // tappeto rosso e fontana
+    B.paint.quadY(cx - 3, fz + 1, cx + 3, b.z1 - 1, 0.03, 0x8f2030, 1, 4);
+    const fx = cx, fzz = b.z1 - 8;
+    B.detail.box(fx, 0.4, fzz, 7, 0.8, 7, 0xe0d6c2);
+    B.water.box(fx, 0.75, fzz, 6.2, 0.2, 6.2, 0x2f8fb8);
+    B.detail.box(fx, 1.6, fzz, 1, 2.4, 1, 0xe8dfcc);
+    B.glow.box(fx, 2.9, fzz, 1.6, 0.5, 1.6, 0x6fd0ff);
+    this.grid.add({ x: fx, z: fzz, hx: 3.6, hz: 3.6 });
+
+    // insegna gigante
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.min(w * 0.8, 26), 4.2),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture('CASINO NOVA', '#ffd23f'), toneMapped: false })
+    );
+    sign.position.set(cx, 11.5, fz + 0.4);
+    this.group.add(sign);
+    B.neon.box(cx, 11.5, fz + 0.2, Math.min(w * 0.82, 27), 4.6, 0.2, 0xffd23f);
+    // luci lungo la facciata
+    for (let i = -5; i <= 5; i++) {
+      B.neon.box(cx + i * (w / 12), 7.2, fz + 0.2, 0.5, 0.5, 0.2, i % 2 ? 0xff5aa0 : 0x6fd0ff);
+    }
+    for (const s of [-1, 1]) {
+      const p = B.props.palm(cx + s * (w / 2 + 4), fz + 6, rng);
+      this.grid.add({ x: p.x, z: p.z, hx: p.r, hz: p.r });
+    }
+    B.props.streetlight(b.x0 + 4, b.z1 - 4, 0, 7);
+    B.props.streetlight(b.x1 - 4, b.z1 - 4, Math.PI, 7);
+    for (const dx of [-12, 12]) this.parkSpots.push({ x: cx + dx, z: b.z1 - 4, rot: Math.PI });
+
+    this.doors.push({
+      type: 'casino', name: 'CASINÒ NOVA', color: '#ffd23f',
+      x: cx, z: fz + 2.4, face: -Math.PI / 2,
+    });
   }
 
   /** Campo da basket e pista: un isolato sportivo. */

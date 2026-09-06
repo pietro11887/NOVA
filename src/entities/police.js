@@ -81,7 +81,9 @@ export class PoliceManager {
     // ---- popolamento pattuglie
     this.spawnCd -= dt;
     const wantCars = wanted === 0 ? 0 : clamp(wanted, 1, MAX_CARS);
-    if (this.activeCars.length < wantCars && this.spawnCd <= 0) {
+    // mentre il giocatore sta seminando non arrivano rinforzi, altrimenti
+    // non si riuscirebbe mai a far scendere le stelle
+    if (this.activeCars.length < wantCars && this.spawnCd <= 0 && !game.evading) {
       this._spawnCar();
       this.spawnCd = 3.5 - wanted * 0.4;
     }
@@ -162,6 +164,13 @@ export class PoliceManager {
         if (rel > 7) { p.damage(rel * 0.35, 'polizia'); game.audio.crash(rel); }
       }
     }
+  }
+
+  /** Fine dell'inseguimento: le pattuglie si ritirano. */
+  standDown() {
+    for (const v of this.cars) { v.active = false; v.mesh.visible = false; v.copsOut = false; }
+    for (const c of this.cops) { c.active = false; c.mesh.visible = false; }
+    this.arrestT = 0;
   }
 
   /** Il poliziotto piu' vicino (per colpi del giocatore). */
