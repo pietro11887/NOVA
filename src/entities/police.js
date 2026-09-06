@@ -1,4 +1,4 @@
-import { clamp, rand, randInt, angleDelta } from '../core/utils.js';
+import { clamp, rand, randInt } from '../core/utils.js';
 import { Vehicle } from './vehicle.js';
 import { Ped } from './pedestrian.js';
 import { driveTo } from './traffic.js';

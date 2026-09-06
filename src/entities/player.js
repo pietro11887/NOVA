@@ -168,7 +168,9 @@ export class Player {
     car.doorPos(TMP);
     this.x = TMP.x; this.z = TMP.z;
     if (this.city.resolve(this.x, this.z, 0.45, TMP)) { this.x = TMP.x; this.z = TMP.z; }
-    this.a = car.a + Math.PI / 2;
+    // si scende guardando nella stessa direzione dell'auto: la camera resta
+    // dietro le spalle invece di finire dentro la carrozzeria
+    this.a = car.a;
     this.speed = 0;
     this.mesh.position.set(this.x, 0, this.z);
     this.mesh.visible = true;
@@ -179,6 +181,8 @@ export class Player {
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
   attack() {
     if (this.dead || this.inCar) return;
+    // da fermi si mira dove guarda la camera: sparare "di lato" e' frustrante
+    if (this.speed < 1.2) this.a = this.camYaw;
     if (this.weapon === 'pistol' && this.ammo > 0) {
       if (this.shootCd > 0) return;
       this.shootCd = 0.32;

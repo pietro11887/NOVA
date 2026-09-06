@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CFG, road } from './core/config.js';
-import { clamp, lerp, rand, pick, IS_TOUCH, IS_MOBILE } from './core/utils.js';
+import { CFG } from './core/config.js';
+import { clamp, lerp, IS_TOUCH, IS_MOBILE } from './core/utils.js';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
-import { initModels, makeCar } from './world/models.js';
+import { initModels } from './world/models.js';
 import { InteriorManager, SHOP_MENUS } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
@@ -435,7 +435,10 @@ class Game {
       this.hud.prompt('<b>E</b> scendi dal veicolo');
       this.hud.touchLabels('ESCI', 'CLACSON', 'FRENO');
       if (act) p.exitCar();
-      else if (this.input.btn.attack) this.audio.horn();
+      else if (this.input.btn.attack && this.time - (this._hornT || -9) > 0.45) {
+        this._hornT = this.time;
+        this.audio.horn();
+      }
       return;
     }
 
@@ -444,7 +447,9 @@ class Game {
     const dDoor = door ? Math.hypot(door.x - p.x, door.z - p.z) : 99;
     const dCar = car ? Math.hypot(car.x - p.x, car.z - p.z) : 99;
 
-    if (door && dDoor <= dCar) {
+    // se sei praticamente addosso a un'auto vince l'auto: e' quello che
+    // ci si aspetta quando si e' fermi accanto a una portiera
+    if (door && dDoor <= dCar - 1.2) {
       this.hud.prompt(`<b>E</b> entra in ${door.name}`);
       this.hud.touchLabels('ENTRA', p.weapon === 'pistol' ? 'SPARA' : 'COLPO', 'SALTA');
       if (act) this.enterDoor(door);

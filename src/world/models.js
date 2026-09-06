@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GeoBuilder, pick, rand } from '../core/utils.js';
+import { GeoBuilder, pick } from '../core/utils.js';
 
 /* ------------------------------------------------------------------ auto */
 

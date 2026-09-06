@@ -55,7 +55,6 @@ export class City {
     this.walkNodes = [];      // grafo marciapiedi (pedoni)
     this.roadNodes = [];      // grafo stradale (veicoli)
     this.parkSpots = [];      // posti auto in sosta
-    this.lamps = [];
     this._tmp = [];
     this.limit = 620;          // confine invalicabile del mondo
     this.rng = mulberry32(1987);
@@ -351,7 +350,6 @@ export class City {
     props.box(x + arm, h, z, Math.abs(arm) * 2 + 0.3, 0.18, 0.18, 0x4d5460);
     glow.box(x + arm * 2, h - 0.15, z, 0.7, 0.25, 0.7, 0xffcc70);
     glow.quadY(x + arm * 2 - 4, z - 4, x + arm * 2 + 4, z + 4, 0.06, 0x3a2a10);
-    this.lamps.push({ x: x + arm * 2, z });
     this._collider(x, z, 0.2, 0.2);
   }
 

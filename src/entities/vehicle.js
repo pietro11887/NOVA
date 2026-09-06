@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, rand, pick } from '../core/utils.js';
+import { clamp, pick } from '../core/utils.js';
 import { makeCar, CAR_TYPES, CAR_COLORS } from '../world/models.js';
 
 const TMP = { x: 0, z: 0 };
@@ -28,9 +28,6 @@ export class Vehicle {
     this.health = 100;
     this.driver = null;         // 'player' | ped | null
     this.locked = false;
-    this.hornT = 0;
-    this.flash = 0;
-    this.wanted = false;
 
     this.topSpeed = 27 * this.spec.speed;
     this.accel = 11 / this.spec.mass;

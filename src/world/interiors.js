@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GeoBuilder, clamp, rand } from '../core/utils.js';
+import { GeoBuilder, clamp } from '../core/utils.js';
 import { makeCharacter, animateCharacter } from './models.js';
 
 const ORIGIN = { x: 0, z: 4000 };   // gli interni vivono lontano dalla citta'

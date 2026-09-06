@@ -5,7 +5,7 @@ import { CFG } from '../core/config.js';
 
 const TMP = { x: 0, z: 0 };
 
-const CHATTER = [
+export const CHATTER = [
   'Hai visto che traffico oggi?',
   'Il caffè qui è il migliore della città.',
   'Domani mi licenzio, giuro.',
@@ -105,6 +105,12 @@ export class Ped {
       case 'idle': {
         this.timer -= dt;
         this.speed = clamp(this.speed - dt * 4, 0, 10);
+        this.talkT -= dt;
+        // ogni tanto uno dei bot fermi dice la sua, se sei abbastanza vicino
+        if (this.talkT <= 0 && this.role === 'civil') {
+          this.talkT = 6;
+          if (Math.hypot(this.x - p.x, this.z - p.z) < 11 && Math.random() < 0.2) game.subtitle(pick(CHATTER));
+        }
         if (this.timer <= 0) { this.state = 'walk'; this._nextTarget(); }
         break;
       }
@@ -209,4 +215,3 @@ export class PedManager {
   }
 }
 
-export { CHATTER };
