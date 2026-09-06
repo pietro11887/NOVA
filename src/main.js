@@ -116,9 +116,16 @@ class Game {
 
     await step(64, 'Sveglio gli abitanti…');
     this.player = new Player(this);
-    // si parte in centro citta', sul marciapiede piu' vicino all'origine
+    // si parte in centro citta', su un marciapiede lontano dai pali
+    // dell'incrocio: cosi' la camera ravvicinata non nasce dietro un palo
     let start = this.city.walkNodes[0], bd = Infinity;
     for (const n of this.city.walkNodes) {
+      let near = Infinity;
+      for (const r of this.city.roadNodes) {
+        near = Math.min(near, Math.hypot(r.x - n.x, r.z - n.z));
+        if (near < 15) break;
+      }
+      if (near < 15) continue;
       const d = n.x * n.x + n.z * n.z;
       if (d < bd) { bd = d; start = n; }
     }

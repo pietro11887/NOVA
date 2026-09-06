@@ -15046,7 +15046,7 @@ var Player = class {
     this.respawnT = 0;
     this.camYaw = 0;
     this.camPitch = 0.22;
-    this.camDist = 4.3;
+    this.camDist = 3.5;
     this.indoor = false;
     this.camPos = new Ui(0, 5, 10);
     this.camLook = new Ui();
@@ -15229,8 +15229,8 @@ var Player = class {
       const align = clamp(Math.abs(this.car.speed) / 12, 0, 1) * (this.car.speed > 0 ? 1 : 0);
       this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt2 * 2.4, 0, 0.14);
     }
-    const dist = this.indoor ? 4 : dead ? 5.5 : inCar ? 6.4 + Math.abs(this.car.speed) * 0.09 : this.camDist;
-    const height = this.indoor ? 0.9 : dead ? 2.6 : inCar ? 2.35 : 1.75;
+    const dist = this.indoor ? 3.4 : dead ? 5 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 2.15 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1 : 1.25) + this.y;
     const cp = Math.cos(this.camPitch);
@@ -16511,6 +16511,12 @@ var Game = class {
     this.player = new Player(this);
     let start = this.city.walkNodes[0], bd2 = Infinity;
     for (const n of this.city.walkNodes) {
+      let near = Infinity;
+      for (const r of this.city.roadNodes) {
+        near = Math.min(near, Math.hypot(r.x - n.x, r.z - n.z));
+        if (near < 15) break;
+      }
+      if (near < 15) continue;
       const d2 = n.x * n.x + n.z * n.z;
       if (d2 < bd2) {
         bd2 = d2;

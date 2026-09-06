@@ -31,7 +31,7 @@ export class Player {
 
     this.camYaw = 0;
     this.camPitch = 0.22;
-    this.camDist = 4.3;
+    this.camDist = 3.5;
     this.indoor = false;
     this.camPos = new THREE.Vector3(0, 5, 10);
     this.camLook = new THREE.Vector3();
@@ -209,8 +209,8 @@ export class Player {
       this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt * 2.4, 0, 0.14);
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
-    const dist = this.indoor ? 4.0 : dead ? 5.5 : inCar ? 6.4 + Math.abs(this.car.speed) * 0.09 : this.camDist;
-    const height = this.indoor ? 0.9 : dead ? 2.6 : inCar ? 2.35 : 1.75;
+    const dist = this.indoor ? 3.4 : dead ? 5.0 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 2.15 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1.0 : 1.25) + this.y;
 
