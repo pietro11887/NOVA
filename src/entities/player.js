@@ -24,6 +24,7 @@ export class Player {
     this.ammo = 0;
     this.car = null;
     this.punchT = 0;
+    this.hitT = 0;
     this.shootCd = 0;
     this.stepT = 0;
     this.dead = false;
@@ -48,6 +49,7 @@ export class Player {
 
   damage(n, cause) {
     if (this.dead) return;
+    this.hitT = 0.42;
     const toArmor = Math.min(this.armor, n * 0.65);
     this.armor -= toArmor;
     this.health -= (n - toArmor);
@@ -83,6 +85,7 @@ export class Player {
 
     this._camera(dt, false);
     if (this.punchT > 0) this.punchT -= dt * 2.6;
+    if (this.hitT > 0) this.hitT -= dt;
     if (this.shootCd > 0) this.shootCd -= dt;
   }
 
@@ -122,7 +125,14 @@ export class Player {
 
     this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = this.a;
-    animateCharacter(this.mesh, this.speed, this.game.time, this.punchT > 0 ? 'walk' : 'walk', this.punchT);
+    let anim = 'walk';
+    if (this.hitT > 0 && this.punchT <= 0) {
+      anim = 'flinch';
+      this.mesh.userData.actionT = 1 - clamp(this.hitT / 0.42, 0, 1);
+    } else if (this.weapon === 'pistol' && this.shootCd > 0.05) {
+      anim = 'aim';
+    }
+    animateCharacter(this.mesh, this.speed, this.game.time, anim, this.punchT);
     this.mesh.visible = true;
   }
 

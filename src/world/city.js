@@ -76,6 +76,7 @@ export class City {
     this.parkSpots = [];
     this.lamps = [];
     this.landmarks = [];
+    this.benches = [];
     this.limit = 620;
     this._tmp = [];
     this.rng = mulberry32(20260906);
@@ -363,6 +364,7 @@ export class City {
 
         this._streetProps(b, i, j, B, rng);
         B.props.finish(this.group, this.mats);
+        for (const bench of B.props.benches) this.benches.push(bench);
         this._flush(B);
       }
     }

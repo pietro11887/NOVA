@@ -138,7 +138,8 @@ export class PoliceManager {
     for (const c of this.cops) {
       if (!c.active) continue;
       if (c.state === 'down' && c.timer <= 0) { c.active = false; c.mesh.visible = false; continue; }
-      if (c.state !== 'down') c.state = p.dead ? 'idle' : 'chase';
+      const busy = c.state === 'down' || c.state === 'getup' || c.state === 'flinch';
+      if (!busy) c.state = p.dead ? 'idle' : 'chase';
       c.update(dt, game);
       if (Math.hypot(c.x - p.x, c.z - p.z) > 160) { c.active = false; c.mesh.visible = false; }
     }

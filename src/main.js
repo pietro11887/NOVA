@@ -6,7 +6,7 @@ import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
 import { SkySystem } from './world/sky.js';
 import { Post } from './systems/post.js';
-import { initModels, dressCharacter } from './world/models.js';
+import { initModels, dressCharacter, animateCharacter } from './world/models.js';
 import { InteriorManager, SHOP_MENUS } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
@@ -750,7 +750,20 @@ class Game {
     } else this.wantedT = 0;
   }
 
-  alarm(x, z, r) { this.peds.alarm(x, z, r); }
+  alarm(x, z, r, source = null) { this.peds.alarm(x, z, r, source); }
+
+  /**
+   * Un passante ha visto tutto e chiama la polizia. Una sola chiamata ogni
+   * tanto, altrimenti bastano due risse per avere cinque stelle.
+   */
+  witnessCall(ped) {
+    if (this.time - (this._witnessT || -99) < 20) return false;
+    if (Math.hypot(ped.x - this.player.x, ped.z - this.player.z) > 45) return false;
+    this._witnessT = this.time;
+    this.addWanted(1, 'testimone');
+    this.toast('Un passante ha chiamato la polizia', 'bad');
+    return true;
+  }
   toast(m, k) { this.hud.toast(m, k); }
   subtitle(m) { this.hud.subtitle(m); }
 
@@ -841,4 +854,5 @@ class Game {
 
 const game = new Game();
 window.game = game;
+window.__anim = animateCharacter;   // usato dai test delle pose
 game.boot();

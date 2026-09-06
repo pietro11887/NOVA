@@ -90,8 +90,16 @@ Tutto è generato a runtime, senza un solo file di asset:
   ambulanze seguono il grafo stradale, tengono la destra,
   si fermano al rosso e in coda, suonano il clacson. Le auto in sosta si
   possono rubare; quelle in marcia anche, ma costa una stella.
-- **Pedoni** che camminano sui marciapiedi, attraversano agli incroci,
-  scappano quando succede qualcosa e vengono investiti se guidi male.
+- **Pedoni con un carattere**: ognuno nasce pauroso, curioso, coraggioso o
+  indifferente, e reagisce di conseguenza. Fermi non stanno impalati:
+  telefonano, fumano, chiacchierano a coppie, salutano, si appoggiano al
+  muro o si siedono sulle panchine.
+- **Reazioni ai colpi**: chi viene colpito prima sussulta, poi decide — il
+  coraggioso mette su la guardia e ti tira i pugni, gli altri scappano con
+  le braccia in aria. Chi è vicino si accuccia, scappa o resta a filmare
+  col telefono; il curioso dopo qualche secondo **chiama la polizia** e ti
+  becchi una stella. Chi finisce a terra si rialza e scappa, se non l'hai
+  conciato troppo male.
 - **Polizia**: ogni crimine alza il livello di ricercato (fino a 5 stelle).
   Arrivano le volanti, scendono gli agenti, ti sparano e possono arrestarti
   (multa e stelle azzerate). Se li semini abbastanza a lungo, le stelle calano.

@@ -475,44 +475,161 @@ export function makeCharacter(opts = {}) {
   group.userData.parts = { torso, larm, rarm, lleg, rleg };
   group.userData.mats = { skin, shirt, pants, hairMat };
   group.userData.colors = colors;
+  group.userData.phase = Math.random() * 6.28;
   return group;
 }
 
-/** Camminata, corsa, pugno, mira, seduto, caduta. */
+/**
+ * Animazione procedurale. Oltre a camminata e corsa gestisce i gesti di
+ * chi sta fermo (parla, telefona, fuma, saluta, appoggiato al muro) e le
+ * reazioni: sussulto, guardia, terrore, caduta e rialzata.
+ * Il progresso delle azioni una tantum si legge da userData.actionT (0..1).
+ */
 export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   const p = group.userData.parts;
   if (!p) return;
+  const at = group.userData.actionT || 0;
+  const ph = group.userData.phase || 0;   // sfasamento per non muoversi tutti uguali
 
-  if (state === 'down') {
-    group.rotation.z = -Math.PI / 2.05;
-    group.position.y = 0.32;
-    p.larm.rotation.set(0.5, 0, 0.4);
-    p.rarm.rotation.set(-0.7, 0, -0.3);
-    p.lleg.rotation.set(0.35, 0, 0);
-    p.rleg.rotation.set(-0.15, 0, 0.2);
+  const reset = () => {
+    group.rotation.z = 0;
     p.torso.rotation.set(0, 0, 0);
+    p.larm.rotation.set(0, 0, 0.12);
+    p.rarm.rotation.set(0, 0, -0.12);
+    p.lleg.rotation.set(0, 0, 0.02);
+    p.rleg.rotation.set(0, 0, -0.02);
+  };
+
+  // ---- a terra e rialzata
+  if (state === 'down' || state === 'getup') {
+    const k = state === 'down' ? 1 : 1 - Math.min(at, 1);
+    group.rotation.z = -Math.PI / 2.05 * k;
+    group.position.y = 0.32 * k;
+    p.larm.rotation.set(0.5 * k, 0, 0.4 * k);
+    p.rarm.rotation.set(-0.7 * k, 0, -0.3 * k);
+    p.lleg.rotation.set(0.35 * k, 0, 0);
+    p.rleg.rotation.set(-0.15 * k, 0, 0.2 * k);
+    p.torso.rotation.set(0.3 * k, 0, 0);
     return;
   }
-  group.rotation.z = 0;
+  group.position.y = 0;
 
+  // ---- reazioni brevi
+  if (state === 'flinch') {
+    const k = Math.sin(Math.min(at, 1) * Math.PI);
+    reset();
+    p.torso.rotation.x = -0.5 * k;
+    p.torso.rotation.y = 0.25 * k;
+    p.larm.rotation.set(-1.5 * k, 0, 0.5 * k);
+    p.rarm.rotation.set(-1.3 * k, 0, -0.6 * k);
+    p.lleg.rotation.x = 0.2 * k;
+    p.rleg.rotation.x = -0.25 * k;
+    return;
+  }
+  if (state === 'cower') {
+    const b = Math.sin(t * 7 + ph) * 0.04;
+    reset();
+    p.torso.rotation.x = 0.55 + b;
+    p.larm.rotation.set(-2.5, 0, 0.7);
+    p.rarm.rotation.set(-2.5, 0, -0.7);
+    p.lleg.rotation.x = 0.45;
+    p.rleg.rotation.x = 0.45;
+    return;
+  }
+  if (state === 'fight') {
+    const b = Math.sin(t * 6 + ph);
+    reset();
+    p.torso.rotation.y = -0.3;
+    p.larm.rotation.set(-1.25 + b * 0.12, 0, 0.55);
+    p.rarm.rotation.set(-1.15 - b * 0.12, 0, -0.5);
+    p.lleg.rotation.x = 0.22;
+    p.rleg.rotation.x = -0.22;
+    if (punchT > 0) {
+      const k = Math.sin(Math.min(punchT, 1) * Math.PI);
+      p.rarm.rotation.set(-1.75 * k - 0.3, 0, -0.15 - 0.3 * k);
+      p.torso.rotation.y = -0.3 - 0.35 * k;
+    }
+    return;
+  }
+
+  // ---- gesti di chi sta fermo
+  const idleBob = Math.sin(t * 1.5 + ph) * 0.02;
+  if (state === 'talk' || state === 'phone' || state === 'smoke' || state === 'wave' ||
+      state === 'lean' || state === 'watch' || state === 'sit' || state === 'aim') {
+    reset();
+    p.torso.position.y = 0.98 + idleBob;
+    p.larm.position.y = 1.52 + idleBob;
+    p.rarm.position.y = 1.52 + idleBob;
+
+    if (state === 'talk') {
+      const g1 = Math.sin(t * 3.4 + ph), g2 = Math.sin(t * 2.1 + ph * 2);
+      p.rarm.rotation.set(-0.75 - g1 * 0.45, 0, -0.45 - g1 * 0.2);
+      p.larm.rotation.set(-0.35 - g2 * 0.3, 0, 0.35);
+      p.torso.rotation.y = g2 * 0.1;
+    } else if (state === 'phone') {
+      p.rarm.rotation.set(-2.35, 0, -0.55);
+      p.larm.rotation.set(-0.25, 0, 0.2);
+      p.torso.rotation.y = -0.12 + Math.sin(t * 1.2 + ph) * 0.06;
+      p.torso.rotation.z = 0.05;
+    } else if (state === 'smoke') {
+      const cycle = (Math.sin(t * 0.7 + ph) + 1) / 2;
+      const up = Math.pow(cycle, 4);
+      p.rarm.rotation.set(-0.4 - up * 1.9, 0, -0.3 - up * 0.35);
+      p.larm.rotation.set(-0.1, 0, 0.18);
+      p.torso.rotation.y = 0.08;
+    } else if (state === 'wave') {
+      p.rarm.rotation.set(-2.5, 0, -0.4 + Math.sin(t * 7 + ph) * 0.5);
+      p.larm.rotation.set(-0.15, 0, 0.2);
+    } else if (state === 'lean') {
+      p.torso.rotation.x = -0.14;
+      p.larm.rotation.set(-1.15, 0, 0.9);
+      p.rarm.rotation.set(-1.15, 0, -0.9);
+      p.lleg.rotation.x = -0.12;
+      p.rleg.rotation.set(0.1, 0, -0.35);
+    } else if (state === 'watch') {
+      p.rarm.rotation.set(-1.9, 0, -0.35);     // telefono alzato a filmare
+      p.larm.rotation.set(-1.6, 0, 0.4);
+      p.torso.rotation.x = -0.06;
+    } else if (state === 'sit') {
+      p.lleg.rotation.set(-1.4, 0, 0.12);
+      p.rleg.rotation.set(-1.4, 0, -0.12);
+      p.larm.rotation.set(-0.85, 0, 0.25);
+      p.rarm.rotation.set(-0.85, 0, -0.25);
+      p.torso.rotation.x = 0.12;
+    } else if (state === 'aim') {
+      p.rarm.rotation.set(-1.55, 0, -0.05);
+      p.larm.rotation.set(-1.35, 0, 0.25);
+      p.torso.rotation.y = -0.25;
+    }
+    return;
+  }
+
+  // ---- camminata / corsa
   const run = speed > 3.6;
+  const panic = state === 'panic';
   const f = Math.min(speed, 7) * (run ? 1.9 : 2.6) + 1.2;
   const amp = Math.min(0.28 + speed * 0.11, 1.05);
-  const sw = Math.sin(t * f) * amp;
-  const idle = Math.sin(t * 1.6) * 0.02;
+  const sw = Math.sin(t * f + ph) * amp;
 
   p.lleg.rotation.x = sw;
   p.rleg.rotation.x = -sw;
   p.lleg.rotation.z = 0.02;
   p.rleg.rotation.z = -0.02;
-  p.larm.rotation.x = -sw * 0.8;
-  p.rarm.rotation.x = sw * 0.8;
-  p.larm.rotation.z = 0.12 + Math.abs(sw) * 0.05;
-  p.rarm.rotation.z = -0.12 - Math.abs(sw) * 0.05;
-  p.torso.rotation.x = Math.min(speed * 0.024, 0.2);
+  if (panic) {
+    // braccia alzate: la corsa spaventata si riconosce da lontano
+    const flail = Math.sin(t * 11 + ph) * 0.35;
+    p.larm.rotation.set(-2.6 + flail, 0, 0.5);
+    p.rarm.rotation.set(-2.6 - flail, 0, -0.5);
+  } else {
+    p.larm.rotation.x = -sw * 0.8;
+    p.rarm.rotation.x = sw * 0.8;
+    p.larm.rotation.z = 0.12 + Math.abs(sw) * 0.05;
+    p.rarm.rotation.z = -0.12 - Math.abs(sw) * 0.05;
+  }
+  p.torso.rotation.x = Math.min(speed * 0.024, 0.2) + (panic ? 0.12 : 0);
   p.torso.rotation.y = -sw * 0.12;
 
-  const bob = Math.abs(Math.sin(t * f)) * Math.min(speed * 0.014, 0.06) + idle;
+  const bob = Math.abs(Math.sin(t * f + ph)) * Math.min(speed * 0.014, 0.06) + idleBob;
   p.torso.position.y = 0.98 + bob;
   p.larm.position.y = 1.52 + bob;
   p.rarm.position.y = 1.52 + bob;
@@ -522,17 +639,6 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
     p.rarm.rotation.x = -1.75 * k;
     p.rarm.rotation.z = -0.12 - 0.35 * k;
     p.torso.rotation.y = -0.35 * k;
-  }
-  if (state === 'aim') {
-    p.rarm.rotation.set(-1.55, 0, -0.05);
-    p.larm.rotation.set(-1.35, 0, 0.25);
-    p.torso.rotation.y = -0.25;
-  }
-  if (state === 'sit') {
-    p.lleg.rotation.x = -1.4; p.rleg.rotation.x = -1.4;
-    p.lleg.rotation.z = 0.12; p.rleg.rotation.z = -0.12;
-    p.larm.rotation.x = -0.9; p.rarm.rotation.x = -0.9;
-    p.torso.rotation.x = 0.12;
   }
 }
 

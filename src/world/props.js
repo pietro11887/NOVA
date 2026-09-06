@@ -73,6 +73,7 @@ export class Props {
     this.fronds = [];     // matrici delle foglie di palma
     this.leaves = [];     // chiome degli alberi
     this.lampPos = [];
+    this.benches = [];
   }
 
   /** Palma: tronco curvo + corona di foglie. */
@@ -200,6 +201,7 @@ export class Props {
 
   bench(x, z, dir) {
     const det = this.B.detail;
+    this.benches.push({ x, z, dir });
     const ax = -Math.sin(dir), az = -Math.cos(dir);      // lungo la seduta
     for (const s of [-1, 1]) {
       const lx = x + ax * s * 0.82, lz = z + az * s * 0.82;
