@@ -132,10 +132,13 @@ export class Vehicle {
 
   setNight(on) { this.mesh.userData.lights.visible = on; }
 
-  /** Lampeggianti della polizia. */
+  /** Lampeggianti della polizia: i due lati si alternano. */
   updateSiren(t) {
-    const bar = this.mesh.userData.bar;
-    if (bar) bar.material.color.setHex(Math.sin(t * 9) > 0 ? 0xff2020 : 0x2060ff);
+    const d = this.mesh.userData;
+    if (!d.bar) return;
+    const on = Math.sin(t * 9) > 0;
+    d.bar.material.color.setHex(on ? 0xff2020 : 0x2a0808);
+    d.bar2.material.color.setHex(on ? 0x0a1030 : 0x2060ff);
   }
 
   dispose(scene) {

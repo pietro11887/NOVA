@@ -4,7 +4,9 @@ import { clamp, lerp, IS_TOUCH, IS_MOBILE } from './core/utils.js';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
-import { initModels } from './world/models.js';
+import { SkySystem } from './world/sky.js';
+import { Post } from './systems/post.js';
+import { initModels, dressCharacter } from './world/models.js';
 import { InteriorManager, SHOP_MENUS } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
@@ -17,37 +19,48 @@ import { Missions } from './systems/missions.js';
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
-const SKY_DAY = new THREE.Color(0x86b6e8);
-const SKY_DUSK = new THREE.Color(0xe98c4e);
-const SKY_NIGHT = new THREE.Color(0x0a1020);
-
 class Game {
   constructor() {
     this.canvas = $('scene');
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas, antialias: !IS_MOBILE, powerPreference: 'high-performance', stencil: false,
     });
-    this.renderer.setClearColor(SKY_DAY);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.92;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.scene = new THREE.Scene();
     this.worldGroup = new THREE.Group();
     this.scene.add(this.worldGroup);
 
     this.quality = {
       mode: 'auto',
-      pixelRatio: Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2),
-      far: IS_MOBILE ? CFG.VIEW_FAR_MOBILE : CFG.VIEW_FAR_DESKTOP,
+      tier: IS_MOBILE ? 2 : 3,
+      pixelRatio: Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2),
       peds: IS_MOBILE ? CFG.PED_MAX_MOBILE : CFG.PED_MAX_DESKTOP,
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
+      shadows: true,
+      shadowMap: IS_MOBILE ? 1024 : 2048,
+      shadowRange: IS_MOBILE ? 46 : 74,
+      bloom: !IS_MOBILE,
+      grade: true,
     };
+    const forced = new URLSearchParams(location.search).get('q');
+    if (forced !== null) {
+      const map = { bassa: 0, media: 2, alta: 3, low: 0, mid: 2, high: 3 };
+      const t = map[forced] ?? parseInt(forced, 10);
+      if (!Number.isNaN(t)) {
+        this.quality.mode = 'forzata';
+        this.quality.tier = clamp(t, 0, 3);
+        this.quality.shadows = this.quality.tier >= 1;
+        this.quality.bloom = this.quality.tier >= 3;
+        if (this.quality.tier === 0) this.quality.pixelRatio = 1;
+      }
+    }
+    this.renderer.shadowMap.enabled = this.quality.shadows;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    this.camera = new THREE.PerspectiveCamera(IS_MOBILE ? 68 : 62, 1, 0.35, this.quality.far + 200);
-    this.scene.fog = new THREE.Fog(SKY_DAY.getHex(), this.quality.far * 0.35, this.quality.far);
-
-    this.hemi = new THREE.HemisphereLight(0xbcd6ff, 0x4a4536, 1.0);
-    this.sun = new THREE.DirectionalLight(0xfff0d0, 1.5);
-    this.sun.position.set(60, 120, 40);
-    this.scene.add(this.hemi, this.sun);
+    this.camera = new THREE.PerspectiveCamera(IS_MOBILE ? 66 : 60, 1, 0.4, 4200);
 
     this.time = 0;
     this.frame = 0;
@@ -61,6 +74,7 @@ class Game {
     this.fpsAvg = 60;
     this.saveT = 0;
     this._tmp = { x: 0, z: 0 };
+    this._focus = new THREE.Vector3();
     this.lastCar = null;
 
     this.audio = new Audio();
@@ -85,10 +99,14 @@ class Game {
       await nextFrame();
     };
 
-    await step(8, 'Preparo i materiali…');
-    initModels();
+    await step(6, 'Accendo il sole…');
+    this.sky = new SkySystem(this.scene, this.renderer, this.quality);
+    this.sky.update(this.clock, new THREE.Vector3());
 
-    await step(22, 'Costruisco strade e isolati…');
+    await step(12, 'Preparo i materiali…');
+    initModels(this.quality);
+
+    await step(24, 'Costruisco strade e isolati…');
     this.city = new City(this.quality).build();
     this.worldGroup.add(this.city.group);
 
@@ -114,9 +132,12 @@ class Game {
 
     await step(92, 'Distribuisco i lavori…');
     this.missions = new Missions(this);
+    this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
+    this._applyTier();
     this._tracers();
     this._headlightBeam();
     this._effects();
+    this._streetLights();
     this.load();
 
     await step(100, 'Pronto!');
@@ -135,6 +156,49 @@ class Game {
       this.scene.add(m);
       this.tracers.push({ mesh: m, life: 0 });
     }
+  }
+
+  /**
+   * Quattro lampioni "veri" che seguono il giocatore: le pozze di luce
+   * additive coprono la citta', queste danno il riflesso sull'asfalto.
+   */
+  _streetLights() {
+    this.streetLights = [];
+    const n = IS_MOBILE ? 2 : 4;
+    for (let i = 0; i < n; i++) {
+      const l = new THREE.PointLight(0xffd9a0, 0, 26, 1.6);
+      l.visible = false;
+      this.worldGroup.add(l);
+      this.streetLights.push(l);
+    }
+    this._lampT = 0;
+  }
+
+  _updateStreetLights(dt) {
+    if (!this.streetLights.length) return;
+    const night = this.sky.night;
+    if (night < 0.35 || this.interiors.current) {
+      for (const l of this.streetLights) l.visible = false;
+      return;
+    }
+    this._lampT -= dt;
+    if (this._lampT > 0) return;
+    this._lampT = 0.4;
+    const p = this.player;
+    const near = [];
+    for (const l of this.city.lamps) {
+      const d = (l.x - p.x) ** 2 + (l.z - p.z) ** 2;
+      if (d < 3600) near.push({ l, d });
+    }
+    near.sort((a, b) => a.d - b.d);
+    this.streetLights.forEach((light, i) => {
+      const t = near[i];
+      light.visible = !!t;
+      if (t) {
+        light.position.set(t.l.x, t.l.y, t.l.z);
+        light.intensity = 26 * night;
+      }
+    });
   }
 
   /** Cono di luce dei fari: rende guidabile la citta' di notte. */
@@ -272,12 +336,52 @@ class Game {
   }
 
   cycleQuality() {
-    const modes = ['auto', 'alta', 'bassa'];
+    const modes = ['auto', 'alta', 'media', 'bassa'];
     const i = (modes.indexOf(this.quality.mode) + 1) % modes.length;
     this.quality.mode = modes[i];
     $('btn-quality').textContent = `Qualità: ${modes[i][0].toUpperCase()}${modes[i].slice(1)}`;
-    if (modes[i] === 'alta') this.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-    if (modes[i] === 'bassa') this.setPixelRatio(1);
+    if (modes[i] === 'alta') this.setTier(3);
+    if (modes[i] === 'media') this.setTier(2);
+    if (modes[i] === 'bassa') this.setTier(0);
+  }
+
+  /**
+   * Livelli di qualita': 3 = tutto acceso, 2 = niente bloom,
+   * 1 = ombre corte, 0 = niente ombre, niente riflessi d'ambiente e
+   * nessuna post-produzione (per i telefoni piu' lenti).
+   */
+  setTier(tier) {
+    tier = clamp(tier, 0, 3);
+    if (tier === this.quality.tier) return;
+    this.quality.tier = tier;
+    this._applyTier();
+  }
+
+  _applyTier() {
+    const q = this.quality;
+    const tier = q.tier;
+    q.shadows = tier >= 1;
+    q.bloom = tier >= 3;
+    this.renderer.shadowMap.enabled = q.shadows;
+    if (this.sky) {
+      this.scene.environment = tier === 0 ? null : this.sky.env;
+      this.sky.sun.castShadow = q.shadows;
+      this.sky.quality.shadows = q.shadows;
+      this.sky.clouds.visible = tier >= 1;
+      if (q.shadows) {
+        const range = tier >= 3 ? (IS_MOBILE ? 46 : 74) : IS_MOBILE ? 34 : 52;
+        q.shadowRange = range;
+        const c = this.sky.sun.shadow.camera;
+        c.left = -range; c.right = range; c.top = range; c.bottom = -range;
+        c.updateProjectionMatrix();
+      }
+    }
+    if (this.post) {
+      this.post.enabled = tier >= 1 && this.post.hasPasses;
+      if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
+    }
+    this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   setPixelRatio(r) {
@@ -290,6 +394,7 @@ class Game {
     const w = innerWidth, h = innerHeight;
     this.renderer.setPixelRatio(this.quality.pixelRatio);
     this.renderer.setSize(w, h, false);
+    if (this.post) this.post.setSize(w, h, this.quality.pixelRatio);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     $('rotate')?.classList.toggle('hidden', !(IS_MOBILE && h > w * 1.15));
@@ -312,18 +417,19 @@ class Game {
       this._autoQuality(dt);
     }
     this.player.applyCamera(this.camera);
-    this.renderer.render(this.scene, this.camera);
+    if (this.post && this.post.enabled) this.post.render(dt);
+    else this.renderer.render(this.scene, this.camera);
   }
 
   _autoQuality(dt) {
     if (this.quality.mode !== 'auto') return;
     this._qT = (this._qT || 0) + dt;
-    if (this._qT < 4) return;
+    this._qUp = this._qUp || 0;
+    if (this._qT < 2.5) return;
     this._qT = 0;
-    if (this.fpsAvg < 34 && this.quality.pixelRatio > 1) this.setPixelRatio(1);
-    else if (this.fpsAvg > 55 && this.quality.pixelRatio < Math.min(devicePixelRatio || 1, 2)) {
-      this.setPixelRatio(Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2));
-    }
+    if (this.fpsAvg < 18) this.setTier(this.quality.tier - 2);
+    else if (this.fpsAvg < 30) this.setTier(this.quality.tier - 1);
+    else if (this.fpsAvg > 57 && this._qUp++ > 2) { this._qUp = 0; this.setTier(this.quality.tier + 1); }
   }
 
   update(dt) {
@@ -351,6 +457,7 @@ class Game {
 
     this._tracerUpdate(dt);
     this._effectsUpdate(dt);
+    this._updateStreetLights(dt);
     this._engineSound();
     if (p.dead && p.respawnT <= 0) this.respawn();
 
@@ -364,32 +471,22 @@ class Game {
   // -------------------------------------------------------------- ambiente
   _dayNight(dt) {
     this.clock = (this.clock + (dt / CFG.DAY_LENGTH) * 24) % 24;
-    const h = this.clock;
-    // elevazione del sole: 0 a mezzanotte, 1 a mezzogiorno
-    const elev = Math.sin(((h - 6) / 24) * Math.PI * 2);
-    const day = clamp(elev * 2.2 + 0.35, 0, 1);
-    const dusk = clamp(1 - Math.abs(elev) * 4, 0, 1);
-    const night = 1 - day;
-
-    const sky = new THREE.Color().copy(SKY_NIGHT).lerp(SKY_DAY, day).lerp(SKY_DUSK, dusk * 0.55);
-    this.renderer.setClearColor(sky);
-    this.scene.fog.color.copy(sky);
-    this.scene.fog.near = this.quality.far * (0.3 + day * 0.1);
-    this.scene.fog.far = this.quality.far * (0.85 + day * 0.25);
-
-    const ang = ((h - 6) / 24) * Math.PI * 2;
-    this.sun.position.set(Math.cos(ang) * 150, Math.max(12, Math.sin(ang) * 160), 60);
-    this.sun.intensity = 0.25 + day * 1.35;
-    this.sun.color.setHex(dusk > 0.4 ? 0xffb066 : 0xfff0d0);
-    this.hemi.intensity = 0.35 + day * 0.75;
-    this.hemi.color.setHex(day > 0.5 ? 0xbcd6ff : 0x2a3a5a);
+    const p = this.player;
+    this._focus.set(p.x, 0, p.z);
+    this.sky.update(this.clock, this._focus);
+    this.sky.follow(this.camera.position);
+    const night = this.sky.night;
 
     this.city.setNight(night);
+    this.city.animate(this.time);
+    if (this.post) this.post.setNight(night);
+    this.renderer.toneMappingExposure = 0.98 - this.sky.day * 0.14;
+
     if (this.interiors.current) {   // dentro un locale l'illuminazione e' costante
-      this.sun.intensity = 0.55;
-      this.hemi.intensity = 1.05;
-      this.hemi.color.setHex(0xf3f0e8);
-      this.scene.fog.near = 60; this.scene.fog.far = 400;
+      this.sky.sun.intensity = 0.5;
+      this.sky.hemi.intensity = 1.0;
+      this.sky.hemi.color.setHex(0xf3f0e8);
+      this.scene.fog.density = 0.0004;
     }
     const lightsOn = night > 0.42;
     if (this.beam) {
@@ -509,9 +606,7 @@ class Game {
   }
 
   dressPlayer(shirt, pants) {
-    const m = this.player.mesh.userData.mats;
-    m.shirt.color.setHex(shirt);
-    m.pants.color.setHex(pants);
+    dressCharacter(this.player.mesh, shirt, pants);
   }
 
   repairLastCar() {

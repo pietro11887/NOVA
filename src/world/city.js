@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { CFG, road, blockBounds, WORLD_MIN, WORLD_MAX } from '../core/config.js';
-import { GeoBuilder, mulberry32, clamp } from '../core/utils.js';
-import { facadeTextures, roadTexture, pavementTexture, grassTexture, signTexture } from './textures.js';
+import { GeoBuilder, mulberry32, clamp, rand, randInt, pick } from '../core/utils.js';
+import * as TX from './textures.js';
+import { Props } from './props.js';
+import { tower, midrise, house, strip, awning, entrance } from './buildings.js';
 
-const HALF = CFG.ROAD / 2;          // 8  -> distanza dal centro strada al bordo isolato
-const DRIVE = HALF - CFG.WALK;      // 5  -> mezza carreggiata asfaltata
-const WALKC = HALF - CFG.WALK / 2;  // 6.5-> centro del marciapiede
+const HALF = CFG.ROAD / 2;          // 8   bordo isolato dal centro strada
+const DRIVE = HALF - CFG.WALK;      // 5   mezza carreggiata
+const WALKC = HALF - CFG.WALK / 2;  // 6.5 centro marciapiede
+const CURB = 0.17;                  // altezza del cordolo
 
 const SHOP_KINDS = [
   { type: 'burger',   name: 'BURGER SHOT',  color: '#ff7a3d' },
@@ -14,11 +17,17 @@ const SHOP_KINDS = [
   { type: 'ammu',     name: 'AMMU NOVA',    color: '#ff4d5e' },
   { type: 'clothes',  name: 'THREADS',      color: '#e46bff' },
   { type: 'bar',      name: 'BAR LUNA',     color: '#ffd23f' },
-  { type: 'garage',   name: 'GARAGE PIT',   color: '#9fb2c8' },
+  { type: 'garage',   name: 'GARAGE PIT',   color: '#ffb020' },
   { type: 'home',     name: 'CASA',         color: '#ffe9a8' },
 ];
 
-/** Indice spaziale per le collisioni statiche. */
+const BILLBOARDS = [
+  ['NOVA COLA', 'la sete non dorme'],
+  ['SUNSET MOTEL', 'camere dalle 19'],
+  ['RADIO 104.7', 'solo successi'],
+  ['VISITA LA COSTA', 'spiaggia est'],
+];
+
 class HashGrid {
   constructor(cell = 24) { this.cell = cell; this.map = new Map(); }
   key(cx, cz) { return cx * 8192 + cz; }
@@ -51,350 +60,603 @@ export class City {
     this.quality = quality;
     this.group = new THREE.Group();
     this.grid = new HashGrid(24);
-    this.doors = [];          // ingressi dei locali
-    this.walkNodes = [];      // grafo marciapiedi (pedoni)
-    this.roadNodes = [];      // grafo stradale (veicoli)
-    this.parkSpots = [];      // posti auto in sosta
+    this.doors = [];
+    this.walkNodes = [];
+    this.roadNodes = [];
+    this.parkSpots = [];
+    this.lamps = [];
+    this.limit = 620;
     this._tmp = [];
-    this.limit = 620;          // confine invalicabile del mondo
-    this.rng = mulberry32(1987);
+    this.rng = mulberry32(20260906);
+    this.beachRow = CFG.N - 1;      // ultima fila di isolati: spiaggia
   }
 
   build() {
-    const fac = facadeTextures();
-    this.facadeMat = new THREE.MeshLambertMaterial({
-      map: fac.day, emissiveMap: fac.night, emissive: 0x000000, vertexColors: true,
-    });
-    this.detailMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-    this.roadMat = new THREE.MeshLambertMaterial({ map: roadTexture(), vertexColors: true });
-    this.walkMat = new THREE.MeshLambertMaterial({ map: pavementTexture(), vertexColors: true });
-    this.grassMat = new THREE.MeshLambertMaterial({ map: grassTexture(), vertexColors: true });
-    this.glowMat = new THREE.MeshBasicMaterial({
-      vertexColors: true, transparent: true, opacity: 0.9,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-
-    this._buildGround();
-    this._buildRoads();
-    this._buildBlocks();
-    this._buildGraphs();
+    this._materials();
+    this._ground();
+    this._roads();
+    this._blocks();
+    this._graphs();
     return this;
   }
 
-  // ---------------------------------------------------------------- terreno
-  _buildGround() {
-    const size = (WORLD_MAX - WORLD_MIN) + 900;
-    const g = new THREE.PlaneGeometry(size, size);
-    g.rotateX(-Math.PI / 2);
-    const m = new THREE.MeshLambertMaterial({ color: 0x38452f });
-    const ground = new THREE.Mesh(g, m);
-    ground.position.y = -0.12;
-    ground.renderOrder = -1;
-    this.group.add(ground);
+  // ------------------------------------------------------------- materiali
+  _materials() {
+    const std = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, ...o });
+    const facade = (style) => {
+      const s = TX.facadeSet(style);
+      return std({
+        map: s.map, normalMap: s.normal, roughnessMap: s.roughness, emissiveMap: s.emissive,
+        emissive: 0x000000, roughness: 1, metalness: style === 'office' ? 0.22 : 0.02,
+        envMapIntensity: style === 'office' ? 0.55 : 0.3,
+        normalScale: new THREE.Vector2(0.6, 0.6),
+      });
+    };
+    const store = TX.storefrontTexture();
+    const asphalt = TX.asphaltSet();
+    const walk = TX.sidewalkSet();
+    const sand = TX.sandTexture();
+    const bark = TX.palmBarkTexture();
+    const roof = TX.roofTexture();
 
-    // mare all'orizzonte per chiudere la scena
-    const sea = new THREE.Mesh(
-      new THREE.RingGeometry(Math.max(WORLD_MAX, -WORLD_MIN) + 340, 3000, 48),
-      new THREE.MeshLambertMaterial({ color: 0x16384f })
-    );
-    sea.rotateX(-Math.PI / 2);
-    sea.position.y = -0.4;
-    this.group.add(sea);
+    this.mats = {
+      office: facade('office'),
+      stucco: facade('stucco'),
+      brick: facade('brick'),
+      concrete: facade('concrete'),
+      store: std({
+        map: store.map, normalMap: store.normal, emissiveMap: store.emissive, emissive: 0x000000,
+        roughness: 0.6, metalness: 0.15, envMapIntensity: 0.5,
+      }),
+      detail: std({ roughness: 0.84, metalness: 0.06, envMapIntensity: 0.35 }),
+      roof: std({ map: roof.map, normalMap: roof.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),
+      road: std({
+        map: asphalt.map, normalMap: asphalt.normal, roughnessMap: asphalt.roughness,
+        roughness: 1, metalness: 0.0, envMapIntensity: 0.2,
+        normalScale: new THREE.Vector2(0.55, 0.55),
+      }),
+      paint: std({ roughness: 0.7, metalness: 0, envMapIntensity: 0.25 }),
+      walk: std({
+        map: walk.map, normalMap: walk.normal, roughness: 0.94, metalness: 0,
+        envMapIntensity: 0.22, normalScale: new THREE.Vector2(0.4, 0.4),
+      }),
+      grass: std({ map: TX.grassTexture(), roughness: 0.98, envMapIntensity: 0.3 }),
+      sand: std({ map: sand.map, normalMap: sand.normal, roughness: 0.95, envMapIntensity: 0.4 }),
+      foliage: std({ roughness: 0.95, metalness: 0, envMapIntensity: 0.4 }),
+      bark: std({ map: bark.map, normalMap: bark.normal, roughness: 0.92, envMapIntensity: 0.3 }),
+      frond: new THREE.MeshStandardMaterial({
+        map: TX.palmFrondTexture(), alphaTest: 0.42, side: THREE.DoubleSide,
+        roughness: 0.85, metalness: 0, envMapIntensity: 0.5,
+      }),
+      leaf: new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
+      water: new THREE.MeshStandardMaterial({
+        color: 0x1d6d92, roughness: 0.08, metalness: 0.5, envMapIntensity: 1.6,
+        normalMap: TX.waterNormal(), normalScale: new THREE.Vector2(0.35, 0.35),
+      }),
+      neon: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+      lamp: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+      glow: new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false,
+        blending: THREE.AdditiveBlending, toneMapped: false,
+      }),
+      redA: new THREE.MeshBasicMaterial({ color: 0xff2a2a, toneMapped: false }),
+      redB: new THREE.MeshBasicMaterial({ color: 0x3a0d0d, toneMapped: false }),
+      greenA: new THREE.MeshBasicMaterial({ color: 0x0d2a14, toneMapped: false }),
+      greenB: new THREE.MeshBasicMaterial({ color: 0x24d05a, toneMapped: false }),
+    };
+    this.mats.water.normalMap.repeat.set(24, 24);
+    this.facades = ['office', 'stucco', 'brick', 'concrete'];
   }
 
-  // ----------------------------------------------------------------- strade
-  _buildRoads() {
-    const rgb = new GeoBuilder();      // asfalto
-    const wgb = new GeoBuilder();      // marciapiedi
+  _mesh(geoBuilder, mat, { cast = true, receive = true } = {}) {
+    if (geoBuilder.empty) return null;
+    const m = new THREE.Mesh(geoBuilder.build(), mat);
+    m.castShadow = cast && this.quality.shadows;
+    m.receiveShadow = receive && this.quality.shadows;
+    this.group.add(m);
+    return m;
+  }
+
+  // --------------------------------------------------------------- terreno
+  _ground() {
+    const span = (WORLD_MAX - WORLD_MIN) + 700;
+    const g = new THREE.PlaneGeometry(span, span, 1, 1);
+    g.rotateX(-Math.PI / 2);
+    // materiale dedicato: quello dell'erba usa i vertex color, che questo
+    // piano non ha (e senza attributo il terreno veniva nero)
+    this.mats.ground = new THREE.MeshStandardMaterial({
+      map: this.mats.grass.map, roughness: 0.98, metalness: 0, envMapIntensity: 0.3,
+    });
+    const dirt = new THREE.Mesh(g, this.mats.ground);
+    dirt.position.set(0, -0.14, 0);
+    dirt.receiveShadow = this.quality.shadows;
+    this.mats.grass.map.repeat.set(span / 8, span / 8);
+    this.group.add(dirt);
+
+    // oceano: un piano enorme oltre la citta', con normal map animata
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), this.mats.water);
+    sea.rotateX(-Math.PI / 2);
+    sea.position.set(0, -0.55, WORLD_MAX + 3000 - 120);
+    this.group.add(sea);
+    this.sea = sea;
+
+    // spiaggia continua lungo tutto il lato sud
+    const sandGB = new GeoBuilder();
+    sandGB.quadY(WORLD_MIN - 200, WORLD_MAX - CFG.CELL - 4, WORLD_MAX + 200, WORLD_MAX + 120, -0.05,
+      0xffffff, (WORLD_MAX - WORLD_MIN + 400) / 10, (CFG.CELL + 124) / 10);
+    const beach = new THREE.Mesh(sandGB.build(), this.mats.sand);
+    beach.receiveShadow = this.quality.shadows;
+    this.group.add(beach);
+  }
+
+  // ---------------------------------------------------------------- strade
+  _roads() {
+    const rgb = new GeoBuilder();
+    const paint = new GeoBuilder();
+    const wgb = new GeoBuilder();
+    const det = new GeoBuilder();
     const N = CFG.N;
+    const T = 1 / 8;   // texture asfalto ogni 8 m
 
     for (let i = 0; i <= N; i++) {
-      const x = road(i);
-      // carreggiate lungo Z e lungo X (una striscia per l'intera lunghezza)
-      rgb.quadY(x - DRIVE, WORLD_MIN, x + DRIVE, WORLD_MAX, 0.02, 0xffffff, 1, (WORLD_MAX - WORLD_MIN) / 12);
-      const z = road(i);
-      rgb.quadY(WORLD_MIN, z - DRIVE, WORLD_MAX, z + DRIVE, 0.021, 0xffffff, (WORLD_MAX - WORLD_MIN) / 12, 1);
+      const x = road(i), z = road(i);
+      rgb.quadY(x - DRIVE, WORLD_MIN, x + DRIVE, WORLD_MAX, 0.0,
+        0xffffff, DRIVE * 2 * T, (WORLD_MAX - WORLD_MIN) * T);
+      rgb.quadY(WORLD_MIN, z - DRIVE, WORLD_MAX, z + DRIVE, 0.005,
+        0xffffff, (WORLD_MAX - WORLD_MIN) * T, DRIVE * 2 * T);
     }
 
-    // marciapiedi: un anello rialzato attorno a ogni isolato
-    for (let i = 0; i < N; i++) {
+    // --- segnaletica orizzontale
+    const dash = (x0, z0, x1, z1) => paint.quadY(x0, z0, x1, z1, 0.02, 0xe8e2c8);
+    const line = (x0, z0, x1, z1) => paint.quadY(x0, z0, x1, z1, 0.02, 0xe9e6dc);
+    for (let i = 0; i <= N; i++) {
+      const c = road(i);
       for (let j = 0; j < N; j++) {
-        const b = blockBounds(i, j);
-        const o = CFG.WALK;
-        wgb.box((b.x0 + b.x1) / 2, 0.07, b.z0 - o / 2, (b.x1 - b.x0) + o * 2, 0.14, o, 0xf0efe9, 0.25);
-        wgb.box((b.x0 + b.x1) / 2, 0.07, b.z1 + o / 2, (b.x1 - b.x0) + o * 2, 0.14, o, 0xf0efe9, 0.25);
-        wgb.box(b.x0 - o / 2, 0.07, (b.z0 + b.z1) / 2, o, 0.14, (b.z1 - b.z0), 0xf0efe9, 0.25);
-        wgb.box(b.x1 + o / 2, 0.07, (b.z0 + b.z1) / 2, o, 0.14, (b.z1 - b.z0), 0xf0efe9, 0.25);
-      }
-    }
-
-    // strisce pedonali agli incroci
-    for (let i = 0; i <= N; i++) {
-      for (let j = 0; j <= N; j++) {
-        const x = road(i), z = road(j);
-        for (let s = -1; s <= 1; s += 2) {
-          for (let k = -4; k <= 4; k++) {
-            if (k === 0) continue;
-            rgb.quadY(x + k * 1.0 - 0.32, z + s * (DRIVE + 0.6) - 1.6,
-                      x + k * 1.0 + 0.32, z + s * (DRIVE + 0.6) + 1.6, 0.05, 0xdedbcd, 1, 1);
-            rgb.quadY(x + s * (DRIVE + 0.6) - 1.6, z + k * 1.0 - 0.32,
-                      x + s * (DRIVE + 0.6) + 1.6, z + k * 1.0 + 0.32, 0.05, 0xdedbcd, 1, 1);
-          }
+        const a = road(j) + DRIVE + 2.4, b = road(j + 1) - DRIVE - 2.4;
+        // mezzeria tratteggiata
+        for (let t = a; t < b; t += 6) {
+          const e = Math.min(t + 3, b);
+          dash(c - 0.16, t, c + 0.16, e);
+          dash(t, c - 0.16, e, c + 0.16);
+        }
+        // linee di margine continue
+        for (const s of [-1, 1]) {
+          line(c + s * (DRIVE - 0.42) - 0.1, a, c + s * (DRIVE - 0.42) + 0.1, b);
+          line(a, c + s * (DRIVE - 0.42) - 0.1, b, c + s * (DRIVE - 0.42) + 0.1);
         }
       }
     }
 
-    const roadMesh = new THREE.Mesh(rgb.build(), this.roadMat);
-    roadMesh.frustumCulled = false;
-    this.group.add(roadMesh);
-    this.group.add(new THREE.Mesh(wgb.build(), this.walkMat));
+    // --- incroci: strisce pedonali e linee d'arresto
+    for (let i = 0; i <= N; i++) {
+      for (let j = 0; j <= N; j++) {
+        const x = road(i), z = road(j);
+        for (const s of [-1, 1]) {
+          for (let k = 0; k < 8; k++) {
+            const o = (k - 3.5) * 1.15;
+            paint.quadY(x + o - 0.34, z + s * (DRIVE + 0.9) - 1.5, x + o + 0.34, z + s * (DRIVE + 0.9) + 1.5, 0.02, 0xf0ece0);
+            paint.quadY(x + s * (DRIVE + 0.9) - 1.5, z + o - 0.34, x + s * (DRIVE + 0.9) + 1.5, z + o + 0.34, 0.02, 0xf0ece0);
+          }
+          // linea di arresto sulla corsia di destra
+          paint.quadY(x + (s > 0 ? 0.4 : -DRIVE + 0.5), z + s * (DRIVE + 2.6) - 0.25,
+            x + (s > 0 ? DRIVE - 0.5 : -0.4), z + s * (DRIVE + 2.6) + 0.25, 0.02, 0xf0ece0);
+          paint.quadY(x + s * (DRIVE + 2.6) - 0.25, z + (s > 0 ? -DRIVE + 0.5 : 0.4),
+            x + s * (DRIVE + 2.6) + 0.25, z + (s > 0 ? -0.4 : DRIVE - 0.5), 0.02, 0xf0ece0);
+        }
+        // tombino
+        det.box(x + 3.6, 0.015, z - 3.6, 0.8, 0.06, 0.8, 0x4a4a4a);
+        // frecce di corsia in avvicinamento all'incrocio
+        for (const s2 of [-1, 1]) {
+          const az = z + s2 * (DRIVE + 9);
+          const ax = x + s2 * 2.4;
+          paint.quadY(ax - 0.22, az - 1.5, ax + 0.22, az + 1.5, 0.021, 0xe9e6dc);
+          paint.quadY(ax - 0.62, az + s2 * 1.1, ax + 0.62, az + s2 * 1.5, 0.021, 0xe9e6dc);
+          const bx = x + s2 * (DRIVE + 9), bz = z - s2 * 2.4;
+          paint.quadY(bx - 1.5, bz - 0.22, bx + 1.5, bz + 0.22, 0.021, 0xe9e6dc);
+          paint.quadY(bx + s2 * 1.1, bz - 0.62, bx + s2 * 1.5, bz + 0.62, 0.021, 0xe9e6dc);
+        }
+      }
+    }
+
+    // --- marciapiedi con cordolo
+    for (let i = 0; i < CFG.N; i++) {
+      for (let j = 0; j < CFG.N; j++) {
+        const b = blockBounds(i, j);
+        const o = CFG.WALK;
+        const strips = [
+          [(b.x0 + b.x1) / 2, b.z0 - o / 2, (b.x1 - b.x0) + o * 2, o],
+          [(b.x0 + b.x1) / 2, b.z1 + o / 2, (b.x1 - b.x0) + o * 2, o],
+          [b.x0 - o / 2, (b.z0 + b.z1) / 2, o, (b.z1 - b.z0)],
+          [b.x1 + o / 2, (b.z0 + b.z1) / 2, o, (b.z1 - b.z0)],
+        ];
+        for (const [cx, cz, sx, sz] of strips) {
+          wgb.box(cx, CURB / 2, cz, sx, CURB, sz, 0xffffff, 0.5);
+          // bordo del cordolo, leggermente piu' scuro e sporgente
+          const ex = sx > sz ? sx : 0.16, ez = sx > sz ? 0.16 : sz;
+          const dx = sx > sz ? 0 : (cx > b.cx ? -sx / 2 : sx / 2);
+          const dz = sx > sz ? (cz > b.cz ? -sz / 2 : sz / 2) : 0;
+          det.box(cx - dx, CURB / 2 + 0.005, cz - dz, ex, CURB + 0.01, ez, 0xcac4b6);
+        }
+      }
+    }
+
+    const r = this._mesh(rgb, this.mats.road, { cast: false });
+    if (r) r.frustumCulled = false;
+    this._mesh(paint, this.mats.paint, { cast: false });
+    this._mesh(wgb, this.mats.walk, { cast: false });
+    this._mesh(det, this.mats.detail, { cast: false });
   }
 
-  // ---------------------------------------------------------------- isolati
-  _buildBlocks() {
+  // -------------------------------------------------------------- isolati
+  _blocks() {
     const rng = this.rng;
-    const props = new GeoBuilder();
-    const glow = new GeoBuilder();
-    const grass = new GeoBuilder();
     const N = CFG.N, c = (N - 1) / 2;
     const shopQueue = [];
-    for (let k = 0; k < 40; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
+    for (let k = 0; k < 46; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
+
+    // builder globali per elementi sparsi su tutta la citta'
+    const G = this._newBuilders();
+    G.props = new Props(G);
+    const billboards = [];
 
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
         const b = blockBounds(i, j);
         const ring = Math.max(Math.abs(i - c), Math.abs(j - c));
-        const isPark = rng() < 0.10 && ring > 1;
-        const fgb = new GeoBuilder();
-        const dgb = new GeoBuilder();
+        const B = this._newBuilders();
+        B.props = new Props(B);
 
-        if (isPark) {
-          this._park(b, grass, props, glow, rng);
-        } else {
-          const district = ring <= 1.2 ? 'downtown' : ring <= 2.6 ? 'commercial' : 'suburb';
-          const lots = this._splitLot(b.x0 + 1, b.z0 + 1, b.x1 - 1, b.z1 - 1, district, rng);
-          for (const lot of lots) this._building(lot, district, fgb, dgb, glow, b, rng, shopQueue);
-        }
+        let kind;
+        if (j === this.beachRow) kind = 'beach';
+        else if (ring <= 1.2) kind = 'downtown';
+        else if (ring <= 2.6) kind = rng() < 0.12 ? 'park' : 'commercial';
+        else kind = rng() < 0.16 ? 'park' : rng() < 0.12 ? 'parking' : 'suburb';
 
-        if (!fgb.empty) {
-          const m = new THREE.Mesh(fgb.build(), this.facadeMat);
-          this.group.add(m);
-        }
-        if (!dgb.empty) this.group.add(new THREE.Mesh(dgb.build(), this.detailMat));
+        if (kind === 'beach') this._beachBlock(b, B, rng);
+        else if (kind === 'park') this._park(b, B, rng);
+        else if (kind === 'parking') this._parking(b, B, rng);
+        else this._builtBlock(b, kind, B, rng, shopQueue, billboards);
 
-        this._streetProps(i, j, b, props, glow, rng);
+        this._streetProps(b, i, j, B, rng);
+        B.props.finish(this.group, this.mats);
+        this._flush(B);
       }
     }
 
-    // lampioni e semafori agli incroci esterni
-    const bulbA = new GeoBuilder(), bulbB = new GeoBuilder();
+    // semafori e lampioni agli incroci
     for (let i = 0; i <= N; i++) {
-      for (let j = 0; j <= N; j++) this._intersection(road(i), road(j), props, bulbA, bulbB);
+      for (let j = 0; j <= N; j++) this._intersection(road(i), road(j), G.props);
     }
-    this.matA = new THREE.MeshBasicMaterial({ color: 0x24d05a });
-    this.matB = new THREE.MeshBasicMaterial({ color: 0xff2a2a });
-    this.group.add(new THREE.Mesh(bulbA.build(), this.matA));
-    this.group.add(new THREE.Mesh(bulbB.build(), this.matB));
-
-    this.group.add(new THREE.Mesh(props.build(), this.detailMat));
-    if (!grass.empty) this.group.add(new THREE.Mesh(grass.build(), this.grassMat));
-    this.glowMesh = new THREE.Mesh(glow.build(), this.glowMat);
-    this.glowMesh.frustumCulled = false;
-    this.glowMesh.visible = false;
-    this.group.add(this.glowMesh);
+    for (const bb of billboards) this._billboard(bb.x, bb.y, bb.z, bb.rot);
+    G.props.finish(this.group, this.mats);
+    this._flush(G);
   }
 
-  /** Suddivide l'isolato in lotti edificabili. */
-  _splitLot(x0, z0, x1, z1, district, rng, depth = 0) {
-    const w = x1 - x0, d = z1 - z0;
-    const min = district === 'suburb' ? 17 : district === 'commercial' ? 22 : 30;
-    if (depth > 2 || (w < min * 2 && d < min * 2) || (depth > 0 && rng() < 0.25)) {
-      return [{ x0, z0, x1, z1 }];
-    }
-    if (w >= d) {
-      const cut = x0 + w * (0.35 + rng() * 0.3);
-      return [...this._splitLot(x0, z0, cut - 0.6, z1, district, rng, depth + 1),
-              ...this._splitLot(cut + 0.6, z0, x1, z1, district, rng, depth + 1)];
-    }
-    const cut = z0 + d * (0.35 + rng() * 0.3);
-    return [...this._splitLot(x0, z0, x1, cut - 0.6, district, rng, depth + 1),
-            ...this._splitLot(x0, cut + 0.6, x1, z1, district, rng, depth + 1)];
+  _newBuilders() {
+    const B = {};
+    for (const k of ['office', 'stucco', 'brick', 'concrete', 'store', 'detail', 'paint',
+                     'neon', 'lamp', 'glow', 'foliage', 'bark', 'grass', 'sand', 'water', 'roof',
+                     'redA', 'redB', 'greenA', 'greenB']) B[k] = new GeoBuilder();
+    return B;
   }
 
-  _building(lot, district, fgb, dgb, glow, block, rng, shopQueue) {
-    const w = lot.x1 - lot.x0, d = lot.z1 - lot.z0;
-    if (w < 6 || d < 6) return;
-    const cx = (lot.x0 + lot.x1) / 2, cz = (lot.z0 + lot.z1) / 2;
-
-    let h, tint, roofTint;
-    if (district === 'downtown') {
-      h = 24 + rng() * 46;
-      tint = [0x8fa8c0, 0x9aa7b3, 0x7f93a8, 0xa8b5b0][(rng() * 4) | 0];
-      roofTint = 0x4a5560;
-    } else if (district === 'commercial') {
-      h = 9 + rng() * 14;
-      tint = [0xc9a68a, 0xb98d78, 0xd8cbb4, 0xa9b3a0, 0xcfc0a8][(rng() * 5) | 0];
-      roofTint = 0x5d564d;
-    } else {
-      h = 4.5 + rng() * 4;
-      tint = [0xe4d7bd, 0xd8b9a0, 0xc9d3c0, 0xefe2cf, 0xd6c3b0][(rng() * 5) | 0];
-      roofTint = 0x8a4b3a;
+  _flush(B) {
+    for (const k of ['office', 'stucco', 'brick', 'concrete', 'store']) {
+      this._mesh(B[k], this.mats[k]);
     }
-
-    const bw = w - 1.2, bd = d - 1.2;
-    fgb.box(cx, h / 2, cz, bw, h, bd, tint, 1 / 12, 0, roofTint);
-    this._collider(cx, cz, bw / 2, bd / 2);
-
-    // cornicione + dettagli sul tetto
-    dgb.box(cx, h + 0.25, cz, bw + 0.5, 0.5, bd + 0.5, roofTint);
-    if (district === 'downtown') {
-      dgb.box(cx + (rng() - 0.5) * bw * 0.3, h + 1.6, cz + (rng() - 0.5) * bd * 0.3,
-              Math.min(bw * 0.34, 6), 3, Math.min(bd * 0.34, 6), 0x6b7480);
-      if (rng() < 0.5) {
-        dgb.box(cx, h + 5.5, cz, 0.35, 8, 0.35, 0xb0b6bd);
-        glow.box(cx, h + 9.6, cz, 0.9, 0.9, 0.9, 0xff3b3b);
+    this._mesh(B.detail, this.mats.detail);
+    this._mesh(B.roof, this.mats.roof, { cast: false });
+    if (B.walk) this._mesh(B.walk, this.mats.walk, { cast: false });
+    if (B.road) this._mesh(B.road, this.mats.road, { cast: false });
+    this._mesh(B.paint, this.mats.paint, { cast: false });
+    this._mesh(B.foliage, this.mats.foliage);
+    this._mesh(B.bark, this.mats.bark);
+    this._mesh(B.grass, this.mats.grass, { cast: false });
+    this._mesh(B.sand, this.mats.sand, { cast: false });
+    this._mesh(B.water, this.mats.water, { cast: false });
+    for (const k of ['redA', 'redB', 'greenA', 'greenB']) {
+      const m = this._mesh(B[k], this.mats[k], { cast: false, receive: false });
+      if (m) m.frustumCulled = true;
+    }
+    const neon = this._mesh(B.neon, this.mats.neon, { cast: false, receive: false });
+    if (neon) { this.neonMeshes = this.neonMeshes || []; this.neonMeshes.push(neon); }
+    for (const key of ['lamp', 'glow']) {
+      const m = this._mesh(B[key], this.mats[key], { cast: false, receive: false });
+      if (m) {
+        m.visible = false;
+        m.renderOrder = key === 'glow' ? 2 : 0;
+        this.lampMeshes = this.lampMeshes || [];
+        this.lampMeshes.push(m);
       }
-    } else if (district === 'suburb') {
-      // tetto a falda semplificato
-      dgb.box(cx, h + 0.9, cz, bw + 0.9, 1.3, bd + 0.9, roofTint);
-      dgb.box(cx + bw * 0.3, h + 2.2, cz + bd * 0.25, 0.8, 2, 0.8, 0x6b5a50);
     }
+  }
 
-    // A quale strada affaccia questo lotto?
-    const faces = [];
-    if (Math.abs(lot.z0 - (block.z0 + 1)) < 1.5) faces.push({ dir: -Math.PI / 2, nx: 0, nz: -1 });
-    if (Math.abs(lot.z1 - (block.z1 - 1)) < 1.5) faces.push({ dir: Math.PI / 2, nx: 0, nz: 1 });
-    if (Math.abs(lot.x0 - (block.x0 + 1)) < 1.5) faces.push({ dir: Math.PI, nx: -1, nz: 0 });
-    if (Math.abs(lot.x1 - (block.x1 - 1)) < 1.5) faces.push({ dir: 0, nx: 1, nz: 0 });
-    if (!faces.length) return;
-    const f = faces[(rng() * faces.length) | 0];
+  // --------------------------------------------------------- tipi di isolato
+  _builtBlock(b, kind, B, rng, shopQueue, billboards) {
+    // pavimentazione dell'intero isolato: senza, tra edificio e marciapiede
+    // spuntava una striscia di prato
+    B.walk = B.walk || new GeoBuilder();
+    B.walk.quadY(b.x0 - 0.2, b.z0 - 0.2, b.x1 + 0.2, b.z1 + 0.2, 0.015, 0xe8e4da,
+      (b.x1 - b.x0) / 2, (b.z1 - b.z0) / 2);
+    const lots = this._splitLot(b.x0, b.z0, b.x1, b.z1, kind, rng);
+    for (const lot of lots) {
+      const w = lot.x1 - lot.x0, d = lot.z1 - lot.z0;
+      if (w < 7 || d < 7) continue;
+      const faces = this._streetFaces(lot, b);
+      const face = faces.length ? pick(faces) : null;
+      const ctx = {
+        rng, face,
+        collider: (x, z, hx, hz) => this.grid.add({ x, z, hx, hz }),
+      };
 
-    const shopChance = district === 'downtown' ? 0.35 : district === 'commercial' ? 0.55 : 0.3;
-    const canShop = shopQueue.length > 0 && rng() < shopChance;
-    if (!canShop) return;
+      let info, style = 'stucco';
+      if (kind === 'downtown') {
+        if (rng() < 0.62 && w > 22 && d > 22) info = tower(B, lot, ctx);
+        else { style = pick(['concrete', 'office', 'brick']); info = midrise(B, lot, ctx, style); }
+      } else if (kind === 'commercial') {
+        if (rng() < 0.22) info = strip(B, lot, ctx);
+        else { style = pick(['stucco', 'brick', 'stucco', 'concrete']); info = midrise(B, lot, ctx, style); }
+      } else {
+        if (rng() < 0.12 && faces.length) info = strip(B, lot, ctx);
+        else info = house(B, lot, ctx);
+      }
 
-    const kind = district === 'suburb' && rng() < 0.55
-      ? SHOP_KINDS[SHOP_KINDS.length - 1]                 // casa
-      : shopQueue.splice((rng() * shopQueue.length) | 0, 1)[0];
+      if (kind === 'suburb') {
+        B.grass.quadY(lot.x0 + 0.4, lot.z0 + 0.4, lot.x1 - 0.4, lot.z1 - 0.4, 0.02, 0xffffff,
+          (lot.x1 - lot.x0) / 5, (lot.z1 - lot.z0) / 5);
+      }
+      // vialetto d'accesso per le villette
+      if (kind === 'suburb' && face) {
+        const px = info.cx + face.nx * (d / 2 + 2), pz = info.cz + face.nz * (w / 2 + 2);
+        B.paint.quadY(
+          Math.min(info.cx + face.nx * info.w / 2, info.cx + face.nx * (lot.x1 - lot.x0) / 2) - (face.nx ? 0 : 1.8),
+          Math.min(info.cz + face.nz * info.d / 2, info.cz + face.nz * (lot.z1 - lot.z0) / 2) - (face.nz ? 0 : 1.8),
+          Math.max(info.cx + face.nx * info.w / 2, info.cx + face.nx * (lot.x1 - lot.x0) / 2) + (face.nx ? 0 : 1.8),
+          Math.max(info.cz + face.nz * info.d / 2, info.cz + face.nz * (lot.z1 - lot.z0) / 2) + (face.nz ? 0 : 1.8),
+          0.03, 0xb9b3a6, 2, 2);
+      }
 
-    const ex = cx + f.nx * (bw / 2), ez = cz + f.nz * (bd / 2);
-    const along = f.nx !== 0 ? bd : bw;
+      // negozio con insegna e tettoia
+      const wantShop = face && shopQueue.length &&
+        rng() < (kind === 'downtown' ? 0.4 : kind === 'commercial' ? 0.72 : 0.34);
+      if (wantShop) {
+        const isHome = kind === 'suburb' && rng() < 0.5;
+        const kindShop = isHome ? SHOP_KINDS[SHOP_KINDS.length - 1]
+          : shopQueue.splice(randInt(0, shopQueue.length - 1), 1)[0];
+        this._shopFront(B, info, face, kindShop, kind === 'suburb');
+      }
 
-    // vetrina + porta + tenda
-    dgb.box(ex + f.nx * 0.14, 1.6, ez + f.nz * 0.14, f.nx !== 0 ? 0.3 : along * 0.8, 3.2,
-            f.nx !== 0 ? along * 0.8 : 0.3, 0x1b2430);
-    dgb.box(ex + f.nx * 0.3, 1.15, ez + f.nz * 0.3, f.nx !== 0 ? 0.35 : 1.5, 2.3,
-            f.nx !== 0 ? 1.5 : 0.35, 0x2b1d14);
-    dgb.box(ex + f.nx * 0.85, 3.5, ez + f.nz * 0.85, f.nx !== 0 ? 1.6 : along * 0.85, 0.28,
-            f.nx !== 0 ? along * 0.85 : 1.6, kind.color);
+      // cartellone pubblicitario sui tetti bassi
+      if (info.height < 22 && face && rng() < 0.16 && billboards.length < 8) {
+        billboards.push({
+          x: info.cx + face.nx * info.w * 0.2, y: info.height + 1.6,
+          z: info.cz + face.nz * info.d * 0.2,
+          rot: Math.atan2(face.nx, face.nz),
+        });
+      }
+    }
+  }
 
-    // insegna al neon
+  _shopFront(B, info, f, shop, small) {
+    const along = Math.min((f.nx !== 0 ? info.d : info.w) * 0.7, 7.5);
+    const ex = info.cx + f.nx * (info.w / 2), ez = info.cz + f.nz * (info.d / 2);
+    const doorH = small ? 2.4 : 3.0;
+    entrance(B, ex, ez, f.nx, f.nz, Math.min(along * 0.45, 2.6), doorH, 0x2f353c);
+    if (!small) awning(B, ex, ez, f.nx, f.nz, along, 3.4, new THREE.Color(shop.color).getHex());
+
+    // insegna luminosa
+    const signH = small ? 0.9 : 1.5;
+    const signY = (small ? 3.1 : 4.6);
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(Math.min(along * 0.8, 6.5), 1.7),
-      new THREE.MeshBasicMaterial({ map: signTexture(kind.name, kind.color), transparent: false })
+      new THREE.PlaneGeometry(along, signH),
+      new THREE.MeshBasicMaterial({ map: TX.signTexture(shop.name, shop.color), toneMapped: false })
     );
-    sign.position.set(ex + f.nx * 0.55, 4.7, ez + f.nz * 0.55);
-    sign.rotation.y = f.nx !== 0 ? (f.nx > 0 ? Math.PI / 2 : -Math.PI / 2) : (f.nz > 0 ? 0 : Math.PI);
+    sign.position.set(ex + f.nx * 0.58, signY, ez + f.nz * 0.58);
+    sign.rotation.y = Math.atan2(f.nx, f.nz);
     this.group.add(sign);
-    glow.box(ex + f.nx * 0.5, 4.7, ez + f.nz * 0.5, f.nx !== 0 ? 0.2 : 5, 1.9, f.nx !== 0 ? 5 : 0.2, kind.color);
+    B.detail.box(ex + f.nx * 0.3, signY, ez + f.nz * 0.3,
+      f.nx !== 0 ? 0.25 : along + 0.4, signH + 0.35, f.nx !== 0 ? along + 0.4 : 0.25, 0x1a1d23);
 
     this.doors.push({
-      type: kind.type, name: kind.name, color: kind.color,
-      x: ex + f.nx * 2.0, z: ez + f.nz * 2.0,
-      // angolo con cui si guarda la strada (convenzione: avanti = cos a, -sin a)
+      type: shop.type, name: shop.name, color: shop.color,
+      x: ex + f.nx * 2.1, z: ez + f.nz * 2.1,
       face: Math.atan2(-f.nz, f.nx),
     });
   }
 
-  _park(b, grass, props, glow, rng) {
-    grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.05, 0x5f8a45, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
-    // vialetto a croce
-    props.box(b.cx, 0.08, b.cz, b.x1 - b.x0, 0.06, 3, 0xbdb4a2);
-    props.box(b.cx, 0.09, b.cz, 3, 0.06, b.z1 - b.z0, 0xbdb4a2);
-    // fontana
-    props.box(b.cx, 0.35, b.cz, 6, 0.7, 6, 0xb9b2a4);
-    props.box(b.cx, 0.75, b.cz, 5, 0.3, 5, 0x2f6f8f);
-    props.box(b.cx, 1.6, b.cz, 0.8, 2.4, 0.8, 0xcfc8ba);
-    this._collider(b.cx, b.cz, 3, 3);
+  _billboard(x, y, z, rot) {
+    const [a, b] = pick(BILLBOARDS);
+    const w = 9, h = 3.4;
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshStandardMaterial({ map: TX.plateTexture([a, b], '#12233a', '#ffe9a8'), roughness: 0.7, side: THREE.DoubleSide })
+    );
+    mesh.position.set(x, y + h / 2, z);
+    mesh.rotation.y = rot;
+    mesh.castShadow = this.quality.shadows;
+    this.group.add(mesh);
+    const gb = new GeoBuilder();
+    const nx = Math.sin(rot), nz = Math.cos(rot);
+    for (const s of [-1, 1]) {
+      gb.box(x + nz * s * w * 0.4, y / 2 + h / 4, z - nx * s * w * 0.4, 0.24, y + h / 2, 0.24, 0x5b6167);
+    }
+    gb.box(x - nx * 0.2, y + h / 2, z - nz * 0.2, nx !== 0 ? 0.2 : w, 0.2, nx !== 0 ? w : 0.2, 0x5b6167);
+    this._mesh(gb, this.mats.detail);
+  }
 
-    const n = 6 + ((rng() * 5) | 0);
-    for (let k = 0; k < n; k++) {
+  _park(b, B, rng) {
+    B.grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 0xffffff, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
+    // vialetti
+    B.paint.quadY(b.x0, b.cz - 1.6, b.x1, b.cz + 1.6, 0.05, 0xcfc7b6, (b.x1 - b.x0) / 4, 1);
+    B.paint.quadY(b.cx - 1.6, b.z0, b.cx + 1.6, b.z1, 0.055, 0xcfc7b6, 1, (b.z1 - b.z0) / 4);
+    // fontana
+    B.detail.box(b.cx, 0.3, b.cz, 7, 0.6, 7, 0xc4bdae);
+    B.detail.box(b.cx, 0.66, b.cz, 6.2, 0.16, 6.2, 0xb2aa9c);
+    B.water.box(b.cx, 0.62, b.cz, 6.0, 0.2, 6.0, 0x2f8fb8);
+    B.detail.box(b.cx, 1.5, b.cz, 0.9, 2.2, 0.9, 0xd2cbbd);
+    B.detail.box(b.cx, 2.5, b.cz, 2.2, 0.3, 2.2, 0xd2cbbd);
+    this.grid.add({ x: b.cx, z: b.cz, hx: 3.6, hz: 3.6 });
+
+    for (let k = 0; k < 9; k++) {
       const x = b.x0 + 4 + rng() * (b.x1 - b.x0 - 8);
       const z = b.z0 + 4 + rng() * (b.z1 - b.z0 - 8);
-      if (Math.abs(x - b.cx) < 6 && Math.abs(z - b.cz) < 6) continue;
-      this._tree(x, z, props, rng);
+      if (Math.abs(x - b.cx) < 7 && Math.abs(z - b.cz) < 7) continue;
+      const p = rng() < 0.55 ? B.props.palm(x, z, rng) : B.props.tree(x, z, rng);
+      this.grid.add({ x: p.x, z: p.z, hx: p.r, hz: p.r });
     }
     for (let k = 0; k < 4; k++) {
-      const bx = b.cx + (k < 2 ? -1 : 1) * 7, bz = b.cz + (k % 2 ? -1 : 1) * 7;
-      props.box(bx, 0.45, bz, 2.2, 0.15, 0.7, 0x8a6a44);
-      props.box(bx, 0.72, bz + 0.3, 2.2, 0.6, 0.12, 0x8a6a44);
+      B.props.bench(b.cx + (k < 2 ? -6 : 6), b.cz + (k % 2 ? -6 : 6), k < 2 ? 0 : Math.PI);
     }
-    for (let k = 0; k < 3; k++) {
-      const lx = b.cx + (rng() - 0.5) * (b.x1 - b.x0 - 10);
-      const lz = b.cz + (rng() - 0.5) * (b.z1 - b.z0 - 10);
-      this._lamp(lx, lz, props, glow, 3.4);
+    B.props.bin(b.cx + 8, b.cz + 8);
+    for (const [sx, sz] of [[-1, -1], [1, 1]]) {
+      B.props.streetlight(b.cx + sx * (b.x1 - b.x0) * 0.28, b.cz + sz * (b.z1 - b.z0) * 0.28, 0, 5.4);
     }
-  }
-
-  _tree(x, z, props, rng) {
-    const h = 3.2 + rng() * 2.6;
-    props.box(x, h / 2, z, 0.5, h, 0.5, 0x5a4632);
-    const s = 2.6 + rng() * 1.6;
-    props.box(x, h + s * 0.35, z, s, s * 0.9, s, 0x2f6b34);
-    props.box(x, h + s * 0.85, z, s * 0.6, s * 0.5, s * 0.6, 0x387a3c);
-    this._collider(x, z, 0.45, 0.45);
-  }
-
-  _lamp(x, z, props, glow, h = 4.6, arm = 0) {
-    props.box(x, h / 2, z, 0.22, h, 0.22, 0x4d5460);
-    props.box(x + arm, h, z, Math.abs(arm) * 2 + 0.3, 0.18, 0.18, 0x4d5460);
-    glow.box(x + arm * 2, h - 0.15, z, 0.7, 0.25, 0.7, 0xffcc70);
-    glow.quadY(x + arm * 2 - 4, z - 4, x + arm * 2 + 4, z + 4, 0.06, 0x3a2a10);
-    this._collider(x, z, 0.2, 0.2);
-  }
-
-  _streetProps(i, j, b, props, glow, rng) {
-    // lampioni lungo i bordi dell'isolato + posti auto
-    for (let s = 0; s < 4; s++) {
-      const horiz = s < 2;
-      const px = horiz ? b.x0 + (b.x1 - b.x0) * (0.3 + 0.4 * (s % 2)) : (s === 2 ? b.x0 - CFG.WALK / 2 : b.x1 + CFG.WALK / 2);
-      const pz = horiz ? (s === 0 ? b.z0 - CFG.WALK / 2 : b.z1 + CFG.WALK / 2) : b.z0 + (b.z1 - b.z0) * (0.3 + 0.4 * (s % 2));
-      this._lamp(px, pz, props, glow, 4.8, horiz ? 0 : 0);
-      if (rng() < 0.5) {
-        props.box(px + (horiz ? 3 : 0), 0.45, pz + (horiz ? 0 : 3), 0.5, 0.9, 0.5, 0xcc3a2a); // idrante
-      }
-      if (rng() < 0.45) {
-        const tx = horiz ? px + 6 : px, tz = horiz ? pz : pz + 6;
-        props.box(tx, 0.7, tz, 0.8, 1.4, 0.8, 0x3a4450); // cestino
+    // siepi a tratti lungo il perimetro, con i varchi per entrare
+    const segs = [-0.34, 0.34];
+    for (const s of [-1, 1]) {
+      for (const t of segs) {
+        B.props.hedge(b.cx + (b.x1 - b.x0) * t, b.cz + s * (b.z1 - b.z0) / 2, (b.x1 - b.x0) * 0.26, 1.0, rng);
+        B.props.hedge(b.cx + s * (b.x1 - b.x0) / 2, b.cz + (b.z1 - b.z0) * t, 1.0, (b.z1 - b.z0) * 0.26, rng);
       }
     }
-    // sosta: due posti per lato
-    const bays = [
-      { x: b.cx - 8, z: b.z0 - HALF + 1.3, rot: 0 }, { x: b.cx + 8, z: b.z0 - HALF + 1.3, rot: 0 },
-      { x: b.cx - 8, z: b.z1 + HALF - 1.3, rot: Math.PI }, { x: b.cx + 8, z: b.z1 + HALF - 1.3, rot: Math.PI },
-      { x: b.x0 - HALF + 1.3, z: b.cz - 8, rot: -Math.PI / 2 }, { x: b.x1 + HALF - 1.3, z: b.cz + 8, rot: Math.PI / 2 },
+  }
+
+  _parking(b, B, rng) {
+    // asfalto vero anche nei parcheggi: il grigio piatto sembrava un buco
+    B.road = B.road || new GeoBuilder();
+    B.road.quadY(b.x0, b.z0, b.x1, b.z1, 0.03, 0xffffff, (b.x1 - b.x0) / 8, (b.z1 - b.z0) / 8);
+    for (let x = b.x0 + 3; x < b.x1 - 2; x += 3) {
+      B.paint.quadY(x - 0.08, b.z0 + 2, x + 0.08, b.z0 + 7.5, 0.05, 0xd8d2be);
+      B.paint.quadY(x - 0.08, b.z1 - 7.5, x + 0.08, b.z1 - 2, 0.05, 0xd8d2be);
+      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z0 + 4.7, rot: -Math.PI / 2 });
+      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z1 - 4.7, rot: Math.PI / 2 });
+    }
+    for (const s of [-1, 1]) {
+      B.props.streetlight(b.cx + s * (b.x1 - b.x0) * 0.3, b.cz, s > 0 ? Math.PI : 0, 7);
+    }
+    B.props.clutter(b.x0 + 4, b.cz, rng);
+  }
+
+  _beachBlock(b, B, rng) {
+    B.sand.quadY(b.x0 - CFG.WALK, b.z0 - CFG.WALK, b.x1 + CFG.WALK, b.z1 + 60, 0.04,
+      0xffffff, (b.x1 - b.x0) / 10, (b.z1 - b.z0 + 60) / 10);
+    // passeggiata in legno
+    for (let x = b.x0; x < b.x1; x += 2) {
+      B.detail.box(x + 1, 0.14, b.z0 + 3, 1.9, 0.28, 6, rng() < 0.5 ? 0xb08b5e : 0xa8845a);
+    }
+    const n = 5 + (rng() * 4) | 0;
+    for (let k = 0; k < n; k++) {
+      const p = B.props.palm(b.x0 + 4 + rng() * (b.x1 - b.x0 - 8), b.z0 + 9 + rng() * 26, rng);
+      this.grid.add({ x: p.x, z: p.z, hx: p.r, hz: p.r });
+    }
+    // ombrelloni e torretta del bagnino
+    for (let k = 0; k < 6; k++) {
+      const x = b.x0 + 6 + rng() * (b.x1 - b.x0 - 12), z = b.z0 + 16 + rng() * 22;
+      B.detail.box(x, 1.1, z, 0.1, 2.2, 0.1, 0xb0a898);
+      B.detail.box(x, 2.2, z, 3.2, 0.16, 3.2, pick([0xd94f4f, 0x2f8fb8, 0xe0a92c]));
+    }
+    const tx = b.cx + rand(-12, 12), tz = b.z0 + 24;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      B.detail.box(tx + sx * 1.2, 1.4, tz + sz * 1.2, 0.18, 2.8, 0.18, 0xc9b28a);
+    }
+    B.detail.box(tx, 2.9, tz, 3.2, 0.2, 3.2, 0xe0d0b0);
+    B.detail.box(tx, 3.6, tz, 2.6, 1.4, 2.6, 0xefe2c6);
+    B.detail.gableRoof(tx, 4.3, tz, 3.2, 3.2, 0.9, 0xc0392b, 'x', 0.3);
+    this.grid.add({ x: tx, z: tz, hx: 1.6, hz: 1.6 });
+    B.props.streetlight(b.x0 + 6, b.z0 + 1, Math.PI / 2, 7);
+    B.props.streetlight(b.x1 - 6, b.z0 + 1, Math.PI / 2, 7);
+  }
+
+  // --------------------------------------------------------------- utility
+  _splitLot(x0, z0, x1, z1, kind, rng, depth = 0) {
+    const w = x1 - x0, d = z1 - z0;
+    const min = kind === 'suburb' ? 15 : kind === 'commercial' ? 20 : 26;
+    if (depth > 2 || (w < min * 2 && d < min * 2) || (depth > 0 && rng() < 0.22)) {
+      return [{ x0, z0, x1, z1 }];
+    }
+    if (w >= d) {
+      const cut = x0 + w * (0.36 + rng() * 0.28);
+      return [...this._splitLot(x0, z0, cut - 0.5, z1, kind, rng, depth + 1),
+              ...this._splitLot(cut + 0.5, z0, x1, z1, kind, rng, depth + 1)];
+    }
+    const cut = z0 + d * (0.36 + rng() * 0.28);
+    return [...this._splitLot(x0, z0, x1, cut - 0.5, kind, rng, depth + 1),
+            ...this._splitLot(x0, cut + 0.5, x1, z1, kind, rng, depth + 1)];
+  }
+
+  _streetFaces(lot, b) {
+    const faces = [];
+    const eps = 1.6;
+    if (Math.abs(lot.z0 - b.z0) < eps) faces.push({ nx: 0, nz: -1 });
+    if (Math.abs(lot.z1 - b.z1) < eps) faces.push({ nx: 0, nz: 1 });
+    if (Math.abs(lot.x0 - b.x0) < eps) faces.push({ nx: -1, nz: 0 });
+    if (Math.abs(lot.x1 - b.x1) < eps) faces.push({ nx: 1, nz: 0 });
+    return faces;
+  }
+
+  _streetProps(b, i, j, B, rng) {
+    const P = B.props;
+    const edges = [
+      // il centro del marciapiede sta a mezza larghezza DAL BORDO dell'isolato:
+      // misurarlo dall'asse strada metteva pali e palme in mezzo alla carreggiata
+      { x: b.cx, z: b.z0 - CFG.WALK / 2, dir: -Math.PI / 2, along: 'x' },
+      { x: b.cx, z: b.z1 + CFG.WALK / 2, dir: Math.PI / 2, along: 'x' },
+      { x: b.x0 - CFG.WALK / 2, z: b.cz, dir: Math.PI, along: 'z' },
+      { x: b.x1 + CFG.WALK / 2, z: b.cz, dir: 0, along: 'z' },
     ];
-    for (const bay of bays) if (rng() < 0.55) this.parkSpots.push(bay);
+    for (const e of edges) {
+      const horiz = e.along === 'x';
+      void horiz;
+      const len = horiz ? (b.x1 - b.x0) : (b.z1 - b.z0);
+      for (const t of [-0.3, 0.3]) {
+        const x = horiz ? b.cx + len * t : e.x;
+        const z = horiz ? e.z : b.cz + len * t;
+        const p = P.streetlight(x, z, e.dir);
+        this.grid.add({ x: p.x, z: p.z, hx: 0.3, hz: 0.3 });
+        this.lamps.push(p.lamp);
+      }
+      // alberi/palme di allineamento
+      for (const t of [-0.12, 0.12]) {
+        if (rng() < 0.55) {
+          const x = horiz ? b.cx + len * t : e.x;
+          const z = horiz ? e.z : b.cz + len * t;
+          const p = rng() < 0.6 ? P.palm(x, z, rng) : P.tree(x, z, rng);
+          this.grid.add({ x: p.x, z: p.z, hx: 0.35, hz: 0.35 });
+        }
+      }
+      if (rng() < 0.45) P.bin(horiz ? b.cx + len * 0.42 : e.x, horiz ? e.z : b.cz + len * 0.42);
+      if (rng() < 0.4) P.hydrant(horiz ? b.cx - len * 0.42 : e.x, horiz ? e.z : b.cz - len * 0.42);
+      if (rng() < 0.35) P.bench(horiz ? b.cx : e.x, horiz ? e.z : b.cz, e.dir);
+      if (rng() < 0.22) P.busStop(horiz ? b.cx + len * 0.2 : e.x, horiz ? e.z : b.cz + len * 0.2, e.dir);
+      if (rng() < 0.5) {
+        for (let k = -1; k <= 1; k++) {
+          P.meter(horiz ? b.cx + len * 0.18 + k * 2 : e.x, horiz ? e.z : b.cz + len * 0.18 + k * 2);
+        }
+      }
+      if (rng() < 0.3) P.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
+    }
+
+    // posti auto lungo il bordo
+    const bays = [
+      { x: b.cx - 9, z: b.z0 - HALF + 1.6, rot: 0 }, { x: b.cx + 9, z: b.z0 - HALF + 1.6, rot: 0 },
+      { x: b.cx - 9, z: b.z1 + HALF - 1.6, rot: Math.PI }, { x: b.cx + 9, z: b.z1 + HALF - 1.6, rot: Math.PI },
+      { x: b.x0 - HALF + 1.6, z: b.cz - 9, rot: -Math.PI / 2 }, { x: b.x1 + HALF - 1.6, z: b.cz + 9, rot: Math.PI / 2 },
+    ];
+    for (const bay of bays) if (rng() < 0.5) this.parkSpots.push(bay);
   }
 
-  _intersection(x, z, props, bulbA, bulbB) {
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      const px = x + sx * (DRIVE + 1.2), pz = z + sz * (DRIVE + 1.2);
-      props.box(px, 2.2, pz, 0.2, 4.4, 0.2, 0x39404b);
-      props.box(px, 4.4, pz, 0.5, 1.5, 0.5, 0x22272f);
-      // le lanterne di due angoli opposti servono la stessa direzione di marcia
-      const b = sx === sz ? bulbA : bulbB;
-      b.box(px, 4.7, pz, 0.64, 0.36, 0.64, 0xffffff);
+  _intersection(x, z, props) {
+    // due semafori per incrocio, uno per direzione di marcia
+    props.trafficLight(x - DRIVE - 1.3, z - DRIVE - 1.3, 0, 0);
+    props.trafficLight(x + DRIVE + 1.3, z + DRIVE + 1.3, Math.PI, 0);
+    props.trafficLight(x + DRIVE + 1.3, z - DRIVE - 1.3, Math.PI / 2, 1);
+    props.trafficLight(x - DRIVE - 1.3, z + DRIVE + 1.3, -Math.PI / 2, 1);
+    for (const [sx, sz] of [[-1, -1], [1, 1]]) {
+      this.grid.add({ x: x + sx * (DRIVE + 1.3), z: z + sz * (DRIVE + 1.3), hx: 0.3, hz: 0.3 });
     }
   }
 
-  // ------------------------------------------------------------- collisioni
-  _collider(x, z, hx, hz) { this.grid.add({ x, z, hx, hz }); }
-
-  /**
-   * Spinge un cerchio fuori dagli ostacoli statici.
-   * Ritorna true se c'e' stato contatto; scrive la posizione corretta in out.
-   */
+  // ----------------------------------------------------------- collisioni
   resolve(x, z, r, out) {
     const boxes = this.grid.near(x, z, r + 2, this._tmp);
     let hit = false;
@@ -412,8 +674,9 @@ export class City {
     return hit;
   }
 
-  /** true se il punto e' dentro il perimetro della citta'. */
-  inBounds(x, z) { return x > WORLD_MIN - 40 && x < WORLD_MAX + 40 && z > WORLD_MIN - 40 && z < WORLD_MAX + 40; }
+  inBounds(x, z) {
+    return x > WORLD_MIN - 60 && x < WORLD_MAX + 60 && z > WORLD_MIN - 60 && z < WORLD_MAX + 90;
+  }
 
   nearestDoor(x, z, maxD = 3.0) {
     let best = null, bd = maxD * maxD;
@@ -424,15 +687,12 @@ export class City {
     return best;
   }
 
-  // ------------------------------------------------------------------ grafi
-  _buildGraphs() {
+  // ---------------------------------------------------------------- grafi
+  _graphs() {
     const N = CFG.N;
-    // --- nodi stradali agli incroci
     this.roadIndex = (i, j) => i * (N + 1) + j;
     for (let i = 0; i <= N; i++) {
-      for (let j = 0; j <= N; j++) {
-        this.roadNodes.push({ i, j, x: road(i), z: road(j), links: [] });
-      }
+      for (let j = 0; j <= N; j++) this.roadNodes.push({ i, j, x: road(i), z: road(j), links: [] });
     }
     for (const n of this.roadNodes) {
       const { i, j } = n;
@@ -442,8 +702,6 @@ export class City {
       if (j < N) n.links.push(this.roadIndex(i, j + 1));
     }
 
-    // --- nodi marciapiede: quattro angoli per isolato, collegati ad anello
-    //     e attraversamenti verso gli isolati adiacenti.
     const idxOf = new Map();
     const add = (x, z) => {
       const key = `${x.toFixed(1)}_${z.toFixed(1)}`;
@@ -458,36 +716,29 @@ export class City {
       if (this.walkNodes[a].links.indexOf(b) < 0) this.walkNodes[a].links.push(b);
       if (this.walkNodes[b].links.indexOf(a) < 0) this.walkNodes[b].links.push(a);
     };
-
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
         const b = blockBounds(i, j);
         const x0 = b.x0 - CFG.WALK / 2, x1 = b.x1 + CFG.WALK / 2;
         const z0 = b.z0 - CFG.WALK / 2, z1 = b.z1 + CFG.WALK / 2;
         const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
-        // angoli + punti medi (i medi servono per attraversare a meta' via)
         const c = [add(x0, z0), add(mx, z0), add(x1, z0), add(x1, mz),
                    add(x1, z1), add(mx, z1), add(x0, z1), add(x0, mz)];
         for (let k = 0; k < c.length; k++) link(c[k], c[(k + 1) % c.length]);
       }
     }
-    // attraversamenti: collega i nodi affacciati sulla stessa strada
     const cross = 2 * WALKC + 0.2;
     for (let a = 0; a < this.walkNodes.length; a++) {
       const na = this.walkNodes[a];
       for (let b = a + 1; b < this.walkNodes.length; b++) {
         const nb = this.walkNodes[b];
         const dx = Math.abs(na.x - nb.x), dz = Math.abs(na.z - nb.z);
-        if ((dx < 0.2 && Math.abs(dz - cross) < 1.2) || (dz < 0.2 && Math.abs(dx - cross) < 1.2)) {
-          link(a, b);
-          this.walkNodes[a].cross = true;
-        }
+        if ((dx < 0.2 && Math.abs(dz - cross) < 1.2) || (dz < 0.2 && Math.abs(dx - cross) < 1.2)) link(a, b);
       }
     }
     for (const n of this.walkNodes) if (!n.links.length) n.links.push(0);
   }
 
-  /** Nodo pedonale piu' vicino a un punto (per far apparire i bot). */
   randomWalkNode(nearX, nearZ, minD, maxD) {
     for (let k = 0; k < 40; k++) {
       const n = this.walkNodes[(Math.random() * this.walkNodes.length) | 0];
@@ -497,19 +748,26 @@ export class City {
     return this.walkNodes[(Math.random() * this.walkNodes.length) | 0];
   }
 
-  /** Verde per l'asse indicato (0 = est-ovest, 1 = nord-sud). */
+  // ------------------------------------------------------------- dinamica
   setTrafficAxis(axis) {
-    if (!this.matA) return;
-    this.matA.color.setHex(axis === 0 ? 0x24d05a : 0xff2a2a);
-    this.matB.color.setHex(axis === 0 ? 0xff2a2a : 0x24d05a);
+    const m = this.mats;
+    m.redA.color.setHex(axis === 0 ? 0x3a0d0d : 0xff2a2a);
+    m.greenA.color.setHex(axis === 0 ? 0x24d05a : 0x0d2a14);
+    m.redB.color.setHex(axis === 1 ? 0x3a0d0d : 0xff2a2a);
+    m.greenB.color.setHex(axis === 1 ? 0x24d05a : 0x0d2a14);
   }
 
-  /** Aggiorna luci/vetrine in base all'ora del giorno. */
   setNight(k) {
-    this.facadeMat.emissive.setScalar(clamp(k, 0, 1) * 0.85);
-    if (this.glowMesh) {
-      this.glowMesh.visible = k > 0.05;
-      this.glowMat.opacity = clamp(k, 0, 1) * 0.95;
+    const e = clamp(k, 0, 1);
+    for (const key of ['office', 'stucco', 'brick', 'concrete', 'store']) {
+      this.mats[key].emissive.setScalar(e * 0.95);
     }
+    if (this.lampMeshes) for (const m of this.lampMeshes) m.visible = e > 0.25;
+  }
+
+  /** Onde: fa scorrere la normal map dell'acqua. */
+  animate(t) {
+    const n = this.mats.water.normalMap;
+    n.offset.set(t * 0.008, t * 0.011);
   }
 }

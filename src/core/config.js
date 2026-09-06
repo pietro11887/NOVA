@@ -10,11 +10,11 @@ export const CFG = {
 
   // --- gameplay ---
   PED_MAX_DESKTOP: 42,
-  PED_MAX_MOBILE: 22,
+  PED_MAX_MOBILE: 17,
   CAR_MAX_DESKTOP: 20,
-  CAR_MAX_MOBILE: 11,
+  CAR_MAX_MOBILE: 9,
   PARKED_DESKTOP: 34,
-  PARKED_MOBILE: 16,
+  PARKED_MOBILE: 12,
   STREAM_RADIUS: 190,   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,
   VIEW_FAR_MOBILE: 260,

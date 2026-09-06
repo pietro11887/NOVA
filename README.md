@@ -41,15 +41,41 @@ npm i -D esbuild
 node tools/build-single.mjs
 ```
 
+## Come è fatta la grafica
+
+Tutto è generato a runtime, senza un solo file di asset:
+
+- **cielo atmosferico** (modello di Preetham) con sole, foschia e nuvole
+  procedurali; la stessa cupola alimenta una mappa d'ambiente PMREM che dà
+  riflessi a vetri, carrozzerie e acqua;
+- **ombre dinamiche** proiettate dal sole, con la camera delle ombre
+  agganciata al giocatore e allineata ai texel per non sfarfallare;
+- **materiali PBR** con mappe di colore, normali e rugosità disegnate su
+  canvas: intonaco, mattoni, cemento, vetrate a specchio, asfalto crepato,
+  marciapiedi in lastre, sabbia, corteccia, parquet e piastrelle;
+- **post-produzione**: tone mapping ACES, bloom sui neon, vignettatura,
+  saturazione e una grana appena percettibile;
+- **geometria non cubettata**: le carrozzerie nascono da sezioni collegate
+  tra loro con normali ammorbidite, gli arti dei personaggi sono tronchi di
+  cono, teste e capelli sono calotte sferiche, idranti, cestini e lampioni
+  sono cilindri veri.
+
 ## Cosa c'è nella città
 
-- **Città procedurale 8×8 isolati**: centro con grattacieli, zona commerciale,
-  periferia con villette, parchi con fontana e alberi. Strade a due corsie con
-  semafori sincronizzati, strisce pedonali, marciapiedi, lampioni e idranti.
-- **Negozi in cui si entra davvero** (insegna al neon verde sulla minimappa):
-  Burger Shot, Farmacia, Mini Market, Ammu Nova, Threads, Bar Luna, Garage e
-  Casa. Ogni locale ha il suo interno, il commesso e un menu di acquisto:
-  cure, armatura, pistola, vestiti, riparazioni, auto nuove, salvataggio.
+- **Città procedurale 8×8 isolati**: centro con grattacieli a vetri e
+  arretramenti, fascia commerciale con palazzine colorate, balconi e scale
+  antincendio, periferia con villette, garage e giardini, parchi con fontana,
+  parcheggi e una spiaggia sul mare. Strade a due corsie con mezzeria
+  tratteggiata, frecce di corsia, linee d'arresto, strisce pedonali,
+  marciapiedi con cordolo, tombini, semafori a sbraccio, lampioni ricurvi,
+  palme, panchine, cestini, idranti, parchimetri, pensiline e cassonetti.
+- **Negozi in cui si entra davvero**, ognuno con un interno costruito su
+  misura: la tavola calda con pavimento a scacchi, banco rosso e tavolini;
+  la farmacia con croce verde e armadi; il market con corsie, frigoriferi e
+  cassa; l'armeria con rastrelliere e vetrina; il negozio di vestiti con
+  stender, camerini e manichini; il bar con bottiglie, sgabelli e biliardo;
+  il garage col ponte sollevatore e il banco attrezzi; casa tua con letto,
+  divano, TV e cucina. Ogni locale ha luci proprie, commesso e menu.
 - **Traffico vero**: le auto seguono il grafo stradale, tengono la destra,
   si fermano al rosso e in coda, suonano il clacson. Le auto in sosta si
   possono rubare; quelle in marcia anche, ma costa una stella.

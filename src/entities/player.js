@@ -209,8 +209,8 @@ export class Player {
       this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt * 2.4, 0, 0.14);
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
-    const dist = this.indoor ? 3.5 : dead ? 7 : inCar ? 8.4 + Math.abs(this.car.speed) * 0.12 : this.camDist;
-    const height = this.indoor ? 0.75 : dead ? 3.2 : inCar ? 3.0 : 2.15;
+    const dist = this.indoor ? 4.3 : dead ? 7 : inCar ? 8.4 + Math.abs(this.car.speed) * 0.12 : this.camDist;
+    const height = this.indoor ? 0.95 : dead ? 3.2 : inCar ? 3.0 : 2.15;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1.1 : 1.35) + this.y;
 
