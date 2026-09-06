@@ -317,7 +317,6 @@ export function initModels(quality) {
     shared.geo[k + ':police'] = buildCarGeo(CAR_TYPES[k], 'police');
     shared.geo[k + ':taxi'] = buildCarGeo(CAR_TYPES[k], 'taxi');
   }
-  shared.charGeo = characterGeometries();
   shared.bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
   shared.shadowGeo = new THREE.CircleGeometry(0.5, 12);
   shared.shadowGeo.rotateX(-Math.PI / 2);
@@ -367,149 +366,202 @@ export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
 
 /* ------------------------------------------------------------ personaggi */
 
-const SKINS = [0xf1c9a5, 0xe0ad80, 0xc98e5e, 0x9c6b45, 0x724c30, 0xffd9b5];
-const SHIRTS = [0x2f6fd0, 0xc0392b, 0x2b9e5f, 0xeceff2, 0x2b2f38, 0xd9a520, 0x7d4fbf, 0xd06a2f, 0x1f8f9c, 0x8a97a8];
-const PANTS = [0x2b3444, 0x3b3f4a, 0x1f2632, 0x5a4632, 0x6b7280, 0x243b55, 0x8a8271];
-const HAIR = [0x241a12, 0x4b3220, 0x8a6a35, 0x101010, 0xa8a29a, 0x6b3a1f];
+const SKINS = [0xf3cba8, 0xe8b98c, 0xd3a074, 0xb9835a, 0x96633f, 0x74492c, 0x5a3823];
+const SHIRTS = [0x2f6fd0, 0xc0392b, 0x2b9e5f, 0xeceff2, 0x2b2f38, 0xd9a520, 0x7d4fbf,
+  0xd06a2f, 0x1f8f9c, 0x8a97a8, 0xf2e8d5, 0x3f4a5a, 0xbf3f6b];
+const PANTS = [0x2b3444, 0x3b3f4a, 0x1f2632, 0x5a4632, 0x6b7280, 0x243b55, 0x8a8271, 0x38506b];
+const HAIR = [0x241a12, 0x4b3220, 0x8a6a35, 0x101010, 0xa8a29a, 0x6b3a1f, 0xc9a86b];
+const SHOES = [0x1e2126, 0x2b2f36, 0x4a3527, 0xe8e6e0];
 
-/** Geometrie condivise: costruite una volta, usate da tutti i bot. */
-function characterGeometries() {
-  const mk = (fn) => { const gb = new GeoBuilder(); fn(gb); return smoothNormals(gb.build(), 1.1); };
+const WAIST = 1.02;      // altezza del pivot del busto
+const SHOULDER = 1.45;   // altezza delle spalle
+const HIP = 0.88;        // altezza delle anche
 
-  // busto: spalle larghe, vita stretta, leggero spessore
-  const torso = mk((gb) => {
-    hull(gb, [
-      { x: 0.10, hw: 0.20, yb: 0.00, yt: 0.60 },
-      { x: 0.05, hw: 0.24, yb: -0.01, yt: 0.64 },
-      { x: -0.05, hw: 0.24, yb: -0.01, yt: 0.64 },
-      { x: -0.10, hw: 0.20, yb: 0.00, yt: 0.60 },
-    ], 0xffffff);
-    // collo
-    taper(gb, 0, 0.58, 0.70, 0.078, 0.072, 0xe8b48c, 8);
-  });
-  const hips = mk((gb) => {
-    hull(gb, [
-      { x: 0.09, hw: 0.17, yb: 0, yt: 0.26 }, { x: -0.09, hw: 0.17, yb: 0, yt: 0.26 },
-    ], 0xffffff);
-  });
-  // testa: sfera schiacciata, non un cubo — e' la prima cosa che si nota
-  const head = new THREE.SphereGeometry(0.128, 14, 10);
-  head.scale(1.02, 1.1, 0.94);
-  head.translate(0, 0.12, 0);
-  const headGB = new GeoBuilder();
-  headGB.box(0.115, 0.115, 0, 0.05, 0.045, 0.038, 0xffffff);          // naso
-  headGB.box(0.1, 0.15, 0.048, 0.03, 0.026, 0.032, 0x2a2622);         // occhi
-  headGB.box(0.1, 0.15, -0.048, 0.03, 0.026, 0.032, 0x2a2622);
-  headGB.box(-0.005, 0.055, 0, 0.09, 0.02, 0.05, 0xd88a7a);           // bocca
-  const headFull = mergeRaw([head, headGB.build()]);
-
-  // capelli: calotta sferica leggermente piu' grande
-  const hairGeo = new THREE.SphereGeometry(0.138, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.58);
-  hairGeo.scale(1.02, 1.15, 0.98);
-  hairGeo.translate(-0.008, 0.115, 0);
-  const hair = hairGeo;
-  // braccio: spalla -> mano, il pivot e' in alto (y = 0)
-  const arm = mk((gb) => {
-    taper(gb, 0, -0.30, 0.0, 0.068, 0.082, 0xffffff, 8);
-    taper(gb, 0, -0.56, -0.30, 0.058, 0.068, 0xffffff, 8);
-    taper(gb, 0, -0.66, -0.56, 0.048, 0.055, 0xf4f4f4, 8);   // mano
-  });
-  // gamba: anca -> piede
-  const leg = mk((gb) => {
-    taper(gb, 0, -0.42, 0.0, 0.084, 0.108, 0xffffff, 9);
-    taper(gb, 0, -0.78, -0.42, 0.062, 0.084, 0xffffff, 9);
-    // scarpa: suola bassa e punta arrotondata
-    taper(gb, 0, -0.84, -0.78, 0.07, 0.065, 0x3a3a3a, 8);
-    gb.box(0.035, -0.855, 0, 0.2, 0.07, 0.1, 0x333333);
-    gb.box(0.09, -0.878, 0, 0.1, 0.03, 0.085, 0x2b2b2b);
-  });
-  return { parts: { torso, hips, head: headFull, hair }, arm, leg };
-}
-
-/** Fonde geometrie qualsiasi in una sola (senza colori). */
-function mergeRaw(geos) {
-  const pos = [], nor = [], uv = [], idx = [];
-  let off = 0;
-  for (const g of geos) {
-    const p = g.attributes.position, n = g.attributes.normal, t = g.attributes.uv;
-    for (let i = 0; i < p.count; i++) {
-      pos.push(p.getX(i), p.getY(i), p.getZ(i));
-      nor.push(n.getX(i), n.getY(i), n.getZ(i));
-      uv.push(t ? t.getX(i) : 0, t ? t.getY(i) : 0);
-    }
-    const index = g.index;
-    if (index) for (let i = 0; i < index.count; i++) idx.push(index.getX(i) + off);
-    else for (let i = 0; i < p.count; i++) idx.push(i + off);
-    off += p.count;
+/** Anello ellittico orizzontale. */
+function ring(y, rx, rz, sides, cx = 0, cz = 0) {
+  const out = [];
+  for (let i = 0; i < sides; i++) {
+    const a = (i / sides) * TAU;
+    out.push([cx + Math.cos(a) * rx, y, cz + Math.sin(a) * rz]);
   }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  out.setIndex(idx);
   return out;
 }
 
-/** Unisce le parti del corpo in una geometria sola, colori nei vertici. */
-function mergeBody(parts, colors) {
-  const pos = [], nor = [], uv = [], col = [], idx = [];
-  const geo = new THREE.BufferGeometry();
-  const c = new THREE.Color();
-  let vOff = 0;
-  for (const part of parts) {
-    const p = part.geo.attributes.position, n = part.geo.attributes.normal, t = part.geo.attributes.uv;
-    c.setHex(colors[part.color]);
-    for (let i = 0; i < p.count; i++) {
-      pos.push(p.getX(i), p.getY(i) + part.y, p.getZ(i));
-      nor.push(n.getX(i), n.getY(i), n.getZ(i));
-      uv.push(t ? t.getX(i) : 0, t ? t.getY(i) : 0);
-      col.push(c.r, c.g, c.b);
-    }
-    const index = part.geo.index;
-    if (index) for (let i = 0; i < index.count; i++) idx.push(index.getX(i) + vOff);
-    else for (let i = 0; i < p.count; i++) idx.push(i + vOff);
-    vOff += p.count;
+/**
+ * Collega una serie di sezioni ellittiche: e' il modo piu' economico per
+ * ottenere braccia, gambe e busti tondi invece che spigolosi.
+ */
+function loft(gb, sections, color, sides = 10, cap = true) {
+  let prev = ring(sections[0].y, sections[0].rx, sections[0].rz, sides, sections[0].cx || 0, sections[0].cz || 0);
+  if (cap) {
+    for (let i = 1; i < sides - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, 1, 1);
   }
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geo.setIndex(idx);
-  geo.computeBoundingSphere();
+  for (let s = 1; s < sections.length; s++) {
+    const sec = sections[s];
+    const cur = ring(sec.y, sec.rx, sec.rz, sides, sec.cx || 0, sec.cz || 0);
+    const col = sec.color !== undefined ? sec.color : color;
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      gb.quad(prev[i], cur[i], cur[j], prev[j], col, 1, 1);
+    }
+    prev = cur;
+  }
+  if (cap) {
+    const last = sections[sections.length - 1];
+    const col = last.color !== undefined ? last.color : color;
+    for (let i = 1; i < sides - 1; i++) gb.quad(prev[0], prev[i], prev[i + 1], prev[i + 1], col, 1, 1);
+  }
+}
+
+/** Sfera schiacciabile: teste, spalle, mani, orecchie. */
+function blob(gb, x, y, z, rx, ry, rz, color, sides = 12, rings = 8) {
+  for (let r = 0; r < rings; r++) {
+    const t0 = -Math.PI / 2 + (r / rings) * Math.PI;
+    const t1 = -Math.PI / 2 + ((r + 1) / rings) * Math.PI;
+    const y0 = y + Math.sin(t0) * ry, y1 = y + Math.sin(t1) * ry;
+    const c0 = Math.cos(t0), c1 = Math.cos(t1);
+    for (let i = 0; i < sides; i++) {
+      const a0 = (i / sides) * TAU, a1 = ((i + 1) / sides) * TAU;
+      gb.quad(
+        [x + Math.cos(a0) * rx * c0, y0, z + Math.sin(a0) * rz * c0],
+        [x + Math.cos(a0) * rx * c1, y1, z + Math.sin(a0) * rz * c1],
+        [x + Math.cos(a1) * rx * c1, y1, z + Math.sin(a1) * rz * c1],
+        [x + Math.cos(a1) * rx * c0, y0, z + Math.sin(a1) * rz * c0],
+        color, 1, 1);
+    }
+  }
+}
+
+/**
+ * Corpo, braccio e gamba vengono costruiti per ogni personaggio con i
+ * colori gia' cotti nei vertici: un solo materiale condiviso, vestiti
+ * diversi per tutti e nessuna draw call in piu'.
+ */
+function buildBody(c) {
+  const gb = new GeoBuilder();
+  const skin = c.skin, shirt = c.shirt, hair = c.hair;
+
+  // --- bacino e busto: fianchi, vita stretta, torace, spalle spioventi
+  loft(gb, [
+    { y: 0.80, rx: 0.155, rz: 0.105, color: c.pants },
+    { y: 0.88, rx: 0.175, rz: 0.115, color: c.pants },
+    { y: 0.97, rx: 0.165, rz: 0.108, color: c.pants },
+    { y: 1.02, rx: 0.150, rz: 0.100, color: shirt },
+    { y: 1.14, rx: 0.152, rz: 0.100, color: shirt },
+    { y: 1.30, rx: 0.180, rz: 0.115, color: shirt },
+    { y: 1.42, rx: 0.196, rz: 0.118, color: shirt },
+    { y: 1.485, rx: 0.185, rz: 0.110, color: shirt },
+    { y: 1.51, rx: 0.120, rz: 0.085, color: shirt },
+  ], shirt, 12);
+
+  // --- spalle arrotondate
+  for (const s of [-1, 1]) blob(gb, 0, 1.465, s * 0.175, 0.085, 0.085, 0.09, shirt, 10, 6);
+
+  // --- collo e testa
+  loft(gb, [
+    { y: 1.50, rx: 0.062, rz: 0.058, color: skin },
+    { y: 1.575, rx: 0.058, rz: 0.055, color: skin },
+  ], skin, 10, false);
+  blob(gb, 0.004, 1.665, 0, 0.098, 0.115, 0.093, skin, 14, 10);
+  blob(gb, 0.028, 1.615, 0, 0.086, 0.072, 0.082, skin, 12, 8);      // mascella
+  for (const s of [-1, 1]) blob(gb, -0.01, 1.665, s * 0.092, 0.022, 0.036, 0.016, skin, 8, 5);   // orecchie
+  // naso, occhi, sopracciglia, bocca
+  blob(gb, 0.092, 1.657, 0, 0.028, 0.026, 0.022, skin, 8, 6);
+  for (const s of [-1, 1]) {
+    blob(gb, 0.072, 1.695, s * 0.038, 0.022, 0.017, 0.02, 0xf4f2ee, 8, 6);
+    blob(gb, 0.083, 1.694, s * 0.041, 0.011, 0.011, 0.011, c.eyes, 6, 5);
+    gb.box(0.078, 1.723, s * 0.04, 0.02, 0.012, 0.048, hair);
+  }
+  gb.box(0.086, 1.596, 0, 0.016, 0.011, 0.042, 0xb9705f);
+
+  // --- capelli: tre tagli diversi
+  if (c.hairStyle === 0) {                       // corti
+    blob(gb, -0.004, 1.678, 0, 0.104, 0.118, 0.099, hair, 12, 8);
+    gb.box(-0.06, 1.60, 0, 0.06, 0.12, 0.17, hair);
+  } else if (c.hairStyle === 1) {                // lunghi
+    blob(gb, -0.006, 1.676, 0, 0.106, 0.12, 0.101, hair, 12, 8);
+    loft(gb, [
+      { y: 1.70, rx: 0.105, rz: 0.10, cx: -0.02 },
+      { y: 1.55, rx: 0.098, rz: 0.095, cx: -0.03 },
+      { y: 1.42, rx: 0.082, rz: 0.078, cx: -0.035 },
+    ], hair, 10, false);
+  } else {                                       // cappellino
+    blob(gb, -0.004, 1.676, 0, 0.104, 0.112, 0.1, c.cap, 12, 6);
+    gb.box(0.105, 1.688, 0, 0.11, 0.022, 0.16, c.cap);
+  }
+  const geo = smoothNormals(gb.build(), 1.15);
+  geo.translate(0, -WAIST, 0);   // pivot in vita: busto e testa ruotano da li'
   return geo;
 }
 
+/** Braccio: spalla -> gomito -> polso -> mano, pivot alla spalla. */
+function buildArm(c) {
+  const gb = new GeoBuilder();
+  const sleeve = c.sleeve;
+  loft(gb, [
+    { y: 0.02, rx: 0.062, rz: 0.062, color: sleeve },
+    { y: -0.10, rx: 0.058, rz: 0.058, color: sleeve },
+    { y: -0.17, rx: 0.052, rz: 0.052, color: c.shortSleeve ? c.skin : sleeve },
+    { y: -0.30, rx: 0.046, rz: 0.046, color: c.skin },
+    { y: -0.44, rx: 0.040, rz: 0.040, color: c.skin },
+    { y: -0.56, rx: 0.037, rz: 0.038, color: c.skin },
+  ], c.skin, 9);
+  blob(gb, 0.012, -0.615, 0, 0.045, 0.055, 0.032, c.skin, 8, 6);     // mano
+  return smoothNormals(gb.build(), 1.15);
+}
+
+/** Gamba: anca -> ginocchio -> caviglia -> scarpa. */
+function buildLeg(c) {
+  const gb = new GeoBuilder();
+  const short = c.shorts;
+  loft(gb, [
+    { y: 0.02, rx: 0.088, rz: 0.088, color: c.pants },
+    { y: -0.16, rx: 0.081, rz: 0.083, color: c.pants },
+    { y: -0.34, rx: 0.070, rz: 0.072, color: short ? c.skin : c.pants },
+    { y: -0.44, rx: 0.064, rz: 0.066, color: short ? c.skin : c.pants },
+    { y: -0.60, rx: 0.056, rz: 0.058, color: short ? c.skin : c.pants },
+    { y: -0.78, rx: 0.046, rz: 0.048, color: short ? c.skin : c.pants },
+  ], c.pants, 9);
+  // scarpa: suola, tomaia e punta arrotondata
+  gb.box(0.03, -0.815, 0, 0.235, 0.055, 0.105, c.shoes);
+  blob(gb, 0.10, -0.80, 0, 0.06, 0.045, 0.05, c.shoes, 8, 6);
+  loft(gb, [
+    { y: -0.79, rx: 0.05, rz: 0.052, color: c.shoes },
+    { y: -0.70, rx: 0.048, rz: 0.05, color: c.shoes },
+  ], c.shoes, 8, false);
+  return smoothNormals(gb.build(), 1.15);
+}
+
 export function makeCharacter(opts = {}) {
-  const G = shared.charGeo;
-  const skinCol = opts.skin ?? pick(SKINS);
-  const skin = new THREE.MeshStandardMaterial({ color: skinCol, roughness: 0.72, metalness: 0, vertexColors: true });
-  const shirt = new THREE.MeshStandardMaterial({ color: opts.shirt ?? pick(SHIRTS), roughness: 0.85, metalness: 0, vertexColors: true });
-  const pants = new THREE.MeshStandardMaterial({ color: opts.pants ?? pick(PANTS), roughness: 0.88, metalness: 0, vertexColors: true });
-  const hairMat = new THREE.MeshStandardMaterial({ color: opts.hair ?? pick(HAIR), roughness: 0.95, metalness: 0 });
+  const skin = opts.skin ?? pick(SKINS);
+  const shirt = opts.shirt ?? pick(SHIRTS);
+  const pants = opts.pants ?? pick(PANTS);
+  const hair = opts.hair ?? pick(HAIR);
+  const c = {
+    skin, shirt, pants, hair,
+    shoes: opts.shoes ?? pick(SHOES),
+    eyes: pick([0x3b2a1a, 0x2a3f5a, 0x2f4a2a, 0x1a1512]),
+    cap: pick(SHIRTS),
+    hairStyle: opts.hairStyle ?? (Math.random() < 0.55 ? 0 : Math.random() < 0.6 ? 1 : 2),
+    shortSleeve: Math.random() < 0.6,
+    shorts: Math.random() < 0.25,
+    sleeve: shirt,
+  };
 
   const group = new THREE.Group();
-  const colors = {
-    shirt: shirt.color.getHex(), pants: pants.color.getHex(),
-    skin: skinCol, hair: hairMat.color.getHex(),
-  };
-  // busto, bacino, testa e capelli in un'unica geometria con i colori nei
-  // vertici: un bot costa cinque draw call invece di otto
-  const bodyGeo = mergeBody([
-    { geo: G.parts.torso, y: 0, color: 'shirt' },
-    { geo: G.parts.hips, y: -0.22, color: 'pants' },
-    { geo: G.parts.head, y: 0.6, color: 'skin' },
-    { geo: G.parts.hair, y: 0.6, color: 'hair' },
-  ], {
-    shirt: shirt.color.getHex(), pants: pants.color.getHex(),
-    skin: skinCol, hair: hairMat.color.getHex(),
-  });
+  const bodyGeo = buildBody(c);
+  const armGeo = buildArm(c);
+  const legGeo = buildLeg(c);
+
   const torso = new THREE.Mesh(bodyGeo, shared.bodyMat);
-  torso.position.y = 0.98;
-  const larm = new THREE.Mesh(G.arm, skin); larm.position.set(0, 1.52, 0.23);
-  const rarm = new THREE.Mesh(G.arm, skin); rarm.position.set(0, 1.52, -0.23);
-  const lleg = new THREE.Mesh(G.leg, pants); lleg.position.set(0, 0.86, 0.10);
-  const rleg = new THREE.Mesh(G.leg, pants); rleg.position.set(0, 0.86, -0.10);
-  group.add(torso, larm, rarm, lleg, rleg);
+  torso.position.y = WAIST;
+  // le braccia sono figlie del busto: seguono torsioni e inclinazioni
+  const larm = new THREE.Mesh(armGeo, shared.bodyMat); larm.position.set(0, SHOULDER - WAIST, 0.175);
+  const rarm = new THREE.Mesh(armGeo, shared.bodyMat); rarm.position.set(0, SHOULDER - WAIST, -0.175);
+  const lleg = new THREE.Mesh(legGeo, shared.bodyMat); lleg.position.set(0, HIP, 0.085);
+  const rleg = new THREE.Mesh(legGeo, shared.bodyMat); rleg.position.set(0, HIP, -0.085);
+  torso.add(larm, rarm);
+  group.add(torso, lleg, rleg);
 
   if (shared.quality.shadows) {
     for (const m of [torso, larm, rarm, lleg, rleg]) { m.castShadow = true; m.receiveShadow = true; }
@@ -520,10 +572,28 @@ export function makeCharacter(opts = {}) {
   }
 
   group.userData.parts = { torso, larm, rarm, lleg, rleg };
-  group.userData.mats = { skin, shirt, pants, hairMat };
-  group.userData.colors = colors;
+  group.userData.colors = c;
+  group.userData.geo = { bodyGeo, armGeo, legGeo };
   group.userData.phase = Math.random() * 6.28;
   return group;
+}
+
+/** Cambia i vestiti ricostruendo le geometrie con i nuovi colori. */
+export function dressCharacter(group, shirtHex, pantsHex) {
+  const c = group.userData.colors;
+  if (!c) return;
+  c.shirt = shirtHex; c.sleeve = shirtHex; c.pants = pantsHex;
+  const p = group.userData.parts;
+  const g = group.userData.geo;
+  g.bodyGeo.dispose(); g.armGeo.dispose(); g.legGeo.dispose();
+  g.bodyGeo = buildBody(c); g.armGeo = buildArm(c); g.legGeo = buildLeg(c);
+  p.torso.geometry = g.bodyGeo;
+  p.larm.geometry = g.armGeo; p.rarm.geometry = g.armGeo;
+  p.lleg.geometry = g.legGeo; p.rleg.geometry = g.legGeo;
+}
+
+export function randomPedColors() {
+  return { skin: pick(SKINS), shirt: pick(SHIRTS), pants: pick(PANTS), hair: pick(HAIR) };
 }
 
 /**
@@ -604,9 +674,7 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   if (state === 'talk' || state === 'phone' || state === 'smoke' || state === 'wave' ||
       state === 'lean' || state === 'watch' || state === 'sit' || state === 'aim') {
     reset();
-    p.torso.position.y = 0.98 + idleBob;
-    p.larm.position.y = 1.52 + idleBob;
-    p.rarm.position.y = 1.52 + idleBob;
+    p.torso.position.y = 1.02 + idleBob;
 
     if (state === 'talk') {
       const g1 = Math.sin(t * 3.4 + ph), g2 = Math.sin(t * 2.1 + ph * 2);
@@ -677,9 +745,7 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   p.torso.rotation.y = -sw * 0.12;
 
   const bob = Math.abs(Math.sin(t * f + ph)) * Math.min(speed * 0.014, 0.06) + idleBob;
-  p.torso.position.y = 0.98 + bob;
-  p.larm.position.y = 1.52 + bob;
-  p.rarm.position.y = 1.52 + bob;
+  p.torso.position.y = 1.02 + bob;
 
   if (punchT > 0) {
     const k = Math.sin(Math.min(punchT, 1) * Math.PI);
@@ -687,29 +753,6 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
     p.rarm.rotation.z = -0.12 - 0.35 * k;
     p.torso.rotation.y = -0.35 * k;
   }
-}
-
-/** Cambia i vestiti: ricostruisce i colori nei vertici del corpo. */
-export function dressCharacter(group, shirtHex, pantsHex) {
-  const colors = group.userData.colors;
-  if (!colors) return;
-  colors.shirt = shirtHex;
-  colors.pants = pantsHex;
-  const G = shared.charGeo;
-  const mesh = group.userData.parts.torso;
-  mesh.geometry.dispose();
-  mesh.geometry = mergeBody([
-    { geo: G.parts.torso, y: 0, color: 'shirt' },
-    { geo: G.parts.hips, y: -0.22, color: 'pants' },
-    { geo: G.parts.head, y: 0.6, color: 'skin' },
-    { geo: G.parts.hair, y: 0.6, color: 'hair' },
-  ], colors);
-  group.userData.mats.shirt.color.setHex(shirtHex);
-  group.userData.mats.pants.color.setHex(pantsHex);
-}
-
-export function randomPedColors() {
-  return { skin: pick(SKINS), shirt: pick(SHIRTS), pants: pick(PANTS), hair: pick(HAIR) };
 }
 
 export { shared, hull, taper };
