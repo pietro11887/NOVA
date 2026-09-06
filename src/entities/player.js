@@ -35,6 +35,7 @@ export class Player {
     this.indoor = false;
     this.camPos = new THREE.Vector3(0, 5, 10);
     this.camLook = new THREE.Vector3();
+    this._lookTarget = new THREE.Vector3();
   }
 
   get inCar() { return this.car !== null; }
@@ -140,7 +141,9 @@ export class Player {
       if (impact > 11) this.damage(impact * 0.5, 'incidente');
     }
     if (car.health <= 0) {
+      const cx = car.x, cz = car.z;
       this.exitCar(true);
+      this.game.explode(cx, cz);
       this.damage(28, 'esplosione');
     }
   }
@@ -219,7 +222,8 @@ export class Player {
 
     const k = clamp(dt * (inCar ? 7 : 11), 0, 1);
     this.camPos.lerp(V, k);
-    this.camLook.lerp(new THREE.Vector3(tx, ty + 0.5, tz), clamp(dt * 14, 0, 1));
+    this._lookTarget.set(tx, ty + 0.5, tz);
+    this.camLook.lerp(this._lookTarget, clamp(dt * 14, 0, 1));
   }
 
   applyCamera(camera) {

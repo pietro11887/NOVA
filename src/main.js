@@ -65,6 +65,12 @@ class Game {
 
     this.audio = new Audio();
     this.input = new Input(this.canvas);
+    // ingressi neutri: quando un menu e' aperto il personaggio resta fermo
+    this.frozenInput = {
+      look: { x: 0, y: 0 }, forward: 0, strafe: 0, running: false, braking: false,
+      invertY: false, btn: { action: false, attack: false, jump: false, run: false },
+      pressed: () => false,
+    };
     addEventListener('resize', () => this.resize());
     this.resize();
   }
@@ -110,6 +116,7 @@ class Game {
     this.missions = new Missions(this);
     this._tracers();
     this._headlightBeam();
+    this._effects();
     this.load();
 
     await step(100, 'Pronto!');
@@ -150,6 +157,61 @@ class Game {
     }));
     this.beam.visible = false;
     this.worldGroup.add(this.beam);
+  }
+
+  /** Fumo del motore danneggiato ed esplosioni. */
+  _effects() {
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0x9aa0a8, transparent: true, opacity: 0.5, depthWrite: false });
+    this.smoke = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), smokeMat);
+      m.userData.seed = i * 1.7;
+      this.smoke.add(m);
+    }
+    this.smoke.visible = false;
+    this.worldGroup.add(this.smoke);
+
+    this.boom = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 12, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffa33a, transparent: true, opacity: 0.9, depthWrite: false })
+    );
+    this.boom.visible = false;
+    this.boomT = 0;
+    this.worldGroup.add(this.boom);
+  }
+
+  explode(x, z) {
+    this.boom.position.set(x, 1.4, z);
+    this.boom.visible = true;
+    this.boomT = 0.6;
+    this.audio.crash(20);
+    this.audio.noise(0.6, 140, 0.6);
+    this.hud.flash();
+    this.alarm(x, z, 30);
+  }
+
+  _effectsUpdate(dt) {
+    const p = this.player;
+    const car = p.inCar ? p.car : null;
+    const damaged = car && car.health < 42;
+    this.smoke.visible = !!damaged && !this.interiors.current;
+    if (damaged) {
+      const k = 1 - car.health / 42;
+      this.smoke.position.set(car.x + car.fx * car.spec.L * 0.42, 1.0, car.z + car.fz * car.spec.L * 0.42);
+      for (const m of this.smoke.children) {
+        const t = (this.time * 0.9 + m.userData.seed) % 1;
+        m.position.set(Math.sin(m.userData.seed + this.time) * 0.5, t * 3.2, Math.cos(m.userData.seed * 2) * 0.5);
+        m.scale.setScalar(0.4 + t * 1.6);
+        m.material.opacity = 0.55 * (1 - t) * k;
+      }
+    }
+    if (this.boomT > 0) {
+      this.boomT -= dt;
+      const k = 1 - this.boomT / 0.6;
+      this.boom.scale.setScalar(1 + k * 7);
+      this.boom.material.opacity = 0.9 * (1 - k);
+      if (this.boomT <= 0) this.boom.visible = false;
+    }
   }
 
   _menus() {
@@ -272,7 +334,7 @@ class Game {
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
     if (this.input.attacking && !this.hud.shopOpen) p.attack();
-    p.update(dt, this.input);
+    p.update(dt, this.hud.shopOpen ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
       this.interiors.update(dt);
@@ -288,6 +350,7 @@ class Game {
     }
 
     this._tracerUpdate(dt);
+    this._effectsUpdate(dt);
     this._engineSound();
     if (p.dead && p.respawnT <= 0) this.respawn();
 

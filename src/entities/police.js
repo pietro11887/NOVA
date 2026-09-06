@@ -131,7 +131,7 @@ export class PoliceManager {
       }
       if (p.inCar && v.copsOut && d > 60) v.copsOut = false;
 
-      if (v.health <= 0) { v.active = false; v.mesh.visible = false; game.audio.crash(12); }
+      if (v.health <= 0) { v.active = false; v.mesh.visible = false; game.explode(v.x, v.z); }
     }
 
     // ---- agenti a piedi
