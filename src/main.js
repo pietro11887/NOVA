@@ -299,6 +299,7 @@ class Game {
 
   _menus() {
     $('btn-play').addEventListener('click', () => this.start());
+    this._fullscreenMenu();
     this._onlineMenu();
     $('btn-resume').addEventListener('click', () => this.setPaused(false));
     $('btn-pause').addEventListener('click', () => this.setPaused(true));
@@ -317,6 +318,26 @@ class Game {
       if (e.code === 'KeyP') this.setPaused(!this.paused);
     });
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.setPaused(true); });
+  }
+
+  /**
+   * Quando il gioco gira dentro un pannello (l'anteprima di Claude, un
+   * iframe qualsiasi) si vede solo a meta': qui offriamo schermo intero e,
+   * se il pannello lo consente, l'apertura in una scheda tutta sua.
+   */
+  _fullscreenMenu() {
+    const embedded = window.self !== window.top;
+    const expand = $('btn-expand');
+    const newtab = $('btn-newtab');
+    expand.addEventListener('click', () => {
+      this.toggleFullscreen();
+      expand.textContent = document.fullscreenElement ? '⛶ Esci da schermo intero' : '⛶ Schermo intero';
+    });
+    if (embedded) {
+      newtab.href = location.href;
+      newtab.classList.remove('hidden');
+      $('boot-status').textContent = 'Consiglio: apri a schermo intero o in una scheda nuova';
+    }
   }
 
   /** Schermata di gioco online: due codici e si e' collegati. */
@@ -418,7 +439,7 @@ class Game {
     this.audio.start();
     this.paused = false;
     if (!this.running) { this.running = true; this.last = performance.now(); this.loop(); }
-    if (IS_MOBILE) this.toggleFullscreen(true);
+    this.toggleFullscreen(true);
     this.toast('Benvenuto a Nova City', 'good');
   }
 
