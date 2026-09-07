@@ -10425,8 +10425,8 @@ var Input = class {
     this.driveMode = false;
     this.look = { x: 0, y: 0 };
     this.keys = /* @__PURE__ */ new Set();
-    this.btn = { action: false, attack: false, jump: false, run: false };
-    this._edge = { action: false, attack: false, jump: false };
+    this.btn = { action: false, attack: false, jump: false, run: false, punch: false };
+    this._edge = { action: false, attack: false, jump: false, punch: false, swap: 0, slot: 0 };
     this.enabled = true;
     this.lookSensitivity = IS_TOUCH ? 55e-4 : 25e-4;
     this.invertY = false;
@@ -10448,9 +10448,9 @@ var Input = class {
     addEventListener("keydown", (e) => {
       if (e.repeat) return;
       this.keys.add(e.code);
-      if (e.code === "KeyE") this._edge.action = true;
+      if (e.code === "KeyE" || e.code === "KeyF") this._edge.action = true;
       if (e.code === "Space") this._edge.jump = true;
-      if (e.code === "KeyQ") this._edge.swap = true;
+      if (e.code === "KeyQ") this._edge.swap = 1;
       if (/^Digit[1-8]$/.test(e.code)) this._edge.slot = +e.code.slice(5);
       if (map[e.code] || e.code === "Space") e.preventDefault();
     });
@@ -10461,23 +10461,45 @@ var Input = class {
   }
   _mouse() {
     const c2 = this.canvas;
+    let dragging = false, lastX = 0, lastY = 0;
+    c2.addEventListener("contextmenu", (e) => e.preventDefault());
     c2.addEventListener("mousedown", (e) => {
       if (!this.enabled) return;
       if (e.button === 0) {
         this._edge.attack = true;
         this.btn.attack = true;
       }
+      if (e.button === 2) {
+        this._edge.punch = true;
+        this.btn.punch = true;
+      }
       if (!IS_TOUCH && document.pointerLockElement !== c2) c2.requestPointerLock?.();
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      e.preventDefault();
     });
     addEventListener("mouseup", (e) => {
       if (e.button === 0) this.btn.attack = false;
+      if (e.button === 2) this.btn.punch = false;
+      dragging = false;
     });
     addEventListener("mousemove", (e) => {
-      if (document.pointerLockElement === this.canvas) {
+      if (document.pointerLockElement === c2) {
         this.look.x += e.movementX * this.lookSensitivity;
         this.look.y += e.movementY * this.lookSensitivity;
+      } else if (dragging && this.enabled) {
+        this.look.x += (e.clientX - lastX) * this.lookSensitivity;
+        this.look.y += (e.clientY - lastY) * this.lookSensitivity;
+        lastX = e.clientX;
+        lastY = e.clientY;
       }
     });
+    c2.addEventListener("wheel", (e) => {
+      if (!this.enabled) return;
+      e.preventDefault();
+      this._edge.swap = e.deltaY > 0 ? 1 : -1;
+    }, { passive: false });
   }
   _touch() {
     const zone = document.getElementById("stick-zone");
@@ -10636,7 +10658,8 @@ var Input = class {
     this.look.x = 0;
     this.look.y = 0;
     this._edge.action = this._edge.attack = this._edge.jump = false;
-    this._edge.swap = false;
+    this._edge.swap = 0;
+    this._edge.punch = false;
     this._edge.slot = 0;
   }
   pressed(name) {
@@ -10690,6 +10713,10 @@ var Input = class {
   }
   get attacking() {
     return this.btn.attack || this._edge.attack;
+  }
+  /** Tasto destro: pugno, anche con un'arma in mano. */
+  get punching() {
+    return this.btn.punch || this._edge.punch;
   }
 };
 
@@ -12270,7 +12297,13 @@ var SHOP_KINDS = [
   { type: "clothes", name: "THREADS", color: "#e46bff" },
   { type: "bar", name: "BAR LUNA", color: "#ffd23f" },
   { type: "garage", name: "GARAGE PIT", color: "#ffb020" },
-  { type: "home", name: "CASA", color: "#ffe9a8" }
+  { type: "home", name: "CASA", color: "#ffe9a8" },
+  { type: "diner", name: "TAVOLA CALDA", color: "#ff7a3d" },
+  { type: "gym", name: "IRON NOVA", color: "#3ddc84" },
+  { type: "bank", name: "BANCA DI NOVA", color: "#2f6fd0" },
+  { type: "club", name: "CLUB VELVET", color: "#e46bff" },
+  { type: "office", name: "NOVA CONSULTING", color: "#8ad8ff" },
+  { type: "barber", name: "BARBIERE", color: "#c02c3a" }
 ];
 var LANDMARKS = {
   "1,2": "police",
@@ -12637,7 +12670,7 @@ var City = class {
     const rng = this.rng;
     const N = CFG.N, c2 = (N - 1) / 2;
     const shopQueue = [];
-    for (let k = 0; k < 46; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
+    for (let k = 0; k < 60; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
     const G = this._newBuilders();
     G.props = new Props(G);
     const billboards = [];
@@ -14770,17 +14803,14 @@ var Post = class {
     if (!this.enabled) return;
     const size = renderer.getSize(new ti());
     const dpr = renderer.getPixelRatio();
-    const gl2 = renderer.getContext();
-    const maxSamples = renderer.capabilities.isWebGL2 ? gl2.getParameter(gl2.MAX_SAMPLES) || 0 : 0;
-    const samples = Math.max(0, Math.min(quality.samples ?? 4, maxSamples));
     const rt2 = new wi(
-      Math.max(2, Math.floor(size.width)),
-      Math.max(2, Math.floor(size.height)),
-      { type: Ut, samples }
+      Math.max(2, Math.round(size.width * dpr)),
+      Math.max(2, Math.round(size.height * dpr)),
+      { type: Ut }
     );
-    this.maxSamples = maxSamples;
     this.composer = new EffectComposer(renderer, rt2);
     this.composer.setPixelRatio(dpr);
+    this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
     this.bloom.enabled = !!quality.bloom;
@@ -15094,6 +15124,18 @@ CAR_TYPES.ambulance = {
     { x: 0.95, hw: 1.08, yb: 1.42, yt: 2.1 }
   ]
 };
+var JACKETS = [
+  2830392,
+  2042426,
+  3812132,
+  3099194,
+  4860724,
+  1711394,
+  5915702,
+  3096410,
+  7027498,
+  3948358
+];
 var CAR_COLORS = [
   11019051,
   1920911,
@@ -15522,7 +15564,47 @@ function buildBody(c2) {
     { y: 1.485, rx: 0.185, rz: 0.11, color: shirt },
     { y: 1.51, rx: 0.12, rz: 0.085, color: shirt }
   ], shirt, 12);
-  for (const s of [-1, 1]) blob(gb, 0, 1.465, s * 0.175, 0.085, 0.085, 0.09, shirt, 10, 6);
+  const shoulderCol = c2.outfit === "tee" ? shirt : c2.jacket;
+  const shoulderZ = c2.outfit === "tee" ? 0.175 : 0.196;
+  for (const s of [-1, 1]) blob(gb, 0, 1.462, s * shoulderZ, 0.092, 0.092, 0.098, shoulderCol, 10, 6);
+  if (c2.outfit === "jacket") {
+    const j = c2.jacket;
+    loft(gb, [
+      { y: 1.06, rx: 0.162, rz: 0.112, color: j },
+      { y: 1.2, rx: 0.166, rz: 0.114, color: j },
+      { y: 1.34, rx: 0.192, rz: 0.126, color: j },
+      { y: 1.45, rx: 0.198, rz: 0.126, color: j },
+      { y: 1.49, rx: 0.19, rz: 0.118, color: j }
+    ], j, 12, false);
+    for (const s of [-1, 1]) {
+      gb.box(0.098, 1.4, s * 0.055, 0.05, 0.24, 0.07, j);
+      gb.box(0.086, 1.47, s * 0.085, 0.05, 0.1, 0.09, j);
+    }
+    gb.box(0.108, 1.26, 0, 0.02, 0.34, 0.026, 9278620);
+    for (const s of [-1, 1]) gb.box(0.096, 1.13, s * 0.09, 0.03, 0.07, 0.09, j);
+  } else if (c2.outfit === "hoodie") {
+    const j = c2.jacket;
+    loft(gb, [
+      { y: 1.04, rx: 0.168, rz: 0.116, color: j },
+      { y: 1.22, rx: 0.172, rz: 0.118, color: j },
+      { y: 1.36, rx: 0.198, rz: 0.13, color: j },
+      { y: 1.47, rx: 0.2, rz: 0.128, color: j },
+      { y: 1.5, rx: 0.188, rz: 0.116, color: j }
+    ], j, 12, false);
+    blob(gb, -0.075, 1.52, 0, 0.105, 0.075, 0.125, j, 10, 6);
+    blob(gb, -0.055, 1.46, 0, 0.115, 0.06, 0.135, j, 10, 6);
+    gb.box(0.098, 1.12, 0, 0.035, 0.13, 0.22, j);
+    for (const s of [-1, 1]) gb.box(0.104, 1.33, s * 0.03, 0.014, 0.16, 0.014, 15262940);
+  }
+  loft(gb, [
+    { y: 0.99, rx: 0.158, rz: 0.106, color: c2.belt },
+    { y: 1.04, rx: 0.156, rz: 0.104, color: c2.belt }
+  ], c2.belt, 12, false);
+  gb.box(0.108, 1.015, 0, 0.03, 0.05, 0.06, 13214282);
+  loft(gb, [
+    { y: 1.487, rx: 0.088, rz: 0.072, color: c2.outfit === "tee" ? shirt : c2.jacket },
+    { y: 1.535, rx: 0.08, rz: 0.066, color: c2.outfit === "tee" ? shirt : c2.jacket }
+  ], shirt, 10, false);
   loft(gb, [
     { y: 1.5, rx: 0.062, rz: 0.058, color: skin },
     { y: 1.575, rx: 0.058, rz: 0.055, color: skin }
@@ -15558,13 +15640,14 @@ function buildBody(c2) {
 function buildArm(c2) {
   const gb = new GeoBuilder();
   const sleeve = c2.sleeve;
+  const bulk = c2.outfit === "tee" ? 1 : 1.16;
   loft(gb, [
-    { y: 0.02, rx: 0.062, rz: 0.062, color: sleeve },
-    { y: -0.1, rx: 0.058, rz: 0.058, color: sleeve },
-    { y: -0.19, rx: 0.052, rz: 0.052, color: c2.shortSleeve ? c2.skin : sleeve },
-    { y: -0.3, rx: 0.047, rz: 0.047, color: c2.shortSleeve ? c2.skin : sleeve }
+    { y: 0.02, rx: 0.062 * bulk, rz: 0.062 * bulk, color: sleeve },
+    { y: -0.1, rx: 0.058 * bulk, rz: 0.058 * bulk, color: sleeve },
+    { y: -0.19, rx: 0.052 * bulk, rz: 0.052 * bulk, color: c2.shortSleeve ? c2.skin : sleeve },
+    { y: -0.3, rx: 0.047 * bulk, rz: 0.047 * bulk, color: c2.shortSleeve ? c2.skin : sleeve }
   ], c2.skin, 9);
-  blob(gb, 0, -0.3, 0, 0.048, 0.048, 0.048, c2.shortSleeve ? c2.skin : sleeve, 8, 6);
+  blob(gb, 0, -0.3, 0, 0.048 * bulk, 0.048 * bulk, 0.048 * bulk, c2.shortSleeve ? c2.skin : sleeve, 8, 6);
   return smoothNormals(gb.build(), 1.15);
 }
 function buildForearm(c2) {
@@ -15656,8 +15739,16 @@ function makeCharacter(opts = {}) {
     hairStyle: opts.hairStyle ?? (Math.random() < 0.55 ? 0 : Math.random() < 0.6 ? 1 : 2),
     shortSleeve: Math.random() < 0.6,
     shorts: Math.random() < 0.25,
-    sleeve: shirt
+    sleeve: shirt,
+    // sopra la maglietta: niente, giacca o felpa
+    outfit: opts.outfit ?? pick(["tee", "tee", "jacket", "jacket", "hoodie"]),
+    jacket: opts.jacket ?? pick(JACKETS),
+    belt: pick([2826521, 1711394, 3812126])
   };
+  if (c2.outfit !== "tee") {
+    c2.shortSleeve = false;
+    c2.sleeve = c2.jacket;
+  }
   const group = new Wl();
   const bodyGeo = buildBody(c2);
   const armGeo = buildArm(c2);
@@ -15666,10 +15757,11 @@ function makeCharacter(opts = {}) {
   const shinGeo = buildShin(c2);
   const torso = new Xs(bodyGeo, shared.bodyMat);
   torso.position.y = WAIST;
+  const armZ = c2.outfit === "tee" ? 0.175 : 0.196;
   const larm = new Xs(armGeo, shared.bodyMat);
-  larm.position.set(0, SHOULDER - WAIST, 0.175);
+  larm.position.set(0, SHOULDER - WAIST, armZ);
   const rarm = new Xs(armGeo, shared.bodyMat);
-  rarm.position.set(0, SHOULDER - WAIST, -0.175);
+  rarm.position.set(0, SHOULDER - WAIST, -armZ);
   const lleg = new Xs(legGeo, shared.bodyMat);
   lleg.position.set(0, HIP, 0.085);
   const rleg = new Xs(legGeo, shared.bodyMat);
@@ -16157,6 +16249,137 @@ var SHOP_MENUS = {
       { id: "suv", icon: "\u{1F699}", name: "SUV", desc: "Consegnato fuori dal garage", price: 1400, effect: (g) => g.deliverCar("suv") }
     ]
   },
+  diner: {
+    title: "TAVOLA CALDA",
+    desc: "Colazione tutto il giorno, caff\xE8 sempre caldo.",
+    items: [
+      { id: "breakfast", icon: "\u{1F95E}", name: "Colazione completa", desc: "Salute al massimo", price: 22, effect: (g) => g.player.heal(100) },
+      { id: "steak", icon: "\u{1F969}", name: "Bistecca e patate", desc: "+60 salute", price: 34, effect: (g) => g.player.heal(60) },
+      { id: "coffee2", icon: "\u2615", name: "Caff\xE8 americano", desc: "+12 salute", price: 4, effect: (g) => g.player.heal(12) },
+      {
+        id: "tip",
+        icon: "\u{1F3B5}",
+        name: "Metti una moneta nel jukebox",
+        desc: "Cambia stazione radio",
+        price: 2,
+        effect: (g) => g.radio.change(1)
+      }
+    ]
+  },
+  gym: {
+    title: "IRON NOVA",
+    desc: "Ferro e sudore. Qui la salute te la guadagni.",
+    items: [
+      {
+        id: "workout",
+        icon: "\u{1F3CB}\uFE0F",
+        name: "Allenamento",
+        desc: "Salute massima +10 (fino a 150)",
+        price: 60,
+        effect: (g) => {
+          g.player.maxHealth = Math.min(150, (g.player.maxHealth || 100) + 10);
+          g.player.heal(100);
+        }
+      },
+      {
+        id: "bag",
+        icon: "\u{1F94A}",
+        name: "Sacco da boxe",
+        desc: "Pugni piu' forti",
+        price: 240,
+        effect: (g) => {
+          g.player.punchBonus = Math.min(30, (g.player.punchBonus || 0) + 10);
+        }
+      },
+      { id: "shake", icon: "\u{1F964}", name: "Frullato proteico", desc: "+40 salute", price: 14, effect: (g) => g.player.heal(40) }
+    ]
+  },
+  bank: {
+    title: "BANCA DI NOVA",
+    desc: "Deposita i contanti: se ti stendono non li perdi.",
+    items: [
+      {
+        id: "deposit",
+        icon: "\u{1F3E6}",
+        name: "Deposita met\xE0 dei contanti",
+        desc: "Al sicuro dal caveau",
+        price: 0,
+        effect: (g) => g.bankDeposit()
+      },
+      { id: "withdraw", icon: "\u{1F4B5}", name: "Preleva tutto", desc: "Torna in tasca", price: 0, effect: (g) => g.bankWithdraw() },
+      {
+        id: "heist",
+        icon: "\u{1F4B0}",
+        name: "Svuota il caveau",
+        desc: "Bottino grosso, polizia peggio",
+        price: 0,
+        effect: (g) => g.bankHeist()
+      }
+    ]
+  },
+  club: {
+    title: "CLUB VELVET",
+    desc: "Musica alta, luci basse, nessuna domanda.",
+    items: [
+      { id: "drink", icon: "\u{1F378}", name: "Cocktail della casa", desc: "+30 salute", price: 18, effect: (g) => g.player.heal(30) },
+      {
+        id: "vip",
+        icon: "\u2728",
+        name: "Tavolo VIP",
+        desc: "Ti fai notare: la polizia ti dimentica",
+        price: 400,
+        effect: (g) => {
+          g.setWanted(0);
+          g.police.standDown();
+          g.toast("Sei sparito nella folla", "good");
+        }
+      },
+      {
+        id: "dance",
+        icon: "\u{1F57A}",
+        name: "Balla un po'",
+        desc: "Passa il tempo",
+        price: 0,
+        effect: (g) => {
+          g.clock += 2;
+          g.player.heal(15);
+        }
+      }
+    ]
+  },
+  office: {
+    title: "NOVA CONSULTING",
+    desc: "Lavoro pulito, buste pesanti.",
+    items: [
+      { id: "job", icon: "\u{1F4C1}", name: "Prendi un incarico", desc: "Avvia una missione", price: 0, effect: (g) => g.missions.offerFromBar() },
+      {
+        id: "wire",
+        icon: "\u{1F4B3}",
+        name: "Riscuoti una fattura",
+        desc: "Guadagno onesto, una volta ogni tanto",
+        price: 0,
+        effect: (g) => g.officeInvoice()
+      }
+    ]
+  },
+  barber: {
+    title: "BARBIERE DA VITO",
+    desc: "Taglio, barba e una faccia nuova.",
+    items: [
+      {
+        id: "cut",
+        icon: "\u{1F488}",
+        name: "Taglio e barba",
+        desc: "Nuovo look, la polizia fatica a riconoscerti",
+        price: 60,
+        effect: (g) => {
+          g.dressPlayer(Math.random() * 16777215 | 0, Math.random() * 16777215 | 0);
+          g.setWanted(Math.max(0, g.wanted - 1));
+        }
+      },
+      { id: "shave", icon: "\u{1FA92}", name: "Solo barba", desc: "+15 salute, ti rilassa", price: 20, effect: (g) => g.player.heal(15) }
+    ]
+  },
   home: {
     title: "CASA",
     desc: "Il tuo appartamento. Dormi per salvare la partita.",
@@ -16199,7 +16422,13 @@ var STYLE = {
   bar: { floor: "wood", wall: 8018758, trim: 16765503, light: 16767392, glow: 16765503 },
   garage: { floor: "concrete", wall: 10134445, trim: 16756768, light: 15791359, glow: 16756768 },
   home: { floor: "wood", wall: 15260870, trim: 9071172, light: 16771520, glow: 16767392 },
-  casino: { floor: "carpet", wall: 3807280, trim: 16765503, light: 16768160, glow: 16765503 }
+  casino: { floor: "carpet", wall: 3807280, trim: 16765503, light: 16768160, glow: 16765503 },
+  diner: { floor: "tile", wall: 15918808, trim: 13644844, light: 16773336, glow: 16742973 },
+  gym: { floor: "concrete", wall: 3093564, trim: 4054148, light: 15398655, glow: 4054148 },
+  bank: { floor: "tile", wall: 14673644, trim: 3108816, light: 16055039, glow: 3108816 },
+  club: { floor: "carpet", wall: 1708068, trim: 14969855, light: 13672703, glow: 14969855 },
+  office: { floor: "carpet", wall: 15001838, trim: 9082016, light: 16185855, glow: 5030655 },
+  barber: { floor: "tile", wall: 15393492, trim: 12594234, light: 16774372, glow: 16765503 }
 };
 function shelf(B, x, z, w, d2, h2, rot, rng, dense = true) {
   const wood = B.wood, prod = B.prod;
@@ -16353,19 +16582,45 @@ var Interior = class {
     add(B.leaf, mats.leaf, { cast: true });
     add(B.trim, mats.trim);
     add(B.glowB, mats.glow);
-    for (const dx of [-4.5, 4.5]) {
-      const l2 = new rp(st.light, 9, 22, 1.2);
-      l2.position.set(ox + dx, H - 0.5, oz - 1);
-      this.group.add(l2);
+    for (const dx of [-6, 0, 6]) {
+      for (const dz of [-4, 2]) {
+        const l2 = new rp(st.light, 7, 20, 1.25);
+        l2.position.set(ox + dx, H - 0.5, oz + dz);
+        this.group.add(l2);
+      }
     }
-    const fill = new rp(st.glow, 4, 16, 1.3);
-    fill.position.set(ox, 2.2, oz + 4);
+    const accent = new Kr(st.glow).lerp(new Kr(16777215), 0.55);
+    const fill = new rp(accent, 2.2, 14, 1.4);
+    fill.position.set(ox, 1.8, oz + 4);
     this.group.add(fill);
     if (type !== "home") {
       this.clerk = makeCharacter({});
-      this.clerk.position.set(ox - 1.2, 0, oz - 4.6);
+      this.clerk.position.set(this.counter.x - 1.2, 0, this.counter.z - 1.2);
       this.clerk.rotation.y = -Math.PI / 2;
       this.group.add(this.clerk);
+    }
+    this.patrons = [];
+    const POSES = {
+      diner: "sit",
+      gym: "lean",
+      bank: "phone",
+      club: "wave",
+      office: "talk",
+      barber: "sit",
+      bar: "talk",
+      casino: "watch",
+      store: "phone"
+    };
+    const n = type === "home" ? 0 : type === "club" ? 5 : 3;
+    for (let i = 0; i < n; i++) {
+      const p2 = makeCharacter({});
+      const a = rng() * Math.PI * 2, r = 2.6 + rng() * 5.4;
+      p2.position.set(ox + Math.cos(a) * r, 0, oz + 1.5 + Math.sin(a) * r * 0.6);
+      p2.rotation.y = rng() * Math.PI * 2;
+      p2.userData.pose = POSES[type] || pick(["talk", "phone", "lean", "watch"]);
+      p2.userData.phase = rng() * 6.28;
+      this.group.add(p2);
+      this.patrons.push(p2);
     }
     this.group.visible = false;
   }
@@ -16556,6 +16811,231 @@ var Interior = class {
       B.prod.box(this.ox + dx, 2.2, this.oz - HALF_D + 0.26, 1, 0.7, 0.03, pick([4156298, 9071172, 7047770]));
     }
   }
+  /** Tavola calda: box con divanetti, bancone lungo, cucina a vista. */
+  _diner(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 9, 1, 13219738, st.trim);
+    for (let i = -3; i <= 3; i++) stool(B, this.counter.x + i * 1.2, this.counter.z + 1.3);
+    B.metal.box(ox, 0.5, oz - 5.4, 5.2, 1, 0.9, 12173512);
+    B.metal.box(ox, 2.3, oz - 5.4, 5.4, 0.5, 1.1, 9278620);
+    B.glowB.box(ox, 2.02, oz - 5.4, 5, 0.06, 0.9, 16773312);
+    for (const dx of [-1.6, 0, 1.6]) B.metal.box(ox + dx, 1.06, oz - 5.4, 1.2, 0.06, 0.7, 3817287);
+    B.wood.box(ox, 2.9, oz - 5.9, 5.2, 0.08, 0.4, 12170150);
+    for (let k = 0; k < 8; k++) {
+      B.prod.box(
+        ox - 2.2 + k * 0.6,
+        3.05,
+        oz - 5.9,
+        0.28,
+        0.24,
+        0.28,
+        pick([14241615, 14723372, 14737632, 5025616])
+      );
+    }
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const x = ox + sx * 5.6, z = oz - 1.4 + i * 3;
+        B.wood.box(x, 0.72, z, 1.7, 0.08, 1, 10119748);
+        B.metal.box(x, 0.36, z, 0.1, 0.72, 0.1, 8488845);
+        for (const sz of [-1, 1]) {
+          B.wood.box(x, 0.45, z + sz * 0.95, 1.8, 0.12, 0.55, 12597547);
+          B.wood.box(x, 0.9, z + sz * 1.2, 1.8, 0.9, 0.12, 12597547);
+        }
+        B.solid.push({ x, z, hx: 0.95, hz: 1.4 });
+      }
+    }
+    B.glowB.box(ox, 3.2, oz - 6.1, 3.4, 0.5, 0.06, 16734781);
+    B.metal.box(ox - 7.4, 0.9, oz + 3, 1, 1.8, 0.6, 4861732);
+    B.glowB.box(ox - 7.4, 1.4, oz + 3.32, 0.8, 0.6, 0.04, 16758858);
+    B.solid.push({ x: ox - 7.4, z: oz + 3, hx: 0.6, hz: 0.4 });
+  }
+  /** Palestra: rastrelliera pesi, panche, tapis roulant, specchiera. */
+  _gym(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 4.5, 1, 3817544, st.trim);
+    B.glass.box(ox + 3.5, 1.7, oz - HALF_D + 0.2, 8, 2.6, 0.08, 12572904);
+    B.metal.box(ox - 6, 0.5, oz - 4.6, 3.4, 0.12, 0.7, 5462111);
+    B.metal.box(ox - 6, 1, oz - 4.6, 3.4, 0.12, 0.7, 5462111);
+    for (let i = 0; i < 6; i++) {
+      const x = ox - 7.4 + i * 0.56;
+      for (const y of [0.62, 1.12]) {
+        B.metal.box(x, y, oz - 4.6, 0.12, 0.12, 0.5, 2830134);
+        for (const sz of [-1, 1]) B.metal.box(x, y, oz - 4.6 + sz * 0.24, 0.26, 0.26, 0.1, 1711394);
+      }
+    }
+    for (const dz of [-1.2, 2.2]) {
+      const x = ox - 4.2, z = oz + dz;
+      B.wood.box(x, 0.48, z, 1.6, 0.16, 0.5, 2830134);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.7, 0.2, z, 0.1, 0.4, 0.4, 5462111);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.9, 1.1, z, 0.12, 1, 0.12, 8488845);
+      B.metal.box(x, 1.55, z, 0.08, 0.08, 2.4, 10133670);
+      for (const sz of [-1, 1]) B.metal.box(x, 1.55, z + sz * 1, 0.42, 0.42, 0.12, 1711394);
+      B.solid.push({ x, z, hx: 0.9, hz: 0.8 });
+    }
+    for (let i = 0; i < 3; i++) {
+      const x = ox + 3.2 + i * 2.2, z = oz + 2.4;
+      B.metal.box(x, 0.18, z, 0.9, 0.36, 2, 3817287);
+      B.metal.box(x, 0.4, z - 0.9, 0.86, 0.1, 0.5, 1711394);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.42, 0.8, z + 0.85, 0.08, 1.2, 0.08, 8488845);
+      B.metal.box(x, 1.35, z + 0.85, 0.9, 0.34, 0.12, 5462111);
+      B.glowB.box(x, 1.35, z + 0.78, 0.6, 0.22, 0.02, 7332e3);
+      B.solid.push({ x, z, hx: 0.55, hz: 1.1 });
+    }
+    B.metal.box(ox + 6.5, 2.85, oz - 2, 0.5, 0.1, 0.5, 5462111);
+    B.wood.box(ox + 6.5, 1.55, oz - 2, 0.46, 1.5, 0.46, 2826265);
+    B.solid.push({ x: ox + 6.5, z: oz - 2, hx: 0.35, hz: 0.35 });
+  }
+  /** Banca: sportelli con vetri, corda separatrice, caveau in fondo. */
+  _bank(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, ox, oz - 4.4, 12, 1.1, 13159634, st.trim);
+    for (let i = -2; i <= 2; i++) {
+      const x = ox + i * 2.4;
+      B.glass.box(x, 1.9, oz - 4.4, 2.1, 1.5, 0.06, 13624562);
+      B.metal.box(x, 1.15, oz - 4.4, 2.2, 0.1, 0.5, 10133670);
+      B.metal.box(x - 1.1, 1.9, oz - 4.4, 0.08, 1.5, 0.1, 9080984);
+      B.glowB.box(x, 2.62, oz - 4.4, 0.7, 0.12, 0.03, 7327999);
+    }
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 0.5, 3.2, 3.2, 0.5, 7304832);
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 0.8, 2.6, 2.6, 0.2, 9278620);
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      B.metal.box(
+        ox - 6.6 + Math.cos(a) * 0.95,
+        1.6 + Math.sin(a) * 0.95,
+        oz - HALF_D + 0.95,
+        0.16,
+        0.16,
+        0.12,
+        13225170
+      );
+    }
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 1, 0.24, 0.24, 0.3, 14738664);
+    for (let i = 0; i < 5; i++) {
+      const x = ox - 4 + i * 2;
+      B.metal.box(x, 0.5, oz + 0.6, 0.09, 1, 0.09, 10133670);
+      B.metal.box(x, 0.04, oz + 0.6, 0.34, 0.08, 0.34, 8488845);
+      if (i < 4) B.trim.box(x + 1, 0.95, oz + 0.6, 2, 0.05, 0.05, 9051947);
+    }
+    plant(B, ox + 7, oz + 2.6);
+    plant(B, ox - 7, oz + 2.6);
+  }
+  /** Discoteca: pista illuminata, consolle, divanetti e bancone. */
+  _club(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, ox + 6, oz - 1, 5.5, 1, 2759734, st.trim);
+    this.counter = { x: ox + 6, z: oz - 1 };
+    for (let i = -2; i <= 2; i++) stool(B, ox + 6 + i * 1.1, oz + 0.3);
+    B.wood.box(ox + 6, 1.5, oz - 2.1, 5.5, 0.08, 0.4, 3811908);
+    B.wood.box(ox + 6, 2.1, oz - 2.1, 5.5, 0.08, 0.4, 3811908);
+    for (let k = 0; k < 14; k++) {
+      const x = ox + 3.5 + k * 0.38;
+      B.glowB.box(
+        x,
+        1.66 + k % 2 * 0.6,
+        oz - 2.1,
+        0.14,
+        0.3,
+        0.14,
+        pick([7332095, 14969855, 16765503, 7339936])
+      );
+    }
+    for (let i = 0; i < 5; i++) {
+      for (let j = 0; j < 5; j++) {
+        if ((i + j) % 2) continue;
+        B.glowB.quadY(
+          ox - 7.4 + i * 1.5,
+          oz - 1.6 + j * 1.5,
+          ox - 6.1 + i * 1.5,
+          oz - 0.3 + j * 1.5,
+          0.03,
+          pick([14969855, 7327999, 16765503])
+        );
+      }
+    }
+    B.wood.box(ox - 4.6, 0.55, oz - 5.2, 3, 1.1, 1, 2366e3);
+    B.metal.box(ox - 4.6, 1.14, oz - 5.2, 3.1, 0.08, 1.1, 4864600);
+    for (const dx of [-0.8, 0.8]) B.metal.box(ox - 4.6 + dx, 1.22, oz - 5.2, 0.5, 0.08, 0.5, 1709088);
+    B.glowB.box(ox - 4.6, 1.24, oz - 5.2, 0.5, 0.04, 0.3, 7339936);
+    B.solid.push({ x: ox - 4.6, z: oz - 5.2, hx: 1.6, hz: 0.6 });
+    for (const sx of [-1, 1]) {
+      B.wood.box(ox - 4.6 + sx * 2.6, 1.1, oz - 5.2, 0.8, 2.2, 0.8, 1709088);
+      B.solid.push({ x: ox - 4.6 + sx * 2.6, z: oz - 5.2, hx: 0.45, hz: 0.45 });
+    }
+    for (const sx of [-1, 1]) {
+      const x = ox + sx * 7.2, z = oz + 3.4;
+      B.wood.box(x, 0.35, z, 2.6, 0.7, 0.9, 3811908);
+      B.wood.box(x, 0.9, z - 0.5, 2.6, 1.1, 0.2, 4863320);
+      B.solid.push({ x, z, hx: 1.35, hz: 0.6 });
+    }
+    for (let i = 0; i < 6; i++) {
+      const x = ox - 6 + i * 2.4;
+      B.metal.box(x, H - 0.3, oz - 0.5, 0.18, 0.5, 0.18, 2830134);
+      B.glowB.box(x, H - 0.62, oz - 0.5, 0.3, 0.14, 0.3, pick([14969855, 7327999, 16765503]));
+    }
+  }
+  /** Ufficio: scrivanie, computer, sedie girevoli, lavagna. */
+  _office(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 4, 1, 14212322, st.trim);
+    const desk = (x, z, rot) => {
+      B.wood.box(x, 0.73, z, 1.9, 0.07, 0.95, 14208440, 0, rot);
+      for (const sx of [-1, 1]) {
+        B.metal.box(x + Math.cos(rot) * sx * 0.85, 0.36, z - Math.sin(rot) * sx * 0.85, 0.08, 0.72, 0.85, 9080984);
+      }
+      B.metal.box(x, 0.86, z - 0.28, 0.5, 0.2, 0.16, 2830134, 0, rot);
+      B.metal.box(x, 1.2, z - 0.3, 1, 0.6, 0.06, 1711394, 0, rot);
+      B.glowB.box(x, 1.2, z - 0.26, 0.92, 0.52, 0.02, 10475263, 0, rot);
+      B.metal.box(x, 0.79, z + 0.12, 0.7, 0.03, 0.24, 3817287, 0, rot);
+      B.prod.box(x + 0.6, 0.82, z + 0.05, 0.14, 0.16, 0.14, 14241615, 0, rot);
+      B.metal.box(x, 0.26, z + 0.95, 0.5, 0.08, 0.5, 2830134);
+      B.metal.box(x, 0.14, z + 0.95, 0.1, 0.28, 0.1, 5462111);
+      B.wood.box(x, 0.7, z + 1.2, 0.5, 0.7, 0.1, 3817544);
+      B.solid.push({ x, z, hx: 1, hz: 0.9 });
+    };
+    for (let i = 0; i < 3; i++) {
+      desk(ox - 5.4 + i * 3.6, oz - 3.6, 0);
+      desk(ox - 5.4 + i * 3.6, oz + 1.4, 0);
+    }
+    B.wood.box(ox + 7.6, 1.8, oz - HALF_D + 0.25, 4, 2.2, 0.1, 15922422);
+    B.trim.box(ox + 7.6, 1.8, oz - HALF_D + 0.31, 4.2, 2.4, 0.06, 7304832);
+    for (let i = 0; i < 3; i++) {
+      B.metal.box(ox - 8, 1, oz - 1 + i * 1.2, 0.6, 2, 1, 10133670);
+      B.solid.push({ x: ox - 8, z: oz - 1 + i * 1.2, hx: 0.35, hz: 0.55 });
+    }
+    plant(B, ox + 7.4, oz + 3.4);
+  }
+  /** Barbiere: poltrone, specchi, lavabi, palo tricolore. */
+  _barber(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 3.6, 1, 9067066, st.trim);
+    for (let i = 0; i < 4; i++) {
+      const x = ox - 6 + i * 3.2, z = oz + 1;
+      B.glass.box(x, 1.9, oz - HALF_D + 0.22, 1.5, 2, 0.06, 14215410);
+      B.trim.box(x, 1.9, oz - HALF_D + 0.28, 1.66, 2.16, 0.05, 7031348);
+      B.wood.box(x, 0.85, oz - HALF_D + 0.4, 1.6, 0.08, 0.5, 7031348);
+      for (let k = 0; k < 3; k++) {
+        B.prod.box(
+          x - 0.5 + k * 0.5,
+          0.98,
+          oz - HALF_D + 0.4,
+          0.12,
+          0.2,
+          0.12,
+          pick([5030655, 16765503, 4054148])
+        );
+      }
+      B.metal.box(x, 0.14, z, 0.7, 0.28, 0.7, 12173512);
+      B.metal.box(x, 0.4, z, 0.16, 0.4, 0.16, 9278620);
+      B.wood.box(x, 0.62, z, 0.66, 0.16, 0.7, 2830134);
+      B.wood.box(x, 1.1, z - 0.3, 0.66, 0.9, 0.14, 2830134);
+      for (const sx of [-1, 1]) B.wood.box(x + sx * 0.4, 0.82, z, 0.1, 0.1, 0.6, 3817287);
+      B.solid.push({ x, z, hx: 0.45, hz: 0.45 });
+    }
+    B.glowB.box(ox + 7.6, 1.5, oz + 4.4, 0.24, 1.2, 0.24, 16053492);
+    B.trim.box(ox + 7.6, 2.2, oz + 4.4, 0.3, 0.2, 0.3, 13225170);
+    for (let i = 0; i < 3; i++) chair(B, ox + 6.4 + i * 0.9, oz + 3, Math.PI);
+  }
   _casino(B, st, rng) {
     const ox = this.ox, oz = this.oz;
     this.counter = { x: ox - 5.5, z: oz - 5.2 };
@@ -16679,9 +17159,13 @@ var InteriorManager = class {
   update(dt2) {
     if (!this.current) return;
     const t2 = this.game.time;
-    if (!this.current.clerk) return;
-    animateCharacter(this.current.clerk, 0, t2, "walk", 0);
-    this.current.clerk.rotation.y = -Math.PI / 2 + Math.sin(t2 * 0.7) * 0.3;
+    if (this.current.clerk) {
+      animateCharacter(this.current.clerk, 0, t2, "talk", 0);
+      this.current.clerk.rotation.y = -Math.PI / 2 + Math.sin(t2 * 0.7) * 0.3;
+    }
+    for (const p2 of this.current.patrons || []) {
+      animateCharacter(p2, 0, t2 + p2.userData.phase, p2.userData.pose, 0);
+    }
   }
   atCounter(p2) {
     if (!this.current) return false;
@@ -16794,6 +17278,8 @@ var Player = class {
     this.a = 0;
     this.speed = 0;
     this.health = 100;
+    this.maxHealth = 100;
+    this.punchBonus = 0;
     this.armor = 0;
     this.money = 250;
     this.weapon = "fists";
@@ -16842,7 +17328,7 @@ var Player = class {
     }
   }
   heal(n) {
-    this.health = clamp(this.health + n, 0, 100);
+    this.health = clamp(this.health + n, 0, this.maxHealth);
   }
   addArmor(n) {
     this.armor = clamp(this.armor + n, 0, 100);
@@ -17027,6 +17513,21 @@ var Player = class {
     this.weapon = id;
     this.game.audio.ui();
   }
+  /** Pugno secco, qualunque cosa tu abbia in mano (tasto destro). */
+  punch() {
+    if (this.dead) return;
+    if (this.inCar) {
+      this.game.audio.horn();
+      return;
+    }
+    if (this.punchT > 0 || this.shootCd > 0) return;
+    if (this.speed < 1.2) this.a = this.camYaw;
+    const f2 = WEAPONS.fists;
+    this.punchT = 1;
+    this.shootCd = f2.rate;
+    this.game.audio.punch();
+    this.game.melee(this, f2.range, f2.dmg + this.punchBonus, f2.wanted);
+  }
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
   attack(fresh = true) {
     if (this.dead || this.inCar) return;
@@ -17037,7 +17538,7 @@ var Player = class {
       this.punchT = 1;
       this.shootCd = w.rate;
       this.game.audio.punch();
-      this.game.melee(this, w.range, w.dmg, w.wanted);
+      this.game.melee(this, w.range, w.dmg + this.punchBonus, w.wanted);
       return;
     }
     if (!w.auto && !fresh && this._heldSince) return;
@@ -17115,6 +17616,8 @@ var Player = class {
       money: this.money,
       health: this.health,
       armor: this.armor,
+      maxHealth: this.maxHealth,
+      punchBonus: this.punchBonus,
       weapon: this.weapon,
       owned: this.owned,
       ammoOf: this.ammoOf
@@ -17124,6 +17627,8 @@ var Player = class {
     if (!s) return;
     this.place(s.x ?? 0, s.z ?? 0);
     this.money = s.money ?? 250;
+    this.maxHealth = s.maxHealth ?? 100;
+    this.punchBonus = s.punchBonus ?? 0;
     this.health = s.health ?? 100;
     this.armor = s.armor ?? 0;
     this.weapon = s.weapon ?? "fists";
@@ -18283,7 +18788,7 @@ var HUD = class {
   }
   update(dt2) {
     const g = this.game, p2 = g.player;
-    this.el.health.style.width = `${clamp(p2.health, 0, 100)}%`;
+    this.el.health.style.width = `${clamp(p2.health / (p2.maxHealth || 100) * 100, 0, 100)}%`;
     this.el.armor.style.width = `${clamp(p2.armor, 0, 100)}%`;
     this.el.money.textContent = `$${p2.money.toLocaleString("it-IT")}`;
     const hh2 = Math.floor(g.clock) % 24, mm2 = Math.floor(g.clock % 1 * 60);
@@ -19950,7 +20455,7 @@ var Smoke = class {
     this.mesh.renderOrder = 3;
     game2.scene.add(this.mesh);
     this.p = [];
-    for (let i = 0; i < MAX; i++) this.p.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, hot: 0 });
+    for (let i = 0; i < MAX; i++) this.p.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, hot: 0, tint: null });
     this._m = new cr();
     this._q = new Ii();
     this._v = new Ui();
@@ -19970,6 +20475,7 @@ var Smoke = class {
     p2.vz = (Math.random() - 0.5) * 0.5;
     p2.s = hot ? 0.5 + Math.random() * 0.4 : 0.7 + Math.random() * 0.6;
     p2.hot = hot;
+    p2.tint = null;
   }
   update(dt2, cars) {
     this.emitT -= dt2;
@@ -20004,6 +20510,7 @@ var Smoke = class {
       this.mesh.setMatrixAt(n, this._m);
       const fade = Math.sin(Math.min(1, t2 * 1.15) * Math.PI) * (p2.hot ? 1 : 0.5);
       if (p2.hot) this._c.setRGB(1.6 * fade, (0.9 - t2 * 0.7) * fade, 0.15 * fade);
+      else if (p2.tint) this._c.copy(p2.tint).multiplyScalar(fade * 1.6);
       else {
         const g = (0.22 + t2 * 0.3) * fade;
         this._c.setRGB(g, g, g * 1.02);
@@ -20016,6 +20523,27 @@ var Smoke = class {
     if (n) {
       this.mesh.instanceMatrix.needsUpdate = true;
       if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+  /**
+   * Impatto: pochi sbuffi corti e colorati. Bianco per il muro, rosso per
+   * chi si becca il colpo, giallo per il lampo alla bocca dell'arma.
+   */
+  hit(x, y, z, tint = 16777215, n = 5, force = 1) {
+    const c2 = new Kr(tint);
+    for (let i = 0; i < n; i++) {
+      const p2 = this.p.find((q) => q.life <= 0);
+      if (!p2) return;
+      p2.life = p2.max = 0.18 + Math.random() * 0.22;
+      p2.x = x;
+      p2.y = y;
+      p2.z = z;
+      p2.vx = (Math.random() - 0.5) * 3 * force;
+      p2.vy = (Math.random() - 0.2) * 2.2 * force;
+      p2.vz = (Math.random() - 0.5) * 3 * force;
+      p2.s = 0.12 + Math.random() * 0.2;
+      p2.hot = 0;
+      p2.tint = c2;
     }
   }
   /** Nuvola grossa: esplosioni. */
@@ -20305,8 +20833,7 @@ var Game = class {
       shadowMap: IS_MOBILE ? 1024 : 3072,
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
-      grade: true,
-      samples: IS_MOBILE ? 2 : 4
+      grade: true
     };
     const forced = new URLSearchParams(location.search).get("q");
     if (forced !== null) {
@@ -20342,6 +20869,9 @@ var Game = class {
     this.playerName = localStorage.getItem("novacity.name") || "Tu";
     this.lastCar = null;
     this.safeMode = false;
+    this.bank = 0;
+    this.heistCd = 0;
+    this.invoiceCd = 0;
     this.audio = new Audio();
     this.input = new Input(this.canvas);
     this.frozenInput = {
@@ -20844,16 +21374,6 @@ var Game = class {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
-      if (this.post.composer && this.post.composer.renderTarget1) {
-        const want = tier >= 3 ? IS_MOBILE ? 2 : 4 : tier >= 2 ? 2 : 0;
-        const n = Math.min(want, this.post.maxSamples ?? want);
-        for (const rt2 of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
-          if (rt2.samples !== n) {
-            rt2.samples = n;
-            rt2.dispose();
-          }
-        }
-      }
       if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
@@ -20919,19 +21439,22 @@ var Game = class {
     if (this.player.car) this._smokeCars.push(this.player.car);
     this.smoke.update(dt2, this._smokeCars);
     this.events.update(dt2);
+    if (this.heistCd > 0) this.heistCd -= dt2;
+    if (this.invoiceCd > 0) this.invoiceCd -= dt2;
     this.trafficT += dt2;
     if (this.trafficT > 13) {
       this.trafficT = 0;
       this.trafficAxis ^= 1;
       this.city.setTrafficAxis(this.trafficAxis);
     }
-    if (this.input.pressed("swap")) p2.cycleWeapon(1);
+    const swap = this.input._edge.swap;
+    if (swap) p2.cycleWeapon(swap > 0 ? 1 : -1);
     const slot = this.input._edge.slot;
     if (slot) p2.selectSlot(slot);
     this.input.setDriveMode(p2.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) {
-      p2.attack(this.input.pressed("attack"));
-    }
+    const busy = this.hud.shopOpen || this.casino.open || this.map.open;
+    if (this.input.attacking && !busy) p2.attack(this.input.pressed("attack"));
+    if (this.input.punching && !busy) p2.punch();
     p2.update(dt2, this.hud.shopOpen || this.casino.open || this.map.open ? this.frozenInput : this.input);
     if (this.interiors.current) {
       this.interiors.update(dt2);
@@ -21184,6 +21707,58 @@ var Game = class {
       this.toast("Veicolo riparato e raddrizzato", "good");
     } else this.toast("Nessun veicolo da riparare");
   }
+  // ------------------------------------------------------------- banca e uffici
+  /** Deposita meta' dei contanti: al sicuro se ti stendono. */
+  bankDeposit() {
+    const p2 = this.player;
+    const n = Math.floor(p2.money / 2);
+    if (n < 1) {
+      this.toast("Non hai niente da depositare");
+      return;
+    }
+    p2.pay(n);
+    this.bank = (this.bank || 0) + n;
+    this.toast(`Depositati $${n} \xB7 in banca $${this.bank}`, "good");
+    this.save();
+  }
+  bankWithdraw() {
+    if (!this.bank) {
+      this.toast("Il conto e vuoto");
+      return;
+    }
+    const n = this.bank;
+    this.bank = 0;
+    this.player.earn(n);
+    this.toast(`Prelevati $${n}`, "good");
+    this.save();
+  }
+  /** Rapina al caveau: bottino grosso e mezza citta' addosso. */
+  bankHeist() {
+    if (this.heistCd > 0) {
+      this.toast("Troppo presto, hanno raddoppiato la vigilanza");
+      return;
+    }
+    const loot = 1800 + (Math.random() * 2600 | 0);
+    this.heistCd = 300;
+    this.player.earn(loot);
+    this.setWanted(4);
+    this.toast(`Caveau svuotato: +$${loot}`, "bad");
+    this.audio.noise(0.7, 900, 0.5, "highpass");
+    this.alarm(this.player.x, this.player.z, 60);
+    this.hud.flash();
+  }
+  /** Una fattura ogni tanto: soldi puliti, con attesa. */
+  officeInvoice() {
+    if (this.invoiceCd > 0) {
+      this.toast(`Nessuna fattura pronta, torna fra ${Math.ceil(this.invoiceCd / 60)} min`);
+      return;
+    }
+    const n = 220 + (Math.random() * 380 | 0);
+    this.invoiceCd = 240;
+    this.player.earn(n);
+    this.toast(`Fattura riscossa: +$${n}`, "good");
+    this.save();
+  }
   /** Pay'n'Spray: colore nuovo, lamiera dritta e la polizia ti perde. */
   repaintCar() {
     const car = this.lastCar;
@@ -21240,11 +21815,13 @@ var Game = class {
     const hit = cop || target;
     if (!hit) return;
     hit.hit(dmg, this, from);
+    this.smoke.hit(hit.x, 1.25, hit.z, 12597547, 4, 0.8);
     this.addWanted(cop ? Math.max(2, wanted) : wanted, "aggressione");
   }
   hitScan(from, range, dmg, angle) {
     const a = angle === void 0 ? from.a : angle;
     const fx = Math.cos(a), fz = -Math.sin(a);
+    this.smoke.hit(from.x + fx * 0.9, 1.45, from.z + fz * 0.9, 16765066, 3, 0.5);
     let best = null, bestD = range;
     const consider = (e) => {
       const dx = e.x - from.x, dz = e.z - from.z;
@@ -21260,7 +21837,11 @@ var Game = class {
     for (const c2 of this.police.cops) if (c2.active && c2.state !== "down") consider(c2);
     if (best) {
       best.hit(dmg, this, from);
+      this.smoke.hit(best.x, 1.2, best.z, 12597547, 6, 1.1);
       if (best.role === "cop") this.addWanted(2, "agente colpito");
+    } else {
+      const d2 = Math.min(range, 30);
+      this.smoke.hit(from.x + fx * d2, 1.2, from.z + fz * d2, 12568271, 3, 0.9);
     }
     for (const v of this.police.cars) {
       if (!v.active) continue;
@@ -21527,7 +22108,8 @@ var Game = class {
         clock: this.clock,
         missions: this.missions.completed,
         stats: this.stats,
-        name: this.playerName
+        name: this.playerName,
+        bank: this.bank
       }));
     } catch (e) {
     }
@@ -21541,6 +22123,7 @@ var Game = class {
       this.clock = s.clock ?? 8.5;
       this.missions.completed = s.missions ?? 0;
       this.stats = Object.assign(this.stats, s.stats || {});
+      this.bank = s.bank ?? 0;
       if (s.name) this.playerName = s.name;
     } catch (e) {
     }
