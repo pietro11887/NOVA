@@ -11257,7 +11257,7 @@ function asphaltSet() {
     for (let x = 0; x < S; x++) {
       const grain = fbm(n, x / S * 90, y / S * 90, 3);
       const patch = fbm(n, x / S * 4 + 30, y / S * 4, 3);
-      let v = 52 + grain * 46 + (patch - 0.5) * 26;
+      let v = 46 + grain * 34 + (patch - 0.5) * 20;
       const i = (y * S + x) * 4;
       img.data[i] = v * 0.96;
       img.data[i + 1] = v * 0.98;
@@ -11301,18 +11301,34 @@ function sidewalkSet() {
     for (let x = 0; x < S; x++) {
       const g = fbm(n, x / S * 60, y / S * 60, 3);
       const stain = fbm(n, x / S * 3, y / S * 3 + 12, 4);
-      const v = 150 + g * 32 - (1 - stain) * 34;
+      const v = 186 + g * 26 - (1 - stain) * 22;
       const i = (y * S + x) * 4;
       img.data[i] = v;
-      img.data[i + 1] = v * 0.99;
-      img.data[i + 2] = v * 0.94;
+      img.data[i + 1] = v * 0.995;
+      img.data[i + 2] = v * 0.955;
       img.data[i + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
-  ctx.strokeStyle = "rgba(60,58,54,0.55)";
-  ctx.lineWidth = 4;
+  const agg = mulberry32(707);
+  for (let i = 0; i < 5200; i++) {
+    const a = 0.05 + agg() * 0.09;
+    ctx.fillStyle = agg() < 0.5 ? `rgba(255,255,255,${a})` : `rgba(90,86,80,${a})`;
+    ctx.fillRect(agg() * S, agg() * S, 1 + agg() * 1.6, 1 + agg() * 1.6);
+  }
   for (const p2 of [0, 0.5, 1]) {
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(p2 * S, 0);
+    ctx.lineTo(p2 * S, S);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, p2 * S);
+    ctx.lineTo(S, p2 * S);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(52,50,46,0.62)";
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(p2 * S, 0);
     ctx.lineTo(p2 * S, S);
@@ -11336,7 +11352,7 @@ function sidewalkSet() {
     }
     ctx.stroke();
   }
-  return { map: tex(c2), normal: normalFrom(c2, 0.8) };
+  return { map: tex(c2), normal: normalFrom(c2, 1.15) };
 }
 function grassTexture() {
   const S = 256;
@@ -11348,16 +11364,16 @@ function grassTexture() {
       const v = fbm(n, x / S * 22, y / S * 22, 4);
       const dry = fbm(n, x / S * 3, y / S * 3 + 9, 3);
       const i = (y * S + x) * 4;
-      img.data[i] = 78 + v * 40 + dry * 62;
-      img.data[i + 1] = 92 + v * 52 + dry * 40;
-      img.data[i + 2] = 52 + v * 26 + dry * 18;
+      img.data[i] = 62 + v * 34 + dry * 34;
+      img.data[i + 1] = 118 + v * 58 + dry * 30;
+      img.data[i + 2] = 42 + v * 22 + dry * 14;
       img.data[i + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
   const rng = mulberry32(66);
   for (let i = 0; i < 2200; i++) {
-    ctx.strokeStyle = `rgba(${70 + rng() * 45},${100 + rng() * 50},${45 + rng() * 25},0.45)`;
+    ctx.strokeStyle = `rgba(${58 + rng() * 40},${132 + rng() * 55},${40 + rng() * 24},0.45)`;
     ctx.lineWidth = 1;
     const x = rng() * S, y = rng() * S;
     ctx.beginPath();
@@ -11686,8 +11702,8 @@ function grassTuftTexture() {
     const h2 = H2 * (0.45 + Math.random() * 0.55);
     const lean = (Math.random() - 0.5) * 16;
     const w = 1.2 + Math.random() * 1.8;
-    const g = 104 + Math.random() * 46;
-    ctx.strokeStyle = `rgb(${g * 0.78 | 0},${g | 0},${g * 0.56 | 0})`;
+    const g = 118 + Math.random() * 52;
+    ctx.strokeStyle = `rgb(${g * 0.56 | 0},${g | 0},${g * 0.42 | 0})`;
     ctx.lineWidth = w;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -12785,6 +12801,23 @@ var City = class {
           const dx = sx > sz ? 0 : cx > b.cx ? -sx / 2 : sx / 2;
           const dz = sx > sz ? cz > b.cz ? -sz / 2 : sz / 2 : 0;
           det.box(cx - dx, CURB / 2 + 5e-3, cz - dz, ex, CURB + 0.01, ez, 13288630);
+          const along = sx > sz ? sx : sz;
+          const paintRng = mulberry32(i * 131 + j * 17 + (sx > sz ? 1 : 2) + (dx + dz) * 7 | 0);
+          for (let k = 0; k < 3; k++) {
+            if (paintRng() > 0.34) continue;
+            const t2 = (paintRng() - 0.5) * 0.62;
+            const len = along * (0.14 + paintRng() * 0.18);
+            const col = paintRng() < 0.7 ? 11809836 : 14198048;
+            det.box(
+              cx - dx + (sx > sz ? along * t2 : 0),
+              CURB / 2 + 0.012,
+              cz - dz + (sx > sz ? 0 : along * t2),
+              sx > sz ? len : 0.175,
+              CURB - 0.02,
+              sx > sz ? 0.175 : len,
+              col
+            );
+          }
         }
       }
     }
@@ -13423,8 +13456,8 @@ var City = class {
     ];
     for (const e of edges) {
       const horiz = e.along === "x";
-      void horiz;
       const len = horiz ? b.x1 - b.x0 : b.z1 - b.z0;
+      const at = (t2) => horiz ? { x: b.cx + len * t2, z: e.z } : { x: e.x, z: b.cz + len * t2 };
       for (const t2 of [-0.3, 0.3]) {
         const x = horiz ? b.cx + len * t2 : e.x;
         const z = horiz ? e.z : b.cz + len * t2;
@@ -13444,13 +13477,17 @@ var City = class {
       if (rng() < 0.4) P2.hydrant(horiz ? b.cx - len * 0.42 : e.x, horiz ? e.z : b.cz - len * 0.42);
       if (rng() < 0.35) P2.bench(horiz ? b.cx : e.x, horiz ? e.z : b.cz, e.dir);
       if (rng() < 0.22) P2.busStop(horiz ? b.cx + len * 0.2 : e.x, horiz ? e.z : b.cz + len * 0.2, e.dir);
-      if (rng() < 0.5) {
-        for (let k = -1; k <= 1; k++) {
-          P2.meter(horiz ? b.cx + len * 0.18 + k * 2 : e.x, horiz ? e.z : b.cz + len * 0.18 + k * 2);
+      if (rng() < 0.62) {
+        const n = 5 + (rng() * 4 | 0);
+        const start = -0.34 + rng() * 0.12;
+        for (let k = 0; k < n; k++) {
+          const t2 = start + k * 0.11;
+          if (t2 > 0.42) break;
+          const q = at(t2);
+          P2.meter(q.x, q.z);
         }
       }
       if (rng() < 0.3) P2.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
-      const at = (t2) => horiz ? { x: b.cx + len * t2, z: e.z } : { x: e.x, z: b.cz + len * t2 };
       if (rng() < 0.4) {
         const q = at(-0.36);
         P2.newsbox(q.x, q.z, e.dir);
@@ -13958,15 +13995,15 @@ var SkySystem = class {
     this.day = day;
     this.dusk = dusk;
     this.night = 1 - day;
-    u2.turbidity.value = lerp(3.5, 9.5, dusk);
-    u2.rayleigh.value = lerp(0.6, 3.4, day) + dusk * 1.6;
+    u2.turbidity.value = lerp(2.2, 9.5, dusk);
+    u2.rayleigh.value = lerp(0.6, 2.5, day) + dusk * 1.6;
     u2.mieCoefficient.value = lerp(4e-3, 0.011, dusk);
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 2.35, day) * (1 - dusk * 0.3);
+    this.sun.intensity = lerp(0.04, 3.15, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
-    this.hemi.intensity = lerp(0.62, 0.45, day);
+    this.hemi.intensity = lerp(0.62, 0.55, day);
     this.hemi.color.setHex(day > 0.5 ? 12376319 : 4874124);
     this.hemi.groundColor.setHex(day > 0.4 ? 9075294 : 2830914);
     const nightK = clamp((0.4 - day) / 0.4, 0, 1);
@@ -13989,7 +14026,7 @@ var SkySystem = class {
     }
     const horizon = new Kr().setHex(2569550).lerp(new Kr(12572392), day).lerp(new Kr(15245425), dusk * 0.75);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(18e-4, 11e-4, day) + dusk * 5e-4;
+    this.fog.density = lerp(18e-4, 62e-5, day) + dusk * 5e-4;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new Kr(16777215), day * 0.7);
     this.clouds.rotation.y += 4e-5;
@@ -14919,8 +14956,10 @@ var GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.12 },
+    saturation: { value: 1.22 },
     warmth: { value: 0.025 },
+    contrast: { value: 1.08 },
+    lift: { value: 0 },
     time: { value: 0 }
   },
   vertexShader: `
@@ -14928,23 +14967,40 @@ var GradeShader = {
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float vignette, saturation, warmth, time;
+    uniform float vignette, saturation, warmth, contrast, lift, time;
     varying vec2 vUv;
+
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
-      // saturazione
+      /*
+       * NB: qui i colori sono ancora lineari e in alto dinamico. La curva
+       * filmica la applica il renderer alla fine (OutputPass): rifarla qui
+       * significherebbe schiacciare due volte l'immagine. Quindi ci si limita
+       * a correggere colore e contrasto, senza tagliare le alte luci.
+       */
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      c.rgb = mix(vec3(l), c.rgb, saturation);
-      // dominante calda tipica del sud della California (moltiplicativa:
-      // non solleva i neri, che altrimenti diventano marroni)
+
+      // separazione di tinta: ombre verso il blu, luci verso l'ambra
+      vec3 shadowTint = vec3(0.94, 0.98, 1.09);
+      vec3 lightTint  = vec3(1.07, 1.02, 0.93);
+      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.02, 0.35, l));
+
+      // contrasto attorno al grigio medio lineare (0.18, non 0.5)
+      c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);
+
+      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, saturation);
       c.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth * 0.8);
-      // vignettatura
+
+      // vignettatura morbida, non un cerchio netto
       vec2 d = vUv - 0.5;
-      c.rgb *= mix(1.0, 1.0 - dot(d, d) * 1.25, vignette);
+      float v = 1.0 - smoothstep(0.30, 0.80, length(d)) * 0.36;
+      c.rgb *= mix(1.0, v, vignette);
+
       // grana appena percettibile
       float n = fract(sin(dot(vUv * (time + 1.0), vec2(12.9898, 78.233))) * 43758.5453);
-      c.rgb += (n - 0.5) * 0.016;
-      gl_FragColor = c;
+      c.rgb += (n - 0.5) * 0.012;
+
+      gl_FragColor = vec4(max(c.rgb, 0.0), c.a);
     }`
 };
 var Post = class {
@@ -14965,16 +15021,26 @@ var Post = class {
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
-    this.bloom.enabled = !!quality.bloom;
+    this.bloomOn = !!quality.bloom;
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
   }
   /** Di notte il bloom sale: neon e fari devono "bruciare" un po'. */
+  /** Accende o spegne il bloom senza toccare la catena dei passaggi. */
+  setBloom(on) {
+    this.bloomOn = on;
+  }
   setNight(k) {
-    if (this.bloom) this.bloom.strength = 0.3 + clamp(k, 0, 1) * 0.75;
-    if (this.grade) this.grade.uniforms.warmth.value = 0.03 - clamp(k, 0, 1) * 0.055;
+    const n = clamp(k, 0, 1);
+    if (this.bloom) this.bloom.strength = this.bloomOn ? 0.3 + n * 0.75 : 0;
+    if (!this.grade) return;
+    const u2 = this.grade.uniforms;
+    u2.warmth.value = 0.03 - n * 0.055;
+    u2.contrast.value = 1.08 + n * 0.1;
+    u2.saturation.value = 1.24 - n * 0.2;
+    u2.lift.value = n * 0.012;
   }
   setSize(w, h2, pixelRatio) {
     if (!this.composer) return;
@@ -22082,7 +22148,7 @@ var Game = class {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
-      if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
+      this.post.setBloom(tier >= 3);
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
     this.renderer.shadowMap.needsUpdate = true;
