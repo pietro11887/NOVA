@@ -48,7 +48,7 @@ class Game {
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
       shadows: true,
-      shadowMap: IS_MOBILE ? 1024 : 4096,
+      shadowMap: IS_MOBILE ? 1024 : 3072,
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,

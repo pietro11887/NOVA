@@ -235,6 +235,57 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   background:#000000a8;border:1px solid #4cc2ff55;color:#a9e6ff;padding:3px 9px;border-radius:999px}
 #netbadge b{color:#fff}
 
+/* ============================== MAPPA =============================== */
+#bigmap{padding:0;background:#05080cf2}
+.map-wrap{position:relative;width:100%;height:100%}
+#map-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.map-top{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:14px;display:flex;gap:10px;
+  align-items:baseline;background:#0b0f16cc;border:1px solid #ffffff1f;padding:6px 12px;border-radius:10px}
+.map-top b{color:var(--acc);letter-spacing:2px;font-size:13px}
+.map-top span{font-size:11.5px;opacity:.75}
+.map-tools{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));
+  top:calc(10px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.map-tools button{padding:9px 12px;border-radius:10px;border:1px solid #ffffff26;background:#0b0f16d9;
+  color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap}
+.map-tools button:active{background:#ffffff26}
+.map-tools .close{background:linear-gradient(180deg,#ffd23f,#e0a000);color:#1a1206;border:none;font-weight:800}
+.map-legend{position:absolute;left:14px;bottom:calc(12px + var(--pad));display:flex;gap:12px;flex-wrap:wrap;
+  background:#0b0f16cc;border:1px solid #ffffff1f;padding:7px 12px;border-radius:10px;font-size:11px}
+.map-legend span{display:flex;align-items:center;gap:5px;opacity:.85}
+.map-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+#minimap{cursor:pointer}
+#waydist{position:absolute;top:calc(150px + env(safe-area-inset-top,0px));right:14px;text-align:right;
+  font-size:12px;background:#000000a8;border:1px solid #ff9d3f55;color:#ffd8b0;padding:3px 9px;border-radius:999px}
+#friendline{position:absolute;top:calc(78px + env(safe-area-inset-top,0px));left:14px;font-size:12px;
+  background:#000000a8;border:1px solid #c56bff55;color:#e8d4ff;padding:3px 9px;border-radius:999px}
+@media (max-height:430px){
+  .map-legend{font-size:9.5px;gap:8px;padding:5px 8px}
+  .map-tools button{padding:7px 9px;font-size:11px}
+}
+
+
+/* --- radio dell'auto e meteo -------------------------------------------- */
+#radiochip {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: 999px;
+  background: rgba(10, 14, 22, .62); border: 1px solid rgba(255, 255, 255, .14);
+  font-size: 12px; letter-spacing: .3px; color: #eaf2ff;
+  backdrop-filter: blur(6px); pointer-events: auto;
+}
+#radiochip button {
+  width: 22px; height: 22px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(255, 255, 255, .12); color: #eaf2ff; font-size: 14px; line-height: 1;
+}
+#radiochip button:active { background: rgba(255, 255, 255, .28); }
+#radio-name { min-width: 148px; text-align: center; font-weight: 600; }
+#weatherchip {
+  position: absolute; right: 14px; top: 196px;
+  padding: 4px 9px; border-radius: 999px; font-size: 12px;
+  background: rgba(10, 14, 22, .55); border: 1px solid rgba(255, 255, 255, .12);
+  color: #dce8f8; backdrop-filter: blur(6px);
+}
+
 </style>
 <canvas id="scene"></canvas>
 
@@ -269,6 +320,10 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   <div id="prompt" class="hidden"></div>
   <div id="toasts"></div>
   <div id="netbadge" class="hidden">🌐 <b id="net-name">Amico</b></div>
+  <div id="friendline" class="hidden">👥 <b id="friend-dist">—</b></div>
+  <div id="waydist" class="hidden">📍 <b id="way-dist">—</b></div>
+  <div id="radiochip" class="hidden"><button id="radio-prev" aria-label="stazione precedente">‹</button><span id="radio-name">—</span><button id="radio-next" aria-label="stazione successiva">›</button></div>
+  <div id="weatherchip" class="hidden">☀️ Sereno</div>
   <div id="subtitle" class="hidden"></div>
   <div id="flash"></div>
 
@@ -323,6 +378,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
       <input id="player-name" maxlength="14" placeholder="Il tuo nome" />
       <button class="btn play" id="btn-play">GIOCA DA SOLO</button>
       <button class="btn online" id="btn-online">🌐 GIOCA ONLINE CON UN AMICO</button>
+      <button class="btn ghost" id="btn-expand">⛶ Schermo intero</button>
+      <a id="btn-newtab" class="btn ghost hidden" target="_blank" rel="noopener">↗ Apri in una scheda nuova</a>
     </div>
 
     <div id="menu-online" class="hidden">
@@ -7685,13 +7742,89 @@ var ih = new tr();
 var rh = new Ui();
 var sh = new Zc();
 var ah = new Xs();
+var hh = class extends ts {
+  constructor(t2) {
+    super(), this.isLineBasicMaterial = true, this.type = "LineBasicMaterial", this.color = new Kr(16777215), this.map = null, this.linewidth = 1, this.linecap = "round", this.linejoin = "round", this.fog = true, this.setValues(t2);
+  }
+  copy(t2) {
+    return super.copy(t2), this.color.copy(t2.color), this.map = t2.map, this.linewidth = t2.linewidth, this.linecap = t2.linecap, this.linejoin = t2.linejoin, this.fog = t2.fog, this;
+  }
+};
 var uh = new Ui();
 var dh = new Ui();
 var ph = new cr();
 var mh = new lr();
 var fh = new tr();
+var gh = class extends Nr {
+  constructor(t2 = new As(), e = new hh()) {
+    super(), this.isLine = true, this.type = "Line", this.geometry = t2, this.material = e, this.updateMorphTargets();
+  }
+  copy(t2, e) {
+    return super.copy(t2, e), this.material = Array.isArray(t2.material) ? t2.material.slice() : t2.material, this.geometry = t2.geometry, this;
+  }
+  computeLineDistances() {
+    const t2 = this.geometry;
+    if (null === t2.index) {
+      const e = t2.attributes.position, n = [0];
+      for (let t3 = 1, i = e.count; t3 < i; t3++) uh.fromBufferAttribute(e, t3 - 1), dh.fromBufferAttribute(e, t3), n[t3] = n[t3 - 1], n[t3] += uh.distanceTo(dh);
+      t2.setAttribute("lineDistance", new vs(n, 1));
+    } else console.warn("THREE.Line.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+    return this;
+  }
+  raycast(t2, e) {
+    const n = this.geometry, i = this.matrixWorld, r = t2.params.Line.threshold, s = n.drawRange;
+    if (null === n.boundingSphere && n.computeBoundingSphere(), fh.copy(n.boundingSphere), fh.applyMatrix4(i), fh.radius += r, false === t2.ray.intersectsSphere(fh)) return;
+    ph.copy(i).invert(), mh.copy(t2.ray).applyMatrix4(ph);
+    const a = r / ((this.scale.x + this.scale.y + this.scale.z) / 3), o = a * a, l2 = new Ui(), c2 = new Ui(), h2 = new Ui(), u2 = new Ui(), d2 = this.isLineSegments ? 2 : 1, p2 = n.index, m = n.attributes.position;
+    if (null !== p2) {
+      for (let n2 = Math.max(0, s.start), i2 = Math.min(p2.count, s.start + s.count) - 1; n2 < i2; n2 += d2) {
+        const i3 = p2.getX(n2), r2 = p2.getX(n2 + 1);
+        l2.fromBufferAttribute(m, i3), c2.fromBufferAttribute(m, r2);
+        if (mh.distanceSqToSegment(l2, c2, u2, h2) > o) continue;
+        u2.applyMatrix4(this.matrixWorld);
+        const s2 = t2.ray.origin.distanceTo(u2);
+        s2 < t2.near || s2 > t2.far || e.push({ distance: s2, point: h2.clone().applyMatrix4(this.matrixWorld), index: n2, face: null, faceIndex: null, object: this });
+      }
+    } else {
+      for (let n2 = Math.max(0, s.start), i2 = Math.min(m.count, s.start + s.count) - 1; n2 < i2; n2 += d2) {
+        l2.fromBufferAttribute(m, n2), c2.fromBufferAttribute(m, n2 + 1);
+        if (mh.distanceSqToSegment(l2, c2, u2, h2) > o) continue;
+        u2.applyMatrix4(this.matrixWorld);
+        const i3 = t2.ray.origin.distanceTo(u2);
+        i3 < t2.near || i3 > t2.far || e.push({ distance: i3, point: h2.clone().applyMatrix4(this.matrixWorld), index: n2, face: null, faceIndex: null, object: this });
+      }
+    }
+  }
+  updateMorphTargets() {
+    const t2 = this.geometry.morphAttributes, e = Object.keys(t2);
+    if (e.length > 0) {
+      const n = t2[e[0]];
+      if (void 0 !== n) {
+        this.morphTargetInfluences = [], this.morphTargetDictionary = {};
+        for (let t3 = 0, e2 = n.length; t3 < e2; t3++) {
+          const e3 = n[t3].name || String(t3);
+          this.morphTargetInfluences.push(0), this.morphTargetDictionary[e3] = t3;
+        }
+      }
+    }
+  }
+};
 var _h = new Ui();
 var vh = new Ui();
+var xh = class extends gh {
+  constructor(t2, e) {
+    super(t2, e), this.isLineSegments = true, this.type = "LineSegments";
+  }
+  computeLineDistances() {
+    const t2 = this.geometry;
+    if (null === t2.index) {
+      const e = t2.attributes.position, n = [];
+      for (let t3 = 0, i = e.count; t3 < i; t3 += 2) _h.fromBufferAttribute(e, t3), vh.fromBufferAttribute(e, t3 + 1), n[t3] = 0 === t3 ? 0 : n[t3 - 1], n[t3 + 1] = n[t3] + _h.distanceTo(vh);
+      t2.setAttribute("lineDistance", new vs(n, 1));
+    } else console.warn("THREE.LineSegments.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+    return this;
+  }
+};
 var Sh = new cr();
 var bh = new lr();
 var Eh = new tr();
@@ -9215,6 +9348,48 @@ var sd = class extends ts {
     return super.copy(t2), this.defines = { STANDARD: "" }, this.color.copy(t2.color), this.roughness = t2.roughness, this.metalness = t2.metalness, this.map = t2.map, this.lightMap = t2.lightMap, this.lightMapIntensity = t2.lightMapIntensity, this.aoMap = t2.aoMap, this.aoMapIntensity = t2.aoMapIntensity, this.emissive.copy(t2.emissive), this.emissiveMap = t2.emissiveMap, this.emissiveIntensity = t2.emissiveIntensity, this.bumpMap = t2.bumpMap, this.bumpScale = t2.bumpScale, this.normalMap = t2.normalMap, this.normalMapType = t2.normalMapType, this.normalScale.copy(t2.normalScale), this.displacementMap = t2.displacementMap, this.displacementScale = t2.displacementScale, this.displacementBias = t2.displacementBias, this.roughnessMap = t2.roughnessMap, this.metalnessMap = t2.metalnessMap, this.alphaMap = t2.alphaMap, this.envMap = t2.envMap, this.envMapIntensity = t2.envMapIntensity, this.wireframe = t2.wireframe, this.wireframeLinewidth = t2.wireframeLinewidth, this.wireframeLinecap = t2.wireframeLinecap, this.wireframeLinejoin = t2.wireframeLinejoin, this.flatShading = t2.flatShading, this.fog = t2.fog, this;
   }
 };
+var ad = class extends sd {
+  constructor(t2) {
+    super(), this.isMeshPhysicalMaterial = true, this.defines = { STANDARD: "", PHYSICAL: "" }, this.type = "MeshPhysicalMaterial", this.anisotropyRotation = 0, this.anisotropyMap = null, this.clearcoatMap = null, this.clearcoatRoughness = 0, this.clearcoatRoughnessMap = null, this.clearcoatNormalScale = new ti(1, 1), this.clearcoatNormalMap = null, this.ior = 1.5, Object.defineProperty(this, "reflectivity", { get: function() {
+      return jn(2.5 * (this.ior - 1) / (this.ior + 1), 0, 1);
+    }, set: function(t3) {
+      this.ior = (1 + 0.4 * t3) / (1 - 0.4 * t3);
+    } }), this.iridescenceMap = null, this.iridescenceIOR = 1.3, this.iridescenceThicknessRange = [100, 400], this.iridescenceThicknessMap = null, this.sheenColor = new Kr(0), this.sheenColorMap = null, this.sheenRoughness = 1, this.sheenRoughnessMap = null, this.transmissionMap = null, this.thickness = 0, this.thicknessMap = null, this.attenuationDistance = 1 / 0, this.attenuationColor = new Kr(1, 1, 1), this.specularIntensity = 1, this.specularIntensityMap = null, this.specularColor = new Kr(1, 1, 1), this.specularColorMap = null, this._anisotropy = 0, this._clearcoat = 0, this._iridescence = 0, this._sheen = 0, this._transmission = 0, this.setValues(t2);
+  }
+  get anisotropy() {
+    return this._anisotropy;
+  }
+  set anisotropy(t2) {
+    this._anisotropy > 0 != t2 > 0 && this.version++, this._anisotropy = t2;
+  }
+  get clearcoat() {
+    return this._clearcoat;
+  }
+  set clearcoat(t2) {
+    this._clearcoat > 0 != t2 > 0 && this.version++, this._clearcoat = t2;
+  }
+  get iridescence() {
+    return this._iridescence;
+  }
+  set iridescence(t2) {
+    this._iridescence > 0 != t2 > 0 && this.version++, this._iridescence = t2;
+  }
+  get sheen() {
+    return this._sheen;
+  }
+  set sheen(t2) {
+    this._sheen > 0 != t2 > 0 && this.version++, this._sheen = t2;
+  }
+  get transmission() {
+    return this._transmission;
+  }
+  set transmission(t2) {
+    this._transmission > 0 != t2 > 0 && this.version++, this._transmission = t2;
+  }
+  copy(t2) {
+    return super.copy(t2), this.defines = { STANDARD: "", PHYSICAL: "" }, this.anisotropy = t2.anisotropy, this.anisotropyRotation = t2.anisotropyRotation, this.anisotropyMap = t2.anisotropyMap, this.clearcoat = t2.clearcoat, this.clearcoatMap = t2.clearcoatMap, this.clearcoatRoughness = t2.clearcoatRoughness, this.clearcoatRoughnessMap = t2.clearcoatRoughnessMap, this.clearcoatNormalMap = t2.clearcoatNormalMap, this.clearcoatNormalScale.copy(t2.clearcoatNormalScale), this.ior = t2.ior, this.iridescence = t2.iridescence, this.iridescenceMap = t2.iridescenceMap, this.iridescenceIOR = t2.iridescenceIOR, this.iridescenceThicknessRange = [...t2.iridescenceThicknessRange], this.iridescenceThicknessMap = t2.iridescenceThicknessMap, this.sheen = t2.sheen, this.sheenColor.copy(t2.sheenColor), this.sheenColorMap = t2.sheenColorMap, this.sheenRoughness = t2.sheenRoughness, this.sheenRoughnessMap = t2.sheenRoughnessMap, this.transmission = t2.transmission, this.transmissionMap = t2.transmissionMap, this.thickness = t2.thickness, this.thicknessMap = t2.thicknessMap, this.attenuationDistance = t2.attenuationDistance, this.attenuationColor.copy(t2.attenuationColor), this.specularIntensity = t2.specularIntensity, this.specularIntensityMap = t2.specularIntensityMap, this.specularColor.copy(t2.specularColor), this.specularColorMap = t2.specularColorMap, this;
+  }
+};
 function pd(t2, e, n) {
   return !t2 || !n && t2.constructor === e ? t2 : "number" == typeof e.BYTES_PER_ELEMENT ? new e(t2) : Array.prototype.slice.call(t2);
 }
@@ -9641,6 +9816,35 @@ var Kd = class {
     return 0 !== this.bias && (t2.bias = this.bias), 0 !== this.normalBias && (t2.normalBias = this.normalBias), 1 !== this.radius && (t2.radius = this.radius), 512 === this.mapSize.x && 512 === this.mapSize.y || (t2.mapSize = this.mapSize.toArray()), t2.camera = this.camera.toJSON(false).object, delete t2.camera.matrix, t2;
   }
 };
+var $d = class extends Kd {
+  constructor() {
+    super(new ta(50, 1, 0.5, 500)), this.isSpotLightShadow = true, this.focus = 1;
+  }
+  updateMatrices(t2) {
+    const e = this.camera, n = 2 * Wn * t2.angle * this.focus, i = this.mapSize.width / this.mapSize.height, r = t2.distance || e.far;
+    n === e.fov && i === e.aspect && r === e.far || (e.fov = n, e.aspect = i, e.far = r, e.updateProjectionMatrix()), super.updateMatrices(t2);
+  }
+  copy(t2) {
+    return super.copy(t2), this.focus = t2.focus, this;
+  }
+};
+var Qd = class extends jd {
+  constructor(t2, e, n = 0, i = Math.PI / 3, r = 0, s = 2) {
+    super(t2, e), this.isSpotLight = true, this.type = "SpotLight", this.position.copy(Nr.DEFAULT_UP), this.updateMatrix(), this.target = new Nr(), this.distance = n, this.angle = i, this.penumbra = r, this.decay = s, this.map = null, this.shadow = new $d();
+  }
+  get power() {
+    return this.intensity * Math.PI;
+  }
+  set power(t2) {
+    this.intensity = t2 / Math.PI;
+  }
+  dispose() {
+    this.shadow.dispose();
+  }
+  copy(t2, e) {
+    return super.copy(t2, e), this.distance = t2.distance, this.angle = t2.angle, this.penumbra = t2.penumbra, this.decay = t2.decay, this.target = t2.target.clone(), this.shadow = t2.shadow.clone(), this;
+  }
+};
 var tp = new cr();
 var ep = new Ui();
 var np = new Ui();
@@ -9950,11 +10154,11 @@ var CFG = {
   LANE: 3.2,
   // scostamento della corsia dal centro strada
   // --- gameplay ---
-  PED_MAX_DESKTOP: 42,
+  PED_MAX_DESKTOP: 68,
   PED_MAX_MOBILE: 17,
-  CAR_MAX_DESKTOP: 20,
+  CAR_MAX_DESKTOP: 30,
   CAR_MAX_MOBILE: 9,
-  PARKED_DESKTOP: 34,
+  PARKED_DESKTOP: 52,
   PARKED_MOBILE: 12,
   STREAM_RADIUS: 190,
   // oltre questa distanza i bot vengono riciclati
@@ -10483,6 +10687,42 @@ var Audio = class {
     this.master.connect(this.ctx.destination);
     this._buildEngine();
     this._buildSiren();
+    this._buildRain();
+  }
+  /** Pioggia: rumore bianco filtrato, il volume segue l'intensita'. */
+  _buildRain() {
+    const c2 = this.ctx;
+    const src = c2.createBufferSource();
+    src.buffer = this._noiseBuffer();
+    src.loop = true;
+    const lp = c2.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 2400;
+    lp.Q.value = 0.4;
+    const hp = c2.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 420;
+    this.rainGain = c2.createGain();
+    this.rainGain.gain.value = 0;
+    src.connect(hp);
+    hp.connect(lp);
+    lp.connect(this.rainGain);
+    this.rainGain.connect(this.master);
+    src.start();
+    this.rainFilter = lp;
+  }
+  setRain(k) {
+    if (!this.ctx || !this.rainGain) return;
+    const t2 = this.ctx.currentTime;
+    this.rainGain.gain.setTargetAtTime(Math.min(0.34, k * 0.34), t2, 0.6);
+    this.rainFilter.frequency.setTargetAtTime(1500 + k * 2600, t2, 0.6);
+  }
+  /** Tuono: botto grave con coda lunga. */
+  thunder() {
+    if (!this.ctx) return;
+    this.noise(1.4, 180, 0.5, "lowpass");
+    this.blip(46, 1.1, "sine", 0.4);
+    setTimeout(() => this.noise(0.9, 320, 0.25, "lowpass"), 260);
   }
   _noiseBuffer() {
     if (this._nb) return this._nb;
@@ -10543,6 +10783,27 @@ var Audio = class {
       s.t += dt2;
       s.osc.frequency.setTargetAtTime(Math.sin(s.t * 4) > 0 ? 880 : 620, t2, 0.02);
     }
+  }
+  /** Nota con inviluppo morbido e filtro: la base della radio. */
+  tone(freq, dur = 0.3, type = "sawtooth", vol = 0.18, cutoff = 2e3) {
+    if (!this.ctx || !this.enabled) return;
+    const c2 = this.ctx, t2 = c2.currentTime;
+    const o = c2.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    const f2 = c2.createBiquadFilter();
+    f2.type = "lowpass";
+    f2.frequency.value = cutoff;
+    f2.Q.value = 0.8;
+    const g = c2.createGain();
+    g.gain.setValueAtTime(0, t2);
+    g.gain.linearRampToValueAtTime(vol, t2 + 0.012);
+    g.gain.exponentialRampToValueAtTime(8e-4, t2 + dur);
+    o.connect(f2);
+    f2.connect(g);
+    g.connect(this.master);
+    o.start(t2);
+    o.stop(t2 + dur + 0.02);
   }
   blip(freq = 440, dur = 0.12, type = "square", vol = 0.25) {
     if (!this.ctx) return;
@@ -11340,10 +11601,35 @@ function plateTexture(lines2, bg = "#1f2a35", fg = "#e9eef7") {
   });
   return tex(c2, { repeat: false });
 }
+function grassTuftTexture() {
+  const W2 = 64, H2 = 64;
+  const c2 = document.createElement("canvas");
+  c2.width = W2;
+  c2.height = H2;
+  const ctx = c2.getContext("2d");
+  ctx.clearRect(0, 0, W2, H2);
+  for (let i = 0; i < 22; i++) {
+    const x = 4 + Math.random() * (W2 - 8);
+    const h2 = H2 * (0.45 + Math.random() * 0.55);
+    const lean = (Math.random() - 0.5) * 16;
+    const w = 1.2 + Math.random() * 1.8;
+    const g = 104 + Math.random() * 46;
+    ctx.strokeStyle = `rgb(${g * 0.78 | 0},${g | 0},${g * 0.56 | 0})`;
+    ctx.lineWidth = w;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x, H2);
+    ctx.quadraticCurveTo(x + lean * 0.4, H2 - h2 * 0.55, x + lean, H2 - h2);
+    ctx.stroke();
+  }
+  const t2 = new Uh(c2);
+  t2.colorSpace = qe;
+  return t2;
+}
 
 // src/world/props.js
 function tube(gb, pts, radii, color, sides = 6, uvRepeat = 1) {
-  const ring = (p2, r, a0) => {
+  const ring2 = (p2, r, a0) => {
     const out = [];
     for (let i = 0; i < sides; i++) {
       const a = a0 + i / sides * TAU;
@@ -11351,9 +11637,9 @@ function tube(gb, pts, radii, color, sides = 6, uvRepeat = 1) {
     }
     return out;
   };
-  let prev = ring(pts[0], radii[0], 0);
+  let prev = ring2(pts[0], radii[0], 0);
   for (let s = 1; s < pts.length; s++) {
-    const cur = ring(pts[s], radii[s], 0);
+    const cur = ring2(pts[s], radii[s], 0);
     for (let i = 0; i < sides; i++) {
       const j = (i + 1) % sides;
       gb.quad(prev[i], cur[i], cur[j], prev[j], color, uvRepeat, uvRepeat);
@@ -11363,7 +11649,7 @@ function tube(gb, pts, radii, color, sides = 6, uvRepeat = 1) {
   return prev;
 }
 function cyl(gb, x, z, y0, y1, r0, r1, color, sides = 12) {
-  const ring = (y, r) => {
+  const ring2 = (y, r) => {
     const out = [];
     for (let i = 0; i < sides; i++) {
       const a2 = i / sides * TAU;
@@ -11371,7 +11657,7 @@ function cyl(gb, x, z, y0, y1, r0, r1, color, sides = 12) {
     }
     return out;
   };
-  const a = ring(y0, r0), b = ring(y1, r1);
+  const a = ring2(y0, r0), b = ring2(y1, r1);
   for (let i = 0; i < sides; i++) {
     const j = (i + 1) % sides;
     gb.quad(a[i], b[i], b[j], a[j], color, 1, 1);
@@ -11400,6 +11686,26 @@ function dome(gb, x, y, z, r, color, sides = 12, rings = 4, squash = 1) {
     }
   }
 }
+function crossedQuads() {
+  const pos = [], nor = [], uv = [], idx = [];
+  const planes = [
+    { px: 0.5, pz: 0, nx: 0, nz: 1 },
+    { px: 0, pz: 0.5, nx: 1, nz: 0 }
+  ];
+  planes.forEach((pl2, k) => {
+    const o = k * 4;
+    pos.push(-pl2.px, 0, -pl2.pz, pl2.px, 0, pl2.pz, pl2.px, 1, pl2.pz, -pl2.px, 1, -pl2.pz);
+    for (let i = 0; i < 4; i++) nor.push(pl2.nx, 0, pl2.nz);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+  });
+  const g = new As();
+  g.setAttribute("position", new vs(pos, 3));
+  g.setAttribute("normal", new vs(nor, 3));
+  g.setAttribute("uv", new vs(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
 var Props = class {
   constructor(builders) {
     this.B = builders;
@@ -11407,6 +11713,30 @@ var Props = class {
     this.leaves = [];
     this.lampPos = [];
     this.benches = [];
+    this.tufts = [];
+  }
+  /**
+   * Semina ciuffi d'erba (e qualche fiore) su un rettangolo di prato.
+   * Sono piani incrociati istanziati: costano una sola draw call per tutta la citta'.
+   */
+  grassPatch(x0, z0, x1, z1, rng, density = 1) {
+    const area = Math.max(0, (x1 - x0) * (z1 - z0));
+    const n = Math.min(520, Math.round(area * 0.16 * density));
+    for (let i = 0; i < n; i++) {
+      const x = x0 + rng() * (x1 - x0);
+      const z = z0 + rng() * (z1 - z0);
+      const s = 0.34 + rng() * 0.36;
+      const k = 0.78 + rng() * 0.34;
+      const warm = 0.92 + rng() * 0.2;
+      const c2 = (v) => Math.min(255, Math.round(v));
+      this.tufts.push({
+        x,
+        z,
+        s,
+        rot: rng() * TAU,
+        color: c2(255 * k * warm) << 16 | c2(255 * k) << 8 | c2(255 * k * 0.86)
+      });
+    }
   }
   /** Palma: tronco curvo + corona di foglie. */
   palm(x, z, rng) {
@@ -11635,6 +11965,25 @@ var Props = class {
   }
   /** Chiude gli oggetti ripetuti in InstancedMesh e li aggiunge alla scena. */
   finish(group, mats) {
+    if (this.tufts.length && mats.tuft) {
+      const geo = crossedQuads();
+      const mesh = new jc(geo, mats.tuft, this.tufts.length);
+      const m = new cr();
+      const col = new Kr();
+      this.tufts.forEach((t2, i) => {
+        m.compose(
+          new Ui(t2.x, 0.02, t2.z),
+          new Ii().setFromEuler(new xr(0, t2.rot, 0)),
+          new Ui(t2.s * 1.1, t2.s, t2.s * 1.1)
+        );
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, col.setHex(t2.color));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    }
     if (this.fronds.length) {
       const geo = new ma(1, 1);
       geo.translate(0.42, 0, 0);
@@ -12041,6 +12390,14 @@ var City = class {
         envMapIntensity: 0.5
       }),
       leaf: new sd({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
+      tuft: new sd({
+        map: grassTuftTexture(),
+        alphaTest: 0.5,
+        side: p,
+        roughness: 0.95,
+        metalness: 0,
+        envMapIntensity: 0.35
+      }),
       water: new sd({
         color: 1335423,
         roughness: 0.22,
@@ -12257,14 +12614,14 @@ var City = class {
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
         const b = blockBounds(i, j);
-        const ring = Math.max(Math.abs(i - c2), Math.abs(j - c2));
+        const ring2 = Math.max(Math.abs(i - c2), Math.abs(j - c2));
         const B = this._newBuilders();
         B.props = new Props(B);
         let kind = LANDMARKS[`${i},${j}`];
         if (!kind) {
           if (j === this.beachRow) kind = "beach";
-          else if (ring <= 1.2) kind = "downtown";
-          else if (ring <= 2.6) kind = rng() < 0.12 ? "park" : "commercial";
+          else if (ring2 <= 1.2) kind = "downtown";
+          else if (ring2 <= 2.6) kind = rng() < 0.12 ? "park" : "commercial";
           else kind = rng() < 0.16 ? "park" : rng() < 0.12 ? "parking" : "suburb";
         }
         if (kind === "beach") this._beachBlock(b, B, rng, i === 3);
@@ -12400,6 +12757,7 @@ var City = class {
           (lot.x1 - lot.x0) / 5,
           (lot.z1 - lot.z0) / 5
         );
+        B.props.grassPatch(lot.x0 + 0.6, lot.z0 + 0.6, lot.x1 - 0.6, lot.z1 - 0.6, rng, 0.8);
       }
       if (kind === "suburb" && face) {
         const px = info.cx + face.nx * (d2 / 2 + 2), pz = info.cz + face.nz * (w / 2 + 2);
@@ -12502,6 +12860,7 @@ var City = class {
     for (let k = 0; k < 4; k++) {
       B.props.bench(b.cx + (k < 2 ? -6 : 6), b.cz + (k % 2 ? -6 : 6), k < 2 ? 0 : Math.PI);
     }
+    B.props.grassPatch(b.x0 + 1.5, b.z0 + 1.5, b.x1 - 1.5, b.z1 - 1.5, rng, 0.9);
     B.props.bin(b.cx + 8, b.cz + 8);
     for (const [sx, sz] of [[-1, -1], [1, 1]]) {
       B.props.streetlight(b.cx + sx * (b.x1 - b.x0) * 0.28, b.cz + sz * (b.z1 - b.z0) * 0.28, 0, 5.4);
@@ -12801,6 +13160,7 @@ var City = class {
   _sportsBlock(b, B, rng) {
     this.landmarks.push({ kind: "sport", x: b.cx, z: b.cz });
     B.grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 16777215, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
+    B.props.grassPatch(b.x0 + 1, b.z0 + 1, b.x1 - 1, b.z1 - 1, rng, 0.55);
     const cw = Math.min(b.x1 - b.x0 - 10, 28), cd = Math.min(b.z1 - b.z0 - 10, 16);
     const cx = b.cx, cz = b.cz;
     B.road = B.road || new GeoBuilder();
@@ -13279,9 +13639,51 @@ var SkySystem = class {
     scene.add(this.sun, this.sunTarget);
     this.hemi = new qd(12376319, 7035460, 0.28);
     scene.add(this.hemi);
+    this.moonLight = new ap(10469631, 0);
+    this.moonLight.castShadow = !!quality.shadows && !IS_MOBILE && quality.tier >= 3;
+    if (this.moonLight.castShadow) {
+      const s = this.moonLight.shadow;
+      s.mapSize.set(1024, 1024);
+      s.camera.near = 1;
+      s.camera.far = 420;
+      s.camera.left = -60;
+      s.camera.right = 60;
+      s.camera.top = 60;
+      s.camera.bottom = -60;
+      s.bias = -16e-4;
+      s.normalBias = 0.05;
+    }
+    this.moonTarget = new Nr();
+    this.moonLight.target = this.moonTarget;
+    scene.add(this.moonLight, this.moonTarget);
     this.bounce = new ap(16767408, 0.35);
     this.bounce.position.set(-80, 40, -60);
     scene.add(this.bounce);
+    this.stars = new Xs(
+      new Zu(2600, 24, 12),
+      new es({
+        map: starTexture(),
+        side: d,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        fog: false,
+        toneMapped: false
+      })
+    );
+    scene.add(this.stars);
+    this.moon = new Xs(
+      new ma(260, 260),
+      new es({
+        map: moonTexture(),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        fog: false,
+        toneMapped: false
+      })
+    );
+    scene.add(this.moon);
     this.pmrem = new Oa(renderer);
     this.pmrem.compileEquirectangularShader();
     this._envScene = new tc();
@@ -13321,9 +13723,18 @@ var SkySystem = class {
     this.sunTarget.updateMatrixWorld();
     this.sun.intensity = lerp(0.04, 2.35, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
-    this.hemi.intensity = lerp(0.18, 0.45, day);
-    this.hemi.color.setHex(day > 0.5 ? 12376319 : 2372686);
-    this.hemi.groundColor.setHex(day > 0.4 ? 9075294 : 1514277);
+    this.hemi.intensity = lerp(0.62, 0.45, day);
+    this.hemi.color.setHex(day > 0.5 ? 12376319 : 4874124);
+    this.hemi.groundColor.setHex(day > 0.4 ? 9075294 : 2830914);
+    const nightK = clamp((0.4 - day) / 0.4, 0, 1);
+    this.moonLight.intensity = nightK * 0.95;
+    this.moonLight.visible = nightK > 0.02;
+    if (this.moonLight.visible) {
+      this.moonLight.position.copy(this.sunDir).multiplyScalar(-190).add(focus);
+      this.moonLight.position.y = Math.abs(this.moonLight.position.y) + 90;
+      this.moonTarget.position.copy(focus);
+      this.moonTarget.updateMatrixWorld();
+    }
     this.bounce.intensity = lerp(0.03, 0.22, day);
     this.bounce.position.copy(focus).add(new Ui(-70, 45, -55));
     if (this.quality.shadows) {
@@ -13333,12 +13744,19 @@ var SkySystem = class {
       this.sun.position.z = Math.round(this.sun.position.z / texel) * texel;
       c2.updateProjectionMatrix();
     }
-    const horizon = new Kr().setHex(1713206).lerp(new Kr(12572392), day).lerp(new Kr(15245425), dusk * 0.75);
+    const horizon = new Kr().setHex(2569550).lerp(new Kr(12572392), day).lerp(new Kr(15245425), dusk * 0.75);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(3e-3, 11e-4, day) + dusk * 5e-4;
+    this.fog.density = lerp(18e-4, 11e-4, day) + dusk * 5e-4;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new Kr(16777215), day * 0.7);
     this.clouds.rotation.y += 4e-5;
+    const starK = clamp((0.35 - day) / 0.35, 0, 1);
+    this.stars.material.opacity = starK * 0.9;
+    this.stars.rotation.y += 12e-6;
+    this.moon.material.opacity = starK * 0.95;
+    this.moon.position.copy(this.sunDir).multiplyScalar(-2100);
+    this.moon.position.y = Math.abs(this.moon.position.y) * 0.75 + 300;
+    this.moon.lookAt(0, 0, 0);
     this.horizonColor = horizon;
     if (Math.abs(elev - this._lastEnvElev) > 3.5) {
       this._lastEnvElev = elev;
@@ -13359,6 +13777,9 @@ var SkySystem = class {
   follow(pos) {
     this.sky.position.set(pos.x, 0, pos.z);
     this.clouds.position.set(pos.x, -140, pos.z);
+    this.stars.position.set(pos.x, 0, pos.z);
+    this.moon.position.x += pos.x;
+    this.moon.position.z += pos.z;
   }
 };
 function skyIntensity(sky, value) {
@@ -13366,6 +13787,64 @@ function skyIntensity(sky, value) {
   m.uniforms.skyIntensity = { value };
   m.fragmentShader = m.fragmentShader.replace("varying vec3 vSunDirection;", "varying vec3 vSunDirection;\nuniform float skyIntensity;").replace("gl_FragColor = vec4( retColor, 1.0 );", "gl_FragColor = vec4( retColor * skyIntensity, 1.0 );");
   m.needsUpdate = true;
+}
+function starTexture() {
+  const W2 = 2048, H2 = 1024;
+  const c2 = document.createElement("canvas");
+  c2.width = W2;
+  c2.height = H2;
+  const ctx = c2.getContext("2d");
+  ctx.clearRect(0, 0, W2, H2);
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.random() * W2;
+    const y = Math.pow(Math.random(), 1.4) * H2 * 0.62;
+    const r = Math.random() < 0.92 ? Math.random() * 1.3 + 0.3 : Math.random() * 2.4 + 1;
+    const a = 0.35 + Math.random() * 0.65;
+    const tint = Math.random();
+    ctx.fillStyle = tint < 0.75 ? `rgba(255,255,255,${a})` : tint < 0.9 ? `rgba(190,215,255,${a})` : `rgba(255,225,190,${a})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.08;
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * W2;
+    const y = H2 * 0.22 + Math.sin(x / W2 * 6) * 90 + (Math.random() - 0.5) * 120;
+    ctx.fillStyle = "#cfe0ff";
+    ctx.beginPath();
+    ctx.arc(x, y, 8 + Math.random() * 22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const t2 = new Uh(c2);
+  t2.colorSpace = qe;
+  return t2;
+}
+function moonTexture() {
+  const S = 256;
+  const c2 = document.createElement("canvas");
+  c2.width = c2.height = S;
+  const ctx = c2.getContext("2d");
+  const glow = ctx.createRadialGradient(S / 2, S / 2, S * 0.16, S / 2, S / 2, S * 0.5);
+  glow.addColorStop(0, "rgba(232,238,255,0.55)");
+  glow.addColorStop(0.5, "rgba(200,215,255,0.12)");
+  glow.addColorStop(1, "rgba(200,215,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = "#eef1f6";
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, S * 0.17, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(180,188,200,0.55)";
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * S * 0.13;
+    ctx.beginPath();
+    ctx.arc(S / 2 + Math.cos(a) * r, S / 2 + Math.sin(a) * r, 2 + Math.random() * 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const t2 = new Uh(c2);
+  t2.colorSpace = qe;
+  return t2;
 }
 function cloudTexture() {
   const S = 1024;
@@ -14232,8 +14711,15 @@ var Post = class {
     this.quality = quality;
     if (!this.enabled) return;
     const size = renderer.getSize(new ti());
-    this.composer = new EffectComposer(renderer);
-    this.composer.setPixelRatio(renderer.getPixelRatio());
+    const dpr = renderer.getPixelRatio();
+    const samples = quality.samples ?? 4;
+    const rt2 = new wi(
+      Math.max(2, Math.floor(size.width)),
+      Math.max(2, Math.floor(size.height)),
+      { type: Ut, samples }
+    );
+    this.composer = new EffectComposer(renderer, rt2);
+    this.composer.setPixelRatio(dpr);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
     this.bloom.enabled = !!quality.bloom;
@@ -14285,25 +14771,6 @@ function hull(gb, sections, color, uv = 0.35) {
     prev = cur;
   }
   for (let i = 1; i < prev.length - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, uv, uv);
-}
-function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
-  const ring = (y, r, off) => {
-    const out = [];
-    for (let i = 0; i < sides; i++) {
-      const a2 = i / sides * TAU;
-      out.push([x + Math.cos(a2) * r + off, y, Math.sin(a2) * r]);
-    }
-    return out;
-  };
-  const a = ring(y0, r0, 0), b = ring(y1, r1, tilt);
-  for (let i = 0; i < sides; i++) {
-    const j = (i + 1) % sides;
-    gb.quad(a[i], b[i], b[j], a[j], color, 1, 1);
-  }
-  for (let i = 1; i < sides - 1; i++) {
-    gb.quad(b[0], b[i], b[i + 1], b[i + 1], color, 1, 1);
-    gb.quad(a[0], a[i + 1], a[i], a[i], color, 1, 1);
-  }
 }
 function wheel(gb, x, y, z, r, w, side) {
   const N = 16;
@@ -14652,7 +15119,6 @@ function initModels(quality) {
     shared.geo[k + ":police"] = buildCarGeo(CAR_TYPES[k], "police");
     shared.geo[k + ":taxi"] = buildCarGeo(CAR_TYPES[k], "taxi");
   }
-  shared.charGeo = characterGeometries();
   shared.bodyMat = new sd({ vertexColors: true, roughness: 0.85, metalness: 0 });
   shared.shadowGeo = new ru(0.5, 12);
   shared.shadowGeo.rotateX(-Math.PI / 2);
@@ -14663,12 +15129,14 @@ function makeCar(type = "sedan", color = 11545387, kind = "civil") {
   const key = kind === "civil" ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
   const group = new Wl();
-  const bodyMat = new sd({
+  const bodyMat = new ad({
     color,
     vertexColors: true,
-    roughness: 0.34,
-    metalness: 0.45,
-    envMapIntensity: 1
+    roughness: 0.38,
+    metalness: 0.55,
+    envMapIntensity: 1.15,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06
   });
   const body = new Xs(g.body, bodyMat);
   const trim = new Xs(g.trim, shared.trimMat);
@@ -14703,145 +15171,226 @@ function makeCar(type = "sedan", color = 11545387, kind = "civil") {
   group.userData.lights = lights;
   return group;
 }
-var SKINS = [15845797, 14724480, 13209182, 10251077, 7490608, 16767413];
-var SHIRTS = [3108816, 12597547, 2858591, 15527922, 2830136, 14263584, 8212415, 13658671, 2068380, 9082792];
-var PANTS = [2831428, 3882826, 2041394, 5916210, 7041664, 2374485, 9077361];
-var HAIR = [2365970, 4928032, 9071157, 1052688, 11051674, 7027231];
-function characterGeometries() {
-  const mk = (fn) => {
-    const gb = new GeoBuilder();
-    fn(gb);
-    return smoothNormals(gb.build(), 1.1);
-  };
-  const torso = mk((gb) => {
-    hull(gb, [
-      { x: 0.1, hw: 0.2, yb: 0, yt: 0.6 },
-      { x: 0.05, hw: 0.24, yb: -0.01, yt: 0.64 },
-      { x: -0.05, hw: 0.24, yb: -0.01, yt: 0.64 },
-      { x: -0.1, hw: 0.2, yb: 0, yt: 0.6 }
-    ], 16777215);
-    taper(gb, 0, 0.58, 0.7, 0.078, 0.072, 15250572, 8);
-  });
-  const hips = mk((gb) => {
-    hull(gb, [
-      { x: 0.09, hw: 0.17, yb: 0, yt: 0.26 },
-      { x: -0.09, hw: 0.17, yb: 0, yt: 0.26 }
-    ], 16777215);
-  });
-  const head = new Zu(0.128, 14, 10);
-  head.scale(1.02, 1.1, 0.94);
-  head.translate(0, 0.12, 0);
-  const headGB = new GeoBuilder();
-  headGB.box(0.115, 0.115, 0, 0.05, 0.045, 0.038, 16777215);
-  headGB.box(0.1, 0.15, 0.048, 0.03, 0.026, 0.032, 2762274);
-  headGB.box(0.1, 0.15, -0.048, 0.03, 0.026, 0.032, 2762274);
-  headGB.box(-5e-3, 0.055, 0, 0.09, 0.02, 0.05, 14191226);
-  const headFull = mergeRaw([head, headGB.build()]);
-  const hairGeo = new Zu(0.138, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.58);
-  hairGeo.scale(1.02, 1.15, 0.98);
-  hairGeo.translate(-8e-3, 0.115, 0);
-  const hair = hairGeo;
-  const arm = mk((gb) => {
-    taper(gb, 0, -0.3, 0, 0.068, 0.082, 16777215, 8);
-    taper(gb, 0, -0.56, -0.3, 0.058, 0.068, 16777215, 8);
-    taper(gb, 0, -0.66, -0.56, 0.048, 0.055, 16053492, 8);
-  });
-  const leg = mk((gb) => {
-    taper(gb, 0, -0.42, 0, 0.084, 0.108, 16777215, 9);
-    taper(gb, 0, -0.78, -0.42, 0.062, 0.084, 16777215, 9);
-    taper(gb, 0, -0.84, -0.78, 0.07, 0.065, 3815994, 8);
-    gb.box(0.035, -0.855, 0, 0.2, 0.07, 0.1, 3355443);
-    gb.box(0.09, -0.878, 0, 0.1, 0.03, 0.085, 2829099);
-  });
-  return { parts: { torso, hips, head: headFull, hair }, arm, leg };
-}
-function mergeRaw(geos) {
-  const pos = [], nor = [], uv = [], idx = [];
-  let off = 0;
-  for (const g of geos) {
-    const p2 = g.attributes.position, n = g.attributes.normal, t2 = g.attributes.uv;
-    for (let i = 0; i < p2.count; i++) {
-      pos.push(p2.getX(i), p2.getY(i), p2.getZ(i));
-      nor.push(n.getX(i), n.getY(i), n.getZ(i));
-      uv.push(t2 ? t2.getX(i) : 0, t2 ? t2.getY(i) : 0);
-    }
-    const index = g.index;
-    if (index) for (let i = 0; i < index.count; i++) idx.push(index.getX(i) + off);
-    else for (let i = 0; i < p2.count; i++) idx.push(i + off);
-    off += p2.count;
+var SKINS = [15977384, 15251852, 13869172, 12157786, 9855807, 7620908, 5912611];
+var SHIRTS = [
+  3108816,
+  12597547,
+  2858591,
+  15527922,
+  2830136,
+  14263584,
+  8212415,
+  13658671,
+  2068380,
+  9082792,
+  15919317,
+  4147802,
+  12533611
+];
+var PANTS = [2831428, 3882826, 2041394, 5916210, 7041664, 2374485, 9077361, 3690603];
+var HAIR = [2365970, 4928032, 9071157, 1052688, 11051674, 7027231, 13215851];
+var SHOES = [1974566, 2830134, 4863271, 15263456];
+var WAIST = 1.02;
+var SHOULDER = 1.45;
+var HIP = 0.88;
+function ring(y, rx, rz, sides, cx = 0, cz = 0) {
+  const out = [];
+  for (let i = 0; i < sides; i++) {
+    const a = i / sides * TAU;
+    out.push([cx + Math.cos(a) * rx, y, cz + Math.sin(a) * rz]);
   }
-  const out = new As();
-  out.setAttribute("position", new vs(pos, 3));
-  out.setAttribute("normal", new vs(nor, 3));
-  out.setAttribute("uv", new vs(uv, 2));
-  out.setIndex(idx);
   return out;
 }
-function mergeBody(parts, colors) {
-  const pos = [], nor = [], uv = [], col = [], idx = [];
-  const geo = new As();
-  const c2 = new Kr();
-  let vOff = 0;
-  for (const part of parts) {
-    const p2 = part.geo.attributes.position, n = part.geo.attributes.normal, t2 = part.geo.attributes.uv;
-    c2.setHex(colors[part.color]);
-    for (let i = 0; i < p2.count; i++) {
-      pos.push(p2.getX(i), p2.getY(i) + part.y, p2.getZ(i));
-      nor.push(n.getX(i), n.getY(i), n.getZ(i));
-      uv.push(t2 ? t2.getX(i) : 0, t2 ? t2.getY(i) : 0);
-      col.push(c2.r, c2.g, c2.b);
-    }
-    const index = part.geo.index;
-    if (index) for (let i = 0; i < index.count; i++) idx.push(index.getX(i) + vOff);
-    else for (let i = 0; i < p2.count; i++) idx.push(i + vOff);
-    vOff += p2.count;
+function loft(gb, sections, color, sides = 10, cap = true) {
+  let prev = ring(sections[0].y, sections[0].rx, sections[0].rz, sides, sections[0].cx || 0, sections[0].cz || 0);
+  if (cap) {
+    for (let i = 1; i < sides - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, 1, 1);
   }
-  geo.setAttribute("position", new vs(pos, 3));
-  geo.setAttribute("normal", new vs(nor, 3));
-  geo.setAttribute("uv", new vs(uv, 2));
-  geo.setAttribute("color", new vs(col, 3));
-  geo.setIndex(idx);
-  geo.computeBoundingSphere();
+  for (let s = 1; s < sections.length; s++) {
+    const sec = sections[s];
+    const cur = ring(sec.y, sec.rx, sec.rz, sides, sec.cx || 0, sec.cz || 0);
+    const col = sec.color !== void 0 ? sec.color : color;
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      gb.quad(prev[i], cur[i], cur[j], prev[j], col, 1, 1);
+    }
+    prev = cur;
+  }
+  if (cap) {
+    const last = sections[sections.length - 1];
+    const col = last.color !== void 0 ? last.color : color;
+    for (let i = 1; i < sides - 1; i++) gb.quad(prev[0], prev[i], prev[i + 1], prev[i + 1], col, 1, 1);
+  }
+}
+function blob(gb, x, y, z, rx, ry, rz, color, sides = 12, rings = 8) {
+  for (let r = 0; r < rings; r++) {
+    const t0 = -Math.PI / 2 + r / rings * Math.PI;
+    const t1 = -Math.PI / 2 + (r + 1) / rings * Math.PI;
+    const y0 = y + Math.sin(t0) * ry, y1 = y + Math.sin(t1) * ry;
+    const c0 = Math.cos(t0), c1 = Math.cos(t1);
+    for (let i = 0; i < sides; i++) {
+      const a0 = i / sides * TAU, a1 = (i + 1) / sides * TAU;
+      gb.quad(
+        [x + Math.cos(a0) * rx * c0, y0, z + Math.sin(a0) * rz * c0],
+        [x + Math.cos(a0) * rx * c1, y1, z + Math.sin(a0) * rz * c1],
+        [x + Math.cos(a1) * rx * c1, y1, z + Math.sin(a1) * rz * c1],
+        [x + Math.cos(a1) * rx * c0, y0, z + Math.sin(a1) * rz * c0],
+        color,
+        1,
+        1
+      );
+    }
+  }
+}
+function buildBody(c2) {
+  const gb = new GeoBuilder();
+  const skin = c2.skin, shirt = c2.shirt, hair = c2.hair;
+  loft(gb, [
+    { y: 0.8, rx: 0.155, rz: 0.105, color: c2.pants },
+    { y: 0.88, rx: 0.175, rz: 0.115, color: c2.pants },
+    { y: 0.97, rx: 0.165, rz: 0.108, color: c2.pants },
+    { y: 1.02, rx: 0.15, rz: 0.1, color: shirt },
+    { y: 1.14, rx: 0.152, rz: 0.1, color: shirt },
+    { y: 1.3, rx: 0.18, rz: 0.115, color: shirt },
+    { y: 1.42, rx: 0.196, rz: 0.118, color: shirt },
+    { y: 1.485, rx: 0.185, rz: 0.11, color: shirt },
+    { y: 1.51, rx: 0.12, rz: 0.085, color: shirt }
+  ], shirt, 12);
+  for (const s of [-1, 1]) blob(gb, 0, 1.465, s * 0.175, 0.085, 0.085, 0.09, shirt, 10, 6);
+  loft(gb, [
+    { y: 1.5, rx: 0.062, rz: 0.058, color: skin },
+    { y: 1.575, rx: 0.058, rz: 0.055, color: skin }
+  ], skin, 10, false);
+  blob(gb, 4e-3, 1.665, 0, 0.098, 0.115, 0.093, skin, 14, 10);
+  blob(gb, 0.028, 1.615, 0, 0.086, 0.072, 0.082, skin, 12, 8);
+  for (const s of [-1, 1]) blob(gb, -0.01, 1.665, s * 0.092, 0.022, 0.036, 0.016, skin, 8, 5);
+  blob(gb, 0.092, 1.657, 0, 0.028, 0.026, 0.022, skin, 8, 6);
+  for (const s of [-1, 1]) {
+    blob(gb, 0.072, 1.695, s * 0.038, 0.022, 0.017, 0.02, 16052974, 8, 6);
+    blob(gb, 0.083, 1.694, s * 0.041, 0.011, 0.011, 0.011, c2.eyes, 6, 5);
+    gb.box(0.078, 1.723, s * 0.04, 0.02, 0.012, 0.048, hair);
+  }
+  gb.box(0.086, 1.596, 0, 0.016, 0.011, 0.042, 12152927);
+  if (c2.hairStyle === 0) {
+    blob(gb, -4e-3, 1.678, 0, 0.104, 0.118, 0.099, hair, 12, 8);
+    gb.box(-0.06, 1.6, 0, 0.06, 0.12, 0.17, hair);
+  } else if (c2.hairStyle === 1) {
+    blob(gb, -6e-3, 1.676, 0, 0.106, 0.12, 0.101, hair, 12, 8);
+    loft(gb, [
+      { y: 1.7, rx: 0.105, rz: 0.1, cx: -0.02 },
+      { y: 1.55, rx: 0.098, rz: 0.095, cx: -0.03 },
+      { y: 1.42, rx: 0.082, rz: 0.078, cx: -0.035 }
+    ], hair, 10, false);
+  } else {
+    blob(gb, -4e-3, 1.676, 0, 0.104, 0.112, 0.1, c2.cap, 12, 6);
+    gb.box(0.105, 1.688, 0, 0.11, 0.022, 0.16, c2.cap);
+  }
+  const geo = smoothNormals(gb.build(), 1.15);
+  geo.translate(0, -WAIST, 0);
   return geo;
 }
+function buildArm(c2) {
+  const gb = new GeoBuilder();
+  const sleeve = c2.sleeve;
+  loft(gb, [
+    { y: 0.02, rx: 0.062, rz: 0.062, color: sleeve },
+    { y: -0.1, rx: 0.058, rz: 0.058, color: sleeve },
+    { y: -0.19, rx: 0.052, rz: 0.052, color: c2.shortSleeve ? c2.skin : sleeve },
+    { y: -0.3, rx: 0.047, rz: 0.047, color: c2.shortSleeve ? c2.skin : sleeve }
+  ], c2.skin, 9);
+  blob(gb, 0, -0.3, 0, 0.048, 0.048, 0.048, c2.shortSleeve ? c2.skin : sleeve, 8, 6);
+  return smoothNormals(gb.build(), 1.15);
+}
+function buildForearm(c2) {
+  const gb = new GeoBuilder();
+  loft(gb, [
+    { y: 0.01, rx: 0.046, rz: 0.046, color: c2.skin },
+    { y: -0.12, rx: 0.041, rz: 0.041, color: c2.skin },
+    { y: -0.24, rx: 0.037, rz: 0.038, color: c2.skin },
+    { y: -0.31, rx: 0.035, rz: 0.036, color: c2.skin }
+  ], c2.skin, 9);
+  blob(gb, 0.012, -0.355, 0, 0.045, 0.055, 0.032, c2.skin, 8, 6);
+  return smoothNormals(gb.build(), 1.15);
+}
+function buildLeg(c2) {
+  const gb = new GeoBuilder();
+  const short = c2.shorts;
+  loft(gb, [
+    { y: 0.02, rx: 0.088, rz: 0.088, color: c2.pants },
+    { y: -0.16, rx: 0.081, rz: 0.083, color: c2.pants },
+    { y: -0.3, rx: 0.072, rz: 0.074, color: short ? c2.skin : c2.pants },
+    { y: -0.42, rx: 0.066, rz: 0.068, color: short ? c2.skin : c2.pants }
+  ], c2.pants, 9);
+  blob(gb, 0, -0.42, 0, 0.068, 0.062, 0.068, short ? c2.skin : c2.pants, 8, 6);
+  return smoothNormals(gb.build(), 1.15);
+}
+function buildShin(c2) {
+  const gb = new GeoBuilder();
+  const short = c2.shorts;
+  loft(gb, [
+    { y: 0.01, rx: 0.062, rz: 0.064, color: short ? c2.skin : c2.pants },
+    { y: -0.12, rx: 0.056, rz: 0.058, color: short ? c2.skin : c2.pants },
+    { y: -0.26, rx: 0.047, rz: 0.049, color: short ? c2.skin : c2.pants },
+    { y: -0.36, rx: 0.044, rz: 0.046, color: short ? c2.skin : c2.pants }
+  ], c2.pants, 9);
+  gb.box(0.03, -0.395, 0, 0.235, 0.055, 0.105, c2.shoes);
+  blob(gb, 0.1, -0.38, 0, 0.06, 0.045, 0.05, c2.shoes, 8, 6);
+  loft(gb, [
+    { y: -0.37, rx: 0.05, rz: 0.052, color: c2.shoes },
+    { y: -0.28, rx: 0.048, rz: 0.05, color: c2.shoes }
+  ], c2.shoes, 8, false);
+  return smoothNormals(gb.build(), 1.15);
+}
 function makeCharacter(opts = {}) {
-  const G = shared.charGeo;
-  const skinCol = opts.skin ?? pick(SKINS);
-  const skin = new sd({ color: skinCol, roughness: 0.72, metalness: 0, vertexColors: true });
-  const shirt = new sd({ color: opts.shirt ?? pick(SHIRTS), roughness: 0.85, metalness: 0, vertexColors: true });
-  const pants = new sd({ color: opts.pants ?? pick(PANTS), roughness: 0.88, metalness: 0, vertexColors: true });
-  const hairMat = new sd({ color: opts.hair ?? pick(HAIR), roughness: 0.95, metalness: 0 });
-  const group = new Wl();
-  const colors = {
-    shirt: shirt.color.getHex(),
-    pants: pants.color.getHex(),
-    skin: skinCol,
-    hair: hairMat.color.getHex()
+  const skin = opts.skin ?? pick(SKINS);
+  const shirt = opts.shirt ?? pick(SHIRTS);
+  const pants = opts.pants ?? pick(PANTS);
+  const hair = opts.hair ?? pick(HAIR);
+  const c2 = {
+    skin,
+    shirt,
+    pants,
+    hair,
+    shoes: opts.shoes ?? pick(SHOES),
+    eyes: pick([3877402, 2768730, 3099178, 1709330]),
+    cap: pick(SHIRTS),
+    hairStyle: opts.hairStyle ?? (Math.random() < 0.55 ? 0 : Math.random() < 0.6 ? 1 : 2),
+    shortSleeve: Math.random() < 0.6,
+    shorts: Math.random() < 0.25,
+    sleeve: shirt
   };
-  const bodyGeo = mergeBody([
-    { geo: G.parts.torso, y: 0, color: "shirt" },
-    { geo: G.parts.hips, y: -0.22, color: "pants" },
-    { geo: G.parts.head, y: 0.6, color: "skin" },
-    { geo: G.parts.hair, y: 0.6, color: "hair" }
-  ], {
-    shirt: shirt.color.getHex(),
-    pants: pants.color.getHex(),
-    skin: skinCol,
-    hair: hairMat.color.getHex()
-  });
+  const group = new Wl();
+  const bodyGeo = buildBody(c2);
+  const armGeo = buildArm(c2);
+  const foreGeo = buildForearm(c2);
+  const legGeo = buildLeg(c2);
+  const shinGeo = buildShin(c2);
   const torso = new Xs(bodyGeo, shared.bodyMat);
-  torso.position.y = 0.98;
-  const larm = new Xs(G.arm, skin);
-  larm.position.set(0, 1.52, 0.23);
-  const rarm = new Xs(G.arm, skin);
-  rarm.position.set(0, 1.52, -0.23);
-  const lleg = new Xs(G.leg, pants);
-  lleg.position.set(0, 0.86, 0.1);
-  const rleg = new Xs(G.leg, pants);
-  rleg.position.set(0, 0.86, -0.1);
-  group.add(torso, larm, rarm, lleg, rleg);
+  torso.position.y = WAIST;
+  const larm = new Xs(armGeo, shared.bodyMat);
+  larm.position.set(0, SHOULDER - WAIST, 0.175);
+  const rarm = new Xs(armGeo, shared.bodyMat);
+  rarm.position.set(0, SHOULDER - WAIST, -0.175);
+  const lleg = new Xs(legGeo, shared.bodyMat);
+  lleg.position.set(0, HIP, 0.085);
+  const rleg = new Xs(legGeo, shared.bodyMat);
+  rleg.position.set(0, HIP, -0.085);
+  const lfore = new Xs(foreGeo, shared.bodyMat);
+  lfore.position.y = -0.3;
+  const rfore = new Xs(foreGeo, shared.bodyMat);
+  rfore.position.y = -0.3;
+  const lshin = new Xs(shinGeo, shared.bodyMat);
+  lshin.position.y = -0.42;
+  const rshin = new Xs(shinGeo, shared.bodyMat);
+  rshin.position.y = -0.42;
+  larm.add(lfore);
+  rarm.add(rfore);
+  lleg.add(lshin);
+  rleg.add(rshin);
+  torso.add(larm, rarm);
+  group.add(torso, lleg, rleg);
   if (shared.quality.shadows) {
-    for (const m of [torso, larm, rarm, lleg, rleg]) {
+    for (const m of [torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin]) {
       m.castShadow = true;
       m.receiveShadow = true;
     }
@@ -14850,13 +15399,52 @@ function makeCharacter(opts = {}) {
     sh2.position.y = 0.03;
     group.add(sh2);
   }
-  group.userData.parts = { torso, larm, rarm, lleg, rleg };
-  group.userData.mats = { skin, shirt, pants, hairMat };
-  group.userData.colors = colors;
+  group.userData.parts = { torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin };
+  group.userData.colors = c2;
+  group.userData.geo = { bodyGeo, armGeo, foreGeo, legGeo, shinGeo };
   group.userData.phase = Math.random() * 6.28;
   return group;
 }
+function dressCharacter(group, shirtHex, pantsHex) {
+  const c2 = group.userData.colors;
+  if (!c2) return;
+  c2.shirt = shirtHex;
+  c2.sleeve = shirtHex;
+  c2.pants = pantsHex;
+  const p2 = group.userData.parts;
+  const g = group.userData.geo;
+  for (const k of ["bodyGeo", "armGeo", "foreGeo", "legGeo", "shinGeo"]) g[k].dispose();
+  g.bodyGeo = buildBody(c2);
+  g.armGeo = buildArm(c2);
+  g.foreGeo = buildForearm(c2);
+  g.legGeo = buildLeg(c2);
+  g.shinGeo = buildShin(c2);
+  p2.torso.geometry = g.bodyGeo;
+  p2.larm.geometry = g.armGeo;
+  p2.rarm.geometry = g.armGeo;
+  p2.lfore.geometry = g.foreGeo;
+  p2.rfore.geometry = g.foreGeo;
+  p2.lleg.geometry = g.legGeo;
+  p2.rleg.geometry = g.legGeo;
+  p2.lshin.geometry = g.shinGeo;
+  p2.rshin.geometry = g.shinGeo;
+}
+function randomPedColors() {
+  return { skin: pick(SKINS), shirt: pick(SHIRTS), pants: pick(PANTS), hair: pick(HAIR) };
+}
+function bendJoints(p2) {
+  const elbow = (s) => Math.min(1.55, 0.18 + Math.max(0, -s) * 0.34 + Math.max(0, s) * 0.6);
+  const knee = (s) => -Math.min(2, 0.06 + Math.max(0, -s) * 0.85 + Math.max(0, s) * 0.82);
+  p2.lfore.rotation.z = elbow(p2.larm.rotation.z);
+  p2.rfore.rotation.z = elbow(p2.rarm.rotation.z);
+  p2.lshin.rotation.z = knee(p2.lleg.rotation.z);
+  p2.rshin.rotation.z = knee(p2.rleg.rotation.z);
+}
 function animateCharacter(group, speed, t2, state = "walk", punchT = 0) {
+  poseCharacter(group, speed, t2, state, punchT);
+  if (group.userData.parts && group.userData.parts.lfore) bendJoints(group.userData.parts);
+}
+function poseCharacter(group, speed, t2, state = "walk", punchT = 0) {
   const p2 = group.userData.parts;
   if (!p2) return;
   const at = group.userData.actionT || 0;
@@ -14864,55 +15452,55 @@ function animateCharacter(group, speed, t2, state = "walk", punchT = 0) {
   const reset = () => {
     group.rotation.z = 0;
     p2.torso.rotation.set(0, 0, 0);
-    p2.larm.rotation.set(0, 0, 0.12);
-    p2.rarm.rotation.set(0, 0, -0.12);
-    p2.lleg.rotation.set(0, 0, 0.02);
-    p2.rleg.rotation.set(0, 0, -0.02);
+    p2.larm.rotation.set(-0.12, 0, 0);
+    p2.rarm.rotation.set(0.12, 0, 0);
+    p2.lleg.rotation.set(-0.02, 0, 0);
+    p2.rleg.rotation.set(0.02, 0, 0);
   };
   if (state === "down" || state === "getup") {
     const k = state === "down" ? 1 : 1 - Math.min(at, 1);
     group.rotation.z = -Math.PI / 2.05 * k;
     group.position.y = 0.32 * k;
-    p2.larm.rotation.set(0.5 * k, 0, 0.4 * k);
-    p2.rarm.rotation.set(-0.7 * k, 0, -0.3 * k);
-    p2.lleg.rotation.set(0.35 * k, 0, 0);
-    p2.rleg.rotation.set(-0.15 * k, 0, 0.2 * k);
-    p2.torso.rotation.set(0.3 * k, 0, 0);
+    p2.larm.rotation.set(-(0.4 * k), 0, -(0.5 * k));
+    p2.rarm.rotation.set(-(-0.3 * k), 0, -(-0.7 * k));
+    p2.lleg.rotation.set(0, 0, -(0.35 * k));
+    p2.rleg.rotation.set(-(0.2 * k), 0, -(-0.15 * k));
+    p2.torso.rotation.set(0, 0, -(0.3 * k));
     return;
   }
   group.position.y = 0;
   if (state === "flinch") {
     const k = Math.sin(Math.min(at, 1) * Math.PI);
     reset();
-    p2.torso.rotation.x = -0.5 * k;
+    p2.torso.rotation.z = -(-0.5 * k);
     p2.torso.rotation.y = 0.25 * k;
-    p2.larm.rotation.set(-1.5 * k, 0, 0.5 * k);
-    p2.rarm.rotation.set(-1.3 * k, 0, -0.6 * k);
-    p2.lleg.rotation.x = 0.2 * k;
-    p2.rleg.rotation.x = -0.25 * k;
+    p2.larm.rotation.set(-(0.5 * k), 0, -(-1.5 * k));
+    p2.rarm.rotation.set(-(-0.6 * k), 0, -(-1.3 * k));
+    p2.lleg.rotation.z = -(0.2 * k);
+    p2.rleg.rotation.z = -(-0.25 * k);
     return;
   }
   if (state === "cower") {
     const b = Math.sin(t2 * 7 + ph2) * 0.04;
     reset();
-    p2.torso.rotation.x = 0.55 + b;
-    p2.larm.rotation.set(-2.5, 0, 0.7);
-    p2.rarm.rotation.set(-2.5, 0, -0.7);
-    p2.lleg.rotation.x = 0.45;
-    p2.rleg.rotation.x = 0.45;
+    p2.torso.rotation.z = -(0.55 + b);
+    p2.larm.rotation.set(-0.7, 0, 2.5);
+    p2.rarm.rotation.set(0.7, 0, 2.5);
+    p2.lleg.rotation.z = -0.45;
+    p2.rleg.rotation.z = -0.45;
     return;
   }
   if (state === "fight") {
     const b = Math.sin(t2 * 6 + ph2);
     reset();
     p2.torso.rotation.y = -0.3;
-    p2.larm.rotation.set(-1.25 + b * 0.12, 0, 0.55);
-    p2.rarm.rotation.set(-1.15 - b * 0.12, 0, -0.5);
-    p2.lleg.rotation.x = 0.22;
-    p2.rleg.rotation.x = -0.22;
+    p2.larm.rotation.set(-0.55, 0, -(-1.25 + b * 0.12));
+    p2.rarm.rotation.set(0.5, 0, -(-1.15 - b * 0.12));
+    p2.lleg.rotation.z = -0.22;
+    p2.rleg.rotation.z = 0.22;
     if (punchT > 0) {
       const k = Math.sin(Math.min(punchT, 1) * Math.PI);
-      p2.rarm.rotation.set(-1.75 * k - 0.3, 0, -0.15 - 0.3 * k);
+      p2.rarm.rotation.set(-(-0.15 - 0.3 * k), 0, -(-1.75 * k - 0.3));
       p2.torso.rotation.y = -0.3 - 0.35 * k;
     }
     return;
@@ -14920,47 +15508,45 @@ function animateCharacter(group, speed, t2, state = "walk", punchT = 0) {
   const idleBob = Math.sin(t2 * 1.5 + ph2) * 0.02;
   if (state === "talk" || state === "phone" || state === "smoke" || state === "wave" || state === "lean" || state === "watch" || state === "sit" || state === "aim") {
     reset();
-    p2.torso.position.y = 0.98 + idleBob;
-    p2.larm.position.y = 1.52 + idleBob;
-    p2.rarm.position.y = 1.52 + idleBob;
+    p2.torso.position.y = 1.02 + idleBob;
     if (state === "talk") {
       const g1 = Math.sin(t2 * 3.4 + ph2), g2 = Math.sin(t2 * 2.1 + ph2 * 2);
-      p2.rarm.rotation.set(-0.75 - g1 * 0.45, 0, -0.45 - g1 * 0.2);
-      p2.larm.rotation.set(-0.35 - g2 * 0.3, 0, 0.35);
+      p2.rarm.rotation.set(-(-0.45 - g1 * 0.2), 0, -(-0.75 - g1 * 0.45));
+      p2.larm.rotation.set(-0.35, 0, -(-0.35 - g2 * 0.3));
       p2.torso.rotation.y = g2 * 0.1;
     } else if (state === "phone") {
-      p2.rarm.rotation.set(-2.35, 0, -0.55);
-      p2.larm.rotation.set(-0.25, 0, 0.2);
+      p2.rarm.rotation.set(0.55, 0, 2.35);
+      p2.larm.rotation.set(-0.2, 0, 0.25);
       p2.torso.rotation.y = -0.12 + Math.sin(t2 * 1.2 + ph2) * 0.06;
-      p2.torso.rotation.z = 0.05;
+      p2.torso.rotation.x = -0.05;
     } else if (state === "smoke") {
       const cycle = (Math.sin(t2 * 0.7 + ph2) + 1) / 2;
       const up = Math.pow(cycle, 4);
-      p2.rarm.rotation.set(-0.4 - up * 1.9, 0, -0.3 - up * 0.35);
-      p2.larm.rotation.set(-0.1, 0, 0.18);
+      p2.rarm.rotation.set(-(-0.3 - up * 0.35), 0, -(-0.4 - up * 1.9));
+      p2.larm.rotation.set(-0.18, 0, 0.1);
       p2.torso.rotation.y = 0.08;
     } else if (state === "wave") {
-      p2.rarm.rotation.set(-2.5, 0, -0.4 + Math.sin(t2 * 7 + ph2) * 0.5);
-      p2.larm.rotation.set(-0.15, 0, 0.2);
+      p2.rarm.rotation.set(-(-0.4 + Math.sin(t2 * 7 + ph2) * 0.5), 0, 2.5);
+      p2.larm.rotation.set(-0.2, 0, 0.15);
     } else if (state === "lean") {
-      p2.torso.rotation.x = -0.14;
-      p2.larm.rotation.set(-1.15, 0, 0.9);
-      p2.rarm.rotation.set(-1.15, 0, -0.9);
-      p2.lleg.rotation.x = -0.12;
-      p2.rleg.rotation.set(0.1, 0, -0.35);
+      p2.torso.rotation.z = 0.14;
+      p2.larm.rotation.set(-0.9, 0, 1.15);
+      p2.rarm.rotation.set(0.9, 0, 1.15);
+      p2.lleg.rotation.z = 0.12;
+      p2.rleg.rotation.set(0.35, 0, -0.1);
     } else if (state === "watch") {
-      p2.rarm.rotation.set(-1.9, 0, -0.35);
-      p2.larm.rotation.set(-1.6, 0, 0.4);
-      p2.torso.rotation.x = -0.06;
+      p2.rarm.rotation.set(0.35, 0, 1.9);
+      p2.larm.rotation.set(-0.4, 0, 1.6);
+      p2.torso.rotation.z = 0.06;
     } else if (state === "sit") {
-      p2.lleg.rotation.set(-1.4, 0, 0.12);
-      p2.rleg.rotation.set(-1.4, 0, -0.12);
-      p2.larm.rotation.set(-0.85, 0, 0.25);
-      p2.rarm.rotation.set(-0.85, 0, -0.25);
-      p2.torso.rotation.x = 0.12;
+      p2.lleg.rotation.set(-0.12, 0, 1.4);
+      p2.rleg.rotation.set(0.12, 0, 1.4);
+      p2.larm.rotation.set(-0.25, 0, 0.85);
+      p2.rarm.rotation.set(0.25, 0, 0.85);
+      p2.torso.rotation.z = -0.12;
     } else if (state === "aim") {
-      p2.rarm.rotation.set(-1.55, 0, -0.05);
-      p2.larm.rotation.set(-1.35, 0, 0.25);
+      p2.rarm.rotation.set(0.05, 0, 1.55);
+      p2.larm.rotation.set(-0.25, 0, 1.35);
       p2.torso.rotation.y = -0.25;
     }
     return;
@@ -14970,52 +15556,30 @@ function animateCharacter(group, speed, t2, state = "walk", punchT = 0) {
   const f2 = Math.min(speed, 7) * (run ? 1.9 : 2.6) + 1.2;
   const amp = Math.min(0.28 + speed * 0.11, 1.05);
   const sw = Math.sin(t2 * f2 + ph2) * amp;
-  p2.lleg.rotation.x = sw;
-  p2.rleg.rotation.x = -sw;
-  p2.lleg.rotation.z = 0.02;
-  p2.rleg.rotation.z = -0.02;
+  p2.lleg.rotation.z = -sw;
+  p2.rleg.rotation.z = - -sw;
+  p2.lleg.rotation.x = -0.02;
+  p2.rleg.rotation.x = 0.02;
   if (panic) {
     const flail = Math.sin(t2 * 11 + ph2) * 0.35;
-    p2.larm.rotation.set(-2.6 + flail, 0, 0.5);
-    p2.rarm.rotation.set(-2.6 - flail, 0, -0.5);
+    p2.larm.rotation.set(-0.5, 0, -(-2.6 + flail));
+    p2.rarm.rotation.set(0.5, 0, -(-2.6 - flail));
   } else {
-    p2.larm.rotation.x = -sw * 0.8;
-    p2.rarm.rotation.x = sw * 0.8;
-    p2.larm.rotation.z = 0.12 + Math.abs(sw) * 0.05;
-    p2.rarm.rotation.z = -0.12 - Math.abs(sw) * 0.05;
+    p2.larm.rotation.z = -(-sw * 0.8);
+    p2.rarm.rotation.z = -(sw * 0.8);
+    p2.larm.rotation.x = -(0.12 + Math.abs(sw) * 0.05);
+    p2.rarm.rotation.x = -(-0.12 - Math.abs(sw) * 0.05);
   }
-  p2.torso.rotation.x = Math.min(speed * 0.024, 0.2) + (panic ? 0.12 : 0);
+  p2.torso.rotation.z = -(Math.min(speed * 0.024, 0.2) + (panic ? 0.12 : 0));
   p2.torso.rotation.y = -sw * 0.12;
   const bob = Math.abs(Math.sin(t2 * f2 + ph2)) * Math.min(speed * 0.014, 0.06) + idleBob;
-  p2.torso.position.y = 0.98 + bob;
-  p2.larm.position.y = 1.52 + bob;
-  p2.rarm.position.y = 1.52 + bob;
+  p2.torso.position.y = 1.02 + bob;
   if (punchT > 0) {
     const k = Math.sin(Math.min(punchT, 1) * Math.PI);
-    p2.rarm.rotation.x = -1.75 * k;
-    p2.rarm.rotation.z = -0.12 - 0.35 * k;
+    p2.rarm.rotation.z = -(-1.75 * k);
+    p2.rarm.rotation.x = -(-0.12 - 0.35 * k);
     p2.torso.rotation.y = -0.35 * k;
   }
-}
-function dressCharacter(group, shirtHex, pantsHex) {
-  const colors = group.userData.colors;
-  if (!colors) return;
-  colors.shirt = shirtHex;
-  colors.pants = pantsHex;
-  const G = shared.charGeo;
-  const mesh = group.userData.parts.torso;
-  mesh.geometry.dispose();
-  mesh.geometry = mergeBody([
-    { geo: G.parts.torso, y: 0, color: "shirt" },
-    { geo: G.parts.hips, y: -0.22, color: "pants" },
-    { geo: G.parts.head, y: 0.6, color: "skin" },
-    { geo: G.parts.hair, y: 0.6, color: "hair" }
-  ], colors);
-  group.userData.mats.shirt.color.setHex(shirtHex);
-  group.userData.mats.pants.color.setHex(pantsHex);
-}
-function randomPedColors() {
-  return { skin: pick(SKINS), shirt: pick(SHIRTS), pants: pick(PANTS), hair: pick(HAIR) };
 }
 
 // src/world/interiors.js
@@ -15855,7 +16419,7 @@ var Player = class {
     } else if (this.weapon === "pistol" && this.shootCd > 0.05) {
       anim = "aim";
     }
-    animateCharacter(this.mesh, this.speed, this.game.time, anim, this.punchT);
+    animateCharacter(this.mesh, this.speed, this.game.time, this.forceAnim || anim, this.punchT);
     this.mesh.visible = true;
   }
   _driving(dt2, input) {
@@ -16974,7 +17538,14 @@ var HUD = class {
       lblRun: $2("lbl-run"),
       weapon: $2("weapon"),
       evade: $2("evade"),
-      evadeBar: $2("evade").firstElementChild
+      evadeBar: $2("evade").firstElementChild,
+      wayDist: $2("waydist"),
+      wayVal: $2("way-dist"),
+      friendLine: $2("friendline"),
+      friendVal: $2("friend-dist"),
+      radio: $2("radiochip"),
+      radioName: $2("radio-name"),
+      weather: $2("weatherchip")
     };
     this.map = $2("minimap");
     this.ctx = this.map.getContext("2d");
@@ -16982,9 +17553,22 @@ var HUD = class {
     this.subT = 0;
     this.shopOpen = false;
     $2("shop-close").addEventListener("click", () => this.hideShop());
+    $2("radio-prev").addEventListener("click", () => this.game.radio.change(-1));
+    $2("radio-next").addEventListener("click", () => this.game.radio.change(1));
   }
   show() {
     this.el.hud.classList.remove("hidden");
+  }
+  /** Targhetta della radio: nome stazione e colore della stazione. */
+  radio(station) {
+    this.el.radio.classList.toggle("hidden", !station);
+    if (!station) return;
+    this.el.radioName.textContent = station.name;
+    this.el.radioName.style.color = station.color;
+  }
+  weather(label) {
+    this.el.weather.classList.toggle("hidden", !label);
+    if (label) this.el.weather.textContent = label;
   }
   toast(msg, kind = "") {
     const d2 = document.createElement("div");
@@ -17058,8 +17642,8 @@ var HUD = class {
     this.el.health.style.width = `${clamp(p2.health, 0, 100)}%`;
     this.el.armor.style.width = `${clamp(p2.armor, 0, 100)}%`;
     this.el.money.textContent = `$${p2.money.toLocaleString("it-IT")}`;
-    const hh = Math.floor(g.clock) % 24, mm2 = Math.floor(g.clock % 1 * 60);
-    this.el.clock.textContent = `${String(hh).padStart(2, "0")}:${String(mm2).padStart(2, "0")}`;
+    const hh2 = Math.floor(g.clock) % 24, mm2 = Math.floor(g.clock % 1 * 60);
+    this.el.clock.textContent = `${String(hh2).padStart(2, "0")}:${String(mm2).padStart(2, "0")}`;
     this.el.stars.textContent = "\u2605".repeat(g.wanted) + "\u2606".repeat(Math.max(0, 5 - g.wanted));
     const chasing = g.wanted > 0;
     this.el.evade.classList.toggle("hidden", !chasing);
@@ -17069,6 +17653,14 @@ var HUD = class {
       this.el.weapon.classList.remove("hidden");
       this.el.weapon.innerHTML = `\u{1F52B} <b>${p2.ammo}</b>`;
     } else this.el.weapon.classList.add("hidden");
+    const way = g.waypoint;
+    this.el.wayDist.classList.toggle("hidden", !way);
+    if (way) this.el.wayVal.textContent = `${Math.round(Math.hypot(way.x - p2.x, way.z - p2.z))} m`;
+    const friend = g.mp && g.mp.position;
+    this.el.friendLine.classList.toggle("hidden", !friend);
+    if (friend) {
+      this.el.friendVal.textContent = `${g.mp.name} \xB7 ${Math.round(Math.hypot(friend.x - p2.x, friend.z - p2.z))} m`;
+    }
     if (p2.inCar) {
       this.el.speedo.classList.remove("hidden");
       this.el.speed.textContent = Math.round(p2.car.kmh);
@@ -17141,9 +17733,59 @@ var HUD = class {
       blip(v.x, v.z, "#98a3b5", 3);
     }
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, "#4cc2ff", 6);
-    const peer = g.mp && g.mp.position;
-    if (peer) blip(peer.x, peer.z, "#c56bff", 9);
     ctx.restore();
+    const edgeMarker = (wx, wz, color, label) => {
+      const dx = wx - p2.x, dz = wz - p2.z;
+      const rot = p2.a - Math.PI / 2;
+      const cos = Math.cos(rot), sin = Math.sin(rot);
+      let sx = (dx * cos - dz * sin) * scale;
+      let sy = (dx * sin + dz * cos) * scale;
+      const r = half - 12;
+      const dist = Math.hypot(sx, sy);
+      const outside = dist > r;
+      if (outside) {
+        sx = sx / dist * r;
+        sy = sy / dist * r;
+      }
+      ctx.save();
+      ctx.translate(half + sx, half + sy);
+      ctx.fillStyle = color;
+      if (outside) {
+        ctx.rotate(Math.atan2(sy, sx) + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(7, 7);
+        ctx.lineTo(-7, 7);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#0d1119";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      if (label) {
+        ctx.rotate(0);
+        ctx.fillStyle = "#0d1119cc";
+        ctx.fillRect(-16, 9, 32, 12);
+        ctx.fillStyle = color;
+        ctx.font = "bold 9px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(label, 0, 18);
+      }
+      ctx.restore();
+    };
+    if (g.waypoint) {
+      const d2 = Math.round(Math.hypot(g.waypoint.x - p2.x, g.waypoint.z - p2.z));
+      edgeMarker(g.waypoint.x, g.waypoint.z, "#ff9d3f", `${d2}m`);
+    }
+    const friendPos = g.mp && g.mp.position;
+    if (friendPos) {
+      const d2 = Math.round(Math.hypot(friendPos.x - p2.x, friendPos.z - p2.z));
+      edgeMarker(friendPos.x, friendPos.z, "#c56bff", `${d2}m`);
+    }
     ctx.save();
     ctx.translate(half, half);
     ctx.fillStyle = "#ffffff";
@@ -18057,6 +18699,592 @@ var Multiplayer = class {
   }
 };
 
+// src/systems/map.js
+var ICONS = {
+  police: "\u{1F693}",
+  hospital: "\u{1F3E5}",
+  gas: "\u26FD",
+  sport: "\u{1F3C0}",
+  pier: "\u{1F3A1}",
+  casino: "\u{1F3B0}"
+};
+var LABELS = {
+  police: "Commissariato",
+  hospital: "Ospedale",
+  gas: "Distributore",
+  sport: "Campo",
+  pier: "Molo",
+  casino: "Casin\xF2"
+};
+var SHOP_ICON = {
+  burger: "\u{1F354}",
+  pharmacy: "\u{1F48A}",
+  store: "\u{1F6D2}",
+  ammu: "\u{1F52B}",
+  clothes: "\u{1F455}",
+  bar: "\u{1F37A}",
+  garage: "\u{1F527}",
+  home: "\u{1F3E0}"
+};
+var MapView = class {
+  constructor(game2) {
+    this.game = game2;
+    this.open = false;
+    this.scale = 0.55;
+    this.cx = 0;
+    this.cz = 0;
+    this.follow = true;
+    this._build();
+  }
+  _build() {
+    const el2 = document.createElement("div");
+    el2.id = "bigmap";
+    el2.className = "overlay hidden";
+    el2.innerHTML = `
+      <div class="map-wrap">
+        <canvas id="map-canvas"></canvas>
+        <div class="map-top">
+          <b>MAPPA</b>
+          <span id="map-hint">Tocca un punto per mettere la destinazione</span>
+        </div>
+        <div class="map-tools">
+          <button id="map-me" title="Centra su di me">\u{1F3AF} Io</button>
+          <button id="map-friend" class="hidden" title="Segui l'amico">\u{1F465} Amico</button>
+          <button id="map-clear">\u2716 Destinazione</button>
+          <button id="map-zin">\uFF0B</button>
+          <button id="map-zout">\uFF0D</button>
+          <button id="map-close" class="close">Chiudi (M)</button>
+        </div>
+        <div class="map-legend">
+          <span><i style="background:#ffd23f"></i>lavoro</span>
+          <span><i style="background:#3ddc84"></i>negozio</span>
+          <span><i style="background:#ff9d3f"></i>destinazione</span>
+          <span><i style="background:#c56bff"></i>amico</span>
+          <span><i style="background:#4cc2ff"></i>polizia</span>
+        </div>
+      </div>`;
+    document.body.appendChild(el2);
+    this.el = el2;
+    this.canvas = el2.querySelector("#map-canvas");
+    this.ctx = this.canvas.getContext("2d");
+    el2.querySelector("#map-close").addEventListener("click", () => this.hide());
+    el2.querySelector("#map-me").addEventListener("click", () => {
+      this.follow = true;
+      this.draw();
+    });
+    el2.querySelector("#map-clear").addEventListener("click", () => {
+      this.game.setWaypoint(null);
+      this.draw();
+    });
+    el2.querySelector("#map-zin").addEventListener("click", () => this.zoom(1.4));
+    el2.querySelector("#map-zout").addEventListener("click", () => this.zoom(1 / 1.4));
+    this.friendBtn = el2.querySelector("#map-friend");
+    this.friendBtn.addEventListener("click", () => {
+      const p2 = this.game.mp && this.game.mp.position;
+      if (p2) {
+        this.game.setWaypoint({ x: p2.x, z: p2.z, friend: true });
+        this.follow = false;
+        this.cx = p2.x;
+        this.cz = p2.z;
+        this.draw();
+      }
+    });
+    let dragging = false, moved = 0, lastX = 0, lastY = 0, pinch = 0;
+    const pos = (e) => {
+      const r = this.canvas.getBoundingClientRect();
+      const t2 = e.touches ? e.touches[0] : e;
+      return { x: t2.clientX - r.left, y: t2.clientY - r.top };
+    };
+    const down = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        return;
+      }
+      dragging = true;
+      moved = 0;
+      const p2 = pos(e);
+      lastX = p2.x;
+      lastY = p2.y;
+    };
+    const move = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        const d2 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (pinch) this.zoom(d2 / pinch, false);
+        pinch = d2;
+        e.preventDefault();
+        return;
+      }
+      if (!dragging) return;
+      const p2 = pos(e);
+      const dx = p2.x - lastX, dy = p2.y - lastY;
+      lastX = p2.x;
+      lastY = p2.y;
+      moved += Math.abs(dx) + Math.abs(dy);
+      this.follow = false;
+      this.cx -= dx / this.scale;
+      this.cz -= dy / this.scale;
+      this.draw();
+      e.preventDefault();
+    };
+    const up = (e) => {
+      if (dragging && moved < 8) {
+        const p2 = pos(e.changedTouches ? { touches: [e.changedTouches[0]] } : e);
+        const w = this.screenToWorld(p2.x, p2.y);
+        this.game.setWaypoint(w);
+      }
+      dragging = false;
+      pinch = 0;
+      this.draw();
+    };
+    this.canvas.addEventListener("mousedown", down);
+    addEventListener("mousemove", move);
+    addEventListener("mouseup", up);
+    this.canvas.addEventListener("touchstart", down, { passive: false });
+    this.canvas.addEventListener("touchmove", move, { passive: false });
+    this.canvas.addEventListener("touchend", up);
+    this.canvas.addEventListener("wheel", (e) => {
+      this.zoom(e.deltaY < 0 ? 1.2 : 1 / 1.2);
+      e.preventDefault();
+    }, { passive: false });
+  }
+  zoom(k, redraw = true) {
+    this.scale = clamp(this.scale * k, 0.12, 3.2);
+    if (redraw) this.draw();
+  }
+  screenToWorld(px, py) {
+    const w = this.canvas.width / devicePixelRatio, h2 = this.canvas.height / devicePixelRatio;
+    return { x: this.cx + (px - w / 2) / this.scale, z: this.cz + (py - h2 / 2) / this.scale };
+  }
+  show() {
+    this.open = true;
+    this.el.classList.remove("hidden");
+    this.follow = true;
+    this.resize();
+    this.draw();
+  }
+  hide() {
+    this.open = false;
+    this.el.classList.add("hidden");
+  }
+  toggle() {
+    this.open ? this.hide() : this.show();
+  }
+  resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const r = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = r.width * dpr;
+    this.canvas.height = r.height * dpr;
+    this.canvas.style.width = `${r.width}px`;
+    this.canvas.style.height = `${r.height}px`;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  draw() {
+    if (!this.open) return;
+    const g = this.game, ctx = this.ctx;
+    const w = this.canvas.width / Math.min(devicePixelRatio || 1, 2);
+    const h2 = this.canvas.height / Math.min(devicePixelRatio || 1, 2);
+    const p2 = g.player;
+    if (this.follow) {
+      this.cx = p2.x;
+      this.cz = p2.z;
+    }
+    ctx.save();
+    ctx.clearRect(0, 0, w, h2);
+    ctx.fillStyle = "#0d1c26";
+    ctx.fillRect(0, 0, w, h2);
+    ctx.translate(w / 2, h2 / 2);
+    ctx.scale(this.scale, this.scale);
+    ctx.translate(-this.cx, -this.cz);
+    ctx.fillStyle = "#243a2a";
+    ctx.fillRect(WORLD_MIN - 300, WORLD_MIN - 300, WORLD_MAX - WORLD_MIN + 600, WORLD_MAX - WORLD_MIN + 600);
+    ctx.fillStyle = "#c9b98f";
+    ctx.fillRect(WORLD_MIN - 300, g.city.shore - 90, WORLD_MAX - WORLD_MIN + 600, 200);
+    ctx.fillStyle = "#14486b";
+    ctx.fillRect(WORLD_MIN - 300, g.city.shore, WORLD_MAX - WORLD_MIN + 600, 1200);
+    ctx.fillStyle = "#39404c";
+    for (let i = 0; i < CFG.N; i++) {
+      for (let j = 0; j < CFG.N; j++) {
+        const b = blockBounds(i, j);
+        ctx.fillRect(b.x0, b.z0, b.x1 - b.x0, b.z1 - b.z0);
+      }
+    }
+    ctx.strokeStyle = "#5b6675";
+    ctx.lineWidth = CFG.ROAD - 4;
+    ctx.beginPath();
+    for (const c2 of ROAD_X) {
+      ctx.moveTo(c2, WORLD_MIN);
+      ctx.lineTo(c2, WORLD_MAX);
+    }
+    for (const c2 of ROAD_Z) {
+      ctx.moveTo(WORLD_MIN, c2);
+      ctx.lineTo(WORLD_MAX, c2);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "#8b95a3";
+    ctx.lineWidth = 0.6;
+    ctx.setLineDash([4, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    const toS = (x, z) => ({
+      x: w / 2 + (x - this.cx) * this.scale,
+      y: h2 / 2 + (z - this.cz) * this.scale
+    });
+    const dot = (x, z, color, r) => {
+      const s = toS(x, z);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    if (this.scale > 0.32) {
+      for (const d2 of g.city.doors) {
+        const s = toS(d2.x, d2.z);
+        if (s.x < -20 || s.x > w + 20 || s.y < -20 || s.y > h2 + 20) continue;
+        ctx.font = `${Math.min(18, 9 + this.scale * 6)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.fillText(SHOP_ICON[d2.type] || "\u{1F3EA}", s.x, s.y + 5);
+      }
+    }
+    for (const l2 of g.city.landmarks) {
+      const s = toS(l2.x, l2.z);
+      ctx.font = "20px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(ICONS[l2.kind] || "\u{1F4CD}", s.x, s.y + 6);
+      if (this.scale > 0.4) {
+        ctx.font = "600 11px system-ui";
+        ctx.fillStyle = "#dbe4ee";
+        ctx.fillText(LABELS[l2.kind] || "", s.x, s.y + 22);
+      }
+    }
+    for (const m of g.missions.markers) dot(m.x, m.z, "#ffd23f", 7);
+    if (g.missions.objective) dot(g.missions.objective.x, g.missions.objective.z, "#ff9d3f", 8);
+    for (const v of g.police.cars) if (v.active) dot(v.x, v.z, "#4cc2ff", 6);
+    if (g.waypoint) {
+      const s = toS(g.waypoint.x, g.waypoint.z);
+      ctx.strokeStyle = "#ff9d3f";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 11, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y - 16);
+      ctx.lineTo(s.x, s.y + 16);
+      ctx.moveTo(s.x - 16, s.y);
+      ctx.lineTo(s.x + 16, s.y);
+      ctx.stroke();
+    }
+    const friend = g.mp && g.mp.position;
+    this.friendBtn.classList.toggle("hidden", !friend);
+    if (friend) {
+      const s = toS(friend.x, friend.z);
+      dot(friend.x, friend.z, "#c56bff", 9);
+      ctx.fillStyle = "#f0e2ff";
+      ctx.font = "700 12px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(g.mp.name, s.x, s.y - 14);
+      const d2 = Math.round(Math.hypot(friend.x - p2.x, friend.z - p2.z));
+      ctx.fillStyle = "#c9b3e8";
+      ctx.font = "11px system-ui";
+      ctx.fillText(`${d2} m`, s.x, s.y + 22);
+    }
+    const me2 = toS(p2.x, p2.z);
+    ctx.save();
+    ctx.translate(me2.x, me2.y);
+    ctx.rotate(-p2.a + Math.PI / 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#101418";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -11);
+    ctx.lineTo(7.5, 9);
+    ctx.lineTo(0, 4.5);
+    ctx.lineTo(-7.5, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+// src/systems/weather.js
+var STATES = ["sereno", "nuvoloso", "pioggia", "temporale"];
+var LABEL = { sereno: "\u2600\uFE0F Sereno", nuvoloso: "\u2601\uFE0F Nuvoloso", pioggia: "\u{1F327}\uFE0F Pioggia", temporale: "\u26C8\uFE0F Temporale" };
+var Weather = class {
+  constructor(game2) {
+    this.game = game2;
+    this.state = "sereno";
+    this.wet = 0;
+    this.rain = 0;
+    this.target = 0;
+    this.timer = 90 + Math.random() * 120;
+    this.flash = 0;
+    this.thunderT = 0;
+    this._baseRough = /* @__PURE__ */ new Map();
+    this._buildRain();
+  }
+  // ------------------------------------------------------------- particelle
+  _buildRain() {
+    const N = this.game.quality.tier >= 3 ? 4200 : 1800;
+    this.count = N;
+    const pos = new Float32Array(N * 6);
+    this.seed = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      this.seed[i * 3] = (Math.random() - 0.5) * 34;
+      this.seed[i * 3 + 1] = Math.random() * 26;
+      this.seed[i * 3 + 2] = (Math.random() - 0.5) * 34;
+    }
+    const geo = new As();
+    geo.setAttribute("position", new cs(pos, 3));
+    const mat = new hh({
+      color: 12571880,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      fog: true
+    });
+    this.mesh = new xh(geo, mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.visible = false;
+    this.game.scene.add(this.mesh);
+    const sg = new ma(70, 70, 1, 1);
+    sg.rotateX(-Math.PI / 2);
+    this.splash = new Xs(sg, new es({
+      map: splashTexture(),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: _,
+      toneMapped: false
+    }));
+    this.splash.visible = false;
+    this.game.scene.add(this.splash);
+  }
+  /** Forza uno stato (usato dal menu e dai test). */
+  set(state) {
+    if (!STATES.includes(state)) return;
+    this.state = state;
+    this.timer = 120 + Math.random() * 150;
+  }
+  get label() {
+    return LABEL[this.state];
+  }
+  // ------------------------------------------------------------------ ciclo
+  update(dt2, camera) {
+    this.timer -= dt2;
+    if (this.timer <= 0) {
+      const next = {
+        sereno: ["sereno", "nuvoloso", "nuvoloso"],
+        nuvoloso: ["sereno", "pioggia", "pioggia", "nuvoloso"],
+        pioggia: ["nuvoloso", "temporale", "pioggia"],
+        temporale: ["pioggia", "pioggia", "nuvoloso"]
+      }[this.state];
+      const before = this.state;
+      this.state = next[Math.random() * next.length | 0];
+      this.timer = 100 + Math.random() * 160;
+      if (this.state !== before) this.game.hud?.toast?.(this.label);
+    }
+    this.target = this.state === "pioggia" ? 0.75 : this.state === "temporale" ? 1 : 0;
+    this.rain += clamp((this.target - this.rain) * dt2 * 0.35, -dt2 * 0.25, dt2 * 0.25);
+    this.rain = clamp(this.rain, 0, 1);
+    const dry = this.rain > 0.05 ? dt2 * 0.22 : -dt2 * 0.035;
+    this.wet = clamp(this.wet + dry, 0, 1);
+    this._drops(dt2, camera);
+    this._surfaces();
+    this._sky(dt2);
+  }
+  _drops(dt2, camera) {
+    const on = this.rain > 0.02 && !this.game.interiors.current;
+    this.mesh.visible = on;
+    this.splash.visible = on;
+    if (!on) {
+      this.game.audio.setRain?.(0);
+      return;
+    }
+    const p2 = camera.position;
+    this.mesh.material.opacity = 0.16 + this.rain * 0.22;
+    this.splash.material.opacity = this.rain * 0.1;
+    this.splash.position.set(p2.x, 0.06, p2.z);
+    this.game.audio.setRain?.(this.rain);
+    const speed = 34 + this.rain * 22;
+    const wind = this.state === "temporale" ? 6.5 : 2.4;
+    const t2 = this.game.time;
+    const arr = this.mesh.geometry.attributes.position.array;
+    const len = 0.45 + this.rain * 0.45;
+    const n = Math.round(this.count * (0.35 + this.rain * 0.65));
+    for (let i = 0; i < this.count; i++) {
+      const o = i * 6;
+      if (i >= n) {
+        arr[o] = arr[o + 1] = arr[o + 2] = arr[o + 3] = arr[o + 4] = arr[o + 5] = 0;
+        continue;
+      }
+      const sx = this.seed[i * 3], sy = this.seed[i * 3 + 1], sz = this.seed[i * 3 + 2];
+      const y = 26 - (sy + t2 * speed) % 26;
+      const x = p2.x + sx + y * wind * 0.02;
+      const z = p2.z + sz;
+      arr[o] = x;
+      arr[o + 1] = y;
+      arr[o + 2] = z;
+      arr[o + 3] = x - wind * 0.05 * len;
+      arr[o + 4] = y - len * 2.2;
+      arr[o + 5] = z;
+    }
+    this.mesh.geometry.attributes.position.needsUpdate = true;
+  }
+  /** Bagnato: le superfici piatte diventano lisce e riflettenti. */
+  _surfaces() {
+    const m = this.game.city.mats;
+    const k = this.wet;
+    for (const [mat, base] of [[m.road, 0.86], [m.walk, 0.94], [m.paint, 0.7], [m.sand, 0.95]]) {
+      if (!mat) continue;
+      mat.roughness = lerp(base, 0.14, k);
+      mat.metalness = lerp(0, 0.35, k);
+      mat.envMapIntensity = lerp(0.25, 1.15, k);
+      mat.color.setScalar(lerp(1, 0.62, k));
+    }
+  }
+  /** Cielo, sole e foschia seguono il meteo. */
+  _sky(dt2) {
+    const sky = this.game.sky;
+    const cloud = this.state === "sereno" ? 0 : this.state === "nuvoloso" ? 0.5 : 1;
+    this._cloud = lerp(this._cloud ?? 0, cloud, Math.min(1, dt2 * 0.4));
+    const c2 = this._cloud;
+    sky.sun.intensity *= 1 - c2 * 0.72;
+    sky.hemi.intensity *= 1 - c2 * 0.18;
+    sky.clouds.material.opacity = Math.min(0.95, sky.clouds.material.opacity + c2 * 0.5);
+    this.game.scene.fog.density += c2 * 16e-4 + this.rain * 12e-4;
+    if (this.state === "temporale") {
+      this.thunderT -= dt2;
+      if (this.thunderT <= 0) {
+        this.thunderT = 6 + Math.random() * 14;
+        this.flash = 1;
+        const delay = 400 + Math.random() * 2200;
+        setTimeout(() => this.game.audio.thunder?.(), delay);
+      }
+    }
+    if (this.flash > 0) {
+      this.flash = Math.max(0, this.flash - dt2 * 3.4);
+      const f2 = this.flash * this.flash;
+      sky.hemi.intensity += f2 * 1.3;
+      sky.sun.intensity += f2 * 1.1;
+      this.game.renderer.toneMappingExposure += f2 * 0.18;
+    }
+  }
+};
+function splashTexture() {
+  const S = 512;
+  const c2 = document.createElement("canvas");
+  c2.width = c2.height = S;
+  const ctx = c2.getContext("2d");
+  ctx.clearRect(0, 0, S, S);
+  ctx.strokeStyle = "rgba(190,215,240,0.5)";
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * S, y = Math.random() * S;
+    const r = 2 + Math.random() * 7;
+    ctx.lineWidth = 0.6 + Math.random();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const t2 = new Uh(c2);
+  t2.wrapS = t2.wrapT = pt;
+  t2.repeat.set(3, 3);
+  t2.colorSpace = qe;
+  return t2;
+}
+
+// src/systems/radio.js
+var STATIONS = [
+  {
+    name: "NOVA FM \xB7 Synthwave",
+    color: "#7dd3ff",
+    bpm: 108,
+    scale: [0, 3, 5, 7, 10],
+    root: 55,
+    wave: "sawtooth",
+    chords: [[0, 3, 7], [-2, 2, 5], [-4, 0, 3], [-5, -1, 2]],
+    drums: "four"
+  },
+  {
+    name: "Costa Latina",
+    color: "#ffc46b",
+    bpm: 96,
+    scale: [0, 2, 4, 7, 9],
+    root: 65,
+    wave: "triangle",
+    chords: [[0, 4, 7], [-3, 0, 4], [-5, -1, 2], [-3, 0, 4]],
+    drums: "clave"
+  },
+  {
+    name: "Bassline 105",
+    color: "#ff7d9c",
+    bpm: 124,
+    scale: [0, 3, 5, 6, 10],
+    root: 49,
+    wave: "square",
+    chords: [[0, 3, 10], [0, 3, 10], [-2, 1, 8], [-4, -1, 6]],
+    drums: "break"
+  }
+];
+var Radio = class {
+  constructor(game2) {
+    this.game = game2;
+    this.index = 0;
+    this.on = false;
+    this.step = 0;
+    this.next = 0;
+  }
+  get station() {
+    return STATIONS[this.index];
+  }
+  get stations() {
+    return STATIONS;
+  }
+  setOn(on) {
+    if (this.on === on) return;
+    this.on = on;
+    if (!on) this.game.hud.radio(null);
+    else this.game.hud.radio(this.station);
+  }
+  change(dir = 1) {
+    this.index = (this.index + dir + STATIONS.length) % STATIONS.length;
+    this.step = 0;
+    this.next = 0;
+    this.game.audio.ui();
+    if (this.on) this.game.hud.radio(this.station);
+    return this.station;
+  }
+  update(dt2) {
+    if (!this.on) return;
+    const a = this.game.audio;
+    if (!a.ctx) return;
+    const st = this.station;
+    const beat = 60 / st.bpm / 2;
+    this.next -= dt2;
+    if (this.next > 0) return;
+    this.next += beat;
+    const s = this.step++;
+    const bar = (s >> 3) % st.chords.length;
+    const chord = st.chords[bar];
+    const vol = 0.16;
+    if (s % 4 === 0) a.tone(midi(st.root + chord[0]), beat * 1.6, st.wave, vol * 1.1, 900);
+    if (s % 8 === 0) for (const n of chord) a.tone(midi(st.root + 12 + n), beat * 5, "triangle", vol * 0.42, 1800);
+    if (s % 2 === 0 || Math.random() < 0.35) {
+      const deg = st.scale[Math.random() * st.scale.length | 0];
+      const oct = Math.random() < 0.35 ? 24 : 12;
+      a.tone(midi(st.root + oct + chord[0] + deg), beat * 0.9, st.wave, vol * 0.5, 2600);
+    }
+    if (st.drums === "four" && s % 4 === 0) a.noise(0.09, 140, 0.28, "lowpass");
+    if (st.drums === "break" && (s % 8 === 0 || s % 8 === 6)) a.noise(0.08, 120, 0.3, "lowpass");
+    if (st.drums === "clave" && (s % 8 === 0 || s % 8 === 3)) a.noise(0.06, 190, 0.22, "lowpass");
+    if (s % 4 === 2) a.noise(0.05, 3600, 0.1, "highpass");
+    if (s % 2 === 1) a.noise(0.02, 7e3, 0.05, "highpass");
+  }
+};
+function midi(n) {
+  return 440 * Math.pow(2, (n - 69) / 12);
+}
+
 // src/main.js
 var $3 = (id) => document.getElementById(id);
 var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -18067,7 +19295,9 @@ var Game = class {
       canvas: this.canvas,
       antialias: !IS_MOBILE,
       powerPreference: "high-performance",
-      stencil: false
+      stencil: false,
+      // ?shot=1 tiene il frame nel buffer: serve solo per catturare screenshot puliti
+      preserveDrawingBuffer: new URLSearchParams(location.search).has("shot")
     });
     this.renderer.toneMapping = nt;
     this.renderer.toneMappingExposure = 0.92;
@@ -18083,10 +19313,11 @@ var Game = class {
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
       shadows: true,
-      shadowMap: IS_MOBILE ? 1024 : 2048,
-      shadowRange: IS_MOBILE ? 46 : 74,
+      shadowMap: IS_MOBILE ? 1024 : 3072,
+      shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
-      grade: true
+      grade: true,
+      samples: IS_MOBILE ? 2 : 4
     };
     const forced = new URLSearchParams(location.search).get("q");
     if (forced !== null) {
@@ -18153,6 +19384,7 @@ var Game = class {
     initModels(this.quality);
     await step(24, "Costruisco strade e isolati\u2026");
     this.city = new City(this.quality).build();
+    this._sharpenTextures();
     this.worldGroup.add(this.city.group);
     await step(52, "Apro i negozi\u2026");
     this.interiors = new InteriorManager(this);
@@ -18184,10 +19416,15 @@ var Game = class {
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
     this._applyTier();
     this.casino = new Casino(this);
+    this.map = new MapView(this);
+    this.weather = new Weather(this);
+    this.radio = new Radio(this);
+    this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
     this._tracers();
     this._headlightBeam();
+    this._headlightSpots();
     this._effects();
     this._streetLights();
     this.load();
@@ -18213,11 +19450,33 @@ var Game = class {
    * Quattro lampioni "veri" che seguono il giocatore: le pozze di luce
    * additive coprono la citta', queste danno il riflesso sull'asfalto.
    */
+  /**
+   * Filtro anisotropico su tutte le texture: senza, asfalto e marciapiedi
+   * diventano una poltiglia sfocata appena li guardi di sbieco.
+   */
+  _sharpenTextures() {
+    const maxA = this.renderer.capabilities.getMaxAnisotropy();
+    const aniso = Math.min(maxA, IS_MOBILE ? 4 : 16);
+    const seen = /* @__PURE__ */ new Set();
+    const bump = (t2) => {
+      if (!t2 || !t2.isTexture || seen.has(t2)) return;
+      seen.add(t2);
+      if (t2.anisotropy !== aniso) {
+        t2.anisotropy = aniso;
+        t2.needsUpdate = true;
+      }
+    };
+    const keys = ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap", "aoMap", "alphaMap"];
+    this.scene.traverse((o) => {
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of mats) for (const k of keys) bump(m[k]);
+    });
+  }
   _streetLights() {
     this.streetLights = [];
-    const n = IS_MOBILE ? 2 : 4;
+    const n = IS_MOBILE ? 5 : 12;
     for (let i = 0; i < n; i++) {
-      const l2 = new rp(16767392, 0, 26, 1.6);
+      const l2 = new rp(16766882, 0, 40, 1.5);
       l2.visible = false;
       this.worldGroup.add(l2);
       this.streetLights.push(l2);
@@ -18238,7 +19497,7 @@ var Game = class {
     const near = [];
     for (const l2 of this.city.lamps) {
       const d2 = (l2.x - p2.x) ** 2 + (l2.z - p2.z) ** 2;
-      if (d2 < 3600) near.push({ l: l2, d: d2 });
+      if (d2 < 9e3) near.push({ l: l2, d: d2 });
     }
     near.sort((a, b) => a.d - b.d);
     this.streetLights.forEach((light, i) => {
@@ -18246,8 +19505,35 @@ var Game = class {
       light.visible = !!t2;
       if (t2) {
         light.position.set(t2.l.x, t2.l.y, t2.l.z);
-        light.intensity = 26 * night;
+        light.intensity = 90 * night;
       }
+    });
+  }
+  /** Due faretti attaccati all'auto del giocatore: illuminano davvero la strada. */
+  _headlightSpots() {
+    this.headlights = [];
+    for (let i = 0; i < 2; i++) {
+      const sp2 = new Qd(16773327, 0, 62, 0.62, 0.45, 1.1);
+      sp2.visible = false;
+      sp2.castShadow = false;
+      sp2.target = new Nr();
+      this.worldGroup.add(sp2, sp2.target);
+      this.headlights.push(sp2);
+    }
+  }
+  _updateHeadlights(lightsOn) {
+    if (!this.headlights) return;
+    const on = lightsOn && this.player.inCar && !this.interiors.current;
+    const c2 = this.player.car;
+    this.headlights.forEach((sp2, i) => {
+      sp2.visible = on;
+      if (!on || !c2) return;
+      const side = i === 0 ? -0.72 : 0.72;
+      const rx = -c2.fz, rz = c2.fx;
+      sp2.position.set(c2.x + c2.fx * 1.9 + rx * side, 0.75, c2.z + c2.fz * 1.9 + rz * side);
+      sp2.target.position.set(c2.x + c2.fx * 26 + rx * side * 3, -0.4, c2.z + c2.fz * 26 + rz * side * 3);
+      sp2.target.updateMatrixWorld();
+      sp2.intensity = 160;
     });
   }
   /** Cono di luce dei fari: rende guidabile la citta' di notte. */
@@ -18328,6 +19614,7 @@ var Game = class {
   }
   _menus() {
     $3("btn-play").addEventListener("click", () => this.start());
+    this._fullscreenMenu();
     this._onlineMenu();
     $3("btn-resume").addEventListener("click", () => this.setPaused(false));
     $3("btn-pause").addEventListener("click", () => this.setPaused(true));
@@ -18342,12 +19629,46 @@ var Game = class {
       location.reload();
     });
     addEventListener("keydown", (e) => {
-      if (e.code === "Escape") this.setPaused(!this.paused);
+      if (e.code === "Escape") {
+        if (this.map.open) this.map.hide();
+        else this.setPaused(!this.paused);
+      }
       if (e.code === "KeyP") this.setPaused(!this.paused);
+      if (e.code === "KeyM" && this.running) this.map.toggle();
+    });
+    const mini = $3("minimap");
+    mini.style.pointerEvents = "auto";
+    mini.addEventListener("click", () => {
+      if (this.running) this.map.toggle();
+    });
+    addEventListener("resize", () => {
+      if (this.map && this.map.open) {
+        this.map.resize();
+        this.map.draw();
+      }
     });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.setPaused(true);
     });
+  }
+  /**
+   * Quando il gioco gira dentro un pannello (l'anteprima di Claude, un
+   * iframe qualsiasi) si vede solo a meta': qui offriamo schermo intero e,
+   * se il pannello lo consente, l'apertura in una scheda tutta sua.
+   */
+  _fullscreenMenu() {
+    const embedded = window.self !== window.top;
+    const expand = $3("btn-expand");
+    const newtab = $3("btn-newtab");
+    expand.addEventListener("click", () => {
+      this.toggleFullscreen();
+      expand.textContent = document.fullscreenElement ? "\u26F6 Esci da schermo intero" : "\u26F6 Schermo intero";
+    });
+    if (embedded) {
+      newtab.href = location.href;
+      newtab.classList.remove("hidden");
+      $3("boot-status").textContent = "Consiglio: apri a schermo intero o in una scheda nuova";
+    }
   }
   /** Schermata di gioco online: due codici e si e' collegati. */
   _onlineMenu() {
@@ -18457,7 +19778,7 @@ var Game = class {
       this.last = performance.now();
       this.loop();
     }
-    if (IS_MOBILE) this.toggleFullscreen(true);
+    this.toggleFullscreen(true);
     this.toast("Benvenuto a Nova City", "good");
   }
   setPaused(v) {
@@ -18513,7 +19834,7 @@ var Game = class {
       this.sky.quality.shadows = q.shadows;
       this.sky.clouds.visible = tier >= 1;
       if (q.shadows) {
-        const range = tier >= 3 ? IS_MOBILE ? 46 : 74 : IS_MOBILE ? 34 : 52;
+        const range = tier >= 3 ? IS_MOBILE ? 46 : 96 : IS_MOBILE ? 34 : 52;
         q.shadowRange = range;
         const c2 = this.sky.sun.shadow.camera;
         c2.left = -range;
@@ -18525,6 +19846,15 @@ var Game = class {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses;
+      if (this.post.composer && this.post.composer.renderTarget1) {
+        const n = tier >= 3 ? IS_MOBILE ? 2 : 4 : tier >= 2 ? 2 : 0;
+        for (const rt2 of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
+          if (rt2.samples !== n) {
+            rt2.samples = n;
+            rt2.dispose();
+          }
+        }
+      }
       if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
@@ -18579,6 +19909,10 @@ var Game = class {
   update(dt2) {
     const p2 = this.player;
     this._dayNight(dt2);
+    this.weather.update(dt2, this.camera);
+    this.hud.weather(this.weather.label);
+    this.radio.setOn(this.player.inCar && !this.interiors.current);
+    this.radio.update(dt2);
     this.trafficT += dt2;
     if (this.trafficT > 13) {
       this.trafficT = 0;
@@ -18586,8 +19920,8 @@ var Game = class {
       this.city.setTrafficAxis(this.trafficAxis);
     }
     this.input.setDriveMode(p2.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open) p2.attack();
-    p2.update(dt2, this.hud.shopOpen || this.casino.open ? this.frozenInput : this.input);
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) p2.attack();
+    p2.update(dt2, this.hud.shopOpen || this.casino.open || this.map.open ? this.frozenInput : this.input);
     if (this.interiors.current) {
       this.interiors.update(dt2);
       this._interiorPrompt();
@@ -18601,6 +19935,7 @@ var Game = class {
       this._wanted(dt2);
     }
     if (this.mp) this.mp.update(dt2);
+    this._markers(dt2);
     this._tracerUpdate(dt2);
     this._effectsUpdate(dt2);
     this._updateStreetLights(dt2);
@@ -18630,6 +19965,7 @@ var Game = class {
       this.sky.sun.intensity = 0.5;
       this.sky.hemi.intensity = 1;
       this.sky.hemi.color.setHex(15986920);
+      this.sky.moonLight.visible = false;
       this.scene.fog.density = 4e-4;
     }
     const lightsOn = night > 0.42;
@@ -18642,6 +19978,7 @@ var Game = class {
         this.beam.material.opacity = 0.42 * clamp(night, 0, 1);
       }
     }
+    this._updateHeadlights(lightsOn);
     if (this._lightsOn !== lightsOn) {
       this._lightsOn = lightsOn;
       for (const v of this.traffic.all()) v.setNight(lightsOn);
@@ -18760,6 +20097,64 @@ var Game = class {
     this.toast(`${item.name} \u2714`, "good");
     this.hud.refreshShop(menu, (i) => this.buy(i, menu));
     this.save();
+  }
+  _markers(dt2) {
+    const p2 = this.player;
+    const friend = this.mp && this.mp.position;
+    if (this.waypoint && this.waypoint.friend && friend) {
+      this.waypoint.x = friend.x;
+      this.waypoint.z = friend.z;
+    }
+    if (this.waypoint) {
+      this.wayBeam.position.set(this.waypoint.x, 0, this.waypoint.z);
+      const d2 = Math.hypot(this.waypoint.x - p2.x, this.waypoint.z - p2.z);
+      this.wayBeam.visible = d2 > 4;
+      if (d2 < 6 && !this.waypoint.friend) this.setWaypoint(null);
+    }
+    this.friendBeam.visible = !!friend;
+    if (friend) this.friendBeam.position.set(friend.x, 0, friend.z);
+    if (this.map.open) this.map.draw();
+  }
+  /** Colonna di luce sulla destinazione e sull'amico: si vede da lontano. */
+  _waypointMarker() {
+    const beam = (color) => {
+      const g = new su(0.9, 1.4, 60, 12, 1, true);
+      const m = new Xs(g, new es({
+        color,
+        transparent: true,
+        opacity: 0.28,
+        side: p,
+        depthWrite: false,
+        depthTest: false,
+        toneMapped: false
+      }));
+      m.position.y = 30;
+      m.renderOrder = 4;
+      const ring2 = new Xs(
+        new qu(1.6, 2.4, 24),
+        new es({ color, transparent: true, opacity: 0.5, side: p, depthWrite: false, toneMapped: false })
+      );
+      ring2.rotation.x = -Math.PI / 2;
+      ring2.position.y = 0.08;
+      const group = new Wl();
+      group.add(m, ring2);
+      group.visible = false;
+      this.scene.add(group);
+      return group;
+    };
+    this.wayBeam = beam(16751935);
+    this.friendBeam = beam(12938239);
+    this.waypoint = null;
+  }
+  /** Mette (o toglie) la destinazione. */
+  setWaypoint(w) {
+    this.waypoint = w ? { x: w.x, z: w.z, friend: !!w.friend } : null;
+    if (this.waypoint) {
+      this.wayBeam.position.set(w.x, 0, w.z);
+      this.toast("Destinazione impostata", "good");
+      this.audio.blip(760, 0.08);
+    }
+    this.wayBeam.visible = !!this.waypoint;
   }
   /** Apre i tavoli del casino'. */
   openCasino(kind = "slot") {

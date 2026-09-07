@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sky } from '../../vendor/examples/objects/Sky.js';
-import { clamp, lerp } from '../core/utils.js';
+import { IS_MOBILE, clamp, lerp } from '../core/utils.js';
 
 /**
  * Cielo atmosferico (modello di Preetham), sole direzionale con ombre,
@@ -60,7 +60,8 @@ export class SkySystem {
 
     // luce lunare: di notte il sole si spegne e senza questa non si vede nulla
     this.moonLight = new THREE.DirectionalLight(0x9fc0ff, 0);
-    this.moonLight.castShadow = !!quality.shadows;
+    // ombre lunari solo dove c'e' margine: sono una seconda passata di shadow map
+    this.moonLight.castShadow = !!quality.shadows && !IS_MOBILE && quality.tier >= 3;
     if (this.moonLight.castShadow) {
       const s = this.moonLight.shadow;
       s.mapSize.set(1024, 1024);
