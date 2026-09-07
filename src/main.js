@@ -46,8 +46,8 @@ class Game {
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
       shadows: true,
-      shadowMap: IS_MOBILE ? 1024 : 2048,
-      shadowRange: IS_MOBILE ? 46 : 74,
+      shadowMap: IS_MOBILE ? 1024 : 4096,
+      shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,
       samples: IS_MOBILE ? 2 : 4,
@@ -119,6 +119,7 @@ class Game {
 
     await step(24, 'Costruisco strade e isolati…');
     this.city = new City(this.quality).build();
+    this._sharpenTextures();
     this.worldGroup.add(this.city.group);
 
     await step(52, 'Apro i negozi…');
@@ -159,6 +160,7 @@ class Game {
     this.mp = new Multiplayer(this, this.net);
     this._tracers();
     this._headlightBeam();
+    this._headlightSpots();
     this._effects();
     this._streetLights();
     this.load();
@@ -187,11 +189,31 @@ class Game {
    * Quattro lampioni "veri" che seguono il giocatore: le pozze di luce
    * additive coprono la citta', queste danno il riflesso sull'asfalto.
    */
+  /**
+   * Filtro anisotropico su tutte le texture: senza, asfalto e marciapiedi
+   * diventano una poltiglia sfocata appena li guardi di sbieco.
+   */
+  _sharpenTextures() {
+    const maxA = this.renderer.capabilities.getMaxAnisotropy();
+    const aniso = Math.min(maxA, IS_MOBILE ? 4 : 16);
+    const seen = new Set();
+    const bump = (t) => {
+      if (!t || !t.isTexture || seen.has(t)) return;
+      seen.add(t);
+      if (t.anisotropy !== aniso) { t.anisotropy = aniso; t.needsUpdate = true; }
+    };
+    const keys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap'];
+    this.scene.traverse((o) => {
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of mats) for (const k of keys) bump(m[k]);
+    });
+  }
+
   _streetLights() {
     this.streetLights = [];
-    const n = IS_MOBILE ? 2 : 4;
+    const n = IS_MOBILE ? 5 : 12;
     for (let i = 0; i < n; i++) {
-      const l = new THREE.PointLight(0xffd9a0, 0, 26, 1.6);
+      const l = new THREE.PointLight(0xffd7a2, 0, 40, 1.5);
       l.visible = false;
       this.worldGroup.add(l);
       this.streetLights.push(l);
@@ -213,7 +235,7 @@ class Game {
     const near = [];
     for (const l of this.city.lamps) {
       const d = (l.x - p.x) ** 2 + (l.z - p.z) ** 2;
-      if (d < 3600) near.push({ l, d });
+      if (d < 9000) near.push({ l, d });
     }
     near.sort((a, b) => a.d - b.d);
     this.streetLights.forEach((light, i) => {
@@ -221,8 +243,37 @@ class Game {
       light.visible = !!t;
       if (t) {
         light.position.set(t.l.x, t.l.y, t.l.z);
-        light.intensity = 26 * night;
+        light.intensity = 90 * night;
       }
+    });
+  }
+
+  /** Due faretti attaccati all'auto del giocatore: illuminano davvero la strada. */
+  _headlightSpots() {
+    this.headlights = [];
+    for (let i = 0; i < 2; i++) {
+      const sp = new THREE.SpotLight(0xfff0cf, 0, 62, 0.62, 0.45, 1.1);
+      sp.visible = false;
+      sp.castShadow = false;
+      sp.target = new THREE.Object3D();
+      this.worldGroup.add(sp, sp.target);
+      this.headlights.push(sp);
+    }
+  }
+
+  _updateHeadlights(lightsOn) {
+    if (!this.headlights) return;
+    const on = lightsOn && this.player.inCar && !this.interiors.current;
+    const c = this.player.car;
+    this.headlights.forEach((sp, i) => {
+      sp.visible = on;
+      if (!on || !c) return;
+      const side = i === 0 ? -0.72 : 0.72;
+      const rx = -c.fz, rz = c.fx;              // versore destro dell'auto
+      sp.position.set(c.x + c.fx * 1.9 + rx * side, 0.75, c.z + c.fz * 1.9 + rz * side);
+      sp.target.position.set(c.x + c.fx * 26 + rx * side * 3, -0.4, c.z + c.fz * 26 + rz * side * 3);
+      sp.target.updateMatrixWorld();
+      sp.intensity = 160;
     });
   }
 
@@ -513,7 +564,7 @@ class Game {
       this.sky.quality.shadows = q.shadows;
       this.sky.clouds.visible = tier >= 1;
       if (q.shadows) {
-        const range = tier >= 3 ? (IS_MOBILE ? 46 : 74) : IS_MOBILE ? 34 : 52;
+        const range = tier >= 3 ? (IS_MOBILE ? 46 : 96) : IS_MOBILE ? 34 : 52;
         q.shadowRange = range;
         const c = this.sky.sun.shadow.camera;
         c.left = -range; c.right = range; c.top = range; c.bottom = -range;
@@ -639,6 +690,7 @@ class Game {
       this.sky.sun.intensity = 0.5;
       this.sky.hemi.intensity = 1.0;
       this.sky.hemi.color.setHex(0xf3f0e8);
+      this.sky.moonLight.visible = false;
       this.scene.fog.density = 0.0004;
     }
     const lightsOn = night > 0.42;
@@ -651,6 +703,7 @@ class Game {
         this.beam.material.opacity = 0.42 * clamp(night, 0, 1);
       }
     }
+    this._updateHeadlights(lightsOn);
     if (this._lightsOn !== lightsOn) {
       this._lightsOn = lightsOn;
       for (const v of this.traffic.all()) v.setNight(lightsOn);

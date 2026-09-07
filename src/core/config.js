@@ -8,11 +8,11 @@ export const CFG = {
   LANE: 3.2,       // scostamento della corsia dal centro strada
 
   // --- gameplay ---
-  PED_MAX_DESKTOP: 42,
+  PED_MAX_DESKTOP: 68,
   PED_MAX_MOBILE: 17,
-  CAR_MAX_DESKTOP: 20,
+  CAR_MAX_DESKTOP: 30,
   CAR_MAX_MOBILE: 9,
-  PARKED_DESKTOP: 34,
+  PARKED_DESKTOP: 52,
   PARKED_MOBILE: 12,
   STREAM_RADIUS: 190,   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,

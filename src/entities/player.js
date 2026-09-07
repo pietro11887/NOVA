@@ -132,7 +132,7 @@ export class Player {
     } else if (this.weapon === 'pistol' && this.shootCd > 0.05) {
       anim = 'aim';
     }
-    animateCharacter(this.mesh, this.speed, this.game.time, anim, this.punchT);
+    animateCharacter(this.mesh, this.speed, this.game.time, this.forceAnim || anim, this.punchT);
     this.mesh.visible = true;
   }
 

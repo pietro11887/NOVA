@@ -57,6 +57,22 @@ export class SkySystem {
 
     this.hemi = new THREE.HemisphereLight(0xbcd8ff, 0x6b5a44, 0.28);
     scene.add(this.hemi);
+
+    // luce lunare: di notte il sole si spegne e senza questa non si vede nulla
+    this.moonLight = new THREE.DirectionalLight(0x9fc0ff, 0);
+    this.moonLight.castShadow = !!quality.shadows;
+    if (this.moonLight.castShadow) {
+      const s = this.moonLight.shadow;
+      s.mapSize.set(1024, 1024);
+      s.camera.near = 1; s.camera.far = 420;
+      s.camera.left = -60; s.camera.right = 60;
+      s.camera.top = 60; s.camera.bottom = -60;
+      s.bias = -0.0016;
+      s.normalBias = 0.05;
+    }
+    this.moonTarget = new THREE.Object3D();
+    this.moonLight.target = this.moonTarget;
+    scene.add(this.moonLight, this.moonTarget);
     // luce di rimbalzo dal terreno: evita che i lati in ombra diventino neri
     this.bounce = new THREE.DirectionalLight(0xffd9b0, 0.35);
     this.bounce.position.set(-80, 40, -60);
@@ -123,9 +139,20 @@ export class SkySystem {
     this.sun.intensity = lerp(0.04, 2.35, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
     // l'ambiente arriva soprattutto dalla env map: l'emisferica e' solo di appoggio
-    this.hemi.intensity = lerp(0.18, 0.45, day);
-    this.hemi.color.setHex(day > 0.5 ? 0xbcd8ff : 0x24344e);
-    this.hemi.groundColor.setHex(day > 0.4 ? 0x8a7a5e : 0x171b25);
+    // di notte l'emisferica non scende quasi: senza, la citta' e' un muro nero
+    this.hemi.intensity = lerp(0.62, 0.45, day);
+    this.hemi.color.setHex(day > 0.5 ? 0xbcd8ff : 0x4a5f8c);
+    this.hemi.groundColor.setHex(day > 0.4 ? 0x8a7a5e : 0x2b3242);
+
+    const nightK = clamp((0.4 - day) / 0.4, 0, 1);
+    this.moonLight.intensity = nightK * 0.95;
+    this.moonLight.visible = nightK > 0.02;
+    if (this.moonLight.visible) {
+      this.moonLight.position.copy(this.sunDir).multiplyScalar(-190).add(focus);
+      this.moonLight.position.y = Math.abs(this.moonLight.position.y) + 90;
+      this.moonTarget.position.copy(focus);
+      this.moonTarget.updateMatrixWorld();
+    }
     this.bounce.intensity = lerp(0.03, 0.22, day);
     this.bounce.position.copy(focus).add(new THREE.Vector3(-70, 45, -55));
 
@@ -140,19 +167,19 @@ export class SkySystem {
 
     // --- foschia: prende il colore dell'orizzonte
     const horizon = new THREE.Color()
-      .setHex(0x1a2436)
+      .setHex(0x27354e)
       .lerp(new THREE.Color(0xbfd6e8), day)
       .lerp(new THREE.Color(0xe8a071), dusk * 0.75);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(0.0030, 0.0011, day) + dusk * 0.0005;
+    this.fog.density = lerp(0.0018, 0.0011, day) + dusk * 0.0005;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new THREE.Color(0xffffff), day * 0.7);
     this.clouds.rotation.y += 0.00004;
     // stelle e luna: compaiono col buio, la luna sta all'opposto del sole
-    const nightK = clamp((0.35 - day) / 0.35, 0, 1);
-    this.stars.material.opacity = nightK * 0.9;
+    const starK = clamp((0.35 - day) / 0.35, 0, 1);
+    this.stars.material.opacity = starK * 0.9;
     this.stars.rotation.y += 0.000012;
-    this.moon.material.opacity = nightK * 0.95;
+    this.moon.material.opacity = starK * 0.95;
     this.moon.position.copy(this.sunDir).multiplyScalar(-2100);
     this.moon.position.y = Math.abs(this.moon.position.y) * 0.75 + 300;
     this.moon.lookAt(0, 0, 0);

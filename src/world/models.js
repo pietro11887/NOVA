@@ -328,8 +328,10 @@ export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   const key = kind === 'civil' ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
   const group = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color, vertexColors: true, roughness: 0.34, metalness: 0.45, envMapIntensity: 1.0,
+  // carrozzeria a due strati: base metallizzata + trasparente lucido sopra
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color, vertexColors: true, roughness: 0.38, metalness: 0.55, envMapIntensity: 1.15,
+    clearcoat: 1, clearcoatRoughness: 0.06,
   });
   const body = new THREE.Mesh(g.body, bodyMat);
   const trim = new THREE.Mesh(g.trim, shared.trimMat);
@@ -501,33 +503,55 @@ function buildArm(c) {
   loft(gb, [
     { y: 0.02, rx: 0.062, rz: 0.062, color: sleeve },
     { y: -0.10, rx: 0.058, rz: 0.058, color: sleeve },
-    { y: -0.17, rx: 0.052, rz: 0.052, color: c.shortSleeve ? c.skin : sleeve },
-    { y: -0.30, rx: 0.046, rz: 0.046, color: c.skin },
-    { y: -0.44, rx: 0.040, rz: 0.040, color: c.skin },
-    { y: -0.56, rx: 0.037, rz: 0.038, color: c.skin },
+    { y: -0.19, rx: 0.052, rz: 0.052, color: c.shortSleeve ? c.skin : sleeve },
+    { y: -0.30, rx: 0.047, rz: 0.047, color: c.shortSleeve ? c.skin : sleeve },
   ], c.skin, 9);
-  blob(gb, 0.012, -0.615, 0, 0.045, 0.055, 0.032, c.skin, 8, 6);     // mano
+  blob(gb, 0, -0.30, 0, 0.048, 0.048, 0.048, c.shortSleeve ? c.skin : sleeve, 8, 6);  // gomito
   return smoothNormals(gb.build(), 1.15);
 }
 
-/** Gamba: anca -> ginocchio -> caviglia -> scarpa. */
+/** Avambraccio: parte dal gomito, e' figlio del braccio e si piega. */
+function buildForearm(c) {
+  const gb = new GeoBuilder();
+  loft(gb, [
+    { y: 0.01, rx: 0.046, rz: 0.046, color: c.skin },
+    { y: -0.12, rx: 0.041, rz: 0.041, color: c.skin },
+    { y: -0.24, rx: 0.037, rz: 0.038, color: c.skin },
+    { y: -0.31, rx: 0.035, rz: 0.036, color: c.skin },
+  ], c.skin, 9);
+  blob(gb, 0.012, -0.355, 0, 0.045, 0.055, 0.032, c.skin, 8, 6);     // mano
+  return smoothNormals(gb.build(), 1.15);
+}
+
 function buildLeg(c) {
   const gb = new GeoBuilder();
   const short = c.shorts;
   loft(gb, [
     { y: 0.02, rx: 0.088, rz: 0.088, color: c.pants },
     { y: -0.16, rx: 0.081, rz: 0.083, color: c.pants },
-    { y: -0.34, rx: 0.070, rz: 0.072, color: short ? c.skin : c.pants },
-    { y: -0.44, rx: 0.064, rz: 0.066, color: short ? c.skin : c.pants },
-    { y: -0.60, rx: 0.056, rz: 0.058, color: short ? c.skin : c.pants },
-    { y: -0.78, rx: 0.046, rz: 0.048, color: short ? c.skin : c.pants },
+    { y: -0.30, rx: 0.072, rz: 0.074, color: short ? c.skin : c.pants },
+    { y: -0.42, rx: 0.066, rz: 0.068, color: short ? c.skin : c.pants },
+  ], c.pants, 9);
+  blob(gb, 0, -0.42, 0, 0.068, 0.062, 0.068, short ? c.skin : c.pants, 8, 6);   // ginocchio
+  return smoothNormals(gb.build(), 1.15);
+}
+
+/** Polpaccio + scarpa: parte dal ginocchio ed e' figlio della coscia. */
+function buildShin(c) {
+  const gb = new GeoBuilder();
+  const short = c.shorts;
+  loft(gb, [
+    { y: 0.01, rx: 0.062, rz: 0.064, color: short ? c.skin : c.pants },
+    { y: -0.12, rx: 0.056, rz: 0.058, color: short ? c.skin : c.pants },
+    { y: -0.26, rx: 0.047, rz: 0.049, color: short ? c.skin : c.pants },
+    { y: -0.36, rx: 0.044, rz: 0.046, color: short ? c.skin : c.pants },
   ], c.pants, 9);
   // scarpa: suola, tomaia e punta arrotondata
-  gb.box(0.03, -0.815, 0, 0.235, 0.055, 0.105, c.shoes);
-  blob(gb, 0.10, -0.80, 0, 0.06, 0.045, 0.05, c.shoes, 8, 6);
+  gb.box(0.03, -0.395, 0, 0.235, 0.055, 0.105, c.shoes);
+  blob(gb, 0.10, -0.38, 0, 0.06, 0.045, 0.05, c.shoes, 8, 6);
   loft(gb, [
-    { y: -0.79, rx: 0.05, rz: 0.052, color: c.shoes },
-    { y: -0.70, rx: 0.048, rz: 0.05, color: c.shoes },
+    { y: -0.37, rx: 0.05, rz: 0.052, color: c.shoes },
+    { y: -0.28, rx: 0.048, rz: 0.05, color: c.shoes },
   ], c.shoes, 8, false);
   return smoothNormals(gb.build(), 1.15);
 }
@@ -551,7 +575,9 @@ export function makeCharacter(opts = {}) {
   const group = new THREE.Group();
   const bodyGeo = buildBody(c);
   const armGeo = buildArm(c);
+  const foreGeo = buildForearm(c);
   const legGeo = buildLeg(c);
+  const shinGeo = buildShin(c);
 
   const torso = new THREE.Mesh(bodyGeo, shared.bodyMat);
   torso.position.y = WAIST;
@@ -560,20 +586,29 @@ export function makeCharacter(opts = {}) {
   const rarm = new THREE.Mesh(armGeo, shared.bodyMat); rarm.position.set(0, SHOULDER - WAIST, -0.175);
   const lleg = new THREE.Mesh(legGeo, shared.bodyMat); lleg.position.set(0, HIP, 0.085);
   const rleg = new THREE.Mesh(legGeo, shared.bodyMat); rleg.position.set(0, HIP, -0.085);
+  // gomiti e ginocchia: i segmenti bassi sono figli di quelli alti e si piegano
+  const lfore = new THREE.Mesh(foreGeo, shared.bodyMat); lfore.position.y = -0.30;
+  const rfore = new THREE.Mesh(foreGeo, shared.bodyMat); rfore.position.y = -0.30;
+  const lshin = new THREE.Mesh(shinGeo, shared.bodyMat); lshin.position.y = -0.42;
+  const rshin = new THREE.Mesh(shinGeo, shared.bodyMat); rshin.position.y = -0.42;
+  larm.add(lfore); rarm.add(rfore);
+  lleg.add(lshin); rleg.add(rshin);
   torso.add(larm, rarm);
   group.add(torso, lleg, rleg);
 
   if (shared.quality.shadows) {
-    for (const m of [torso, larm, rarm, lleg, rleg]) { m.castShadow = true; m.receiveShadow = true; }
+    for (const m of [torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin]) {
+      m.castShadow = true; m.receiveShadow = true;
+    }
   } else {
     const sh = new THREE.Mesh(shared.shadowGeo, shared.shadowMat);
     sh.position.y = 0.03;
     group.add(sh);
   }
 
-  group.userData.parts = { torso, larm, rarm, lleg, rleg };
+  group.userData.parts = { torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin };
   group.userData.colors = c;
-  group.userData.geo = { bodyGeo, armGeo, legGeo };
+  group.userData.geo = { bodyGeo, armGeo, foreGeo, legGeo, shinGeo };
   group.userData.phase = Math.random() * 6.28;
   return group;
 }
@@ -585,11 +620,14 @@ export function dressCharacter(group, shirtHex, pantsHex) {
   c.shirt = shirtHex; c.sleeve = shirtHex; c.pants = pantsHex;
   const p = group.userData.parts;
   const g = group.userData.geo;
-  g.bodyGeo.dispose(); g.armGeo.dispose(); g.legGeo.dispose();
-  g.bodyGeo = buildBody(c); g.armGeo = buildArm(c); g.legGeo = buildLeg(c);
+  for (const k of ['bodyGeo', 'armGeo', 'foreGeo', 'legGeo', 'shinGeo']) g[k].dispose();
+  g.bodyGeo = buildBody(c); g.armGeo = buildArm(c); g.foreGeo = buildForearm(c);
+  g.legGeo = buildLeg(c); g.shinGeo = buildShin(c);
   p.torso.geometry = g.bodyGeo;
   p.larm.geometry = g.armGeo; p.rarm.geometry = g.armGeo;
+  p.lfore.geometry = g.foreGeo; p.rfore.geometry = g.foreGeo;
   p.lleg.geometry = g.legGeo; p.rleg.geometry = g.legGeo;
+  p.lshin.geometry = g.shinGeo; p.rshin.geometry = g.shinGeo;
 }
 
 export function randomPedColors() {
@@ -602,7 +640,25 @@ export function randomPedColors() {
  * reazioni: sussulto, guardia, terrore, caduta e rialzata.
  * Il progresso delle azioni una tantum si legge da userData.actionT (0..1).
  */
+/**
+ * Piega gomiti e ginocchia in base a quanto e' avanzato il segmento alto:
+ * il gomito va solo in avanti, il ginocchio solo all'indietro.
+ */
+function bendJoints(p) {
+  const elbow = (s) => Math.min(1.55, 0.18 + Math.max(0, -s) * 0.34 + Math.max(0, s) * 0.6);
+  const knee = (s) => -Math.min(2.0, 0.06 + Math.max(0, -s) * 0.85 + Math.max(0, s) * 0.82);
+  p.lfore.rotation.z = elbow(p.larm.rotation.z);
+  p.rfore.rotation.z = elbow(p.rarm.rotation.z);
+  p.lshin.rotation.z = knee(p.lleg.rotation.z);
+  p.rshin.rotation.z = knee(p.rleg.rotation.z);
+}
+
 export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
+  poseCharacter(group, speed, t, state, punchT);
+  if (group.userData.parts && group.userData.parts.lfore) bendJoints(group.userData.parts);
+}
+
+function poseCharacter(group, speed, t, state = 'walk', punchT = 0) {
   const p = group.userData.parts;
   if (!p) return;
   const at = group.userData.actionT || 0;
@@ -611,10 +667,10 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   const reset = () => {
     group.rotation.z = 0;
     p.torso.rotation.set(0, 0, 0);
-    p.larm.rotation.set(0, 0, 0.12);
-    p.rarm.rotation.set(0, 0, -0.12);
-    p.lleg.rotation.set(0, 0, 0.02);
-    p.rleg.rotation.set(0, 0, -0.02);
+    p.larm.rotation.set(-(0.12), 0, 0);
+    p.rarm.rotation.set(-(-0.12), 0, 0);
+    p.lleg.rotation.set(-(0.02), 0, 0);
+    p.rleg.rotation.set(-(-0.02), 0, 0);
   };
 
   // ---- a terra e rialzata
@@ -622,11 +678,11 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
     const k = state === 'down' ? 1 : 1 - Math.min(at, 1);
     group.rotation.z = -Math.PI / 2.05 * k;
     group.position.y = 0.32 * k;
-    p.larm.rotation.set(0.5 * k, 0, 0.4 * k);
-    p.rarm.rotation.set(-0.7 * k, 0, -0.3 * k);
-    p.lleg.rotation.set(0.35 * k, 0, 0);
-    p.rleg.rotation.set(-0.15 * k, 0, 0.2 * k);
-    p.torso.rotation.set(0.3 * k, 0, 0);
+    p.larm.rotation.set(-(0.4 * k), 0, -(0.5 * k));
+    p.rarm.rotation.set(-(-0.3 * k), 0, -(-0.7 * k));
+    p.lleg.rotation.set(0, 0, -(0.35 * k));
+    p.rleg.rotation.set(-(0.2 * k), 0, -(-0.15 * k));
+    p.torso.rotation.set(0, 0, -(0.3 * k));
     return;
   }
   group.position.y = 0;
@@ -635,35 +691,35 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   if (state === 'flinch') {
     const k = Math.sin(Math.min(at, 1) * Math.PI);
     reset();
-    p.torso.rotation.x = -0.5 * k;
+    p.torso.rotation.z = -(-0.5 * k);
     p.torso.rotation.y = 0.25 * k;
-    p.larm.rotation.set(-1.5 * k, 0, 0.5 * k);
-    p.rarm.rotation.set(-1.3 * k, 0, -0.6 * k);
-    p.lleg.rotation.x = 0.2 * k;
-    p.rleg.rotation.x = -0.25 * k;
+    p.larm.rotation.set(-(0.5 * k), 0, -(-1.5 * k));
+    p.rarm.rotation.set(-(-0.6 * k), 0, -(-1.3 * k));
+    p.lleg.rotation.z = -(0.2 * k);
+    p.rleg.rotation.z = -(-0.25 * k);
     return;
   }
   if (state === 'cower') {
     const b = Math.sin(t * 7 + ph) * 0.04;
     reset();
-    p.torso.rotation.x = 0.55 + b;
-    p.larm.rotation.set(-2.5, 0, 0.7);
-    p.rarm.rotation.set(-2.5, 0, -0.7);
-    p.lleg.rotation.x = 0.45;
-    p.rleg.rotation.x = 0.45;
+    p.torso.rotation.z = -(0.55 + b);
+    p.larm.rotation.set(-(0.7), 0, -(-2.5));
+    p.rarm.rotation.set(-(-0.7), 0, -(-2.5));
+    p.lleg.rotation.z = -(0.45);
+    p.rleg.rotation.z = -(0.45);
     return;
   }
   if (state === 'fight') {
     const b = Math.sin(t * 6 + ph);
     reset();
     p.torso.rotation.y = -0.3;
-    p.larm.rotation.set(-1.25 + b * 0.12, 0, 0.55);
-    p.rarm.rotation.set(-1.15 - b * 0.12, 0, -0.5);
-    p.lleg.rotation.x = 0.22;
-    p.rleg.rotation.x = -0.22;
+    p.larm.rotation.set(-(0.55), 0, -(-1.25 + b * 0.12));
+    p.rarm.rotation.set(-(-0.5), 0, -(-1.15 - b * 0.12));
+    p.lleg.rotation.z = -(0.22);
+    p.rleg.rotation.z = -(-0.22);
     if (punchT > 0) {
       const k = Math.sin(Math.min(punchT, 1) * Math.PI);
-      p.rarm.rotation.set(-1.75 * k - 0.3, 0, -0.15 - 0.3 * k);
+      p.rarm.rotation.set(-(-0.15 - 0.3 * k), 0, -(-1.75 * k - 0.3));
       p.torso.rotation.y = -0.3 - 0.35 * k;
     }
     return;
@@ -678,42 +734,42 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
 
     if (state === 'talk') {
       const g1 = Math.sin(t * 3.4 + ph), g2 = Math.sin(t * 2.1 + ph * 2);
-      p.rarm.rotation.set(-0.75 - g1 * 0.45, 0, -0.45 - g1 * 0.2);
-      p.larm.rotation.set(-0.35 - g2 * 0.3, 0, 0.35);
+      p.rarm.rotation.set(-(-0.45 - g1 * 0.2), 0, -(-0.75 - g1 * 0.45));
+      p.larm.rotation.set(-(0.35), 0, -(-0.35 - g2 * 0.3));
       p.torso.rotation.y = g2 * 0.1;
     } else if (state === 'phone') {
-      p.rarm.rotation.set(-2.35, 0, -0.55);
-      p.larm.rotation.set(-0.25, 0, 0.2);
+      p.rarm.rotation.set(-(-0.55), 0, -(-2.35));
+      p.larm.rotation.set(-(0.2), 0, -(-0.25));
       p.torso.rotation.y = -0.12 + Math.sin(t * 1.2 + ph) * 0.06;
-      p.torso.rotation.z = 0.05;
+      p.torso.rotation.x = -(0.05);
     } else if (state === 'smoke') {
       const cycle = (Math.sin(t * 0.7 + ph) + 1) / 2;
       const up = Math.pow(cycle, 4);
-      p.rarm.rotation.set(-0.4 - up * 1.9, 0, -0.3 - up * 0.35);
-      p.larm.rotation.set(-0.1, 0, 0.18);
+      p.rarm.rotation.set(-(-0.3 - up * 0.35), 0, -(-0.4 - up * 1.9));
+      p.larm.rotation.set(-(0.18), 0, -(-0.1));
       p.torso.rotation.y = 0.08;
     } else if (state === 'wave') {
-      p.rarm.rotation.set(-2.5, 0, -0.4 + Math.sin(t * 7 + ph) * 0.5);
-      p.larm.rotation.set(-0.15, 0, 0.2);
+      p.rarm.rotation.set(-(-0.4 + Math.sin(t * 7 + ph) * 0.5), 0, -(-2.5));
+      p.larm.rotation.set(-(0.2), 0, -(-0.15));
     } else if (state === 'lean') {
-      p.torso.rotation.x = -0.14;
-      p.larm.rotation.set(-1.15, 0, 0.9);
-      p.rarm.rotation.set(-1.15, 0, -0.9);
-      p.lleg.rotation.x = -0.12;
-      p.rleg.rotation.set(0.1, 0, -0.35);
+      p.torso.rotation.z = -(-0.14);
+      p.larm.rotation.set(-(0.9), 0, -(-1.15));
+      p.rarm.rotation.set(-(-0.9), 0, -(-1.15));
+      p.lleg.rotation.z = -(-0.12);
+      p.rleg.rotation.set(-(-0.35), 0, -(0.1));
     } else if (state === 'watch') {
-      p.rarm.rotation.set(-1.9, 0, -0.35);     // telefono alzato a filmare
-      p.larm.rotation.set(-1.6, 0, 0.4);
-      p.torso.rotation.x = -0.06;
+      p.rarm.rotation.set(-(-0.35), 0, -(-1.9));     // telefono alzato a filmare
+      p.larm.rotation.set(-(0.4), 0, -(-1.6));
+      p.torso.rotation.z = -(-0.06);
     } else if (state === 'sit') {
-      p.lleg.rotation.set(-1.4, 0, 0.12);
-      p.rleg.rotation.set(-1.4, 0, -0.12);
-      p.larm.rotation.set(-0.85, 0, 0.25);
-      p.rarm.rotation.set(-0.85, 0, -0.25);
-      p.torso.rotation.x = 0.12;
+      p.lleg.rotation.set(-(0.12), 0, -(-1.4));
+      p.rleg.rotation.set(-(-0.12), 0, -(-1.4));
+      p.larm.rotation.set(-(0.25), 0, -(-0.85));
+      p.rarm.rotation.set(-(-0.25), 0, -(-0.85));
+      p.torso.rotation.z = -(0.12);
     } else if (state === 'aim') {
-      p.rarm.rotation.set(-1.55, 0, -0.05);
-      p.larm.rotation.set(-1.35, 0, 0.25);
+      p.rarm.rotation.set(-(-0.05), 0, -(-1.55));
+      p.larm.rotation.set(-(0.25), 0, -(-1.35));
       p.torso.rotation.y = -0.25;
     }
     return;
@@ -726,22 +782,22 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   const amp = Math.min(0.28 + speed * 0.11, 1.05);
   const sw = Math.sin(t * f + ph) * amp;
 
-  p.lleg.rotation.x = sw;
-  p.rleg.rotation.x = -sw;
-  p.lleg.rotation.z = 0.02;
-  p.rleg.rotation.z = -0.02;
+  p.lleg.rotation.z = -(sw);
+  p.rleg.rotation.z = -(-sw);
+  p.lleg.rotation.x = -(0.02);
+  p.rleg.rotation.x = -(-0.02);
   if (panic) {
     // braccia alzate: la corsa spaventata si riconosce da lontano
     const flail = Math.sin(t * 11 + ph) * 0.35;
-    p.larm.rotation.set(-2.6 + flail, 0, 0.5);
-    p.rarm.rotation.set(-2.6 - flail, 0, -0.5);
+    p.larm.rotation.set(-(0.5), 0, -(-2.6 + flail));
+    p.rarm.rotation.set(-(-0.5), 0, -(-2.6 - flail));
   } else {
-    p.larm.rotation.x = -sw * 0.8;
-    p.rarm.rotation.x = sw * 0.8;
-    p.larm.rotation.z = 0.12 + Math.abs(sw) * 0.05;
-    p.rarm.rotation.z = -0.12 - Math.abs(sw) * 0.05;
+    p.larm.rotation.z = -(-sw * 0.8);
+    p.rarm.rotation.z = -(sw * 0.8);
+    p.larm.rotation.x = -(0.12 + Math.abs(sw) * 0.05);
+    p.rarm.rotation.x = -(-0.12 - Math.abs(sw) * 0.05);
   }
-  p.torso.rotation.x = Math.min(speed * 0.024, 0.2) + (panic ? 0.12 : 0);
+  p.torso.rotation.z = -(Math.min(speed * 0.024, 0.2) + (panic ? 0.12 : 0));
   p.torso.rotation.y = -sw * 0.12;
 
   const bob = Math.abs(Math.sin(t * f + ph)) * Math.min(speed * 0.014, 0.06) + idleBob;
@@ -749,8 +805,8 @@ export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
 
   if (punchT > 0) {
     const k = Math.sin(Math.min(punchT, 1) * Math.PI);
-    p.rarm.rotation.x = -1.75 * k;
-    p.rarm.rotation.z = -0.12 - 0.35 * k;
+    p.rarm.rotation.z = -(-1.75 * k);
+    p.rarm.rotation.x = -(-0.12 - 0.35 * k);
     p.torso.rotation.y = -0.35 * k;
   }
 }
