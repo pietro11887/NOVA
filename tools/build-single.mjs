@@ -9,7 +9,7 @@
  * <html>/<head>/<body>: i browser li aggiungono da soli ed e' il formato
  * richiesto dagli host che incapsulano la pagina.
  */
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +37,23 @@ const bundle = await esbuild.build({
 });
 const js = bundle.outputFiles[0].text;
 
+/*
+ * Le texture fotografiche finiscono dentro la pagina come data URI: il file
+ * unico non puo' andare a prendersi assets/tex/ da nessuna parte. Il gioco
+ * cerca prima globalThis.NOVA_TEX e solo se manca scarica dalla cartella.
+ */
+const texDir = resolve(ROOT, 'assets/tex');
+const tex = {};
+let texBytes = 0;
+try {
+  for (const f of await readdir(texDir)) {
+    if (!f.endsWith('.jpg')) continue;
+    const raw = await readFile(resolve(texDir, f));
+    texBytes += raw.length;
+    tex[f] = `data:image/jpeg;base64,${raw.toString('base64')}`;
+  }
+} catch { /* nessuna texture: il gioco usa quelle disegnate a mano */ }
+
 // dall'index tengo solo il contenuto del body, senza gli script esterni
 const body = html
   .slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
@@ -48,6 +65,7 @@ const out = `<title>NOVA CITY</title>
 ${css}
 </style>
 ${body}
+<script>globalThis.NOVA_TEX = ${JSON.stringify(tex)};</script>
 <script type="module">
 ${js}
 </script>
@@ -55,4 +73,5 @@ ${js}
 
 await mkdir(resolve(ROOT, 'dist'), { recursive: true });
 await writeFile(resolve(ROOT, 'dist/nova-city.html'), out);
-console.log(`dist/nova-city.html — ${(out.length / 1024).toFixed(0)} KB`);
+console.log(`dist/nova-city.html — ${(out.length / 1024).toFixed(0)} KB` +
+  (texBytes ? ` (di cui ${(texBytes / 1024).toFixed(0)} KB di texture)` : ''));
