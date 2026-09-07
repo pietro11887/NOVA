@@ -12,8 +12,8 @@ export class Input {
     this.driveMode = false;
     this.look = { x: 0, y: 0 };      // delta consumato ogni frame
     this.keys = new Set();
-    this.btn = { action: false, attack: false, jump: false, run: false };
-    this._edge = { action: false, attack: false, jump: false };
+    this.btn = { action: false, attack: false, jump: false, run: false, punch: false };
+    this._edge = { action: false, attack: false, jump: false, punch: false, swap: 0, slot: 0 };
     this.enabled = true;
     this.lookSensitivity = IS_TOUCH ? 0.0055 : 0.0025;
     this.invertY = false;
@@ -31,9 +31,10 @@ export class Input {
     addEventListener('keydown', (e) => {
       if (e.repeat) return;
       this.keys.add(e.code);
-      if (e.code === 'KeyE') this._edge.action = true;
+      // F entra e scende dai veicoli come in GTA, E resta per tutto il resto
+      if (e.code === 'KeyE' || e.code === 'KeyF') this._edge.action = true;
       if (e.code === 'Space') this._edge.jump = true;
-      if (e.code === 'KeyQ') this._edge.swap = true;
+      if (e.code === 'KeyQ') this._edge.swap = 1;
       // 1..8 scelgono l'arma per slot
       if (/^Digit[1-8]$/.test(e.code)) this._edge.slot = +e.code.slice(5);
       if (map[e.code] || e.code === 'Space') e.preventDefault();
@@ -44,18 +45,41 @@ export class Input {
 
   _mouse() {
     const c = this.canvas;
+    let dragging = false, lastX = 0, lastY = 0;
+
+    c.addEventListener('contextmenu', (e) => e.preventDefault());   // niente menu col destro
     c.addEventListener('mousedown', (e) => {
       if (!this.enabled) return;
       if (e.button === 0) { this._edge.attack = true; this.btn.attack = true; }
+      if (e.button === 2) { this._edge.punch = true; this.btn.punch = true; }
+      // il puntatore si aggancia solo se il browser lo permette: dentro un
+      // iframe spesso non succede, e senza questo la visuale non girerebbe
       if (!IS_TOUCH && document.pointerLockElement !== c) c.requestPointerLock?.();
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
+      e.preventDefault();
     });
-    addEventListener('mouseup', (e) => { if (e.button === 0) this.btn.attack = false; });
+    addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.btn.attack = false;
+      if (e.button === 2) this.btn.punch = false;
+      dragging = false;
+    });
     addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement === this.canvas) {
+      if (document.pointerLockElement === c) {
         this.look.x += e.movementX * this.lookSensitivity;
         this.look.y += e.movementY * this.lookSensitivity;
+      } else if (dragging && this.enabled) {
+        // ripiego: si gira trascinando col tasto premuto
+        this.look.x += (e.clientX - lastX) * this.lookSensitivity;
+        this.look.y += (e.clientY - lastY) * this.lookSensitivity;
+        lastX = e.clientX; lastY = e.clientY;
       }
     });
+    // rotella: cambia arma, come in GTA
+    c.addEventListener('wheel', (e) => {
+      if (!this.enabled) return;
+      e.preventDefault();
+      this._edge.swap = e.deltaY > 0 ? 1 : -1;
+    }, { passive: false });
   }
 
   _touch() {
@@ -197,7 +221,8 @@ export class Input {
   endFrame() {
     this.look.x = 0; this.look.y = 0;
     this._edge.action = this._edge.attack = this._edge.jump = false;
-    this._edge.swap = false;
+    this._edge.swap = 0;
+    this._edge.punch = false;
     this._edge.slot = 0;
   }
 
@@ -250,4 +275,6 @@ export class Input {
   get running() { return this.btn.run || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
   get braking() { return this.btn.jump || this.keys.has('Space'); }
   get attacking() { return this.btn.attack || this._edge.attack; }
+  /** Tasto destro: pugno, anche con un'arma in mano. */
+  get punching() { return this.btn.punch || this._edge.punch; }
 }

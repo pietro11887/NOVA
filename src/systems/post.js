@@ -48,24 +48,20 @@ export class Post {
     this.quality = quality;
     if (!this.enabled) return;
     const size = renderer.getSize(new THREE.Vector2());
-    // render target multicampione: senza, la post-produzione azzera
-    // l'antialiasing e tutti i bordi diventano scalettati
     const dpr = renderer.getPixelRatio();
-    // Alcuni driver non reggono il multicampionamento richiesto: chiediamo al
-    // contesto quanto ne accetta davvero, e su WebGL1 non esiste proprio.
-    const gl = renderer.getContext();
-    const maxSamples = renderer.capabilities.isWebGL2
-      ? (gl.getParameter(gl.MAX_SAMPLES) || 0) : 0;
-    const samples = Math.max(0, Math.min(quality.samples ?? 4, maxSamples));
-    // NB: EffectComposer usa width/height del target come dimensione "logica"
-    // e poi la moltiplica per il pixel ratio, quindi qui va la misura CSS.
+    /*
+     * Un solo render target, della stessa identica dimensione del canvas.
+     * Multicampione e supercampionamento vogliono un target di misura
+     * diversa, e in quel caso il composer disegna solo una porzione di
+     * schermo: e' il bug del "mezzo schermo nero" visto su alcune schede.
+     */
     const rt = new THREE.WebGLRenderTarget(
-      Math.max(2, Math.floor(size.width)), Math.max(2, Math.floor(size.height)),
-      { type: THREE.HalfFloatType, samples }
+      Math.max(2, Math.round(size.width * dpr)), Math.max(2, Math.round(size.height * dpr)),
+      { type: THREE.HalfFloatType }
     );
-    this.maxSamples = maxSamples;
     this.composer = new EffectComposer(renderer, rt);
     this.composer.setPixelRatio(dpr);
+    this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
     // il bloom viene sempre creato ma si accende solo al livello massimo
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);

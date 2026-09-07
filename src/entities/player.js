@@ -243,6 +243,19 @@ export class Player {
     this.game.audio.ui();
   }
 
+  /** Pugno secco, qualunque cosa tu abbia in mano (tasto destro). */
+  punch() {
+    if (this.dead) return;
+    if (this.inCar) { this.game.audio.horn(); return; }
+    if (this.punchT > 0 || this.shootCd > 0) return;
+    if (this.speed < 1.2) this.a = this.camYaw;
+    const f = WEAPONS.fists;
+    this.punchT = 1;
+    this.shootCd = f.rate;
+    this.game.audio.punch();
+    this.game.melee(this, f.range, f.dmg, f.wanted);
+  }
+
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
   attack(fresh = true) {
     if (this.dead || this.inCar) return;

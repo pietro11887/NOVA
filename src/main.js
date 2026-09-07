@@ -54,7 +54,6 @@ class Game {
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,
-      samples: IS_MOBILE ? 2 : 4,
     };
     const forced = new URLSearchParams(location.search).get('q');
     if (forced !== null) {
@@ -583,13 +582,6 @@ class Game {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
-      if (this.post.composer && this.post.composer.renderTarget1) {
-        const want = tier >= 3 ? (IS_MOBILE ? 2 : 4) : tier >= 2 ? 2 : 0;
-        const n = Math.min(want, this.post.maxSamples ?? want);
-        for (const rt of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
-          if (rt.samples !== n) { rt.samples = n; rt.dispose(); }
-        }
-      }
       if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
@@ -665,13 +657,15 @@ class Game {
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
     // cambio arma: Q, rotellina, tasti 1-8, o lo scudetto nell'HUD
-    if (this.input.pressed('swap')) p.cycleWeapon(1);
+    const swap = this.input._edge.swap;
+    if (swap) p.cycleWeapon(swap > 0 ? 1 : -1);
     const slot = this.input._edge.slot;
     if (slot) p.selectSlot(slot);
     this.input.setDriveMode(p.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) {
-      p.attack(this.input.pressed('attack'));
-    }
+    const busy = this.hud.shopOpen || this.casino.open || this.map.open;
+    if (this.input.attacking && !busy) p.attack(this.input.pressed('attack'));
+    // tasto destro: pugno anche se hai un'arma addosso (in auto suona il clacson)
+    if (this.input.punching && !busy) p.punch();
     p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open) ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
