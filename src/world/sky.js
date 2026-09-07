@@ -129,19 +129,19 @@ export class SkySystem {
     const dusk = clamp(1 - Math.abs(elev + 2) / 16, 0, 1); // massimo all'alba/tramonto
     this.day = day; this.dusk = dusk; this.night = 1 - day;
 
-    u.turbidity.value = lerp(3.5, 9.5, dusk);
-    u.rayleigh.value = lerp(0.6, 3.4, day) + dusk * 1.6;
+    u.turbidity.value = lerp(2.2, 9.5, dusk);
+    u.rayleigh.value = lerp(0.6, 2.5, day) + dusk * 1.6;
     u.mieCoefficient.value = lerp(0.004, 0.011, dusk);
 
     // --- luce solare
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 2.35, day) * (1 - dusk * 0.3);
+    this.sun.intensity = lerp(0.04, 3.15, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
     // l'ambiente arriva soprattutto dalla env map: l'emisferica e' solo di appoggio
     // di notte l'emisferica non scende quasi: senza, la citta' e' un muro nero
-    this.hemi.intensity = lerp(0.62, 0.45, day);
+    this.hemi.intensity = lerp(0.62, 0.55, day);
     this.hemi.color.setHex(day > 0.5 ? 0xbcd8ff : 0x4a5f8c);
     this.hemi.groundColor.setHex(day > 0.4 ? 0x8a7a5e : 0x2b3242);
 
@@ -172,7 +172,7 @@ export class SkySystem {
       .lerp(new THREE.Color(0xbfd6e8), day)
       .lerp(new THREE.Color(0xe8a071), dusk * 0.75);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(0.0018, 0.0011, day) + dusk * 0.0005;
+    this.fog.density = lerp(0.0018, 0.00062, day) + dusk * 0.0005;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new THREE.Color(0xffffff), day * 0.7);
     this.clouds.rotation.y += 0.00004;

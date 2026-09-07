@@ -385,16 +385,16 @@ export function grassTexture() {
       const v = fbm(n, (x / S) * 22, (y / S) * 22, 4);
       const dry = fbm(n, (x / S) * 3, (y / S) * 3 + 9, 3);
       const i = (y * S + x) * 4;
-      img.data[i] = 78 + v * 40 + dry * 62;
-      img.data[i + 1] = 92 + v * 52 + dry * 40;
-      img.data[i + 2] = 52 + v * 26 + dry * 18;
+      img.data[i] = 62 + v * 34 + dry * 34;
+      img.data[i + 1] = 118 + v * 58 + dry * 30;
+      img.data[i + 2] = 42 + v * 22 + dry * 14;
       img.data[i + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
   const rng = mulberry32(66);
   for (let i = 0; i < 2200; i++) {
-    ctx.strokeStyle = `rgba(${70 + rng() * 45},${100 + rng() * 50},${45 + rng() * 25},0.45)`;
+    ctx.strokeStyle = `rgba(${58 + rng() * 40},${132 + rng() * 55},${40 + rng() * 24},0.45)`;
     ctx.lineWidth = 1;
     const x = rng() * S, y = rng() * S;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rng() - 0.5) * 4, y - 3 - rng() * 4); ctx.stroke();
@@ -695,8 +695,8 @@ export function grassTuftTexture() {
     const h = H * (0.45 + Math.random() * 0.55);
     const lean = (Math.random() - 0.5) * 16;
     const w = 1.2 + Math.random() * 1.8;
-    const g = 104 + Math.random() * 46;
-    ctx.strokeStyle = `rgb(${(g * 0.78) | 0},${g | 0},${(g * 0.56) | 0})`;
+    const g = 118 + Math.random() * 52;
+    ctx.strokeStyle = `rgb(${(g * 0.56) | 0},${g | 0},${(g * 0.42) | 0})`;
     ctx.lineWidth = w;
     ctx.lineCap = 'round';
     ctx.beginPath();

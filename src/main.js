@@ -595,7 +595,7 @@ class Game {
     }
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
-      if (this.post.bloom) this.post.bloom.enabled = tier >= 3;
+      this.post.setBloom(tier >= 3);
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
     this.renderer.shadowMap.needsUpdate = true;

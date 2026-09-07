@@ -12,8 +12,10 @@ const GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1.0 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.12 },
+    saturation: { value: 1.22 },
     warmth: { value: 0.025 },
+    contrast: { value: 1.08 },
+    lift: { value: 0.0 },
     time: { value: 0 },
   },
   vertexShader: `
@@ -21,23 +23,40 @@ const GradeShader = {
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float vignette, saturation, warmth, time;
+    uniform float vignette, saturation, warmth, contrast, lift, time;
     varying vec2 vUv;
+
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
-      // saturazione
+      /*
+       * NB: qui i colori sono ancora lineari e in alto dinamico. La curva
+       * filmica la applica il renderer alla fine (OutputPass): rifarla qui
+       * significherebbe schiacciare due volte l'immagine. Quindi ci si limita
+       * a correggere colore e contrasto, senza tagliare le alte luci.
+       */
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      c.rgb = mix(vec3(l), c.rgb, saturation);
-      // dominante calda tipica del sud della California (moltiplicativa:
-      // non solleva i neri, che altrimenti diventano marroni)
+
+      // separazione di tinta: ombre verso il blu, luci verso l'ambra
+      vec3 shadowTint = vec3(0.94, 0.98, 1.09);
+      vec3 lightTint  = vec3(1.07, 1.02, 0.93);
+      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.02, 0.35, l));
+
+      // contrasto attorno al grigio medio lineare (0.18, non 0.5)
+      c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);
+
+      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, saturation);
       c.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth * 0.8);
-      // vignettatura
+
+      // vignettatura morbida, non un cerchio netto
       vec2 d = vUv - 0.5;
-      c.rgb *= mix(1.0, 1.0 - dot(d, d) * 1.25, vignette);
+      float v = 1.0 - smoothstep(0.30, 0.80, length(d)) * 0.36;
+      c.rgb *= mix(1.0, v, vignette);
+
       // grana appena percettibile
       float n = fract(sin(dot(vUv * (time + 1.0), vec2(12.9898, 78.233))) * 43758.5453);
-      c.rgb += (n - 0.5) * 0.016;
-      gl_FragColor = c;
+      c.rgb += (n - 0.5) * 0.012;
+
+      gl_FragColor = vec4(max(c.rgb, 0.0), c.a);
     }`,
 };
 
@@ -63,9 +82,14 @@ export class Post {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
-    // il bloom viene sempre creato ma si accende solo al livello massimo
+    /*
+     * Il bloom c'e' sempre nella catena e non si disattiva mai: in questa
+     * versione di three, spegnere un passaggio intermedio scombina lo scambio
+     * dei buffer e lo schermo diventa nero. Per "spegnerlo" si azzera la
+     * forza, che e' innocuo.
+     */
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
-    this.bloom.enabled = !!quality.bloom;
+    this.bloomOn = !!quality.bloom;
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);
@@ -73,9 +97,19 @@ export class Post {
   }
 
   /** Di notte il bloom sale: neon e fari devono "bruciare" un po'. */
+  /** Accende o spegne il bloom senza toccare la catena dei passaggi. */
+  setBloom(on) { this.bloomOn = on; }
+
   setNight(k) {
-    if (this.bloom) this.bloom.strength = 0.3 + clamp(k, 0, 1) * 0.75;
-    if (this.grade) this.grade.uniforms.warmth.value = 0.03 - clamp(k, 0, 1) * 0.055;
+    const n = clamp(k, 0, 1);
+    if (this.bloom) this.bloom.strength = this.bloomOn ? 0.3 + n * 0.75 : 0;
+    if (!this.grade) return;
+    const u = this.grade.uniforms;
+    u.warmth.value = 0.03 - n * 0.055;
+    // di notte piu' contrasto e meno colore: le luci risaltano sul buio
+    u.contrast.value = 1.08 + n * 0.1;
+    u.saturation.value = 1.24 - n * 0.2;
+    u.lift.value = n * 0.012;
   }
 
   setSize(w, h, pixelRatio) {
