@@ -17500,6 +17500,7 @@ function buildAmmuMenu(game2) {
 }
 
 // src/entities/player.js
+var START_MONEY = 3e3;
 var TMP = { x: 0, z: 0 };
 var V = new Ui();
 var Player = class {
@@ -17519,7 +17520,7 @@ var Player = class {
     this.maxHealth = 100;
     this.punchBonus = 0;
     this.armor = 0;
-    this.money = 250;
+    this.money = START_MONEY;
     this.weapon = "fists";
     this.owned = { fists: true };
     this.ammoOf = {};
@@ -17871,7 +17872,7 @@ var Player = class {
   restore(s) {
     if (!s) return;
     this.place(s.x ?? 0, s.z ?? 0);
-    this.money = s.money ?? 250;
+    this.money = s.money ?? START_MONEY;
     this.maxHealth = s.maxHealth ?? 100;
     this.punchBonus = s.punchBonus ?? 0;
     this.health = s.health ?? 100;

@@ -3,6 +3,9 @@ import { clamp, lerp, angleDelta, turnToward } from '../core/utils.js';
 import { makeCharacter, animateCharacter } from '../world/models.js';
 import { WEAPONS, WEAPON_ORDER, isGun } from '../core/weapons.js';
 
+/** Contanti d'inizio partita: abbastanza per provare subito il garage. */
+const START_MONEY = 3000;
+
 const TMP = { x: 0, z: 0 };
 const V = new THREE.Vector3();
 
@@ -22,7 +25,7 @@ export class Player {
     this.maxHealth = 100;    // la palestra la alza
     this.punchBonus = 0;    // il sacco da boxe rende i pugni piu' pesanti
     this.armor = 0;
-    this.money = 250;
+    this.money = START_MONEY;
     this.weapon = 'fists';
     this.owned = { fists: true };     // armi in tasca
     this.ammoOf = {};                 // munizioni per arma
@@ -370,7 +373,7 @@ export class Player {
   restore(s) {
     if (!s) return;
     this.place(s.x ?? 0, s.z ?? 0);
-    this.money = s.money ?? 250;
+    this.money = s.money ?? START_MONEY;
     this.maxHealth = s.maxHealth ?? 100;
     this.punchBonus = s.punchBonus ?? 0;
     this.health = s.health ?? 100;
