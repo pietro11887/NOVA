@@ -367,6 +367,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
     <div class="stats" id="pause-stats"></div>
     <button class="btn" id="btn-resume">Riprendi</button>
     <button class="btn ghost" id="btn-quality">Qualità: Auto</button>
+    <button class="btn ghost" id="btn-safe">Grafica sicura: OFF</button>
     <button class="btn ghost" id="btn-invert">Camera: Normale</button>
     <button class="btn ghost" id="btn-fullscreen">Schermo intero</button>
     <button class="btn danger" id="btn-reset">Ricomincia (azzera salvataggio)</button>
@@ -14769,12 +14770,15 @@ var Post = class {
     if (!this.enabled) return;
     const size = renderer.getSize(new ti());
     const dpr = renderer.getPixelRatio();
-    const samples = quality.samples ?? 4;
+    const gl2 = renderer.getContext();
+    const maxSamples = renderer.capabilities.isWebGL2 ? gl2.getParameter(gl2.MAX_SAMPLES) || 0 : 0;
+    const samples = Math.max(0, Math.min(quality.samples ?? 4, maxSamples));
     const rt2 = new wi(
       Math.max(2, Math.floor(size.width)),
       Math.max(2, Math.floor(size.height)),
       { type: Ut, samples }
     );
+    this.maxSamples = maxSamples;
     this.composer = new EffectComposer(renderer, rt2);
     this.composer.setPixelRatio(dpr);
     this.composer.addPass(new RenderPass(scene, camera));
@@ -20337,6 +20341,7 @@ var Game = class {
     this.stats = { casinoWon: 0, casinoLost: 0 };
     this.playerName = localStorage.getItem("novacity.name") || "Tu";
     this.lastCar = null;
+    this.safeMode = false;
     this.audio = new Audio();
     this.input = new Input(this.canvas);
     this.frozenInput = {
@@ -20400,6 +20405,14 @@ var Game = class {
     await step(92, "Distribuisco i lavori\u2026");
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
+    const params = new URLSearchParams(location.search);
+    let safe = false;
+    try {
+      safe = localStorage.getItem("nova-safe") === "1";
+    } catch (e) {
+    }
+    if (params.has("safe")) safe = params.get("safe") !== "0";
+    if (safe) this.toggleSafeMode(true);
     this._applyTier();
     this.casino = new Casino(this);
     this.map = new MapView(this);
@@ -20586,6 +20599,7 @@ var Game = class {
     $3("btn-pause").addEventListener("click", () => this.setPaused(true));
     $3("btn-fullscreen").addEventListener("click", () => this.toggleFullscreen());
     $3("btn-quality").addEventListener("click", () => this.cycleQuality());
+    $3("btn-safe").addEventListener("click", () => this.toggleSafeMode());
     $3("btn-invert").addEventListener("click", () => {
       this.input.invertY = !this.input.invertY;
       $3("btn-invert").textContent = `Camera: ${this.input.invertY ? "Invertita" : "Normale"}`;
@@ -20768,6 +20782,24 @@ var Game = class {
       });
     } else document.exitFullscreen?.();
   }
+  /**
+   * Grafica sicura: spegne tutta la post-produzione (antialiasing del
+   * composer, bloom, correzione colore). Serve sulle schede video che
+   * rendono male il render target multicampione: mezzo schermo nero.
+   * La scelta resta salvata perche' chi ne ha bisogno ne ha bisogno sempre.
+   */
+  toggleSafeMode(force) {
+    const on = force !== void 0 ? force : !this.safeMode;
+    this.safeMode = on;
+    try {
+      localStorage.setItem("nova-safe", on ? "1" : "0");
+    } catch (e) {
+    }
+    if (this.post) this.post.enabled = !on && this.quality.tier >= 1 && this.post.hasPasses;
+    const b = $3("btn-safe");
+    if (b) b.textContent = `Grafica sicura: ${on ? "ON" : "OFF"}`;
+    if (force === void 0) this.toast(on ? "Grafica sicura attiva" : "Grafica sicura disattivata", "good");
+  }
   cycleQuality() {
     const modes = ["auto", "alta", "media", "bassa"];
     const i = (modes.indexOf(this.quality.mode) + 1) % modes.length;
@@ -20811,9 +20843,10 @@ var Game = class {
       }
     }
     if (this.post) {
-      this.post.enabled = tier >= 1 && this.post.hasPasses;
+      this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       if (this.post.composer && this.post.composer.renderTarget1) {
-        const n = tier >= 3 ? IS_MOBILE ? 2 : 4 : tier >= 2 ? 2 : 0;
+        const want = tier >= 3 ? IS_MOBILE ? 2 : 4 : tier >= 2 ? 2 : 0;
+        const n = Math.min(want, this.post.maxSamples ?? want);
         for (const rt2 of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
           if (rt2.samples !== n) {
             rt2.samples = n;

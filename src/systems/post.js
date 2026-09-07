@@ -51,13 +51,19 @@ export class Post {
     // render target multicampione: senza, la post-produzione azzera
     // l'antialiasing e tutti i bordi diventano scalettati
     const dpr = renderer.getPixelRatio();
-    const samples = quality.samples ?? 4;
+    // Alcuni driver non reggono il multicampionamento richiesto: chiediamo al
+    // contesto quanto ne accetta davvero, e su WebGL1 non esiste proprio.
+    const gl = renderer.getContext();
+    const maxSamples = renderer.capabilities.isWebGL2
+      ? (gl.getParameter(gl.MAX_SAMPLES) || 0) : 0;
+    const samples = Math.max(0, Math.min(quality.samples ?? 4, maxSamples));
     // NB: EffectComposer usa width/height del target come dimensione "logica"
     // e poi la moltiplica per il pixel ratio, quindi qui va la misura CSS.
     const rt = new THREE.WebGLRenderTarget(
       Math.max(2, Math.floor(size.width)), Math.max(2, Math.floor(size.height)),
       { type: THREE.HalfFloatType, samples }
     );
+    this.maxSamples = maxSamples;
     this.composer = new EffectComposer(renderer, rt);
     this.composer.setPixelRatio(dpr);
     this.composer.addPass(new RenderPass(scene, camera));

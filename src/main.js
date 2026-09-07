@@ -91,6 +91,7 @@ class Game {
     this.stats = { casinoWon: 0, casinoLost: 0 };
     this.playerName = localStorage.getItem('novacity.name') || 'Tu';
     this.lastCar = null;
+    this.safeMode = false;
 
     this.audio = new Audio();
     this.input = new Input(this.canvas);
@@ -156,6 +157,12 @@ class Game {
     await step(92, 'Distribuisco i lavori…');
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
+    // preferenza salvata, oppure ?safe=1 nell'indirizzo
+    const params = new URLSearchParams(location.search);
+    let safe = false;
+    try { safe = localStorage.getItem('nova-safe') === '1'; } catch (e) { /* niente */ }
+    if (params.has('safe')) safe = params.get('safe') !== '0';
+    if (safe) this.toggleSafeMode(true);
     this._applyTier();
     this.casino = new Casino(this);
     this.map = new MapView(this);
@@ -347,6 +354,7 @@ class Game {
     $('btn-pause').addEventListener('click', () => this.setPaused(true));
     $('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
     $('btn-quality').addEventListener('click', () => this.cycleQuality());
+    $('btn-safe').addEventListener('click', () => this.toggleSafeMode());
     $('btn-invert').addEventListener('click', () => {
       this.input.invertY = !this.input.invertY;
       $('btn-invert').textContent = `Camera: ${this.input.invertY ? 'Invertita' : 'Normale'}`;
@@ -515,6 +523,23 @@ class Game {
     } else document.exitFullscreen?.();
   }
 
+  /**
+   * Grafica sicura: spegne tutta la post-produzione (antialiasing del
+   * composer, bloom, correzione colore). Serve sulle schede video che
+   * rendono male il render target multicampione: mezzo schermo nero.
+   * La scelta resta salvata perche' chi ne ha bisogno ne ha bisogno sempre.
+   */
+  toggleSafeMode(force) {
+    const on = force !== undefined ? force : !this.safeMode;
+    this.safeMode = on;
+    try { localStorage.setItem('nova-safe', on ? '1' : '0'); } catch (e) { /* niente */ }
+    if (this.post) this.post.enabled = !on && this.quality.tier >= 1 && this.post.hasPasses;
+    const b = $('btn-safe');
+    if (b) b.textContent = `Grafica sicura: ${on ? 'ON' : 'OFF'}`;
+    // all'avvio la applichiamo in silenzio: l'avviso serve solo se la premi tu
+    if (force === undefined) this.toast(on ? 'Grafica sicura attiva' : 'Grafica sicura disattivata', 'good');
+  }
+
   cycleQuality() {
     const modes = ['auto', 'alta', 'media', 'bassa'];
     const i = (modes.indexOf(this.quality.mode) + 1) % modes.length;
@@ -557,9 +582,10 @@ class Game {
       }
     }
     if (this.post) {
-      this.post.enabled = tier >= 1 && this.post.hasPasses;
+      this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       if (this.post.composer && this.post.composer.renderTarget1) {
-        const n = tier >= 3 ? (IS_MOBILE ? 2 : 4) : tier >= 2 ? 2 : 0;
+        const want = tier >= 3 ? (IS_MOBILE ? 2 : 4) : tier >= 2 ? 2 : 0;
+        const n = Math.min(want, this.post.maxSamples ?? want);
         for (const rt of [this.post.composer.renderTarget1, this.post.composer.renderTarget2]) {
           if (rt.samples !== n) { rt.samples = n; rt.dispose(); }
         }
