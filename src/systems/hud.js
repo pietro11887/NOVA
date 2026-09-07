@@ -110,7 +110,7 @@ export class HUD {
 
   update(dt) {
     const g = this.game, p = g.player;
-    this.el.health.style.width = `${clamp(p.health, 0, 100)}%`;
+    this.el.health.style.width = `${clamp(p.health / (p.maxHealth || 100) * 100, 0, 100)}%`;
     this.el.armor.style.width = `${clamp(p.armor, 0, 100)}%`;
     this.el.money.textContent = `$${p.money.toLocaleString('it-IT')}`;
     const hh = Math.floor(g.clock) % 24, mm = Math.floor((g.clock % 1) * 60);

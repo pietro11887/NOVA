@@ -91,6 +91,9 @@ class Game {
     this.playerName = localStorage.getItem('novacity.name') || 'Tu';
     this.lastCar = null;
     this.safeMode = false;
+    this.bank = 0;
+    this.heistCd = 0;
+    this.invoiceCd = 0;
 
     this.audio = new Audio();
     this.input = new Input(this.canvas);
@@ -653,6 +656,8 @@ class Game {
     if (this.player.car) this._smokeCars.push(this.player.car);
     this.smoke.update(dt, this._smokeCars);
     this.events.update(dt);
+    if (this.heistCd > 0) this.heistCd -= dt;
+    if (this.invoiceCd > 0) this.invoiceCd -= dt;
     this.trafficT += dt;
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
@@ -925,6 +930,53 @@ class Game {
   repairLastCar() {
     if (this.lastCar) { this.lastCar.repair(); this.toast('Veicolo riparato e raddrizzato', 'good'); }
     else this.toast('Nessun veicolo da riparare');
+  }
+
+  // ------------------------------------------------------------- banca e uffici
+  /** Deposita meta' dei contanti: al sicuro se ti stendono. */
+  bankDeposit() {
+    const p = this.player;
+    const n = Math.floor(p.money / 2);
+    if (n < 1) { this.toast('Non hai niente da depositare'); return; }
+    p.pay(n);
+    this.bank = (this.bank || 0) + n;
+    this.toast(`Depositati $${n} · in banca $${this.bank}`, 'good');
+    this.save();
+  }
+
+  bankWithdraw() {
+    if (!this.bank) { this.toast('Il conto e vuoto'); return; }
+    const n = this.bank;
+    this.bank = 0;
+    this.player.earn(n);
+    this.toast(`Prelevati $${n}`, 'good');
+    this.save();
+  }
+
+  /** Rapina al caveau: bottino grosso e mezza citta' addosso. */
+  bankHeist() {
+    if (this.heistCd > 0) { this.toast('Troppo presto, hanno raddoppiato la vigilanza'); return; }
+    const loot = 1800 + ((Math.random() * 2600) | 0);
+    this.heistCd = 300;
+    this.player.earn(loot);
+    this.setWanted(4);
+    this.toast(`Caveau svuotato: +$${loot}`, 'bad');
+    this.audio.noise(0.7, 900, 0.5, 'highpass');
+    this.alarm(this.player.x, this.player.z, 60);
+    this.hud.flash();
+  }
+
+  /** Una fattura ogni tanto: soldi puliti, con attesa. */
+  officeInvoice() {
+    if (this.invoiceCd > 0) {
+      this.toast(`Nessuna fattura pronta, torna fra ${Math.ceil(this.invoiceCd / 60)} min`);
+      return;
+    }
+    const n = 220 + ((Math.random() * 380) | 0);
+    this.invoiceCd = 240;
+    this.player.earn(n);
+    this.toast(`Fattura riscossa: +$${n}`, 'good');
+    this.save();
   }
 
   /** Pay'n'Spray: colore nuovo, lamiera dritta e la polizia ti perde. */
@@ -1254,7 +1306,7 @@ class Game {
     try {
       localStorage.setItem(CFG.SAVE_KEY, JSON.stringify({
         player: this.player.serialize(), clock: this.clock, missions: this.missions.completed,
-        stats: this.stats, name: this.playerName,
+        stats: this.stats, name: this.playerName, bank: this.bank,
       }));
     } catch (e) { /* quota piena o modalita' privata: si gioca lo stesso */ }
   }
@@ -1268,6 +1320,7 @@ class Game {
       this.clock = s.clock ?? 8.5;
       this.missions.completed = s.missions ?? 0;
       this.stats = Object.assign(this.stats, s.stats || {});
+      this.bank = s.bank ?? 0;
       if (s.name) this.playerName = s.name;
     } catch (e) { /* salvataggio corrotto: si riparte da zero */ }
   }

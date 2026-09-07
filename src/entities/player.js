@@ -19,6 +19,8 @@ export class Player {
     this.a = 0;                 // direzione del corpo
     this.speed = 0;
     this.health = 100;
+    this.maxHealth = 100;    // la palestra la alza
+    this.punchBonus = 0;    // il sacco da boxe rende i pugni piu' pesanti
     this.armor = 0;
     this.money = 250;
     this.weapon = 'fists';
@@ -66,7 +68,7 @@ export class Player {
     }
   }
 
-  heal(n) { this.health = clamp(this.health + n, 0, 100); }
+  heal(n) { this.health = clamp(this.health + n, 0, this.maxHealth); }
   addArmor(n) { this.armor = clamp(this.armor + n, 0, 100); }
   pay(n) { this.money = Math.max(0, this.money - n); }
   earn(n) { this.money += n; this.game.audio.cash(); }
@@ -253,7 +255,7 @@ export class Player {
     this.punchT = 1;
     this.shootCd = f.rate;
     this.game.audio.punch();
-    this.game.melee(this, f.range, f.dmg, f.wanted);
+    this.game.melee(this, f.range, f.dmg + this.punchBonus, f.wanted);
   }
 
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
@@ -268,7 +270,7 @@ export class Player {
       this.punchT = 1;
       this.shootCd = w.rate;
       this.game.audio.punch();
-      this.game.melee(this, w.range, w.dmg, w.wanted);
+      this.game.melee(this, w.range, w.dmg + this.punchBonus, w.wanted);
       return;
     }
 
@@ -352,12 +354,15 @@ export class Player {
 
   serialize() {
     return { x: this.x, z: this.z, money: this.money, health: this.health, armor: this.armor,
+             maxHealth: this.maxHealth, punchBonus: this.punchBonus,
              weapon: this.weapon, owned: this.owned, ammoOf: this.ammoOf };
   }
   restore(s) {
     if (!s) return;
     this.place(s.x ?? 0, s.z ?? 0);
     this.money = s.money ?? 250;
+    this.maxHealth = s.maxHealth ?? 100;
+    this.punchBonus = s.punchBonus ?? 0;
     this.health = s.health ?? 100;
     this.armor = s.armor ?? 0;
     this.weapon = s.weapon ?? 'fists';

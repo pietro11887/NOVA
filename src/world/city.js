@@ -19,6 +19,12 @@ const SHOP_KINDS = [
   { type: 'bar',      name: 'BAR LUNA',     color: '#ffd23f' },
   { type: 'garage',   name: 'GARAGE PIT',   color: '#ffb020' },
   { type: 'home',     name: 'CASA',         color: '#ffe9a8' },
+  { type: 'diner',    name: 'TAVOLA CALDA',  color: '#ff7a3d' },
+  { type: 'gym',      name: 'IRON NOVA',     color: '#3ddc84' },
+  { type: 'bank',     name: 'BANCA DI NOVA', color: '#2f6fd0' },
+  { type: 'club',     name: 'CLUB VELVET',   color: '#e46bff' },
+  { type: 'office',   name: 'NOVA CONSULTING', color: '#8ad8ff' },
+  { type: 'barber',   name: 'BARBIERE',      color: '#c02c3a' },
 ];
 
 /** Luoghi fissi: la citta' ha dei punti di riferimento riconoscibili. */
@@ -337,7 +343,7 @@ export class City {
     const rng = this.rng;
     const N = CFG.N, c = (N - 1) / 2;
     const shopQueue = [];
-    for (let k = 0; k < 46; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
+    for (let k = 0; k < 60; k++) shopQueue.push(SHOP_KINDS[k % SHOP_KINDS.length]);
 
     // builder globali per elementi sparsi su tutta la citta'
     const G = this._newBuilders();

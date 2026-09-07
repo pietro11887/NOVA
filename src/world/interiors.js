@@ -81,6 +81,62 @@ export const SHOP_MENUS = {
       { id: 'suv', icon: '🚙', name: 'SUV', desc: 'Consegnato fuori dal garage', price: 1400, effect: (g) => g.deliverCar('suv') },
     ],
   },
+  diner: {
+    title: 'TAVOLA CALDA', desc: 'Colazione tutto il giorno, caffè sempre caldo.',
+    items: [
+      { id: 'breakfast', icon: '🥞', name: 'Colazione completa', desc: 'Salute al massimo', price: 22, effect: (g) => g.player.heal(100) },
+      { id: 'steak', icon: '🥩', name: 'Bistecca e patate', desc: '+60 salute', price: 34, effect: (g) => g.player.heal(60) },
+      { id: 'coffee2', icon: '☕', name: 'Caffè americano', desc: '+12 salute', price: 4, effect: (g) => g.player.heal(12) },
+      { id: 'tip', icon: '🎵', name: 'Metti una moneta nel jukebox', desc: 'Cambia stazione radio', price: 2,
+        effect: (g) => g.radio.change(1) },
+    ],
+  },
+  gym: {
+    title: 'IRON NOVA', desc: 'Ferro e sudore. Qui la salute te la guadagni.',
+    items: [
+      { id: 'workout', icon: '🏋️', name: 'Allenamento', desc: 'Salute massima +10 (fino a 150)', price: 60,
+        effect: (g) => { g.player.maxHealth = Math.min(150, (g.player.maxHealth || 100) + 10); g.player.heal(100); } },
+      { id: 'bag', icon: '🥊', name: 'Sacco da boxe', desc: 'Pugni piu\' forti', price: 240,
+        effect: (g) => { g.player.punchBonus = Math.min(30, (g.player.punchBonus || 0) + 10); } },
+      { id: 'shake', icon: '🥤', name: 'Frullato proteico', desc: '+40 salute', price: 14, effect: (g) => g.player.heal(40) },
+    ],
+  },
+  bank: {
+    title: 'BANCA DI NOVA', desc: 'Deposita i contanti: se ti stendono non li perdi.',
+    items: [
+      { id: 'deposit', icon: '🏦', name: 'Deposita metà dei contanti', desc: 'Al sicuro dal caveau', price: 0,
+        effect: (g) => g.bankDeposit() },
+      { id: 'withdraw', icon: '💵', name: 'Preleva tutto', desc: 'Torna in tasca', price: 0, effect: (g) => g.bankWithdraw() },
+      { id: 'heist', icon: '💰', name: 'Svuota il caveau', desc: 'Bottino grosso, polizia peggio', price: 0,
+        effect: (g) => g.bankHeist() },
+    ],
+  },
+  club: {
+    title: 'CLUB VELVET', desc: 'Musica alta, luci basse, nessuna domanda.',
+    items: [
+      { id: 'drink', icon: '🍸', name: 'Cocktail della casa', desc: '+30 salute', price: 18, effect: (g) => g.player.heal(30) },
+      { id: 'vip', icon: '✨', name: 'Tavolo VIP', desc: 'Ti fai notare: la polizia ti dimentica', price: 400,
+        effect: (g) => { g.setWanted(0); g.police.standDown(); g.toast('Sei sparito nella folla', 'good'); } },
+      { id: 'dance', icon: '🕺', name: 'Balla un po\'', desc: 'Passa il tempo', price: 0,
+        effect: (g) => { g.clock += 2; g.player.heal(15); } },
+    ],
+  },
+  office: {
+    title: 'NOVA CONSULTING', desc: 'Lavoro pulito, buste pesanti.',
+    items: [
+      { id: 'job', icon: '📁', name: 'Prendi un incarico', desc: 'Avvia una missione', price: 0, effect: (g) => g.missions.offerFromBar() },
+      { id: 'wire', icon: '💳', name: 'Riscuoti una fattura', desc: 'Guadagno onesto, una volta ogni tanto', price: 0,
+        effect: (g) => g.officeInvoice() },
+    ],
+  },
+  barber: {
+    title: 'BARBIERE DA VITO', desc: 'Taglio, barba e una faccia nuova.',
+    items: [
+      { id: 'cut', icon: '💈', name: 'Taglio e barba', desc: 'Nuovo look, la polizia fatica a riconoscerti', price: 60,
+        effect: (g) => { g.dressPlayer(Math.random() * 0xffffff | 0, Math.random() * 0xffffff | 0); g.setWanted(Math.max(0, g.wanted - 1)); } },
+      { id: 'shave', icon: '🪒', name: 'Solo barba', desc: '+15 salute, ti rilassa', price: 20, effect: (g) => g.player.heal(15) },
+    ],
+  },
   home: {
     title: 'CASA', desc: 'Il tuo appartamento. Dormi per salvare la partita.',
     items: [
@@ -104,6 +160,12 @@ const STYLE = {
   garage:   { floor: 'concrete',wall: 0x9aa3ad, trim: 0xffb020, light: 0xf0f4ff, glow: 0xffb020 },
   home:     { floor: 'wood',    wall: 0xe8dcc6, trim: 0x8a6a44, light: 0xffe9c0, glow: 0xffd9a0 },
   casino:   { floor: 'carpet',  wall: 0x3a1830, trim: 0xffd23f, light: 0xffdca0, glow: 0xffd23f },
+  diner:    { floor: 'tile',    wall: 0xf2e6d8, trim: 0xd0342c, light: 0xfff0d8, glow: 0xff7a3d },
+  gym:      { floor: 'concrete',wall: 0x2f343c, trim: 0x3ddc84, light: 0xeaf6ff, glow: 0x3ddc84 },
+  bank:     { floor: 'tile',    wall: 0xdfe6ec, trim: 0x2f6fd0, light: 0xf4faff, glow: 0x2f6fd0 },
+  club:     { floor: 'carpet',  wall: 0x1a1024, trim: 0xe46bff, light: 0xd0a0ff, glow: 0xe46bff },
+  office:   { floor: 'carpet',  wall: 0xe4e8ee, trim: 0x8a94a0, light: 0xf6f9ff, glow: 0x4cc2ff },
+  barber:   { floor: 'tile',    wall: 0xeae2d4, trim: 0xc02c3a, light: 0xfff4e4, glow: 0xffd23f },
 };
 
 /* ------------------------------------------------------------- arredamento */
@@ -266,22 +328,42 @@ class Interior {
     add(B.trim, mats.trim);
     add(B.glowB, mats.glow);
 
-    // --- luci vere
-    for (const dx of [-4.5, 4.5]) {
-      const l = new THREE.PointLight(st.light, 9, 22, 1.2);
-      l.position.set(ox + dx, H - 0.5, oz - 1);
-      this.group.add(l);
+    // --- luci vere: plafoniere bianche, e solo un velo del colore del locale
+    for (const dx of [-6, 0, 6]) {
+      for (const dz of [-4, 2]) {
+        const l = new THREE.PointLight(st.light, 7, 20, 1.25);
+        l.position.set(ox + dx, H - 0.5, oz + dz);
+        this.group.add(l);
+      }
     }
-    const fill = new THREE.PointLight(st.glow, 4, 16, 1.3);
-    fill.position.set(ox, 2.2, oz + 4);
+    // l'accento tinge appena, prima allagava soffitto e pareti
+    const accent = new THREE.Color(st.glow).lerp(new THREE.Color(0xffffff), 0.55);
+    const fill = new THREE.PointLight(accent, 2.2, 14, 1.4);
+    fill.position.set(ox, 1.8, oz + 4);
     this.group.add(fill);
 
     // --- commesso
     if (type !== 'home') {
       this.clerk = makeCharacter({});
-      this.clerk.position.set(ox - 1.2, 0, oz - 4.6);
+      this.clerk.position.set(this.counter.x - 1.2, 0, this.counter.z - 1.2);
       this.clerk.rotation.y = -Math.PI / 2;
       this.group.add(this.clerk);
+    }
+
+    // --- clienti: ognuno fermo a fare qualcosa, cosi' il locale e' vivo
+    this.patrons = [];
+    const POSES = { diner: 'sit', gym: 'lean', bank: 'phone', club: 'wave', office: 'talk', barber: 'sit',
+      bar: 'talk', casino: 'watch', store: 'phone' };
+    const n = type === 'home' ? 0 : type === 'club' ? 5 : 3;
+    for (let i = 0; i < n; i++) {
+      const p = makeCharacter({});
+      const a = rng() * Math.PI * 2, r = 2.6 + rng() * 5.4;
+      p.position.set(ox + Math.cos(a) * r, 0, oz + 1.5 + Math.sin(a) * r * 0.6);
+      p.rotation.y = rng() * Math.PI * 2;
+      p.userData.pose = POSES[type] || pick(['talk', 'phone', 'lean', 'watch']);
+      p.userData.phase = rng() * 6.28;
+      this.group.add(p);
+      this.patrons.push(p);
     }
 
     this.group.visible = false;
@@ -484,6 +566,227 @@ class Interior {
     }
   }
 
+  /** Tavola calda: box con divanetti, bancone lungo, cucina a vista. */
+  _diner(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 9, 1.0, 0xc9b79a, st.trim);
+    for (let i = -3; i <= 3; i++) stool(B, this.counter.x + i * 1.2, this.counter.z + 1.3);
+    // cucina dietro il bancone: piastra, cappa, mensole
+    B.metal.box(ox, 0.5, oz - 5.4, 5.2, 1.0, 0.9, 0xb9c0c8);
+    B.metal.box(ox, 2.3, oz - 5.4, 5.4, 0.5, 1.1, 0x8d949c);
+    B.glowB.box(ox, 2.02, oz - 5.4, 5.0, 0.06, 0.9, 0xfff0c0);
+    for (const dx of [-1.6, 0, 1.6]) B.metal.box(ox + dx, 1.06, oz - 5.4, 1.2, 0.06, 0.7, 0x3a3f47);
+    B.wood.box(ox, 2.9, oz - 5.9, 5.2, 0.08, 0.4, 0xb9b3a6);
+    for (let k = 0; k < 8; k++) {
+      B.prod.box(ox - 2.2 + k * 0.6, 3.05, oz - 5.9, 0.28, 0.24, 0.28,
+        pick([0xd94f4f, 0xe0a92c, 0xe0e0e0, 0x4caf50]));
+    }
+    // box con tavolo e panche lungo le pareti
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const x = ox + sx * 5.6, z = oz - 1.4 + i * 3.0;
+        B.wood.box(x, 0.72, z, 1.7, 0.08, 1.0, 0x9a6a44);
+        B.metal.box(x, 0.36, z, 0.1, 0.72, 0.1, 0x81878d);
+        for (const sz of [-1, 1]) {
+          B.wood.box(x, 0.45, z + sz * 0.95, 1.8, 0.12, 0.55, 0xc0392b);
+          B.wood.box(x, 0.9, z + sz * 1.2, 1.8, 0.9, 0.12, 0xc0392b);
+        }
+        B.solid.push({ x, z, hx: 0.95, hz: 1.4 });
+      }
+    }
+    // insegna al neon e jukebox
+    B.glowB.box(ox, 3.2, oz - 6.1, 3.4, 0.5, 0.06, 0xff5a3d);
+    B.metal.box(ox - 7.4, 0.9, oz + 3.0, 1.0, 1.8, 0.6, 0x4a2f24);
+    B.glowB.box(ox - 7.4, 1.4, oz + 3.32, 0.8, 0.6, 0.04, 0xffb84a);
+    B.solid.push({ x: ox - 7.4, z: oz + 3.0, hx: 0.6, hz: 0.4 });
+  }
+
+  /** Palestra: rastrelliera pesi, panche, tapis roulant, specchiera. */
+  _gym(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 4.5, 1.0, 0x3a4048, st.trim);
+    // specchiera sulla parete di fondo
+    B.glass.box(ox + 3.5, 1.7, oz - HALF_D + 0.2, 8.0, 2.6, 0.08, 0xbfd8e8);
+    // rastrelliera con manubri
+    B.metal.box(ox - 6.0, 0.5, oz - 4.6, 3.4, 0.12, 0.7, 0x53585f);
+    B.metal.box(ox - 6.0, 1.0, oz - 4.6, 3.4, 0.12, 0.7, 0x53585f);
+    for (let i = 0; i < 6; i++) {
+      const x = ox - 7.4 + i * 0.56;
+      for (const y of [0.62, 1.12]) {
+        B.metal.box(x, y, oz - 4.6, 0.12, 0.12, 0.5, 0x2b2f36);
+        for (const sz of [-1, 1]) B.metal.box(x, y, oz - 4.6 + sz * 0.24, 0.26, 0.26, 0.1, 0x1a1d22);
+      }
+    }
+    // panche piane con bilanciere
+    for (const dz of [-1.2, 2.2]) {
+      const x = ox - 4.2, z = oz + dz;
+      B.wood.box(x, 0.48, z, 1.6, 0.16, 0.5, 0x2b2f36);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.7, 0.2, z, 0.1, 0.4, 0.4, 0x53585f);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.9, 1.1, z, 0.12, 1.0, 0.12, 0x81878d);
+      B.metal.box(x, 1.55, z, 0.08, 0.08, 2.4, 0x9aa0a6);
+      for (const sz of [-1, 1]) B.metal.box(x, 1.55, z + sz * 1.0, 0.42, 0.42, 0.12, 0x1a1d22);
+      B.solid.push({ x, z, hx: 0.9, hz: 0.8 });
+    }
+    // tapis roulant
+    for (let i = 0; i < 3; i++) {
+      const x = ox + 3.2 + i * 2.2, z = oz + 2.4;
+      B.metal.box(x, 0.18, z, 0.9, 0.36, 2.0, 0x3a3f47);
+      B.metal.box(x, 0.4, z - 0.9, 0.86, 0.1, 0.5, 0x1a1d22);
+      for (const sx of [-1, 1]) B.metal.box(x + sx * 0.42, 0.8, z + 0.85, 0.08, 1.2, 0.08, 0x81878d);
+      B.metal.box(x, 1.35, z + 0.85, 0.9, 0.34, 0.12, 0x53585f);
+      B.glowB.box(x, 1.35, z + 0.78, 0.6, 0.22, 0.02, 0x6fe0a0);
+      B.solid.push({ x, z, hx: 0.55, hz: 1.1 });
+    }
+    // sacco da boxe
+    B.metal.box(ox + 6.5, 2.85, oz - 2.0, 0.5, 0.1, 0.5, 0x53585f);
+    B.wood.box(ox + 6.5, 1.55, oz - 2.0, 0.46, 1.5, 0.46, 0x2b2019);
+    B.solid.push({ x: ox + 6.5, z: oz - 2.0, hx: 0.35, hz: 0.35 });
+  }
+
+  /** Banca: sportelli con vetri, corda separatrice, caveau in fondo. */
+  _bank(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    // fila di sportelli
+    counter(B, ox, oz - 4.4, 12, 1.1, 0xc8ccd2, st.trim);
+    for (let i = -2; i <= 2; i++) {
+      const x = ox + i * 2.4;
+      B.glass.box(x, 1.9, oz - 4.4, 2.1, 1.5, 0.06, 0xcfe4f2);
+      B.metal.box(x, 1.15, oz - 4.4, 2.2, 0.1, 0.5, 0x9aa0a6);
+      B.metal.box(x - 1.1, 1.9, oz - 4.4, 0.08, 1.5, 0.1, 0x8a9098);
+      B.glowB.box(x, 2.62, oz - 4.4, 0.7, 0.12, 0.03, 0x6fd0ff);
+    }
+    // caveau
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 0.5, 3.2, 3.2, 0.5, 0x6f7680);
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 0.8, 2.6, 2.6, 0.2, 0x8d949c);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      B.metal.box(ox - 6.6 + Math.cos(a) * 0.95, 1.6 + Math.sin(a) * 0.95, oz - HALF_D + 0.95,
+        0.16, 0.16, 0.12, 0xc9ccd2);
+    }
+    B.metal.box(ox - 6.6, 1.6, oz - HALF_D + 1.0, 0.24, 0.24, 0.3, 0xe0e4e8);
+    // cordone con paletti
+    for (let i = 0; i < 5; i++) {
+      const x = ox - 4 + i * 2.0;
+      B.metal.box(x, 0.5, oz + 0.6, 0.09, 1.0, 0.09, 0x9aa0a6);
+      B.metal.box(x, 0.04, oz + 0.6, 0.34, 0.08, 0.34, 0x81878d);
+      if (i < 4) B.trim.box(x + 1.0, 0.95, oz + 0.6, 2.0, 0.05, 0.05, 0x8a1f2b);
+    }
+    plant(B, ox + 7.0, oz + 2.6);
+    plant(B, ox - 7.0, oz + 2.6);
+  }
+
+  /** Discoteca: pista illuminata, consolle, divanetti e bancone. */
+  _club(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, ox + 6.0, oz - 1.0, 5.5, 1.0, 0x2a1c36, st.trim);
+    this.counter = { x: ox + 6.0, z: oz - 1.0 };
+    for (let i = -2; i <= 2; i++) stool(B, ox + 6.0 + i * 1.1, oz + 0.3);
+    // bottiglie illuminate dietro il bancone
+    B.wood.box(ox + 6.0, 1.5, oz - 2.1, 5.5, 0.08, 0.4, 0x3a2a44);
+    B.wood.box(ox + 6.0, 2.1, oz - 2.1, 5.5, 0.08, 0.4, 0x3a2a44);
+    for (let k = 0; k < 14; k++) {
+      const x = ox + 3.5 + k * 0.38;
+      B.glowB.box(x, 1.66 + (k % 2) * 0.6, oz - 2.1, 0.14, 0.3, 0.14,
+        pick([0x6fe0ff, 0xe46bff, 0xffd23f, 0x6fffa0]));
+    }
+    // pista a scacchiera luminosa
+    for (let i = 0; i < 5; i++) {
+      for (let j = 0; j < 5; j++) {
+        if ((i + j) % 2) continue;
+        B.glowB.quadY(ox - 7.4 + i * 1.5, oz - 1.6 + j * 1.5,
+          ox - 6.1 + i * 1.5, oz - 0.3 + j * 1.5, 0.03,
+          pick([0xe46bff, 0x6fd0ff, 0xffd23f]));
+      }
+    }
+    // consolle del DJ
+    B.wood.box(ox - 4.6, 0.55, oz - 5.2, 3.0, 1.1, 1.0, 0x241a30);
+    B.metal.box(ox - 4.6, 1.14, oz - 5.2, 3.1, 0.08, 1.1, 0x4a3a58);
+    for (const dx of [-0.8, 0.8]) B.metal.box(ox - 4.6 + dx, 1.22, oz - 5.2, 0.5, 0.08, 0.5, 0x1a1420);
+    B.glowB.box(ox - 4.6, 1.24, oz - 5.2, 0.5, 0.04, 0.3, 0x6fffa0);
+    B.solid.push({ x: ox - 4.6, z: oz - 5.2, hx: 1.6, hz: 0.6 });
+    // casse
+    for (const sx of [-1, 1]) {
+      B.wood.box(ox - 4.6 + sx * 2.6, 1.1, oz - 5.2, 0.8, 2.2, 0.8, 0x1a1420);
+      B.solid.push({ x: ox - 4.6 + sx * 2.6, z: oz - 5.2, hx: 0.45, hz: 0.45 });
+    }
+    // divanetti
+    for (const sx of [-1, 1]) {
+      const x = ox + sx * 7.2, z = oz + 3.4;
+      B.wood.box(x, 0.35, z, 2.6, 0.7, 0.9, 0x3a2a44);
+      B.wood.box(x, 0.9, z - 0.5, 2.6, 1.1, 0.2, 0x4a3558);
+      B.solid.push({ x, z, hx: 1.35, hz: 0.6 });
+    }
+    // luci appese
+    for (let i = 0; i < 6; i++) {
+      const x = ox - 6 + i * 2.4;
+      B.metal.box(x, H - 0.3, oz - 0.5, 0.18, 0.5, 0.18, 0x2b2f36);
+      B.glowB.box(x, H - 0.62, oz - 0.5, 0.3, 0.14, 0.3, pick([0xe46bff, 0x6fd0ff, 0xffd23f]));
+    }
+  }
+
+  /** Ufficio: scrivanie, computer, sedie girevoli, lavagna. */
+  _office(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 4.0, 1.0, 0xd8dce2, st.trim);
+    const desk = (x, z, rot) => {
+      B.wood.box(x, 0.73, z, 1.9, 0.07, 0.95, 0xd8cdb8, 0, rot);
+      for (const sx of [-1, 1]) {
+        B.metal.box(x + Math.cos(rot) * sx * 0.85, 0.36, z - Math.sin(rot) * sx * 0.85, 0.08, 0.72, 0.85, 0x8a9098);
+      }
+      // schermo, tastiera, tazza
+      B.metal.box(x, 0.86, z - 0.28, 0.5, 0.2, 0.16, 0x2b2f36, 0, rot);
+      B.metal.box(x, 1.2, z - 0.3, 1.0, 0.6, 0.06, 0x1a1d22, 0, rot);
+      B.glowB.box(x, 1.2, z - 0.26, 0.92, 0.52, 0.02, 0x9fd6ff, 0, rot);
+      B.metal.box(x, 0.79, z + 0.12, 0.7, 0.03, 0.24, 0x3a3f47, 0, rot);
+      B.prod.box(x + 0.6, 0.82, z + 0.05, 0.14, 0.16, 0.14, 0xd94f4f, 0, rot);
+      // sedia girevole
+      B.metal.box(x, 0.26, z + 0.95, 0.5, 0.08, 0.5, 0x2b2f36);
+      B.metal.box(x, 0.14, z + 0.95, 0.1, 0.28, 0.1, 0x53585f);
+      B.wood.box(x, 0.7, z + 1.2, 0.5, 0.7, 0.1, 0x3a4048);
+      B.solid.push({ x, z, hx: 1.0, hz: 0.9 });
+    };
+    for (let i = 0; i < 3; i++) {
+      desk(ox - 5.4 + i * 3.6, oz - 3.6, 0);
+      desk(ox - 5.4 + i * 3.6, oz + 1.4, 0);
+    }
+    // lavagna e archivio
+    B.wood.box(ox + 7.6, 1.8, oz - HALF_D + 0.25, 4.0, 2.2, 0.1, 0xf2f4f6);
+    B.trim.box(ox + 7.6, 1.8, oz - HALF_D + 0.31, 4.2, 2.4, 0.06, 0x6f7680);
+    for (let i = 0; i < 3; i++) {
+      B.metal.box(ox - 8.0, 1.0, oz - 1.0 + i * 1.2, 0.6, 2.0, 1.0, 0x9aa0a6);
+      B.solid.push({ x: ox - 8.0, z: oz - 1.0 + i * 1.2, hx: 0.35, hz: 0.55 });
+    }
+    plant(B, ox + 7.4, oz + 3.4);
+  }
+
+  /** Barbiere: poltrone, specchi, lavabi, palo tricolore. */
+  _barber(B, st, rng) {
+    const ox = this.ox, oz = this.oz;
+    counter(B, this.counter.x, this.counter.z, 3.6, 1.0, 0x8a5a3a, st.trim);
+    for (let i = 0; i < 4; i++) {
+      const x = ox - 6.0 + i * 3.2, z = oz + 1.0;
+      // specchio con cornice e mensola
+      B.glass.box(x, 1.9, oz - HALF_D + 0.22, 1.5, 2.0, 0.06, 0xd8e8f2);
+      B.trim.box(x, 1.9, oz - HALF_D + 0.28, 1.66, 2.16, 0.05, 0x6b4a34);
+      B.wood.box(x, 0.85, oz - HALF_D + 0.4, 1.6, 0.08, 0.5, 0x6b4a34);
+      for (let k = 0; k < 3; k++) {
+        B.prod.box(x - 0.5 + k * 0.5, 0.98, oz - HALF_D + 0.4, 0.12, 0.2, 0.12,
+          pick([0x4cc2ff, 0xffd23f, 0x3ddc84]));
+      }
+      // poltrona
+      B.metal.box(x, 0.14, z, 0.7, 0.28, 0.7, 0xb9c0c8);
+      B.metal.box(x, 0.4, z, 0.16, 0.4, 0.16, 0x8d949c);
+      B.wood.box(x, 0.62, z, 0.66, 0.16, 0.7, 0x2b2f36);
+      B.wood.box(x, 1.1, z - 0.3, 0.66, 0.9, 0.14, 0x2b2f36);
+      for (const sx of [-1, 1]) B.wood.box(x + sx * 0.4, 0.82, z, 0.1, 0.1, 0.6, 0x3a3f47);
+      B.solid.push({ x, z, hx: 0.45, hz: 0.45 });
+    }
+    // palo del barbiere e attesa
+    B.glowB.box(ox + 7.6, 1.5, oz + 4.4, 0.24, 1.2, 0.24, 0xf4f4f4);
+    B.trim.box(ox + 7.6, 2.2, oz + 4.4, 0.3, 0.2, 0.3, 0xc9ccd2);
+    for (let i = 0; i < 3; i++) chair(B, ox + 6.4 + i * 0.9, oz + 3.0, Math.PI);
+  }
+
   _casino(B, st, rng) {
     const ox = this.ox, oz = this.oz;
     this.counter = { x: ox - 5.5, z: oz - 5.2 };
@@ -621,9 +924,13 @@ export class InteriorManager {
   update(dt) {
     if (!this.current) return;
     const t = this.game.time;
-    if (!this.current.clerk) return;
-    animateCharacter(this.current.clerk, 0, t, 'walk', 0);
-    this.current.clerk.rotation.y = -Math.PI / 2 + Math.sin(t * 0.7) * 0.3;
+    if (this.current.clerk) {
+      animateCharacter(this.current.clerk, 0, t, 'talk', 0);
+      this.current.clerk.rotation.y = -Math.PI / 2 + Math.sin(t * 0.7) * 0.3;
+    }
+    for (const p of this.current.patrons || []) {
+      animateCharacter(p, 0, t + p.userData.phase, p.userData.pose, 0);
+    }
   }
 
   atCounter(p) {
