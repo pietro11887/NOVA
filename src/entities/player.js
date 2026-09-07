@@ -153,7 +153,14 @@ export class Player {
     car.update(dt, { throttle, steer, hand: input.braking });
     this.x = car.x; this.z = car.z; this.y = 0;
     this.a = car.a;
-    this.mesh.visible = false;
+    // in bici si resta in sella e si vede: e' meta' del bello
+    const onBike = !!car.spec.bike;
+    this.mesh.visible = onBike;
+    if (onBike) {
+      this.mesh.position.set(car.x - car.fx * 0.16, 0.42, car.z - car.fz * 0.16);
+      this.mesh.rotation.y = car.a;
+      animateCharacter(this.mesh, Math.abs(car.speed), this.game.time, 'bike', 0);
+    }
     if (car.lastCrash) {
       const impact = car.lastCrash;
       car.lastCrash = 0;
@@ -323,8 +330,11 @@ export class Player {
       }
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
-    const dist = this.indoor ? 3.4 : dead ? 5.0 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
-    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 1.95 : 1.5;
+    const bike = inCar && this.car.spec.bike;
+    const dist = this.indoor ? 3.4 : dead ? 5.0
+      : bike ? 4.0 + Math.abs(this.car.speed) * 0.06
+      : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : bike ? 1.6 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1.0 : 1.25) + this.y;
 

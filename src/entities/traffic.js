@@ -123,6 +123,7 @@ export class TrafficManager {
       this.cars.push(t);
     }
     this._spawnParked(game.quality.parked);
+    this._spawnBikes(game.quality.parked < 20 ? 8 : 18);
   }
 
   _spawnParked(n) {
@@ -130,6 +131,19 @@ export class TrafficManager {
     for (let i = 0; i < n && spots.length; i++) {
       const s = spots.splice((Math.random() * spots.length) | 0, 1)[0];
       const v = new Vehicle(this.game.city, {});
+      v.place(s.x, s.z, s.rot);
+      v.parked = true;
+      this.game.worldGroup.add(v.mesh);
+      this.parked.push(v);
+    }
+  }
+
+  /** Bici parcheggiate alle rastrelliere: si prendono come le auto. */
+  _spawnBikes(n) {
+    const spots = (this.game.city.bikeSpots || []).slice();
+    for (let i = 0; i < n && spots.length; i++) {
+      const s = spots.splice((Math.random() * spots.length) | 0, 1)[0];
+      const v = new Vehicle(this.game.city, { type: 'bike' });
       v.place(s.x, s.z, s.rot);
       v.parked = true;
       this.game.worldGroup.add(v.mesh);

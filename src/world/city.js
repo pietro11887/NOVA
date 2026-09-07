@@ -81,6 +81,7 @@ export class City {
     this.walkNodes = [];
     this.roadNodes = [];
     this.parkSpots = [];
+    this.bikeSpots = [];
     this.lamps = [];
     this.landmarks = [];
     this.benches = [];
@@ -981,7 +982,8 @@ export class City {
       const at = (t) => (horiz ? { x: b.cx + len * t, z: e.z } : { x: e.x, z: b.cz + len * t });
       if (rng() < 0.4) { const q = at(-0.36); P.newsbox(q.x, q.z, e.dir); }
       if (rng() < 0.18) { const q = at(0.36); P.phoneBooth(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 0.55, hz: 0.55 }); }
-      if (rng() < 0.3) { const q = at(-0.06); P.bike(q.x, q.z, e.dir + Math.PI / 2); }
+      // le rastrelliere diventano punti dove trovi una bici vera da prendere
+      if (rng() < 0.3) { const q = at(-0.06); this.bikeSpots.push({ x: q.x, z: q.z, rot: e.dir + Math.PI / 2 }); }
       if (rng() < 0.16) { const q = at(0.12); P.roadwork(q.x, q.z, rng); }
       if (rng() < 0.22) { const q = at(0.28); P.dumpster(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 1.0, hz: 0.6 }); }
     }

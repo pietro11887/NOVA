@@ -12059,14 +12059,60 @@ var Props = class {
     det.box(x, 0.8, z + 1.2, 2.2, 0.12, 0.1, 15921906);
     for (const sx of [-1, 1]) det.box(x + sx * 1.05, 0.35, z + 1.2, 0.08, 0.7, 0.16, 10133670);
   }
+  /**
+   * Ruota di bici: cerchione tondo con copertone e raggi, sul piano
+   * verticale orientato come il telaio. Prima erano due scatole quadrate.
+   */
+  _bikeWheel(x, y, z, r, dir, tyre = 1711394, rim = 13225170) {
+    const det = this.B.detail;
+    const N = 18, T = 0.035;
+    const ux = Math.cos(dir), uz = -Math.sin(dir);
+    const nx = Math.sin(dir), nz = Math.cos(dir);
+    const at = (a, rr2, side) => [
+      x + ux * Math.cos(a) * rr2 + nx * T * side,
+      y + Math.sin(a) * rr2,
+      z + uz * Math.cos(a) * rr2 + nz * T * side
+    ];
+    const face = (a, b, c2, d2, col) => {
+      det.quad(a, b, c2, d2, col, 1, 1);
+      det.quad(d2, c2, b, a, col, 1, 1);
+    };
+    const rIn = r * 0.84, rHub = r * 0.16;
+    for (let i = 0; i < N; i++) {
+      const a0 = i / N * TAU, a1 = (i + 1) / N * TAU;
+      face(at(a0, r, 1), at(a1, r, 1), at(a1, r, -1), at(a0, r, -1), tyre);
+      for (const s of [1, -1]) {
+        face(at(a0, r, s), at(a1, r, s), at(a1, rIn, s), at(a0, rIn, s), tyre);
+        face(
+          at(a0, rIn, s * 0.6),
+          at(a1, rIn, s * 0.6),
+          at(a1, rIn * 0.9, s * 0.6),
+          at(a0, rIn * 0.9, s * 0.6),
+          rim
+        );
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * TAU, w = 0.012;
+      const p2 = (rr2, off) => [
+        x + ux * (Math.cos(a) * rr2 - Math.sin(a) * off),
+        y + Math.sin(a) * rr2 + Math.cos(a) * off,
+        z + uz * (Math.cos(a) * rr2 - Math.sin(a) * off)
+      ];
+      face(p2(rHub, w), p2(rIn * 0.92, w), p2(rIn * 0.92, -w), p2(rHub, -w), 14673128);
+    }
+    for (let i = 0; i < 8; i++) {
+      const a0 = i / 8 * TAU, a1 = (i + 1) / 8 * TAU;
+      face(at(a0, rHub, 1), at(a1, rHub, 1), at(a1, 1e-3, 1), at(a0, 1e-3, 1), 9278620);
+    }
+  }
   /** Bici appoggiata alla rastrelliera. */
   bike(x, z, dir = 0) {
     const det = this.B.detail;
     const col = pick([3107792, 13644844, 3116890, 1711394, 14723372]);
     const c2 = Math.cos(dir), s2 = Math.sin(dir);
     for (const off of [-0.5, 0.5]) {
-      det.box(x + c2 * off, 0.32, z - s2 * off, 0.62, 0.62, 0.05, 1711394, 0, dir);
-      det.box(x + c2 * off, 0.32, z - s2 * off, 0.5, 0.5, 0.07, 5462111, 0, dir);
+      this._bikeWheel(x + c2 * off, 0.32, z - s2 * off, 0.31, dir);
     }
     det.box(x, 0.5, z, 1, 0.06, 0.05, col, 0, dir);
     det.box(x - c2 * 0.18, 0.66, z + s2 * 0.18, 0.5, 0.06, 0.05, col, 0, dir);
@@ -12430,6 +12476,7 @@ var City = class {
     this.walkNodes = [];
     this.roadNodes = [];
     this.parkSpots = [];
+    this.bikeSpots = [];
     this.lamps = [];
     this.landmarks = [];
     this.benches = [];
@@ -13398,7 +13445,7 @@ var City = class {
       }
       if (rng() < 0.3) {
         const q = at(-0.06);
-        P2.bike(q.x, q.z, e.dir + Math.PI / 2);
+        this.bikeSpots.push({ x: q.x, z: q.z, rot: e.dir + Math.PI / 2 });
       }
       if (rng() < 0.16) {
         const q = at(0.12);
@@ -14982,7 +15029,7 @@ function refine(sections, sub = 4) {
   out.push(sections[sections.length - 1]);
   return out;
 }
-function wheel(gb, x, y, z, r, w, side, spokes = 5) {
+function wheel(gb, x, y, z, r, w, side, spokes = 5, caliper = true) {
   const N = 20;
   const ringZ = (zz, rr2) => {
     const out = [];
@@ -15023,9 +15070,11 @@ function wheel(gb, x, y, z, r, w, side, spokes = 5) {
     q(p2(a0 + half, r * 0.2), p2(a0 + half * 1.5, r * 0.6), pb(a0 + half * 1.5, r * 0.6), pb(a0 + half, r * 0.2), 10134187);
   }
   for (let i = 1; i < N - 1; i++) q(hub[0], hub[i], hub[i + 1], hub[i + 1], 15002094);
-  const disc = ringZ(zo2 - side * w * 0.46, r * 0.56);
-  for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 6120556);
-  gb.box(x - r * 0.34, y + r * 0.16, zo2 - side * w * 0.4, 0.07, r * 0.5, w * 0.22, 12071468);
+  if (caliper) {
+    const disc = ringZ(zo2 - side * w * 0.46, r * 0.56);
+    for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 6120556);
+    gb.box(x - r * 0.34, y + r * 0.16, zo2 - side * w * 0.4, 0.07, r * 0.5, w * 0.22, 12071468);
+  }
 }
 var CAR_TYPES = {
   sedan: {
@@ -15169,6 +15218,19 @@ CAR_TYPES.muscle = {
   ]
 };
 CAR_TYPES.sport.spoiler = true;
+var TRAFFIC_TYPES = Object.keys(CAR_TYPES).filter((k) => k !== "bus" && k !== "bike");
+CAR_TYPES.bike = {
+  L: 1.85,
+  W: 0.62,
+  top: 1.15,
+  mass: 0.13,
+  speed: 0.4,
+  wheel: 0.34,
+  wx: 0.56,
+  bike: true,
+  body: [{ x: 0.5, hw: 0.1, yb: 0.5, yt: 0.8 }, { x: -0.5, hw: 0.1, yb: 0.5, yt: 0.8 }],
+  cabin: [{ x: 0.2, hw: 0.08, yb: 0.8, yt: 0.85 }, { x: -0.2, hw: 0.08, yb: 0.8, yt: 0.85 }]
+};
 CAR_TYPES.bus = {
   L: 9.6,
   W: 2.55,
@@ -15247,7 +15309,73 @@ var CAR_COLORS = [
   1338280
 ];
 var shared = {};
+function frameTube(gb, x0, y0, x1, y1, z, r, color, sides = 6) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const ax = dx / len, ay = dy / len;
+  const px = -ay, py = ax;
+  const ring2 = (t2) => {
+    const cx = x0 + dx * t2, cy = y0 + dy * t2;
+    const out = [];
+    for (let i = 0; i < sides; i++) {
+      const a = i / sides * TAU;
+      const c2 = Math.cos(a) * r, s = Math.sin(a) * r;
+      out.push([cx + px * c2, cy + py * c2, z + s]);
+    }
+    return out;
+  };
+  const a0 = ring2(0), a1 = ring2(1);
+  for (let i = 0; i < sides; i++) {
+    const j = (i + 1) % sides;
+    gb.quad(a0[i], a1[i], a1[j], a0[j], color, 1, 1);
+    gb.quad(a0[j], a1[j], a1[i], a0[i], color, 1, 1);
+  }
+}
+function buildBikeGeo(t2, kind) {
+  const body = new GeoBuilder();
+  const trim = new GeoBuilder();
+  const wheels = new GeoBuilder();
+  const glass = new GeoBuilder();
+  const lights = new GeoBuilder();
+  const r = t2.wheel, F = t2.wx, R = -t2.wx;
+  const BB = [0.02, 0.3];
+  const HEAD = [0.46, 0.74];
+  const SEAT = [-0.16, 0.8];
+  wheel(wheels, F, r, 0, r, 0.07, 1, 10, false);
+  wheel(wheels, R, r, 0, r, 0.07, 1, 10, false);
+  frameTube(body, BB[0], BB[1], HEAD[0], HEAD[1], 0, 0.032, 16777215);
+  frameTube(body, BB[0], BB[1], SEAT[0], SEAT[1], 0, 0.03, 16777215);
+  frameTube(body, SEAT[0], SEAT[1], HEAD[0], HEAD[1], 0, 0.028, 16777215);
+  for (const s of [-1, 1]) {
+    frameTube(trim, HEAD[0], HEAD[1], F, r, s * 0.05, 0.022, 10133670);
+    frameTube(body, BB[0], BB[1], R, r, s * 0.05, 0.022, 16777215);
+    frameTube(body, SEAT[0], SEAT[1], R, r, s * 0.05, 0.02, 16777215);
+  }
+  frameTube(trim, HEAD[0], HEAD[1], HEAD[0] + 0.04, HEAD[1] + 0.22, 0, 0.024, 5462111);
+  trim.box(HEAD[0] + 0.04, HEAD[1] + 0.24, 0, 0.05, 0.05, 0.52, 2830134);
+  for (const s of [-1, 1]) trim.box(HEAD[0] + 0.04, HEAD[1] + 0.24, s * 0.22, 0.06, 0.06, 0.1, 1711394);
+  trim.box(SEAT[0] - 0.02, SEAT[1] + 0.13, 0, 0.26, 0.06, 0.13, 1711394);
+  frameTube(trim, SEAT[0], SEAT[1], SEAT[0] - 0.02, SEAT[1] + 0.11, 0, 0.018, 9278620);
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU;
+    trim.box(BB[0] + Math.cos(a) * 0.09, BB[1] + Math.sin(a) * 0.09, 0.03, 0.06, 0.06, 0.02, 13225170);
+  }
+  for (const s of [-1, 1]) {
+    trim.box(BB[0], BB[1] - s * 0.16, s * 0.09, 0.04, 0.3, 0.04, 10133670);
+    trim.box(BB[0], BB[1] - s * 0.3, s * 0.13, 0.14, 0.03, 0.07, 2830134);
+  }
+  lights.box(HEAD[0] + 0.08, HEAD[1] + 0.02, 0, 0.06, 0.06, 0.1, 16774102);
+  lights.box(R - 0.04, 0.56, 0, 0.04, 0.08, 0.1, 14166814);
+  return {
+    body: smoothNormals(body.build(), 0.9),
+    trim: trim.build(),
+    wheels: wheels.build(),
+    glass: glass.build(),
+    lights: lights.build()
+  };
+}
 function buildCarGeo(t2, kind) {
+  if (t2.bike) return buildBikeGeo(t2, kind);
   const body = new GeoBuilder();
   const trim = new GeoBuilder();
   const wheels = new GeoBuilder();
@@ -15925,7 +16053,9 @@ function bendJoints(p2) {
 }
 function animateCharacter(group, speed, t2, state = "walk", punchT = 0) {
   poseCharacter(group, speed, t2, state, punchT);
-  if (group.userData.parts && group.userData.parts.lfore) bendJoints(group.userData.parts);
+  if (state !== "bike" && group.userData.parts && group.userData.parts.lfore) {
+    bendJoints(group.userData.parts);
+  }
 }
 function poseCharacter(group, speed, t2, state = "walk", punchT = 0) {
   const p2 = group.userData.parts;
@@ -16031,6 +16161,22 @@ function poseCharacter(group, speed, t2, state = "walk", punchT = 0) {
       p2.rarm.rotation.set(0.05, 0, 1.55);
       p2.larm.rotation.set(-0.25, 0, 1.35);
       p2.torso.rotation.y = -0.25;
+    }
+    return;
+  }
+  if (state === "bike") {
+    reset();
+    p2.torso.position.y = 0.86;
+    p2.torso.rotation.z = 0.52;
+    p2.larm.rotation.set(-0.25, 0, 1.05);
+    p2.rarm.rotation.set(0.25, 0, 1.05);
+    p2.lfore.rotation.z = 0.2;
+    p2.rfore.rotation.z = 0.2;
+    const cad = t2 * Math.max(2.2, Math.min(speed, 9) * 1.5);
+    for (const [leg, shin, ph3] of [[p2.lleg, p2.lshin, 0], [p2.rleg, p2.rshin, Math.PI]]) {
+      const c2 = Math.cos(cad + ph3), sN = Math.sin(cad + ph3);
+      leg.rotation.set(0, 0, 0.95 + sN * 0.42);
+      shin.rotation.z = -(0.9 + c2 * 0.55);
     }
     return;
   }
@@ -17511,7 +17657,13 @@ var Player = class {
     this.z = car.z;
     this.y = 0;
     this.a = car.a;
-    this.mesh.visible = false;
+    const onBike = !!car.spec.bike;
+    this.mesh.visible = onBike;
+    if (onBike) {
+      this.mesh.position.set(car.x - car.fx * 0.16, 0.42, car.z - car.fz * 0.16);
+      this.mesh.rotation.y = car.a;
+      animateCharacter(this.mesh, Math.abs(car.speed), this.game.time, "bike", 0);
+    }
     if (car.lastCrash) {
       const impact = car.lastCrash;
       car.lastCrash = 0;
@@ -17672,8 +17824,9 @@ var Player = class {
         this.camYaw += angleDelta(this.camYaw, this.car.a) * clamp(align * dt2 * 6.5, 0, 0.3);
       }
     }
-    const dist = this.indoor ? 3.4 : dead ? 5 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
-    const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 1.95 : 1.5;
+    const bike = inCar && this.car.spec.bike;
+    const dist = this.indoor ? 3.4 : dead ? 5 : bike ? 4 + Math.abs(this.car.speed) * 0.06 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const height = this.indoor ? 0.8 : dead ? 2.4 : bike ? 1.6 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1 : 1.25) + this.y;
     const cp = Math.cos(this.camPitch);
@@ -17736,7 +17889,7 @@ var TMP2 = { x: 0, z: 0 };
 var Vehicle = class {
   constructor(city, opts = {}) {
     this.city = city;
-    this.type = opts.type || pick(Object.keys(CAR_TYPES));
+    this.type = opts.type || pick(TRAFFIC_TYPES);
     this.kind = opts.kind || "civil";
     this.color = opts.color ?? pick(CAR_COLORS);
     if (this.kind === "police") {
@@ -17796,8 +17949,9 @@ var Vehicle = class {
   /** Punto d'ingresso: fianco sinistro dell'auto. */
   doorPos(out) {
     const sx = -Math.sin(this.a), sz = -Math.cos(this.a);
-    out.x = this.x + sx * (this.spec.W / 2 + 0.75);
-    out.z = this.z + sz * (this.spec.W / 2 + 0.75);
+    const off = this.spec.bike ? 0.7 : this.spec.W / 2 + 0.75;
+    out.x = this.x + sx * off;
+    out.z = this.z + sz * off;
     return out;
   }
   update(dt2, ctrl) {
@@ -17888,30 +18042,55 @@ var Vehicle = class {
       Math.min(18, strength)
     );
   }
-  /** Urto tra veicoli: separazione elastica semplificata. */
+  /**
+   * Urto tra veicoli.
+   *
+   * Prima l'auto era un cerchio di raggio (La+Lb)*0.36: per due berline sono
+   * 3,2 m attorno al centro, cioe' piu' della distanza fra due corsie, e ti
+   * risultava un tamponamento ogni volta che sorpassavi qualcuno.
+   * Ora ogni auto e' due cerchi lungo il suo asse, larghi quanto la vettura:
+   * si toccano solo quando le lamiere si toccano davvero.
+   */
   collideWith(o) {
-    const dx = o.x - this.x, dz = o.z - this.z;
-    const d2 = Math.hypot(dx, dz);
-    const rr2 = (this.spec.L + o.spec.L) * 0.36;
-    if (d2 > rr2 || d2 === 0) return 0;
-    const push = (rr2 - d2) / 2;
-    const nx = dx / d2, nz = dz / d2;
+    const ra2 = this.spec.W * 0.5, rb = o.spec.W * 0.5;
+    const sum = ra2 + rb;
+    const gx = o.x - this.x, gz = o.z - this.z;
+    const reach = (this.spec.L + o.spec.L) * 0.5 + sum;
+    if (gx * gx + gz * gz > reach * reach) return 0;
+    const la2 = this.spec.L * 0.26, lb = o.spec.L * 0.26;
+    const af = { x: this.fx, z: this.fz }, bf = { x: o.fx, z: o.fz };
+    let best = null, bestOver = 0;
+    for (const sa2 of [-1, 1]) {
+      const ax = this.x + af.x * la2 * sa2, az = this.z + af.z * la2 * sa2;
+      for (const sb of [-1, 1]) {
+        const bx = o.x + bf.x * lb * sb, bz = o.z + bf.z * lb * sb;
+        const dx = bx - ax, dz = bz - az;
+        const d2 = Math.hypot(dx, dz);
+        const over = sum - d2;
+        if (d2 > 0 && over > bestOver) {
+          bestOver = over;
+          best = { nx: dx / d2, nz: dz / d2, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
+        }
+      }
+    }
+    if (!best) return 0;
+    const push = bestOver / 2;
+    const { nx, nz } = best;
     this.x -= nx * push;
     this.z -= nz * push;
     o.x += nx * push;
     o.z += nz * push;
-    const rel = Math.abs(this.speed - o.speed);
+    const closing = Math.abs((this.vx - o.vx) * nx + (this.vz - o.vz) * nz);
     this.setVelocity(this.speed * 0.5, 0);
     o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
-    if (rel > 6) {
-      this.health -= rel * 0.5;
-      o.health -= rel * 0.5;
-      const cx = this.x + nx * rr2 * 0.42, cz = this.z + nz * rr2 * 0.42;
-      this.dentAt(cx, cz, rel * 0.8);
-      o.dentAt(cx, cz, rel * 0.8);
-      this.lastCrash = Math.max(this.lastCrash || 0, rel);
+    if (closing > 6) {
+      this.health -= closing * 0.5;
+      o.health -= closing * 0.5;
+      this.dentAt(best.cx, best.cz, closing * 0.8);
+      o.dentAt(best.cx, best.cz, closing * 0.8);
+      this.lastCrash = Math.max(this.lastCrash || 0, closing);
     }
-    return rel;
+    return closing;
   }
   sync() {
     this.mesh.position.set(this.x, 0, this.z);
@@ -18488,12 +18667,25 @@ var TrafficManager = class {
       this.cars.push(t2);
     }
     this._spawnParked(game2.quality.parked);
+    this._spawnBikes(game2.quality.parked < 20 ? 8 : 18);
   }
   _spawnParked(n) {
     const spots = this.game.city.parkSpots.slice();
     for (let i = 0; i < n && spots.length; i++) {
       const s = spots.splice(Math.random() * spots.length | 0, 1)[0];
       const v = new Vehicle(this.game.city, {});
+      v.place(s.x, s.z, s.rot);
+      v.parked = true;
+      this.game.worldGroup.add(v.mesh);
+      this.parked.push(v);
+    }
+  }
+  /** Bici parcheggiate alle rastrelliere: si prendono come le auto. */
+  _spawnBikes(n) {
+    const spots = (this.game.city.bikeSpots || []).slice();
+    for (let i = 0; i < n && spots.length; i++) {
+      const s = spots.splice(Math.random() * spots.length | 0, 1)[0];
+      const v = new Vehicle(this.game.city, { type: "bike" });
       v.place(s.x, s.z, s.rot);
       v.parked = true;
       this.game.worldGroup.add(v.mesh);

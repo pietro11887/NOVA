@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, pick } from '../core/utils.js';
-import { makeCar, dentCar, undentCar, paintCar, setRims, CAR_TYPES, CAR_COLORS } from '../world/models.js';
+import { makeCar, dentCar, undentCar, paintCar, setRims, CAR_TYPES, CAR_COLORS, TRAFFIC_TYPES } from '../world/models.js';
 
 const TMP = { x: 0, z: 0 };
 
@@ -12,7 +12,7 @@ const TMP = { x: 0, z: 0 };
 export class Vehicle {
   constructor(city, opts = {}) {
     this.city = city;
-    this.type = opts.type || pick(Object.keys(CAR_TYPES));
+    this.type = opts.type || pick(TRAFFIC_TYPES);
     this.kind = opts.kind || 'civil';
     this.color = opts.color ?? pick(CAR_COLORS);
     if (this.kind === 'police') { this.type = 'suv'; this.color = 0x1c2740; }
@@ -54,8 +54,9 @@ export class Vehicle {
   /** Punto d'ingresso: fianco sinistro dell'auto. */
   doorPos(out) {
     const sx = -Math.sin(this.a), sz = -Math.cos(this.a);
-    out.x = this.x + sx * (this.spec.W / 2 + 0.75);
-    out.z = this.z + sz * (this.spec.W / 2 + 0.75);
+    const off = this.spec.bike ? 0.7 : this.spec.W / 2 + 0.75;
+    out.x = this.x + sx * off;
+    out.z = this.z + sz * off;
     return out;
   }
 
@@ -158,27 +159,58 @@ export class Vehicle {
       Math.min(18, strength));
   }
 
-  /** Urto tra veicoli: separazione elastica semplificata. */
+  /**
+   * Urto tra veicoli.
+   *
+   * Prima l'auto era un cerchio di raggio (La+Lb)*0.36: per due berline sono
+   * 3,2 m attorno al centro, cioe' piu' della distanza fra due corsie, e ti
+   * risultava un tamponamento ogni volta che sorpassavi qualcuno.
+   * Ora ogni auto e' due cerchi lungo il suo asse, larghi quanto la vettura:
+   * si toccano solo quando le lamiere si toccano davvero.
+   */
   collideWith(o) {
-    const dx = o.x - this.x, dz = o.z - this.z;
-    const d = Math.hypot(dx, dz);
-    const rr = (this.spec.L + o.spec.L) * 0.36;
-    if (d > rr || d === 0) return 0;
-    const push = (rr - d) / 2;
-    const nx = dx / d, nz = dz / d;
+    const ra = this.spec.W * 0.5, rb = o.spec.W * 0.5;
+    const sum = ra + rb;
+    // scarto rapido: se sono lontani non serve controllare i quattro casi
+    const gx = o.x - this.x, gz = o.z - this.z;
+    const reach = (this.spec.L + o.spec.L) * 0.5 + sum;
+    if (gx * gx + gz * gz > reach * reach) return 0;
+
+    const la = this.spec.L * 0.26, lb = o.spec.L * 0.26;
+    const af = { x: this.fx, z: this.fz }, bf = { x: o.fx, z: o.fz };
+    let best = null, bestOver = 0;
+    for (const sa of [-1, 1]) {
+      const ax = this.x + af.x * la * sa, az = this.z + af.z * la * sa;
+      for (const sb of [-1, 1]) {
+        const bx = o.x + bf.x * lb * sb, bz = o.z + bf.z * lb * sb;
+        const dx = bx - ax, dz = bz - az;
+        const d = Math.hypot(dx, dz);
+        const over = sum - d;
+        if (d > 0 && over > bestOver) {
+          bestOver = over;
+          best = { nx: dx / d, nz: dz / d, cx: (ax + bx) / 2, cz: (az + bz) / 2 };
+        }
+      }
+    }
+    if (!best) return 0;
+
+    const push = bestOver / 2;
+    const { nx, nz } = best;
     this.x -= nx * push; this.z -= nz * push;
     o.x += nx * push; o.z += nz * push;
-    const rel = Math.abs(this.speed - o.speed);
+
+    // conta come botta solo l'urto frontale: strisciare di fianco non e' un
+    // tamponamento, e prima anche una carezza toglieva vita a entrambi
+    const closing = Math.abs((this.vx - o.vx) * nx + (this.vz - o.vz) * nz);
     this.setVelocity(this.speed * 0.5, 0);
     o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
-    if (rel > 6) {
-      this.health -= rel * 0.5; o.health -= rel * 0.5;
-      const cx = this.x + nx * rr * 0.42, cz = this.z + nz * rr * 0.42;   // punto di contatto
-      this.dentAt(cx, cz, rel * 0.8);
-      o.dentAt(cx, cz, rel * 0.8);
-      this.lastCrash = Math.max(this.lastCrash || 0, rel);
+    if (closing > 6) {
+      this.health -= closing * 0.5; o.health -= closing * 0.5;
+      this.dentAt(best.cx, best.cz, closing * 0.8);
+      o.dentAt(best.cx, best.cz, closing * 0.8);
+      this.lastCrash = Math.max(this.lastCrash || 0, closing);
     }
-    return rel;
+    return closing;
   }
 
   sync() {

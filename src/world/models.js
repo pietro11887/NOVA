@@ -104,7 +104,7 @@ function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
  * Ruota completa: pneumatico con spalle arrotondate, cerchio in lega a
  * cinque razze, disco e pinza freno. E' la parte che si guarda di piu'.
  */
-function wheel(gb, x, y, z, r, w, side, spokes = 5) {
+function wheel(gb, x, y, z, r, w, side, spokes = 5, caliper = true) {
   const N = 20;
   const ringZ = (zz, rr) => {
     const out = [];
@@ -151,10 +151,12 @@ function wheel(gb, x, y, z, r, w, side, spokes = 5) {
   }
   // mozzo con dado centrale
   for (let i = 1; i < N - 1; i++) q(hub[0], hub[i], hub[i + 1], hub[i + 1], 0xe4e9ee);
-  // disco e pinza freno, visibili fra le razze
-  const disc = ringZ(zo - side * w * 0.46, r * 0.56);
-  for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 0x5d646c);
-  gb.box(x - r * 0.34, y + r * 0.16, zo - side * w * 0.40, 0.07, r * 0.5, w * 0.22, 0xb8322c);
+  // disco e pinza freno, visibili fra le razze (la bici non ce l'ha)
+  if (caliper) {
+    const disc = ringZ(zo - side * w * 0.46, r * 0.56);
+    for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 0x5d646c);
+    gb.box(x - r * 0.34, y + r * 0.16, zo - side * w * 0.40, 0.07, r * 0.5, w * 0.22, 0xb8322c);
+  }
 }
 
 export const CAR_TYPES = {
@@ -236,6 +238,17 @@ CAR_TYPES.muscle = {
 };
 CAR_TYPES.sport.spoiler = true;
 
+/** La bici: stesse regole di guida delle auto, ma leggera e agilissima. */
+/** Tipi che il traffico puo' generare a caso: la bici la guidi tu, non i bot. */
+export const TRAFFIC_TYPES = Object.keys(CAR_TYPES).filter((k) => k !== 'bus' && k !== 'bike');
+
+CAR_TYPES.bike = {
+  L: 1.85, W: 0.62, top: 1.15, mass: 0.13, speed: 0.40, wheel: 0.34, wx: 0.56,
+  bike: true,
+  body: [{ x: 0.5, hw: 0.1, yb: 0.5, yt: 0.8 }, { x: -0.5, hw: 0.1, yb: 0.5, yt: 0.8 }],
+  cabin: [{ x: 0.2, hw: 0.08, yb: 0.8, yt: 0.85 }, { x: -0.2, hw: 0.08, yb: 0.8, yt: 0.85 }],
+};
+
 CAR_TYPES.bus = {
   L: 9.6, W: 2.55, top: 3.2, mass: 3.4, speed: 0.62, wheel: 0.52, wx: 3.3,
   body: [
@@ -275,7 +288,86 @@ export const CAR_COLORS = [
 
 const shared = {};
 
+/** Tubo fra due punti del piano laterale della bici (x,y), a una data z. */
+function frameTube(gb, x0, y0, x1, y1, z, r, color, sides = 6) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const ax = dx / len, ay = dy / len;          // asse del tubo
+  const px = -ay, py = ax;                     // perpendicolare nel piano
+  const ring = (t) => {
+    const cx = x0 + dx * t, cy = y0 + dy * t;
+    const out = [];
+    for (let i = 0; i < sides; i++) {
+      const a = (i / sides) * TAU;
+      const c = Math.cos(a) * r, s = Math.sin(a) * r;
+      out.push([cx + px * c, cy + py * c, z + s]);
+    }
+    return out;
+  };
+  const a0 = ring(0), a1 = ring(1);
+  for (let i = 0; i < sides; i++) {
+    const j = (i + 1) % sides;
+    gb.quad(a0[i], a1[i], a1[j], a0[j], color, 1, 1);
+    gb.quad(a0[j], a1[j], a1[i], a0[i], color, 1, 1);   // due facce: sottile e sempre visibile
+  }
+}
+
+/** Bicicletta: telaio a tubi, due ruote a raggi, manubrio e sella. */
+function buildBikeGeo(t, kind) {
+  const body = new GeoBuilder();      // telaio, prende il colore della vernice
+  const trim = new GeoBuilder();
+  const wheels = new GeoBuilder();
+  const glass = new GeoBuilder();
+  const lights = new GeoBuilder();
+  const r = t.wheel, F = t.wx, R = -t.wx;
+  const BB = [0.02, 0.30];            // movimento centrale
+  const HEAD = [0.46, 0.74];          // sterzo
+  const SEAT = [-0.16, 0.80];
+
+  wheel(wheels, F, r, 0, r, 0.07, 1, 10, false);
+  wheel(wheels, R, r, 0, r, 0.07, 1, 10, false);
+
+  // telaio: diagonale, piantone, tubo orizzontale
+  frameTube(body, BB[0], BB[1], HEAD[0], HEAD[1], 0, 0.032, 0xffffff);
+  frameTube(body, BB[0], BB[1], SEAT[0], SEAT[1], 0, 0.030, 0xffffff);
+  frameTube(body, SEAT[0], SEAT[1], HEAD[0], HEAD[1], 0, 0.028, 0xffffff);
+  // forcelle e foderi, sdoppiati ai lati della ruota
+  for (const s of [-1, 1]) {
+    frameTube(trim, HEAD[0], HEAD[1], F, r, s * 0.05, 0.022, 0x9aa0a6);
+    frameTube(body, BB[0], BB[1], R, r, s * 0.05, 0.022, 0xffffff);
+    frameTube(body, SEAT[0], SEAT[1], R, r, s * 0.05, 0.020, 0xffffff);
+  }
+  // cannotto e manubrio
+  frameTube(trim, HEAD[0], HEAD[1], HEAD[0] + 0.04, HEAD[1] + 0.22, 0, 0.024, 0x53585f);
+  trim.box(HEAD[0] + 0.04, HEAD[1] + 0.24, 0, 0.05, 0.05, 0.52, 0x2b2f36);
+  for (const s of [-1, 1]) trim.box(HEAD[0] + 0.04, HEAD[1] + 0.24, s * 0.22, 0.06, 0.06, 0.1, 0x1a1d22);
+  // sella
+  trim.box(SEAT[0] - 0.02, SEAT[1] + 0.13, 0, 0.26, 0.06, 0.13, 0x1a1d22);
+  frameTube(trim, SEAT[0], SEAT[1], SEAT[0] - 0.02, SEAT[1] + 0.11, 0, 0.018, 0x8d949c);
+  // guarnitura e pedali
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * TAU;
+    trim.box(BB[0] + Math.cos(a) * 0.09, BB[1] + Math.sin(a) * 0.09, 0.03, 0.06, 0.06, 0.02, 0xc9ccd2);
+  }
+  for (const s of [-1, 1]) {
+    trim.box(BB[0], BB[1] - s * 0.16, s * 0.09, 0.04, 0.3, 0.04, 0x9aa0a6);
+    trim.box(BB[0], BB[1] - s * 0.30, s * 0.13, 0.14, 0.03, 0.07, 0x2b2f36);
+  }
+  // fanalino e catarifrangente
+  lights.box(HEAD[0] + 0.08, HEAD[1] + 0.02, 0, 0.06, 0.06, 0.1, 0xfff3d6);
+  lights.box(R - 0.04, 0.56, 0, 0.04, 0.08, 0.1, 0xd82b1e);
+
+  return {
+    body: smoothNormals(body.build(), 0.9),
+    trim: trim.build(),
+    wheels: wheels.build(),
+    glass: glass.build(),
+    lights: lights.build(),
+  };
+}
+
 function buildCarGeo(t, kind) {
+  if (t.bike) return buildBikeGeo(t, kind);
   const body = new GeoBuilder();    // verniciato (colore dal materiale)
   const trim = new GeoBuilder();    // paraurti, griglie, cromature
   const wheels = new GeoBuilder();  // separate: non si ammaccano
@@ -996,7 +1088,10 @@ function bendJoints(p) {
 
 export function animateCharacter(group, speed, t, state = 'walk', punchT = 0) {
   poseCharacter(group, speed, t, state, punchT);
-  if (group.userData.parts && group.userData.parts.lfore) bendJoints(group.userData.parts);
+  // in bici le articolazioni le decide la pedalata, non la regola generale
+  if (state !== 'bike' && group.userData.parts && group.userData.parts.lfore) {
+    bendJoints(group.userData.parts);
+  }
 }
 
 function poseCharacter(group, speed, t, state = 'walk', punchT = 0) {
@@ -1112,6 +1207,23 @@ function poseCharacter(group, speed, t, state = 'walk', punchT = 0) {
       p.rarm.rotation.set(-(-0.05), 0, -(-1.55));
       p.larm.rotation.set(-(0.25), 0, -(-1.35));
       p.torso.rotation.y = -0.25;
+    }
+    return;
+  }
+
+  // ---- in sella alla bici: busto in avanti, mani al manubrio, gambe che pedalano
+  if (state === 'bike') {
+    reset();
+    p.torso.position.y = 0.86;
+    p.torso.rotation.z = 0.52;                       // piegato sul manubrio
+    p.larm.rotation.set(-0.25, 0, 1.05);
+    p.rarm.rotation.set(0.25, 0, 1.05);
+    p.lfore.rotation.z = 0.2; p.rfore.rotation.z = 0.2;
+    const cad = t * Math.max(2.2, Math.min(speed, 9) * 1.5);
+    for (const [leg, shin, ph] of [[p.lleg, p.lshin, 0], [p.rleg, p.rshin, Math.PI]]) {
+      const c = Math.cos(cad + ph), sN = Math.sin(cad + ph);
+      leg.rotation.set(0, 0, 0.95 + sN * 0.42);      // coscia sempre avanti
+      shin.rotation.z = -(0.9 + c * 0.55);           // ginocchio che gira
     }
     return;
   }

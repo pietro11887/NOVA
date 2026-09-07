@@ -357,14 +357,59 @@ export class Props {
     for (const sx of [-1, 1]) det.box(x + sx * 1.05, 0.35, z + 1.2, 0.08, 0.7, 0.16, 0x9aa0a6);
   }
 
+  /**
+   * Ruota di bici: cerchione tondo con copertone e raggi, sul piano
+   * verticale orientato come il telaio. Prima erano due scatole quadrate.
+   */
+  _bikeWheel(x, y, z, r, dir, tyre = 0x1a1d22, rim = 0xc9ccd2) {
+    const det = this.B.detail;
+    const N = 18, T = 0.035;
+    // il piano della ruota: u lungo il telaio, Y in alto, n e' l'asse
+    const ux = Math.cos(dir), uz = -Math.sin(dir);
+    const nx = Math.sin(dir), nz = Math.cos(dir);
+    const at = (a, rr, side) => [
+      x + ux * Math.cos(a) * rr + nx * T * side,
+      y + Math.sin(a) * rr,
+      z + uz * Math.cos(a) * rr + nz * T * side,
+    ];
+    const face = (a, b, c, d, col) => { det.quad(a, b, c, d, col, 1, 1); det.quad(d, c, b, a, col, 1, 1); };
+    const rIn = r * 0.84, rHub = r * 0.16;
+    for (let i = 0; i < N; i++) {
+      const a0 = (i / N) * TAU, a1 = ((i + 1) / N) * TAU;
+      // battistrada: la fascia esterna, vista di taglio
+      face(at(a0, r, 1), at(a1, r, 1), at(a1, r, -1), at(a0, r, -1), tyre);
+      // fianchi del copertone
+      for (const s of [1, -1]) {
+        face(at(a0, r, s), at(a1, r, s), at(a1, rIn, s), at(a0, rIn, s), tyre);
+        // cerchione lucido appena dentro
+        face(at(a0, rIn, s * 0.6), at(a1, rIn, s * 0.6),
+             at(a1, rIn * 0.9, s * 0.6), at(a0, rIn * 0.9, s * 0.6), rim);
+      }
+    }
+    // raggi: sottili strisce dal mozzo al cerchione
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU, w = 0.012;
+      const p = (rr, off) => [
+        x + ux * (Math.cos(a) * rr - Math.sin(a) * off),
+        y + Math.sin(a) * rr + Math.cos(a) * off,
+        z + uz * (Math.cos(a) * rr - Math.sin(a) * off),
+      ];
+      face(p(rHub, w), p(rIn * 0.92, w), p(rIn * 0.92, -w), p(rHub, -w), 0xdfe4e8);
+    }
+    // mozzo
+    for (let i = 0; i < 8; i++) {
+      const a0 = (i / 8) * TAU, a1 = ((i + 1) / 8) * TAU;
+      face(at(a0, rHub, 1), at(a1, rHub, 1), at(a1, 0.001, 1), at(a0, 0.001, 1), 0x8d949c);
+    }
+  }
+
   /** Bici appoggiata alla rastrelliera. */
   bike(x, z, dir = 0) {
     const det = this.B.detail;
     const col = pick([0x2f6bd0, 0xd0342c, 0x2f8f5a, 0x1a1d22, 0xe0a92c]);
     const c = Math.cos(dir), s2 = Math.sin(dir);
     for (const off of [-0.5, 0.5]) {
-      det.box(x + c * off, 0.32, z - s2 * off, 0.62, 0.62, 0.05, 0x1a1d22, 0, dir);
-      det.box(x + c * off, 0.32, z - s2 * off, 0.5, 0.5, 0.07, 0x53585f, 0, dir);
+      this._bikeWheel(x + c * off, 0.32, z - s2 * off, 0.31, dir);
     }
     det.box(x, 0.5, z, 1.0, 0.06, 0.05, col, 0, dir);
     det.box(x - c * 0.18, 0.66, z + s2 * 0.18, 0.5, 0.06, 0.05, col, 0, dir);
