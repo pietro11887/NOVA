@@ -986,17 +986,6 @@ export class City {
       if (rng() < 0.4) P.hydrant(horiz ? b.cx - len * 0.42 : e.x, horiz ? e.z : b.cz - len * 0.42);
       if (rng() < 0.35) P.bench(horiz ? b.cx : e.x, horiz ? e.z : b.cz, e.dir);
       if (rng() < 0.22) P.busStop(horiz ? b.cx + len * 0.2 : e.x, horiz ? e.z : b.cz + len * 0.2, e.dir);
-      // fila di parchimetri lungo il bordo: nei viali ce n'e' uno ogni posto auto
-      if (rng() < 0.62) {
-        const n = 5 + ((rng() * 4) | 0);
-        const start = -0.34 + rng() * 0.12;
-        for (let k = 0; k < n; k++) {
-          const t = start + k * 0.11;
-          if (t > 0.42) break;
-          const q = at(t);
-          P.meter(q.x, q.z);
-        }
-      }
       if (rng() < 0.3) P.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
       if (rng() < 0.4) { const q = at(-0.36); P.newsbox(q.x, q.z, e.dir); }
       if (rng() < 0.18) { const q = at(0.36); P.phoneBooth(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 0.55, hz: 0.55 }); }
