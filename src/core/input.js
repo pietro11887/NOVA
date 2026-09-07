@@ -33,6 +33,9 @@ export class Input {
       this.keys.add(e.code);
       if (e.code === 'KeyE') this._edge.action = true;
       if (e.code === 'Space') this._edge.jump = true;
+      if (e.code === 'KeyQ') this._edge.swap = true;
+      // 1..8 scelgono l'arma per slot
+      if (/^Digit[1-8]$/.test(e.code)) this._edge.slot = +e.code.slice(5);
       if (map[e.code] || e.code === 'Space') e.preventDefault();
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -194,6 +197,8 @@ export class Input {
   endFrame() {
     this.look.x = 0; this.look.y = 0;
     this._edge.action = this._edge.attack = this._edge.jump = false;
+    this._edge.swap = false;
+    this._edge.slot = 0;
   }
 
   pressed(name) { return this._edge[name]; }

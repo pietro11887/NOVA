@@ -32,8 +32,11 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #evade i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd23f,#3ddc84);transition:width .2s}
 #stars.evading{animation:blink .5s steps(2,end) infinite}
 @keyframes blink{50%{opacity:.25}}
-#weapon{margin-top:2px;font-size:12.5px;font-weight:700;letter-spacing:.5px;text-shadow:0 2px 6px #000c;opacity:.9}
-#weapon b{color:var(--acc)}
+#weapon{margin-top:6px;font-size:12.5px;font-weight:700;letter-spacing:.4px;pointer-events:auto;cursor:pointer;
+  background:rgba(10,14,22,.62);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:4px 10px;
+  display:inline-block;backdrop-filter:blur(6px);color:#eaf2ff}
+#weapon:active{background:rgba(255,255,255,.2)}
+#weapon b{color:var(--acc);margin-left:3px}
 
 #topright{position:absolute;top:12px;right:14px;text-align:right}
 #money{font-size:26px;font-weight:800;color:var(--good);text-shadow:0 2px 8px #000d;letter-spacing:.5px}
@@ -427,7 +430,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
     <div class="legend">
       <div><b>Telefono</b> — joystick a sinistra, trascina a destra per la camera, pulsanti in basso a destra.</div>
       <div><b>In auto</b> — levetta sinistra per gas e freno, levetta destra per sterzare. La visuale segue l'auto da sola.</div>
-      <div><b>PC</b> — WASD, mouse, E per entrare in auto / nei negozi, click per colpire.</div>
+      <div><b>PC</b> — WASD, mouse, E per entrare in auto / nei negozi, click per colpire, Q o i tasti 1-8 per cambiare arma.</div>
     </div>
   </div>
 </div>
@@ -10446,6 +10449,8 @@ var Input = class {
       this.keys.add(e.code);
       if (e.code === "KeyE") this._edge.action = true;
       if (e.code === "Space") this._edge.jump = true;
+      if (e.code === "KeyQ") this._edge.swap = true;
+      if (/^Digit[1-8]$/.test(e.code)) this._edge.slot = +e.code.slice(5);
       if (map[e.code] || e.code === "Space") e.preventDefault();
     });
     addEventListener("keyup", (e) => this.keys.delete(e.code));
@@ -10630,6 +10635,8 @@ var Input = class {
     this.look.x = 0;
     this.look.y = 0;
     this._edge.action = this._edge.attack = this._edge.jump = false;
+    this._edge.swap = false;
+    this._edge.slot = 0;
   }
   pressed(name) {
     return this._edge[name];
@@ -12339,6 +12346,7 @@ var City = class {
     this._roads();
     this._blocks();
     this._graphs();
+    this._markGunShops();
     return this;
   }
   // ------------------------------------------------------------- materiali
@@ -13396,6 +13404,25 @@ var City = class {
       if (d2 > minD && d2 < maxD) return n;
     }
     return this.walkNodes[Math.random() * this.walkNodes.length | 0];
+  }
+  /**
+   * Segna due armerie come punti di riferimento: sono negozi normali, ma
+   * cosi' si trovano sulla mappa invece di doverle cercare a caso.
+   */
+  _markGunShops() {
+    const ammu = this.doors.filter((d2) => d2.type === "ammu");
+    if (!ammu.length) return;
+    let best = [ammu[0], ammu[ammu.length - 1]], bd2 = -1;
+    for (const a of ammu) {
+      for (const b of ammu) {
+        const d2 = Math.hypot(a.x - b.x, a.z - b.z);
+        if (d2 > bd2) {
+          bd2 = d2;
+          best = [a, b];
+        }
+      }
+    }
+    for (const d2 of best) this.landmarks.push({ kind: "ammu", x: d2.x, z: d2.z });
   }
   /** Come randomWalkNode ma sulla carreggiata: serve agli eventi in strada. */
   randomRoadNode(nearX, nearZ, minD, maxD) {
@@ -15850,6 +15877,152 @@ function poseCharacter(group, speed, t2, state = "walk", punchT = 0) {
   }
 }
 
+// src/core/weapons.js
+var WEAPONS = {
+  fists: {
+    name: "Pugni",
+    icon: "\u270A",
+    kind: "melee",
+    slot: 0,
+    dmg: 26,
+    range: 2,
+    rate: 0.42,
+    wanted: 1
+  },
+  bat: {
+    name: "Mazza da baseball",
+    icon: "\u{1F3CF}",
+    kind: "melee",
+    slot: 1,
+    dmg: 52,
+    range: 2.6,
+    rate: 0.55,
+    wanted: 1,
+    price: 220,
+    desc: "Silenziosa e non serve ricaricarla"
+  },
+  knife: {
+    name: "Coltello",
+    icon: "\u{1F52A}",
+    kind: "melee",
+    slot: 1,
+    dmg: 70,
+    range: 2,
+    rate: 0.34,
+    wanted: 2,
+    price: 340,
+    desc: "Veloce e fa molto male"
+  },
+  pistol: {
+    name: "Pistola",
+    icon: "\u{1F52B}",
+    kind: "gun",
+    slot: 2,
+    dmg: 40,
+    range: 55,
+    rate: 0.3,
+    spread: 0.02,
+    wanted: 1,
+    price: 420,
+    ammoPrice: 90,
+    ammoQty: 40,
+    ammoMax: 240,
+    free: 24,
+    desc: "Precisa, il classico"
+  },
+  smg: {
+    name: "Mitraglietta",
+    icon: "\u{1F9E8}",
+    kind: "gun",
+    slot: 3,
+    dmg: 22,
+    range: 42,
+    rate: 0.085,
+    auto: true,
+    spread: 0.055,
+    wanted: 2,
+    price: 1600,
+    ammoPrice: 180,
+    ammoQty: 90,
+    ammoMax: 480,
+    free: 60,
+    desc: "Raffica rapida, poco precisa"
+  },
+  shotgun: {
+    name: "Fucile a pompa",
+    icon: "\u{1F4A5}",
+    kind: "gun",
+    slot: 4,
+    dmg: 17,
+    pellets: 8,
+    range: 20,
+    rate: 0.85,
+    spread: 0.16,
+    wanted: 2,
+    price: 2100,
+    ammoPrice: 160,
+    ammoQty: 24,
+    ammoMax: 120,
+    free: 16,
+    desc: "Devastante da vicino"
+  },
+  rifle: {
+    name: "Fucile d\u2019assalto",
+    icon: "\u{1F396}\uFE0F",
+    kind: "gun",
+    slot: 5,
+    dmg: 34,
+    range: 78,
+    rate: 0.11,
+    auto: true,
+    spread: 0.03,
+    wanted: 3,
+    price: 3400,
+    ammoPrice: 240,
+    ammoQty: 90,
+    ammoMax: 420,
+    free: 60,
+    desc: "Il compromesso perfetto"
+  },
+  sniper: {
+    name: "Fucile di precisione",
+    icon: "\u{1F3AF}",
+    kind: "gun",
+    slot: 6,
+    dmg: 130,
+    range: 220,
+    rate: 1.5,
+    spread: 2e-3,
+    wanted: 3,
+    zoom: 2.4,
+    price: 5200,
+    ammoPrice: 320,
+    ammoQty: 15,
+    ammoMax: 60,
+    free: 10,
+    desc: "Un colpo, un bersaglio. Zoom sulla mira"
+  },
+  rpg: {
+    name: "Lanciarazzi",
+    icon: "\u{1F680}",
+    kind: "launcher",
+    slot: 7,
+    dmg: 220,
+    range: 110,
+    rate: 2.4,
+    blast: 7.5,
+    wanted: 4,
+    price: 9e3,
+    ammoPrice: 900,
+    ammoQty: 4,
+    ammoMax: 20,
+    free: 3,
+    desc: "Fa saltare in aria qualsiasi cosa"
+  }
+};
+var WEAPON_ORDER = Object.keys(WEAPONS).sort((a, b) => WEAPONS[a].slot - WEAPONS[b].slot);
+var isGun = (id) => WEAPONS[id] && WEAPONS[id].kind !== "melee";
+
 // src/world/interiors.js
 var ORIGIN = { x: 0, z: 4e3 };
 var W = 18;
@@ -15906,22 +16079,16 @@ var SHOP_MENUS = {
   ammu: {
     title: "AMMU NOVA",
     desc: "Protezione personale, tutto regolare (quasi).",
+    // le voci delle armi le costruisce buildAmmuMenu() dall'arsenale
     items: [
-      { id: "armor", icon: "\u{1F6E1}\uFE0F", name: "Giubbotto antiproiettile", desc: "Armatura al massimo", price: 180, effect: (g) => g.player.addArmor(100) },
       {
-        id: "pistol",
-        icon: "\u{1F52B}",
-        name: "Pistola + 40 colpi",
-        desc: "Sblocca l'arma",
-        price: 420,
-        effect: (g) => {
-          g.player.weapon = "pistol";
-          g.player.ammo += 40;
-        }
-      },
-      { id: "ammo", icon: "\u{1F4E6}", name: "40 munizioni", desc: "Ricarica", price: 90, effect: (g) => {
-        g.player.ammo += 40;
-      } }
+        id: "armor",
+        icon: "\u{1F6E1}\uFE0F",
+        name: "Giubbotto antiproiettile",
+        desc: "Armatura al massimo",
+        price: 180,
+        effect: (g) => g.player.addArmor(100)
+      }
     ]
   },
   clothes: {
@@ -16563,6 +16730,48 @@ function interiorMaterials() {
     glow: new es({ vertexColors: true, toneMapped: false })
   };
 }
+function buildAmmuMenu(game2) {
+  const p2 = game2.player;
+  const items = [{
+    id: "armor",
+    icon: "\u{1F6E1}\uFE0F",
+    name: "Giubbotto antiproiettile",
+    desc: "Armatura al massimo",
+    price: 180,
+    effect: (g) => g.player.addArmor(100)
+  }];
+  for (const id of WEAPON_ORDER) {
+    const w = WEAPONS[id];
+    if (!w.price) continue;
+    if (!p2.owned[id]) {
+      items.push({
+        id,
+        icon: w.icon,
+        name: w.name,
+        price: w.price,
+        desc: isGun(id) ? `${w.desc} \xB7 ${w.free} colpi inclusi` : w.desc,
+        effect: (g) => {
+          g.player.giveWeapon(id);
+          g.toast(`${w.name} equipaggiata`, "good");
+        }
+      });
+    } else if (isGun(id)) {
+      const full = (p2.ammoOf[id] || 0) >= w.ammoMax;
+      items.push({
+        id: `${id}-ammo`,
+        icon: "\u{1F4E6}",
+        name: `Munizioni ${w.name}`,
+        desc: full ? "Sei al massimo" : `+${w.ammoQty} colpi (max ${w.ammoMax})`,
+        price: full ? 0 : w.ammoPrice,
+        effect: (g) => {
+          const got = g.player.addAmmo(id, w.ammoQty);
+          g.toast(got ? `+${got} munizioni` : "Gi\xE0 al massimo", got ? "good" : "");
+        }
+      });
+    }
+  }
+  return { title: "AMMU NOVA", desc: "Protezione personale, tutto regolare (quasi).", items };
+}
 
 // src/entities/player.js
 var TMP = { x: 0, z: 0 };
@@ -16584,7 +16793,8 @@ var Player = class {
     this.armor = 0;
     this.money = 250;
     this.weapon = "fists";
-    this.ammo = 0;
+    this.owned = { fists: true };
+    this.ammoOf = {};
     this.car = null;
     this.punchT = 0;
     this.hitT = 0;
@@ -16657,6 +16867,8 @@ var Player = class {
     if (this.punchT > 0) this.punchT -= dt2 * 2.6;
     if (this.hitT > 0) this.hitT -= dt2;
     if (this.shootCd > 0) this.shootCd -= dt2;
+    if (this.dryT > 0) this.dryT -= dt2;
+    if (!input.attacking) this._heldSince = false;
   }
   _onFoot(dt2, input) {
     const fx = input.forward, sx = input.strafe;
@@ -16763,24 +16975,94 @@ var Player = class {
     this.game.audio.door();
     if (forced) this.damage(6, "urto");
   }
+  // ------------------------------------------------------------------ armi
+  get spec() {
+    return WEAPONS[this.weapon] || WEAPONS.fists;
+  }
+  get ammo() {
+    return this.ammoOf[this.weapon] ?? 0;
+  }
+  set ammo(v) {
+    this.ammoOf[this.weapon] = Math.max(0, v | 0);
+  }
+  /** Aggiunge un'arma (e le munizioni di dotazione) e la equipaggia. */
+  giveWeapon(id, ammo) {
+    const w = WEAPONS[id];
+    if (!w) return;
+    this.owned[id] = true;
+    if (isGun(id)) {
+      this.ammoOf[id] = Math.min(w.ammoMax, (this.ammoOf[id] || 0) + (ammo ?? w.free ?? 0));
+    }
+    this.weapon = id;
+  }
+  addAmmo(id, n) {
+    const w = WEAPONS[id];
+    if (!w || !isGun(id)) return 0;
+    const before = this.ammoOf[id] || 0;
+    this.ammoOf[id] = Math.min(w.ammoMax, before + n);
+    return this.ammoOf[id] - before;
+  }
+  /** Scorre le armi che hai davvero addosso (con munizioni se sono da fuoco). */
+  cycleWeapon(dir = 1) {
+    const list = WEAPON_ORDER.filter((id) => this.owned[id] && (!isGun(id) || this.ammoOf[id] > 0));
+    if (list.length < 2) return this.weapon;
+    let i = list.indexOf(this.weapon);
+    if (i < 0) i = 0;
+    this.weapon = list[(i + dir + list.length) % list.length];
+    this.game.audio.ui();
+    return this.weapon;
+  }
+  /** Sceglie l'arma dello slot (tasti 1..8): se non ce l'hai non succede nulla. */
+  selectSlot(slot) {
+    const id = WEAPON_ORDER.find((k) => WEAPONS[k].slot === slot - 1 && this.owned[k]);
+    if (!id || id === this.weapon) return;
+    if (isGun(id) && !this.ammoOf[id]) {
+      this.game.toast("Senza munizioni");
+      return;
+    }
+    this.weapon = id;
+    this.game.audio.ui();
+  }
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
-  attack() {
+  attack(fresh = true) {
     if (this.dead || this.inCar) return;
     if (this.speed < 1.2) this.a = this.camYaw;
-    if (this.weapon === "pistol" && this.ammo > 0) {
-      if (this.shootCd > 0) return;
-      this.shootCd = 0.32;
-      this.ammo--;
-      this.game.audio.shot();
-      this.game.tracer(this.x, 1.5, this.z, this.a);
-      this.game.hitScan(this, 55, 40);
-      this.game.addWanted(1, "sparo");
-    } else {
-      if (this.punchT > 0) return;
+    const w = this.spec;
+    if (w.kind === "melee") {
+      if (this.punchT > 0 || this.shootCd > 0) return;
       this.punchT = 1;
+      this.shootCd = w.rate;
       this.game.audio.punch();
-      this.game.melee(this, 2, 26);
+      this.game.melee(this, w.range, w.dmg, w.wanted);
+      return;
     }
+    if (!w.auto && !fresh && this._heldSince) return;
+    this._heldSince = true;
+    if (this.shootCd > 0) return;
+    if (this.ammo <= 0) {
+      if (this.dryT === void 0 || this.dryT <= 0) {
+        this.dryT = 0.5;
+        this.game.audio.blip(150, 0.04, "square", 0.12);
+        this.game.toast("Senza munizioni");
+      }
+      return;
+    }
+    this.shootCd = w.rate;
+    this.ammo = this.ammo - 1;
+    if (w.kind === "launcher") {
+      this.game.audio.noise(0.5, 220, 0.55);
+      this.game.launchRocket(this, w);
+      this.game.addWanted(w.wanted, "lanciarazzi");
+      return;
+    }
+    this.game.audio.shot();
+    const shots = w.pellets || 1;
+    for (let i = 0; i < shots; i++) {
+      const a = this.a + (Math.random() - 0.5) * (w.spread || 0) * (shots > 1 ? 2 : 1);
+      this.game.tracer(this.x, 1.5, this.z, a, w.range);
+      this.game.hitScan(this, w.range, w.dmg, a);
+    }
+    this.game.addWanted(w.wanted, "sparo");
   }
   // ------------------------------------------------------------------ camera
   _camera(dt2, dead) {
@@ -16830,7 +17112,8 @@ var Player = class {
       health: this.health,
       armor: this.armor,
       weapon: this.weapon,
-      ammo: this.ammo
+      owned: this.owned,
+      ammoOf: this.ammoOf
     };
   }
   restore(s) {
@@ -16840,6 +17123,9 @@ var Player = class {
     this.health = s.health ?? 100;
     this.armor = s.armor ?? 0;
     this.weapon = s.weapon ?? "fists";
+    this.owned = s.owned ?? { fists: true, ...s.weapon === "pistol" ? { pistol: true } : {} };
+    this.ammoOf = s.ammoOf ?? (s.ammo ? { pistol: s.ammo } : {});
+    if (!WEAPONS[this.weapon]) this.weapon = "fists";
     this.ammo = s.ammo ?? 0;
   }
 };
@@ -17104,6 +17390,7 @@ var Ped = class {
     this.mood = role === "cop" ? "brave" : pick(
       ["nervous", "nervous", "nervous", "nosy", "nosy", "brave", "calm"]
     );
+    this.wallet = role === "cop" ? 40 + (Math.random() * 60 | 0) : 8 + (Math.random() * 85 | 0);
   }
   spawnAt(node) {
     this.node = node;
@@ -17149,6 +17436,16 @@ var Ped = class {
     this.target = nodes[idx];
   }
   // ------------------------------------------------------------- reazioni
+  /** Gli sfili il portafoglio quando finisce a terra. */
+  _dropWallet(game2, from) {
+    if (this.looted || this.wallet <= 0) return;
+    this.looted = true;
+    if (from !== game2.player) return;
+    const n = this.wallet;
+    this.wallet = 0;
+    game2.player.earn(n);
+    game2.toast(`Portafoglio: +$${n}`, "good");
+  }
   knockDown(game2, from) {
     if (this.state === "down") return;
     this.state = "down";
@@ -17157,6 +17454,7 @@ var Ped = class {
     this.speed = 0;
     this.punchT = 0;
     game2.audio.punch();
+    this._dropWallet(game2, from);
     if (from) game2.alarm(this.x, this.z, 26, this);
   }
   /** Colpo ricevuto: prima il sussulto, poi la reazione secondo il carattere. */
@@ -17894,6 +18192,7 @@ var HUD = class {
     this.subT = 0;
     this.shopOpen = false;
     $2("shop-close").addEventListener("click", () => this.hideShop());
+    this.el.weapon.addEventListener("click", () => this.game.player.cycleWeapon(1));
     $2("radio-prev").addEventListener("click", () => this.game.radio.change(-1));
     $2("radio-next").addEventListener("click", () => this.game.radio.change(1));
   }
@@ -17990,10 +18289,9 @@ var HUD = class {
     this.el.evade.classList.toggle("hidden", !chasing);
     this.el.stars.classList.toggle("evading", chasing && g.evading);
     if (chasing) this.el.evadeBar.style.width = `${clamp(g.wantedT / g.evadeTime * 100, 0, 100)}%`;
-    if (p2.weapon === "pistol") {
-      this.el.weapon.classList.remove("hidden");
-      this.el.weapon.innerHTML = `\u{1F52B} <b>${p2.ammo}</b>`;
-    } else this.el.weapon.classList.add("hidden");
+    const w = p2.spec;
+    this.el.weapon.classList.remove("hidden");
+    this.el.weapon.innerHTML = w.kind === "melee" ? `${w.icon} ${w.name}` : `${w.icon} ${w.name} <b>${p2.ammo}</b>`;
     const way = g.waypoint;
     this.el.wayDist.classList.toggle("hidden", !way);
     if (way) this.el.wayVal.textContent = `${Math.round(Math.hypot(way.x - p2.x, way.z - p2.z))} m`;
@@ -18064,7 +18362,8 @@ var HUD = class {
       gas: "#ff9d3f",
       sport: "#a8e05f",
       pier: "#8ad8ff",
-      casino: "#ffd23f"
+      casino: "#ffd23f",
+      ammu: "#ff4d5e"
     };
     for (const l2 of g.city.landmarks) blip(l2.x, l2.z, LANDMARK_COLOR[l2.kind] || "#ffffff", 8);
     for (const m of g.missions.markers) blip(m.x, m.z, "#ffd23f", 7);
@@ -19047,7 +19346,8 @@ var ICONS = {
   gas: "\u26FD",
   sport: "\u{1F3C0}",
   pier: "\u{1F3A1}",
-  casino: "\u{1F3B0}"
+  casino: "\u{1F3B0}",
+  ammu: "\u{1F52B}"
 };
 var LABELS = {
   police: "Commissariato",
@@ -19055,7 +19355,8 @@ var LABELS = {
   gas: "Distributore",
   sport: "Campo",
   pier: "Molo",
-  casino: "Casin\xF2"
+  casino: "Casin\xF2",
+  ammu: "Armeria"
 };
 var SHOP_ICON = {
   burger: "\u{1F354}",
@@ -20591,8 +20892,13 @@ var Game = class {
       this.trafficAxis ^= 1;
       this.city.setTrafficAxis(this.trafficAxis);
     }
+    if (this.input.pressed("swap")) p2.cycleWeapon(1);
+    const slot = this.input._edge.slot;
+    if (slot) p2.selectSlot(slot);
     this.input.setDriveMode(p2.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) p2.attack();
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) {
+      p2.attack(this.input.pressed("attack"));
+    }
     p2.update(dt2, this.hud.shopOpen || this.casino.open || this.map.open ? this.frozenInput : this.input);
     if (this.interiors.current) {
       this.interiors.update(dt2);
@@ -20609,6 +20915,7 @@ var Game = class {
     if (this.mp) this.mp.update(dt2);
     this._markers(dt2);
     this._tracerUpdate(dt2);
+    this._rocketsUpdate(dt2);
     this._effectsUpdate(dt2);
     this._updateStreetLights(dt2);
     this._engineSound();
@@ -20717,7 +21024,8 @@ var Game = class {
   _interiorPrompt() {
     const p2 = this.player;
     const act = this.input.pressed("action");
-    const menu = SHOP_MENUS[this.interiors.door.type] || SHOP_MENUS.store;
+    const type = this.interiors.door.type;
+    const menu = type === "ammu" ? buildAmmuMenu(this) : SHOP_MENUS[type] || SHOP_MENUS.store;
     if (this.casino.open) {
       this.hud.prompt("<b>E</b> lascia il tavolo");
       this.hud.touchLabels("ESCI", "-", "-");
@@ -20767,7 +21075,8 @@ var Game = class {
     if (item.price) this.audio.cash();
     else this.audio.ui();
     this.toast(`${item.name} \u2714`, "good");
-    this.hud.refreshShop(menu, (i) => this.buy(i, menu));
+    const fresh = this.interiors.door && this.interiors.door.type === "ammu" ? buildAmmuMenu(this) : menu;
+    this.hud.refreshShop(fresh, (i) => this.buy(i, fresh));
     this.save();
   }
   _markers(dt2) {
@@ -20884,7 +21193,7 @@ var Game = class {
     this.toast("Veicolo consegnato fuori dal locale", "good");
   }
   // ------------------------------------------------------------- combattimento
-  melee(from, range, dmg) {
+  melee(from, range, dmg, wanted = 1) {
     const peer = this.mp && this.mp.position;
     if (peer) {
       const px = from.x + Math.cos(from.a) * 1.1, pz = from.z - Math.sin(from.a) * 1.1;
@@ -20898,10 +21207,11 @@ var Game = class {
     const hit = cop || target;
     if (!hit) return;
     hit.hit(dmg, this, from);
-    this.addWanted(cop ? 2 : 1, "aggressione");
+    this.addWanted(cop ? Math.max(2, wanted) : wanted, "aggressione");
   }
-  hitScan(from, range, dmg) {
-    const fx = Math.cos(from.a), fz = -Math.sin(from.a);
+  hitScan(from, range, dmg, angle) {
+    const a = angle === void 0 ? from.a : angle;
+    const fx = Math.cos(a), fz = -Math.sin(a);
     let best = null, bestD = range;
     const consider = (e) => {
       const dx = e.x - from.x, dz = e.z - from.z;
@@ -20926,9 +21236,76 @@ var Game = class {
       if (t2 > 0 && t2 < range && Math.abs(-dx * fz + dz * fx) < 1.6) v.health -= dmg * 0.6;
     }
   }
-  tracer(x, y, z, a) {
+  /** Razzo del lanciarazzi: vola dritto e scoppia contro il primo ostacolo. */
+  launchRocket(from, w) {
+    this.rockets = this.rockets || [];
+    if (!this._rocketGeo) {
+      this._rocketGeo = new iu(0.11, 0.5, 4, 8);
+      this._rocketGeo.rotateZ(Math.PI / 2);
+      this._rocketMat = new sd({ color: 3817287, emissive: 5579264, roughness: 0.6 });
+    }
+    const mesh = new Xs(this._rocketGeo, this._rocketMat);
+    mesh.position.set(from.x, 1.4, from.z);
+    this.worldGroup.add(mesh);
+    this.rockets.push({
+      mesh,
+      x: from.x,
+      z: from.z,
+      a: from.a,
+      life: w.range / 42,
+      w,
+      fx: Math.cos(from.a),
+      fz: -Math.sin(from.a)
+    });
+  }
+  _rocketsUpdate(dt2) {
+    if (!this.rockets || !this.rockets.length) return;
+    const SPEED = 42;
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const r = this.rockets[i];
+      r.life -= dt2;
+      r.x += r.fx * SPEED * dt2;
+      r.z += r.fz * SPEED * dt2;
+      r.mesh.position.set(r.x, 1.4, r.z);
+      r.mesh.rotation.y = r.a;
+      this.smoke.puff(r.x, 1.4, r.z, 0, 0.3);
+      const hitWall = this.city.resolve(r.x, r.z, 0.6, this._tmpVec || (this._tmpVec = new Ui()));
+      const hitPed = this.peds.nearest(r.x, r.z, 1.4);
+      if (r.life <= 0 || hitWall || hitPed) {
+        this.blast(r.x, r.z, r.w.blast || 6, r.w.dmg);
+        this.worldGroup.remove(r.mesh);
+        this.rockets.splice(i, 1);
+      }
+    }
+  }
+  /** Esplosione con raggio: danneggia bot, agenti, veicoli e te se sei vicino. */
+  blast(x, z, radius, dmg) {
+    this.explode(x, z);
+    for (const ped of this.peds.peds) {
+      const d2 = Math.hypot(ped.x - x, ped.z - z);
+      if (d2 < radius) ped.hit(dmg * (1 - d2 / radius), this, this.player);
+    }
+    for (const cop of this.police.cops) {
+      if (!cop.active) continue;
+      const d2 = Math.hypot(cop.x - x, cop.z - z);
+      if (d2 < radius) cop.hit(dmg * (1 - d2 / radius), this, this.player);
+    }
+    const cars = [...this.traffic.all(), ...this.police.cars];
+    if (this.player.car) cars.push(this.player.car);
+    for (const v of cars) {
+      const d2 = Math.hypot(v.x - x, v.z - z);
+      if (d2 >= radius) continue;
+      const k = 1 - d2 / radius;
+      v.health -= dmg * k * 0.7;
+      v.dentAt(x, z, 16 * k);
+    }
+    const dp = Math.hypot(this.player.x - x, this.player.z - z);
+    if (dp < radius) this.player.damage(dmg * (1 - dp / radius) * 0.5, "esplosione");
+    this.addWanted(3, "esplosione");
+  }
+  tracer(x, y, z, a, range = 26) {
     const t2 = this.tracers.find((k) => k.life <= 0) || this.tracers[0];
-    const len = 26;
+    const len = Math.min(range, 60);
     t2.mesh.visible = true;
     t2.mesh.position.set(x + Math.cos(a) * len / 2, y, z - Math.sin(a) * len / 2);
     t2.mesh.rotation.set(0, a, 0);

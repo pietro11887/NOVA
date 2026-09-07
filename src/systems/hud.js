@@ -25,6 +25,7 @@ export class HUD {
     this.shopOpen = false;
 
     $('shop-close').addEventListener('click', () => this.hideShop());
+    this.el.weapon.addEventListener('click', () => this.game.player.cycleWeapon(1));
     $('radio-prev').addEventListener('click', () => this.game.radio.change(-1));
     $('radio-next').addEventListener('click', () => this.game.radio.change(1));
   }
@@ -120,10 +121,12 @@ export class HUD {
     this.el.evade.classList.toggle('hidden', !chasing);
     this.el.stars.classList.toggle('evading', chasing && g.evading);
     if (chasing) this.el.evadeBar.style.width = `${clamp((g.wantedT / g.evadeTime) * 100, 0, 100)}%`;
-    if (p.weapon === 'pistol') {
-      this.el.weapon.classList.remove('hidden');
-      this.el.weapon.innerHTML = `🔫 <b>${p.ammo}</b>`;
-    } else this.el.weapon.classList.add('hidden');
+    // arma equipaggiata: sempre visibile, si tocca per cambiare
+    const w = p.spec;
+    this.el.weapon.classList.remove('hidden');
+    this.el.weapon.innerHTML = w.kind === 'melee'
+      ? `${w.icon} ${w.name}`
+      : `${w.icon} ${w.name} <b>${p.ammo}</b>`;
 
     // distanza dalla destinazione e dall'amico
     const way = g.waypoint;
@@ -190,7 +193,7 @@ export class HUD {
       blip(d.x, d.z, d.type === 'home' ? '#ffe9a8' : '#3ddc84', 4);
     }
     const LANDMARK_COLOR = { police: '#4cc2ff', hospital: '#ff6b6b', gas: '#ff9d3f',
-      sport: '#a8e05f', pier: '#8ad8ff', casino: '#ffd23f' };
+      sport: '#a8e05f', pier: '#8ad8ff', casino: '#ffd23f', ammu: '#ff4d5e' };
     for (const l of g.city.landmarks) blip(l.x, l.z, LANDMARK_COLOR[l.kind] || '#ffffff', 8);
     for (const m of g.missions.markers) blip(m.x, m.z, '#ffd23f', 7);
     if (g.missions.objective) blip(g.missions.objective.x, g.missions.objective.z, '#ff9d3f', 8);

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, angleDelta, turnToward } from '../core/utils.js';
 import { makeCharacter, animateCharacter } from '../world/models.js';
+import { WEAPONS, WEAPON_ORDER, isGun } from '../core/weapons.js';
 
 const TMP = { x: 0, z: 0 };
 const V = new THREE.Vector3();
@@ -21,7 +22,8 @@ export class Player {
     this.armor = 0;
     this.money = 250;
     this.weapon = 'fists';
-    this.ammo = 0;
+    this.owned = { fists: true };     // armi in tasca
+    this.ammoOf = {};                 // munizioni per arma
     this.car = null;
     this.punchT = 0;
     this.hitT = 0;
@@ -91,6 +93,8 @@ export class Player {
     if (this.punchT > 0) this.punchT -= dt * 2.6;
     if (this.hitT > 0) this.hitT -= dt;
     if (this.shootCd > 0) this.shootCd -= dt;
+    if (this.dryT > 0) this.dryT -= dt;
+    if (!input.attacking) this._heldSince = false;
   }
 
   _onFoot(dt, input) {
@@ -195,25 +199,97 @@ export class Player {
     if (forced) this.damage(6, 'urto');
   }
 
+  // ------------------------------------------------------------------ armi
+  get spec() { return WEAPONS[this.weapon] || WEAPONS.fists; }
+  get ammo() { return this.ammoOf[this.weapon] ?? 0; }
+  set ammo(v) { this.ammoOf[this.weapon] = Math.max(0, v | 0); }
+
+  /** Aggiunge un'arma (e le munizioni di dotazione) e la equipaggia. */
+  giveWeapon(id, ammo) {
+    const w = WEAPONS[id];
+    if (!w) return;
+    this.owned[id] = true;
+    if (isGun(id)) {
+      this.ammoOf[id] = Math.min(w.ammoMax, (this.ammoOf[id] || 0) + (ammo ?? w.free ?? 0));
+    }
+    this.weapon = id;
+  }
+
+  addAmmo(id, n) {
+    const w = WEAPONS[id];
+    if (!w || !isGun(id)) return 0;
+    const before = this.ammoOf[id] || 0;
+    this.ammoOf[id] = Math.min(w.ammoMax, before + n);
+    return this.ammoOf[id] - before;
+  }
+
+  /** Scorre le armi che hai davvero addosso (con munizioni se sono da fuoco). */
+  cycleWeapon(dir = 1) {
+    const list = WEAPON_ORDER.filter((id) => this.owned[id] && (!isGun(id) || this.ammoOf[id] > 0));
+    if (list.length < 2) return this.weapon;
+    let i = list.indexOf(this.weapon);
+    if (i < 0) i = 0;
+    this.weapon = list[(i + dir + list.length) % list.length];
+    this.game.audio.ui();
+    return this.weapon;
+  }
+
+  /** Sceglie l'arma dello slot (tasti 1..8): se non ce l'hai non succede nulla. */
+  selectSlot(slot) {
+    const id = WEAPON_ORDER.find((k) => WEAPONS[k].slot === slot - 1 && this.owned[k]);
+    if (!id || id === this.weapon) return;
+    if (isGun(id) && !this.ammoOf[id]) { this.game.toast('Senza munizioni'); return; }
+    this.weapon = id;
+    this.game.audio.ui();
+  }
+
   /** Pugno o colpo d'arma, a seconda dell'equipaggiamento. */
-  attack() {
+  attack(fresh = true) {
     if (this.dead || this.inCar) return;
     // da fermi si mira dove guarda la camera: sparare "di lato" e' frustrante
     if (this.speed < 1.2) this.a = this.camYaw;
-    if (this.weapon === 'pistol' && this.ammo > 0) {
-      if (this.shootCd > 0) return;
-      this.shootCd = 0.32;
-      this.ammo--;
-      this.game.audio.shot();
-      this.game.tracer(this.x, 1.5, this.z, this.a);
-      this.game.hitScan(this, 55, 40);
-      this.game.addWanted(1, 'sparo');
-    } else {
-      if (this.punchT > 0) return;
+    const w = this.spec;
+
+    if (w.kind === 'melee') {
+      if (this.punchT > 0 || this.shootCd > 0) return;
       this.punchT = 1;
+      this.shootCd = w.rate;
       this.game.audio.punch();
-      this.game.melee(this, 2.0, 26);
+      this.game.melee(this, w.range, w.dmg, w.wanted);
+      return;
     }
+
+    // le armi semiautomatiche sparano un colpo per pressione
+    if (!w.auto && !fresh && this._heldSince) return;
+    this._heldSince = true;
+    if (this.shootCd > 0) return;
+    if (this.ammo <= 0) {
+      // clic a vuoto: si sente che sei a secco
+      if (this.dryT === undefined || this.dryT <= 0) {
+        this.dryT = 0.5;
+        this.game.audio.blip(150, 0.04, 'square', 0.12);
+        this.game.toast('Senza munizioni');
+      }
+      return;
+    }
+    this.shootCd = w.rate;
+    this.ammo = this.ammo - 1;
+
+    if (w.kind === 'launcher') {
+      this.game.audio.noise(0.5, 220, 0.55);
+      this.game.launchRocket(this, w);
+      this.game.addWanted(w.wanted, 'lanciarazzi');
+      return;
+    }
+
+    this.game.audio.shot();
+    const shots = w.pellets || 1;
+    for (let i = 0; i < shots; i++) {
+      const a = this.a + (Math.random() - 0.5) * (w.spread || 0) * (shots > 1 ? 2 : 1);
+      this.game.tracer(this.x, 1.5, this.z, a, w.range);
+      this.game.hitScan(this, w.range, w.dmg, a);
+    }
+    this.game.addWanted(w.wanted, 'sparo');
   }
 
   // ------------------------------------------------------------------ camera
@@ -263,7 +339,7 @@ export class Player {
 
   serialize() {
     return { x: this.x, z: this.z, money: this.money, health: this.health, armor: this.armor,
-             weapon: this.weapon, ammo: this.ammo };
+             weapon: this.weapon, owned: this.owned, ammoOf: this.ammoOf };
   }
   restore(s) {
     if (!s) return;
@@ -272,6 +348,9 @@ export class Player {
     this.health = s.health ?? 100;
     this.armor = s.armor ?? 0;
     this.weapon = s.weapon ?? 'fists';
+    this.owned = s.owned ?? { fists: true, ...(s.weapon === 'pistol' ? { pistol: true } : {}) };
+    this.ammoOf = s.ammoOf ?? (s.ammo ? { pistol: s.ammo } : {});
+    if (!WEAPONS[this.weapon]) this.weapon = 'fists';
     this.ammo = s.ammo ?? 0;
   }
 }

@@ -2,11 +2,11 @@ import { CFG, ROAD_X, ROAD_Z, WORLD_MIN, WORLD_MAX, blockBounds } from '../core/
 import { clamp } from '../core/utils.js';
 
 const ICONS = {
-  police: '🚓', hospital: '🏥', gas: '⛽', sport: '🏀', pier: '🎡', casino: '🎰',
+  police: '🚓', hospital: '🏥', gas: '⛽', sport: '🏀', pier: '🎡', casino: '🎰', ammu: '🔫',
 };
 const LABELS = {
   police: 'Commissariato', hospital: 'Ospedale', gas: 'Distributore',
-  sport: 'Campo', pier: 'Molo', casino: 'Casinò',
+  sport: 'Campo', pier: 'Molo', casino: 'Casinò', ammu: 'Armeria',
 };
 const SHOP_ICON = {
   burger: '🍔', pharmacy: '💊', store: '🛒', ammu: '🔫',

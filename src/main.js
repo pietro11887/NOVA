@@ -7,7 +7,7 @@ import { City } from './world/city.js';
 import { SkySystem } from './world/sky.js';
 import { Post } from './systems/post.js';
 import { initModels, dressCharacter, animateCharacter, CAR_COLORS, RIM_STYLES } from './world/models.js';
-import { InteriorManager, SHOP_MENUS } from './world/interiors.js';
+import { InteriorManager, SHOP_MENUS, buildAmmuMenu } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
 import { PedManager } from './entities/pedestrian.js';
@@ -638,8 +638,14 @@ class Game {
     this.trafficT += dt;
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
+    // cambio arma: Q, rotellina, tasti 1-8, o lo scudetto nell'HUD
+    if (this.input.pressed('swap')) p.cycleWeapon(1);
+    const slot = this.input._edge.slot;
+    if (slot) p.selectSlot(slot);
     this.input.setDriveMode(p.inCar && !this.interiors.current);
-    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) p.attack();
+    if (this.input.attacking && !this.hud.shopOpen && !this.casino.open && !this.map.open) {
+      p.attack(this.input.pressed('attack'));
+    }
     p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open) ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
@@ -658,6 +664,7 @@ class Game {
     if (this.mp) this.mp.update(dt);
     this._markers(dt);
     this._tracerUpdate(dt);
+    this._rocketsUpdate(dt);
     this._effectsUpdate(dt);
     this._updateStreetLights(dt);
     this._engineSound();
@@ -771,7 +778,9 @@ class Game {
   _interiorPrompt() {
     const p = this.player;
     const act = this.input.pressed('action');
-    const menu = SHOP_MENUS[this.interiors.door.type] || SHOP_MENUS.store;
+    // l'armeria ha un listino dinamico: dipende da cosa hai gia' in tasca
+    const type = this.interiors.door.type;
+    const menu = type === 'ammu' ? buildAmmuMenu(this) : (SHOP_MENUS[type] || SHOP_MENUS.store);
 
     if (this.casino.open) {
       this.hud.prompt('<b>E</b> lascia il tavolo');
@@ -821,7 +830,9 @@ class Game {
     item.effect(this);
     if (item.price) this.audio.cash(); else this.audio.ui();
     this.toast(`${item.name} ✔`, 'good');
-    this.hud.refreshShop(menu, (i) => this.buy(i, menu));
+    // il listino dell'armeria cambia mentre compri: va ricostruito
+    const fresh = this.interiors.door && this.interiors.door.type === 'ammu' ? buildAmmuMenu(this) : menu;
+    this.hud.refreshShop(fresh, (i) => this.buy(i, fresh));
     this.save();
   }
 
@@ -935,7 +946,7 @@ class Game {
   }
 
   // ------------------------------------------------------------- combattimento
-  melee(from, range, dmg) {
+  melee(from, range, dmg, wanted = 1) {
     // se l'amico e' a tiro il colpo parte anche in rete
     const peer = this.mp && this.mp.position;
     if (peer) {
@@ -950,11 +961,12 @@ class Game {
     const hit = cop || target;
     if (!hit) return;
     hit.hit(dmg, this, from);
-    this.addWanted(cop ? 2 : 1, 'aggressione');
+    this.addWanted(cop ? Math.max(2, wanted) : wanted, 'aggressione');
   }
 
-  hitScan(from, range, dmg) {
-    const fx = Math.cos(from.a), fz = -Math.sin(from.a);
+  hitScan(from, range, dmg, angle) {
+    const a = angle === undefined ? from.a : angle;
+    const fx = Math.cos(a), fz = -Math.sin(a);
     let best = null, bestD = range;
     const consider = (e) => {
       const dx = e.x - from.x, dz = e.z - from.z;
@@ -977,9 +989,73 @@ class Game {
     }
   }
 
-  tracer(x, y, z, a) {
+  /** Razzo del lanciarazzi: vola dritto e scoppia contro il primo ostacolo. */
+  launchRocket(from, w) {
+    this.rockets = this.rockets || [];
+    if (!this._rocketGeo) {
+      this._rocketGeo = new THREE.CapsuleGeometry(0.11, 0.5, 4, 8);
+      this._rocketGeo.rotateZ(Math.PI / 2);
+      this._rocketMat = new THREE.MeshStandardMaterial({ color: 0x3a3f47, emissive: 0x552200, roughness: 0.6 });
+    }
+    const mesh = new THREE.Mesh(this._rocketGeo, this._rocketMat);
+    mesh.position.set(from.x, 1.4, from.z);
+    this.worldGroup.add(mesh);
+    this.rockets.push({
+      mesh, x: from.x, z: from.z, a: from.a, life: w.range / 42, w,
+      fx: Math.cos(from.a), fz: -Math.sin(from.a),
+    });
+  }
+
+  _rocketsUpdate(dt) {
+    if (!this.rockets || !this.rockets.length) return;
+    const SPEED = 42;
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const r = this.rockets[i];
+      r.life -= dt;
+      r.x += r.fx * SPEED * dt;
+      r.z += r.fz * SPEED * dt;
+      r.mesh.position.set(r.x, 1.4, r.z);
+      r.mesh.rotation.y = r.a;
+      this.smoke.puff(r.x, 1.4, r.z, 0, 0.3);
+      const hitWall = this.city.resolve(r.x, r.z, 0.6, this._tmpVec || (this._tmpVec = new THREE.Vector3()));
+      const hitPed = this.peds.nearest(r.x, r.z, 1.4);
+      if (r.life <= 0 || hitWall || hitPed) {
+        this.blast(r.x, r.z, r.w.blast || 6, r.w.dmg);
+        this.worldGroup.remove(r.mesh);
+        this.rockets.splice(i, 1);
+      }
+    }
+  }
+
+  /** Esplosione con raggio: danneggia bot, agenti, veicoli e te se sei vicino. */
+  blast(x, z, radius, dmg) {
+    this.explode(x, z);
+    for (const ped of this.peds.peds) {
+      const d = Math.hypot(ped.x - x, ped.z - z);
+      if (d < radius) ped.hit(dmg * (1 - d / radius), this, this.player);
+    }
+    for (const cop of this.police.cops) {
+      if (!cop.active) continue;
+      const d = Math.hypot(cop.x - x, cop.z - z);
+      if (d < radius) cop.hit(dmg * (1 - d / radius), this, this.player);
+    }
+    const cars = [...this.traffic.all(), ...this.police.cars];
+    if (this.player.car) cars.push(this.player.car);
+    for (const v of cars) {
+      const d = Math.hypot(v.x - x, v.z - z);
+      if (d >= radius) continue;
+      const k = 1 - d / radius;
+      v.health -= dmg * k * 0.7;
+      v.dentAt(x, z, 16 * k);
+    }
+    const dp = Math.hypot(this.player.x - x, this.player.z - z);
+    if (dp < radius) this.player.damage(dmg * (1 - dp / radius) * 0.5, 'esplosione');
+    this.addWanted(3, 'esplosione');
+  }
+
+  tracer(x, y, z, a, range = 26) {
     const t = this.tracers.find((k) => k.life <= 0) || this.tracers[0];
-    const len = 26;
+    const len = Math.min(range, 60);
     t.mesh.visible = true;
     t.mesh.position.set(x + Math.cos(a) * len / 2, y, z - Math.sin(a) * len / 2);
     t.mesh.rotation.set(0, a, 0);

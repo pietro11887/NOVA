@@ -9,6 +9,8 @@ const HALF_W = W / 2, HALF_D = D / 2;
 
 /* --------------------------------------------------------------- cataloghi */
 
+import { WEAPONS, WEAPON_ORDER, isGun } from '../core/weapons.js';
+
 export const SHOP_MENUS = {
   casino: {
     title: 'CASINÒ NOVA', desc: 'Slot, roulette e blackjack. Il banco ringrazia.',
@@ -43,11 +45,10 @@ export const SHOP_MENUS = {
   },
   ammu: {
     title: 'AMMU NOVA', desc: 'Protezione personale, tutto regolare (quasi).',
+    // le voci delle armi le costruisce buildAmmuMenu() dall'arsenale
     items: [
-      { id: 'armor', icon: '🛡️', name: 'Giubbotto antiproiettile', desc: 'Armatura al massimo', price: 180, effect: (g) => g.player.addArmor(100) },
-      { id: 'pistol', icon: '🔫', name: 'Pistola + 40 colpi', desc: 'Sblocca l\'arma', price: 420,
-        effect: (g) => { g.player.weapon = 'pistol'; g.player.ammo += 40; } },
-      { id: 'ammo', icon: '📦', name: '40 munizioni', desc: 'Ricarica', price: 90, effect: (g) => { g.player.ammo += 40; } },
+      { id: 'armor', icon: '🛡️', name: 'Giubbotto antiproiettile', desc: 'Armatura al massimo', price: 180,
+        effect: (g) => g.player.addArmor(100) },
     ],
   },
   clothes: {
@@ -671,4 +672,40 @@ function interiorMaterials() {
     }),
     glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
   };
+}
+
+
+/**
+ * Il listino dell'armeria si costruisce dall'arsenale: se compri gia' l'arma
+ * la voce diventa "munizioni", e le armi che non hai ancora costano di piu'.
+ */
+export function buildAmmuMenu(game) {
+  const p = game.player;
+  const items = [{
+    id: 'armor', icon: '🛡️', name: 'Giubbotto antiproiettile',
+    desc: 'Armatura al massimo', price: 180, effect: (g) => g.player.addArmor(100),
+  }];
+  for (const id of WEAPON_ORDER) {
+    const w = WEAPONS[id];
+    if (!w.price) continue;                       // i pugni non si vendono
+    if (!p.owned[id]) {
+      items.push({
+        id, icon: w.icon, name: w.name, price: w.price,
+        desc: isGun(id) ? `${w.desc} · ${w.free} colpi inclusi` : w.desc,
+        effect: (g) => { g.player.giveWeapon(id); g.toast(`${w.name} equipaggiata`, 'good'); },
+      });
+    } else if (isGun(id)) {
+      const full = (p.ammoOf[id] || 0) >= w.ammoMax;
+      items.push({
+        id: `${id}-ammo`, icon: '📦', name: `Munizioni ${w.name}`,
+        desc: full ? 'Sei al massimo' : `+${w.ammoQty} colpi (max ${w.ammoMax})`,
+        price: full ? 0 : w.ammoPrice,
+        effect: (g) => {
+          const got = g.player.addAmmo(id, w.ammoQty);
+          g.toast(got ? `+${got} munizioni` : 'Già al massimo', got ? 'good' : '');
+        },
+      });
+    }
+  }
+  return { title: 'AMMU NOVA', desc: 'Protezione personale, tutto regolare (quasi).', items };
 }

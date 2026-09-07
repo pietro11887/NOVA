@@ -30,8 +30,11 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #evade i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd23f,#3ddc84);transition:width .2s}
 #stars.evading{animation:blink .5s steps(2,end) infinite}
 @keyframes blink{50%{opacity:.25}}
-#weapon{margin-top:2px;font-size:12.5px;font-weight:700;letter-spacing:.5px;text-shadow:0 2px 6px #000c;opacity:.9}
-#weapon b{color:var(--acc)}
+#weapon{margin-top:6px;font-size:12.5px;font-weight:700;letter-spacing:.4px;pointer-events:auto;cursor:pointer;
+  background:rgba(10,14,22,.62);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:4px 10px;
+  display:inline-block;backdrop-filter:blur(6px);color:#eaf2ff}
+#weapon:active{background:rgba(255,255,255,.2)}
+#weapon b{color:var(--acc);margin-left:3px}
 
 #topright{position:absolute;top:12px;right:14px;text-align:right}
 #money{font-size:26px;font-weight:800;color:var(--good);text-shadow:0 2px 8px #000d;letter-spacing:.5px}

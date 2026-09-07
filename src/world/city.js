@@ -91,6 +91,7 @@ export class City {
     this._roads();
     this._blocks();
     this._graphs();
+    this._markGunShops();
     return this;
   }
 
@@ -1082,6 +1083,24 @@ export class City {
       if (d > minD && d < maxD) return n;
     }
     return this.walkNodes[(Math.random() * this.walkNodes.length) | 0];
+  }
+
+  /**
+   * Segna due armerie come punti di riferimento: sono negozi normali, ma
+   * cosi' si trovano sulla mappa invece di doverle cercare a caso.
+   */
+  _markGunShops() {
+    const ammu = this.doors.filter((d) => d.type === 'ammu');
+    if (!ammu.length) return;
+    // le due piu' lontane fra loro: coprono la citta' invece di stare vicine
+    let best = [ammu[0], ammu[ammu.length - 1]], bd = -1;
+    for (const a of ammu) {
+      for (const b of ammu) {
+        const d = Math.hypot(a.x - b.x, a.z - b.z);
+        if (d > bd) { bd = d; best = [a, b]; }
+      }
+    }
+    for (const d of best) this.landmarks.push({ kind: 'ammu', x: d.x, z: d.z });
   }
 
   /** Come randomWalkNode ma sulla carreggiata: serve agli eventi in strada. */

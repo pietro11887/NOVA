@@ -50,6 +50,8 @@ export class Ped {
     // carattere: decide come reagisce quando succede qualcosa
     this.mood = role === 'cop' ? 'brave' : pick(
       ['nervous', 'nervous', 'nervous', 'nosy', 'nosy', 'brave', 'calm']);
+    // quanto ha nel portafoglio: lo perde se lo stendi
+    this.wallet = role === 'cop' ? 40 + ((Math.random() * 60) | 0) : 8 + ((Math.random() * 85) | 0);
   }
 
   spawnAt(node) {
@@ -98,6 +100,18 @@ export class Ped {
   }
 
   // ------------------------------------------------------------- reazioni
+  /** Gli sfili il portafoglio quando finisce a terra. */
+  _dropWallet(game, from) {
+    if (this.looted || this.wallet <= 0) return;
+    this.looted = true;
+    // il bottino va solo a chi l'ha steso, non ai bot fra loro
+    if (from !== game.player) return;
+    const n = this.wallet;
+    this.wallet = 0;
+    game.player.earn(n);
+    game.toast(`Portafoglio: +$${n}`, 'good');
+  }
+
   knockDown(game, from) {
     if (this.state === 'down') return;
     this.state = 'down';
@@ -106,6 +120,7 @@ export class Ped {
     this.speed = 0;
     this.punchT = 0;
     game.audio.punch();
+    this._dropWallet(game, from);
     if (from) game.alarm(this.x, this.z, 26, this);
   }
 
