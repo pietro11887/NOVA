@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, pick } from '../core/utils.js';
-import { makeCar, CAR_TYPES, CAR_COLORS } from '../world/models.js';
+import { makeCar, dentCar, undentCar, CAR_TYPES, CAR_COLORS } from '../world/models.js';
 
 const TMP = { x: 0, z: 0 };
 
@@ -105,12 +105,14 @@ export class Vehicle {
     // --- collisione con la citta' (muso e coda)
     const r = spec.W * 0.5;
     let bumped = false;
+    let hitOff = 0, hitNx = 0, hitNz = 0;
     for (const off of [spec.L * 0.34, -spec.L * 0.34]) {
       const px = this.x + fx * off, pz = this.z + fz * off;
       if (this.city.resolve(px, pz, r, TMP)) {
         const dx = TMP.x - px, dz = TMP.z - pz;
         this.x += dx; this.z += dz;
         bumped = true;
+        hitOff = off; hitNx = dx; hitNz = dz;
       }
     }
     if (bumped) {
@@ -118,6 +120,10 @@ export class Vehicle {
       if (impact > 4) {
         this.health -= impact * 0.9;
         this.lastCrash = impact;
+        // il muro respinge: l'ammaccatura sta dalla parte opposta alla spinta
+        const nl = Math.hypot(hitNx, hitNz) || 1;
+        this.dentAt(this.x + fx * hitOff - (hitNx / nl) * 0.4,
+                    this.z + fz * hitOff - (hitNz / nl) * 0.4, impact);
       }
       this.setVelocity(-vLong * 0.18, vLat * 0.3);
     }
@@ -139,6 +145,19 @@ export class Vehicle {
     this.speed = long;
   }
 
+  /**
+   * Ammacca la carrozzeria nel punto d'urto (in coordinate mondo).
+   * Converte nel sistema locale dell'auto e delega al modello.
+   */
+  dentAt(wx, wz, strength) {
+    if (!this.mesh || strength < 4) return;
+    const ox = wx - this.x, oz = wz - this.z;
+    const fx = this.fx, fz = this.fz;
+    const rx = Math.sin(this.a), rz = Math.cos(this.a);
+    dentCar(this.mesh, ox * fx + oz * fz, this.spec.top * 0.45, ox * rx + oz * rz,
+      Math.min(18, strength));
+  }
+
   /** Urto tra veicoli: separazione elastica semplificata. */
   collideWith(o) {
     const dx = o.x - this.x, dz = o.z - this.z;
@@ -152,7 +171,13 @@ export class Vehicle {
     const rel = Math.abs(this.speed - o.speed);
     this.setVelocity(this.speed * 0.5, 0);
     o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
-    if (rel > 6) { this.health -= rel * 0.5; o.health -= rel * 0.5; }
+    if (rel > 6) {
+      this.health -= rel * 0.5; o.health -= rel * 0.5;
+      const cx = this.x + nx * rr * 0.42, cz = this.z + nz * rr * 0.42;   // punto di contatto
+      this.dentAt(cx, cz, rel * 0.8);
+      o.dentAt(cx, cz, rel * 0.8);
+      this.lastCrash = Math.max(this.lastCrash || 0, rel);
+    }
     return rel;
   }
 
@@ -161,7 +186,17 @@ export class Vehicle {
     this.mesh.rotation.y = this.a;
   }
 
-  setNight(on) { this.mesh.userData.lights.visible = on; }
+  setNight(on) {
+    const u = this.mesh.userData;
+    u.lights.visible = on && !u.lightsBroken;   // i fari rotti restano spenti
+  }
+
+  /** Riparazione in officina: raddrizza la lamiera e rimette i vetri. */
+  repair() {
+    this.health = 100;
+    undentCar(this.mesh);
+    this.smokeT = 0;
+  }
 
   /** Lampeggianti della polizia: i due lati si alternano. */
   updateSiren(t) {

@@ -10,30 +10,75 @@ import { GeoBuilder, pick, rand, TAU, smoothNormals } from '../core/utils.js';
 /* ------------------------------------------------------- helper geometrici */
 
 /** Collega una serie di sezioni ottagonali lungo l'asse X. */
-function hull(gb, sections, color, uv = 0.35) {
+function clampIdx(i, n) { return i < 0 ? 0 : i >= n ? n - 1 : i; }
+
+/**
+ * Scocca dell'auto. La sezione trasversale e' una superellisse: spigoli
+ * ammorbiditi come su una carrozzeria vera, invece dell'ottagono di prima.
+ */
+function hull(gb, sections, color, uv = 0.35, rings = 18) {
   const ringOf = (s) => {
     const { hw, yb, yt } = s;
-    const bx = Math.min(hw * 0.32, 0.16), by = Math.min((yt - yb) * 0.3, 0.14);
-    return [
-      [s.x, yb + by, hw], [s.x, yb, hw - bx], [s.x, yb, -(hw - bx)], [s.x, yb + by, -hw],
-      [s.x, yt - by, -hw], [s.x, yt, -(hw - bx)], [s.x, yt, hw - bx], [s.x, yt - by, hw],
-    ];
+    const h = yt - yb, cy = (yt + yb) / 2;
+    const out = [];
+    for (let i = 0; i < rings; i++) {
+      // senso orario: con l'altro verso la scocca risulta rovesciata
+      const a = -(i / rings) * TAU;
+      const ca = Math.cos(a), sa = Math.sin(a);
+      const n = 3.6;   // 2 = ellisse, molto alto = rettangolo
+      const k = Math.pow(Math.pow(Math.abs(ca), n) + Math.pow(Math.abs(sa), n), -1 / n);
+      out.push([s.x, cy + sa * k * (h / 2), ca * k * hw]);
+    }
+    return out;
+  };
+  const cap = (ring, front) => {
+    for (let i = 1; i < ring.length - 1; i++) {
+      if (front) gb.quad(ring[0], ring[i], ring[i + 1], ring[i + 1], color, uv, uv);
+      else gb.quad(ring[0], ring[i + 1], ring[i], ring[i], color, uv, uv);
+    }
   };
   let prev = ringOf(sections[0]);
-  // tappo anteriore
-  for (let i = 1; i < prev.length - 1; i++) gb.quad(prev[0], prev[i], prev[i + 1], prev[i + 1], color, uv, uv);
+  cap(prev, true);
   for (let s = 1; s < sections.length; s++) {
     const cur = ringOf(sections[s]);
-    for (let i = 0; i < 8; i++) {
-      const j = (i + 1) % 8;
+    for (let i = 0; i < rings; i++) {
+      const j = (i + 1) % rings;
       gb.quad(prev[i], cur[i], cur[j], prev[j], color, uv, uv);
     }
     prev = cur;
   }
-  for (let i = 1; i < prev.length - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, uv, uv);
+  cap(prev, false);
 }
 
-/** Cilindro/tronco di cono generico lungo l'asse Y, con tappi. */
+/**
+ * Infittisce le sezioni con una spline: la fiancata diventa una curva
+ * continua invece di una serie di scalini fra una sezione e l'altra.
+ */
+function refine(sections, sub = 4) {
+  if (sections.length < 2) return sections;
+  const at = (i) => sections[clampIdx(i, sections.length)];
+  const spline = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const out = [];
+  for (let i = 0; i < sections.length - 1; i++) {
+    const a = at(i - 1), b = at(i), c = at(i + 1), d = at(i + 2);
+    for (let k = 0; k < sub; k++) {
+      const t = k / sub;
+      out.push({
+        x: spline(a.x, b.x, c.x, d.x, t),
+        hw: Math.max(0.02, spline(a.hw, b.hw, c.hw, d.hw, t)),
+        yb: spline(a.yb, b.yb, c.yb, d.yb, t),
+        yt: spline(a.yt, b.yt, c.yt, d.yt, t),
+      });
+    }
+  }
+  out.push(sections[sections.length - 1]);
+  return out;
+}
+
 function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
   const ring = (y, r, off) => {
     const out = [];
@@ -55,8 +100,12 @@ function taper(gb, x, y0, y1, r0, r1, color, sides = 8, tilt = 0) {
 }
 
 /** Ruota completa: pneumatico con spalla, cerchio in lega e mozzo. */
-function wheel(gb, x, y, z, r, w, side) {
-  const N = 16;
+/**
+ * Ruota completa: pneumatico con spalle arrotondate, cerchio in lega a
+ * cinque razze, disco e pinza freno. E' la parte che si guarda di piu'.
+ */
+function wheel(gb, x, y, z, r, w, side, spokes = 5) {
+  const N = 20;
   const ringZ = (zz, rr) => {
     const out = [];
     for (let i = 0; i < N; i++) {
@@ -66,37 +115,47 @@ function wheel(gb, x, y, z, r, w, side) {
     return out;
   };
   const zi = z - side * w / 2, zo = z + side * w / 2;
-  const tread = ringZ(zi + side * w * 0.12, r);
-  const treadO = ringZ(zo - side * w * 0.12, r);
-  const shoulderI = ringZ(zi, r * 0.93);
-  const shoulderO = ringZ(zo, r * 0.93);
-  const rim = ringZ(zo + side * 0.004, r * 0.6);
-  const hub = ringZ(zo + side * 0.008, r * 0.2);
   const flip = side > 0;
   const q = (a, b, c, d, col) => (flip ? gb.quad(a, b, c, d, col, 1, 1) : gb.quad(d, c, b, a, col, 1, 1));
 
+  // pneumatico: battistrada piatto e due spalle, cosi' il profilo si vede
+  const treadI = ringZ(zi + side * w * 0.18, r);
+  const treadO = ringZ(zo - side * w * 0.18, r);
+  const shoulderI = ringZ(zi, r * 0.90);
+  const shoulderO = ringZ(zo, r * 0.90);
+  const bead = ringZ(zo - side * 0.005, r * 0.66);      // bordo del cerchio
+  const beadI = ringZ(zi + side * 0.005, r * 0.66);
+  const dish = ringZ(zo - side * w * 0.30, r * 0.60);   // fondo del cerchio
+  const hub = ringZ(zo - side * w * 0.26, r * 0.17);
+
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
-    q(tread[i], tread[j], treadO[j], treadO[i], 0x18191d);                 // battistrada
-    q(shoulderI[i], shoulderI[j], tread[j], tread[i], 0x131417);           // spalle
-    q(treadO[i], treadO[j], shoulderO[j], shoulderO[i], 0x131417);
-    q(shoulderO[i], shoulderO[j], rim[j], rim[i], 0x24262b);               // fianco interno
-    q(rim[i], rim[j], hub[j], hub[i], 0xb9c0c8);                           // cerchio in lega
-    // razze scure ogni tre settori: da fuori sembra un cerchio a raggi
-    if (i % 3 === 0) {
-      q([x + Math.cos((i / N) * TAU) * r * 0.55, y + Math.sin((i / N) * TAU) * r * 0.55, zo + side * 0.012],
-        [x + Math.cos(((i + 1) / N) * TAU) * r * 0.55, y + Math.sin(((i + 1) / N) * TAU) * r * 0.55, zo + side * 0.012],
-        [x + Math.cos(((i + 1) / N) * TAU) * r * 0.26, y + Math.sin(((i + 1) / N) * TAU) * r * 0.26, zo + side * 0.012],
-        [x + Math.cos((i / N) * TAU) * r * 0.26, y + Math.sin((i / N) * TAU) * r * 0.26, zo + side * 0.012],
-        0x2b2f36);
-    }
+    q(treadI[i], treadI[j], treadO[j], treadO[i], 0x1b1c20);              // battistrada
+    q(shoulderI[i], shoulderI[j], treadI[j], treadI[i], 0x131417);        // spalla interna
+    q(treadO[i], treadO[j], shoulderO[j], shoulderO[i], 0x131417);        // spalla esterna
+    q(shoulderO[i], shoulderO[j], bead[j], bead[i], 0x0f1013);            // fianco
+    q(beadI[i], beadI[j], shoulderI[j], shoulderI[i], 0x0f1013);
+    q(bead[i], bead[j], dish[j], dish[i], 0xcdd4dc);                      // labbro del cerchio
+    q(dish[i], dish[j], hub[j], hub[i], 0x1a1d22);                        // fondo scuro fra le razze
   }
-  for (let i = 1; i < N - 1; i++) {
-    q(hub[0], hub[i], hub[i + 1], hub[i + 1], 0xdfe4e8);                   // mozzo
+  // razze: pale che vanno dal mozzo al labbro, con un po' di spessore
+  for (let k = 0; k < spokes; k++) {
+    const a0 = (k / spokes) * TAU, half = (TAU / spokes) * 0.19;
+    const zf = zo - side * w * 0.24;
+    const p = (ang, rr) => [x + Math.cos(ang) * rr, y + Math.sin(ang) * rr, zf];
+    const pb = (ang, rr) => [x + Math.cos(ang) * rr, y + Math.sin(ang) * rr, zo - side * w * 0.30];
+    q(p(a0 - half, r * 0.20), p(a0 - half * 1.5, r * 0.60), p(a0 + half * 1.5, r * 0.60), p(a0 + half, r * 0.20), 0xd6dde5);
+    // fianchetto: da fuori le razze non sembrano adesivi
+    q(pb(a0 - half, r * 0.20), pb(a0 - half * 1.5, r * 0.60), p(a0 - half * 1.5, r * 0.60), p(a0 - half, r * 0.20), 0x9aa2ab);
+    q(p(a0 + half, r * 0.20), p(a0 + half * 1.5, r * 0.60), pb(a0 + half * 1.5, r * 0.60), pb(a0 + half, r * 0.20), 0x9aa2ab);
   }
+  // mozzo con dado centrale
+  for (let i = 1; i < N - 1; i++) q(hub[0], hub[i], hub[i + 1], hub[i + 1], 0xe4e9ee);
+  // disco e pinza freno, visibili fra le razze
+  const disc = ringZ(zo - side * w * 0.46, r * 0.56);
+  for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 0x5d646c);
+  gb.box(x - r * 0.34, y + r * 0.16, zo - side * w * 0.40, 0.07, r * 0.5, w * 0.22, 0xb8322c);
 }
-
-/* ------------------------------------------------------------------ auto */
 
 export const CAR_TYPES = {
   sedan: {
@@ -213,65 +272,131 @@ const shared = {};
 
 function buildCarGeo(t, kind) {
   const body = new GeoBuilder();    // verniciato (colore dal materiale)
-  const trim = new GeoBuilder();    // paraurti, ruote, griglie
+  const trim = new GeoBuilder();    // paraurti, griglie, cromature
+  const wheels = new GeoBuilder();  // separate: non si ammaccano
   const glass = new GeoBuilder();
   const lights = new GeoBuilder();
 
-  hull(body, t.body, 0xffffff);
-  // vetri: la cabina e' vetro, con un profilo leggermente piu' stretto
-  hull(glass, t.cabin.map((s) => ({ ...s, hw: s.hw * 0.99 })), 0x2b3644);
+  const bodyS = refine(t.body, 4);
+  const cabinS = refine(t.cabin, 4);
+  hull(body, bodyS, 0xffffff);
+  // vetri: la cabina e' vetro, con un profilo appena piu' stretto
+  hull(glass, cabinS.map((s) => ({ ...s, hw: s.hw * 0.985 })), 0x2b3644, 0.35, 14);
   // montanti e tetto in tinta carrozzeria
-  const roof = t.cabin.map((s) => ({ x: s.x, hw: s.hw * 0.93, yb: s.yt - 0.1, yt: s.yt }));
-  hull(body, roof, 0xffffff);
+  hull(body, cabinS.map((s) => ({ x: s.x, hw: s.hw * 0.94, yb: s.yt - 0.11, yt: s.yt })), 0xffffff, 0.35, 14);
 
-  // paraurti, mascherina, cromature
   const fr = t.body[0], rr = t.body[t.body.length - 1];
-  // profilo cromato attorno ai vetri
+  const mid = t.body[(t.body.length / 2) | 0];
+  const HW = t.W / 2;
+
+  // --- interno: si vede attraverso i vetri e cambia tutto.
+  // Tutto proporzionato all'abitacolo, se no i sedili bucano il tetto.
+  const roofY = Math.max(...t.cabin.map((c) => c.yt));
+  const floorY = t.cabin[1].yb - 0.02;
+  const ch = Math.max(0.3, roofY - floorY);
+  const cw = t.cabin[1].hw;
+  trim.box(t.cabin[1].x - 0.15, floorY + 0.03, 0, 1.9, 0.06, cw * 1.7, 0x14161a);       // pianale
+  const seatRow = (sx, hw) => {
+    for (const sz of [1, -1]) {
+      const zz = sz * hw * 0.42;
+      trim.box(sx, floorY + ch * 0.16, zz, 0.46, ch * 0.12, hw * 0.62, 0x23262c);        // seduta
+      trim.box(sx - 0.2, floorY + ch * 0.42, zz, 0.1, ch * 0.42, hw * 0.62, 0x23262c);   // schienale
+      trim.box(sx - 0.22, floorY + ch * 0.70, zz, 0.1, ch * 0.16, hw * 0.36, 0x1a1d22);  // poggiatesta
+    }
+  };
+  seatRow(t.cabin[1].x - 0.1, cw);
+  if (t.cabin.length > 3) seatRow(t.cabin[2].x - 0.05, t.cabin[2].hw);
+  trim.box(t.cabin[0].x + 0.16, floorY + ch * 0.26, 0, 0.36, ch * 0.16, t.cabin[0].hw * 1.5, 0x1a1d22);  // cruscotto
+  trim.box(t.cabin[0].x - 0.06, floorY + ch * 0.36, cw * 0.42, 0.04, ch * 0.2, ch * 0.2, 0x0f1114);      // volante
+
+  // --- griglia anteriore a listelli + prese d'aria
+  const gx = fr.x - 0.03, gW = fr.hw * 1.15;
+  trim.box(gx, fr.yb + 0.32, 0, 0.1, 0.2, gW, 0x101216);
+  for (let i = -2; i <= 2; i++) {
+    trim.box(gx + 0.02, fr.yb + 0.32 + i * 0.045, 0, 0.07, 0.018, gW * 0.96, 0x6c747d);
+  }
+  for (const s of [-1, 1]) trim.box(gx, fr.yb + 0.15, s * fr.hw * 0.62, 0.08, 0.09, 0.3, 0x14161a);
+
+  // --- paraurti con labbro, sotto scocca, minigonne
+  const frW = fr.hw * 2 + 0.03, rrW = rr.hw * 2 + 0.03;
+  trim.box(fr.x - 0.09, fr.yb + 0.13, 0, 0.26, 0.26, frW, 0x2b3037);
+  trim.box(fr.x - 0.14, fr.yb + 0.02, 0, 0.16, 0.09, frW * 0.92, 0x1b1e23);
+  trim.box(rr.x + 0.09, rr.yb + 0.13, 0, 0.26, 0.26, rrW, 0x2b3037);
+  trim.box(rr.x + 0.14, rr.yb + 0.02, 0, 0.16, 0.09, rrW * 0.92, 0x1b1e23);
+  for (const s of [-1, 1]) trim.box(0, mid.yb + 0.02, s * (HW - 0.06), t.L * 0.5, 0.08, 0.1, 0x1b1e23);
+
+  // --- linee delle portiere: solchi scuri, danno la scala all'auto
+  const doorX = [t.cabin[0].x + 0.15, t.cabin[1].x - 0.55];
+  for (const s of [-1, 1]) {
+    for (const dx of doorX) {
+      trim.box(dx, mid.yb + (mid.yt - mid.yb) * 0.5, s * (mid.hw + 0.004), 0.014, (mid.yt - mid.yb) * 0.7, 0.014, 0x24282e);
+    }
+    // maniglia
+    trim.box(t.cabin[1].x - 0.2, t.cabin[1].yb - 0.04, s * (mid.hw + 0.015), 0.2, 0.045, 0.04, 0x9aa2ab);
+    // modanatura lucida lungo la fiancata
+    trim.box(0, mid.yb + (mid.yt - mid.yb) * 0.30, s * (mid.hw + 0.006), t.L * 0.6, 0.022, 0.016, 0x4a5058);
+  }
+
+  // --- profilo cromato attorno ai vetri
   for (const s of [-1, 1]) {
     for (let i = 0; i < t.cabin.length - 1; i++) {
       const a = t.cabin[i], b = t.cabin[i + 1];
       trim.quad(
-        [a.x, a.yt - 0.02, s * (a.hw + 0.012)], [b.x, b.yt - 0.02, s * (b.hw + 0.012)],
-        [b.x, b.yb + 0.02, s * (b.hw + 0.012)], [a.x, a.yb + 0.02, s * (a.hw + 0.012)],
+        [a.x, a.yt - 0.02, s * (a.hw + 0.014)], [b.x, b.yt - 0.02, s * (b.hw + 0.014)],
+        [b.x, b.yb + 0.02, s * (b.hw + 0.014)], [a.x, a.yb + 0.02, s * (a.hw + 0.014)],
         0x9aa2ab, 1, 1);
     }
   }
-  trim.box(fr.x - 0.06, fr.yb + 0.16, 0, 0.28, 0.3, t.W * 0.9, 0x2b3037);
-  trim.box(rr.x + 0.06, rr.yb + 0.16, 0, 0.28, 0.3, t.W * 0.9, 0x2b3037);
-  trim.box(fr.x - 0.1, fr.yb + 0.42, 0, 0.16, 0.22, t.W * 0.62, 0x353b43);
-  // specchietti
+  // --- specchietti su braccetto
   for (const s of [-1, 1]) {
-    trim.box(t.cabin[0].x + 0.1, t.cabin[0].yb + 0.14, s * (t.W / 2 + 0.02), 0.24, 0.14, 0.3, 0x2f353c);
+    const mz = t.cabin[0].hw;
+    trim.box(t.cabin[0].x + 0.1, t.cabin[0].yb + 0.02, s * (mz + 0.03), 0.09, 0.04, 0.1, 0x2f353c);
+    trim.box(t.cabin[0].x + 0.14, t.cabin[0].yb + 0.06, s * (mz + 0.11), 0.15, 0.1, 0.07, 0x2f353c);
   }
-  // ruote
-  const wr = t.wheel, ww = 0.28;
+  // --- tergicristalli
+  for (const s of [-1, 1]) {
+    trim.box(t.cabin[0].x + 0.12, t.cabin[0].yb + 0.05, s * t.W * 0.18, 0.34, 0.02, 0.025, 0x1a1d22);
+  }
+
+  // --- ruote, passaruota e parafanghi
+  const wr = t.wheel, ww = 0.30;
   for (const sx of [1, -1]) {
     for (const sz of [1, -1]) {
-      wheel(trim, sx * t.wx, wr, sz * (t.W / 2 + 0.01), wr, ww, sz);
-      // passaruota scuro + parafango in tinta
-      trim.box(sx * t.wx, wr + 0.05, sz * (t.W / 2 - 0.18), wr * 2.2, wr * 1.6, 0.34, 0x14161a);
-      body.box(sx * t.wx, wr + 0.42, sz * (t.W / 2 - 0.1), wr * 2.4, 0.26, 0.32, 0xffffff);
+      wheel(wheels, sx * t.wx, wr, sz * (HW - 0.05), wr, ww, sz);
+      trim.box(sx * t.wx, wr + 0.05, sz * (HW - 0.26), wr * 2.2, wr * 1.55, 0.34, 0x101216);
+      body.box(sx * t.wx, wr + 0.34, sz * (HW - 0.14), wr * 2.3, 0.12, 0.26, 0xffffff);
     }
   }
-  // targhe
-  trim.box(fr.x - 0.12, fr.yb + 0.12, 0, 0.06, 0.16, 0.55, 0xe8e6de);
-  trim.box(rr.x + 0.12, rr.yb + 0.12, 0, 0.06, 0.16, 0.55, 0xe8e6de);
-  // scarico
-  trim.box(rr.x + 0.06, rr.yb - 0.02, 0.42, 0.28, 0.11, 0.11, 0x8d949c);
-  // tetto leggermente piu' scuro: due tinte senza costare nulla
-  const roofTop = t.cabin.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 0.005 }));
-  hull(body, roofTop, 0xd8d8d8);
 
-  // fari e stop
-  lights.box(fr.x - 0.02, fr.yb + 0.42, t.W * 0.3, 0.1, 0.22, 0.5, 0xfff0cc);
-  lights.box(fr.x - 0.02, fr.yb + 0.42, -t.W * 0.3, 0.1, 0.22, 0.5, 0xfff0cc);
-  lights.box(rr.x + 0.02, rr.yb + 0.44, t.W * 0.31, 0.09, 0.2, 0.46, 0xd82b1e);
-  lights.box(rr.x + 0.02, rr.yb + 0.44, -t.W * 0.31, 0.09, 0.2, 0.46, 0xd82b1e);
+  // --- targhe, scarichi doppi, antenna
+  trim.box(fr.x - 0.14, fr.yb + 0.10, 0, 0.05, 0.15, 0.52, 0xe8e6de);
+  trim.box(rr.x + 0.14, rr.yb + 0.10, 0, 0.05, 0.15, 0.52, 0xe8e6de);
+  for (const s of (t.spoiler ? [-1, 1] : [1])) {
+    trim.box(rr.x + 0.08, rr.yb - 0.01, s * 0.4, 0.24, 0.1, 0.1, 0x9aa2ab);
+    trim.box(rr.x + 0.16, rr.yb - 0.01, s * 0.4, 0.06, 0.12, 0.12, 0x14161a);
+  }
+  trim.box(t.cabin[t.cabin.length - 1].x, t.cabin[t.cabin.length - 1].yt + 0.13, HW * 0.55,
+    0.02, 0.26, 0.02, 0x1a1d22);
+
+  // --- tetto appena piu' scuro: due tinte senza costare nulla
+  hull(body, cabinS.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 0.005 })),
+    0xdadada, 0.35, 14);
+
+  // --- gruppi ottici: lente chiara davanti, fanale rosso con retro dietro
+  const fz = fr.hw * 0.66, rz = rr.hw * 0.66;
+  for (const s of [-1, 1]) {
+    trim.box(fr.x - 0.10, fr.yb + 0.44, s * fz, 0.08, 0.24, 0.5, 0x14161a);    // fondello dietro
+    lights.box(fr.x - 0.02, fr.yb + 0.44, s * fz, 0.09, 0.2, 0.44, 0xfff3d6);  // lente davanti
+    lights.box(fr.x - 0.04, fr.yb + 0.30, s * fz * 1.12, 0.07, 0.07, 0.18, 0xffb84a);
+    trim.box(rr.x + 0.10, rr.yb + 0.46, s * rz, 0.08, 0.23, 0.48, 0x14161a);
+    lights.box(rr.x - 0.03, rr.yb + 0.46, s * rz, 0.09, 0.19, 0.42, 0xd82b1e);
+    lights.box(rr.x - 0.02, rr.yb + 0.46, s * rz * 0.45, 0.07, 0.1, 0.13, 0xf0e6d2);
+  }
 
   if (kind === 'police') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.1, 0, 1.15, 0.14, 1.2, 0x1a1d24);
-    trim.box(0, t.body[2].yt + 0.02, t.W / 2 - 0.02, 2.2, 0.5, 0.06, 0xf0f2f5);   // fascia laterale
-    trim.box(0, t.body[2].yt + 0.02, -(t.W / 2 - 0.02), 2.2, 0.5, 0.06, 0xf0f2f5);
+    trim.box(0, t.body[2].yt + 0.02, HW - 0.02, 2.2, 0.5, 0.06, 0xf0f2f5);
+    trim.box(0, t.body[2].yt + 0.02, -(HW - 0.02), 2.2, 0.5, 0.06, 0xf0f2f5);
   }
   if (kind === 'taxi') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.18, 0, 0.85, 0.3, 0.42, 0xf4c920);
@@ -284,20 +409,19 @@ function buildCarGeo(t, kind) {
   if (kind === 'ambulance') {
     trim.box(t.cabin[1].x, t.cabin[1].yt + 0.14, 0, 1.2, 0.16, 1.3, 0xe8ecef);
     for (const s of [-1, 1]) {
-      trim.box(0, 1.5, s * (t.W / 2 - 0.01), 3.2, 0.34, 0.05, 0xd0342c);       // fascia rossa
-      trim.box(0.4, 2.0, s * (t.W / 2 - 0.01), 0.9, 0.24, 0.06, 0xd0342c);     // croce
-      trim.box(0.4, 2.0, s * (t.W / 2 - 0.01), 0.24, 0.9, 0.06, 0xd0342c);
+      trim.box(0, 1.5, s * (HW - 0.01), 3.2, 0.34, 0.05, 0xd0342c);
+      trim.box(0.4, 2.0, s * (HW - 0.01), 0.9, 0.24, 0.06, 0xd0342c);
+      trim.box(0.4, 2.0, s * (HW - 0.01), 0.24, 0.9, 0.06, 0xd0342c);
     }
   }
   if (kind === 'bus') {
-    for (const s of [-1, 1]) {
-      trim.box(0, 1.15, s * (t.W / 2 - 0.01), 8.6, 0.24, 0.05, 0x2f6fd0);
-    }
-    trim.box(4.1, 2.85, 0, 1.2, 0.34, 1.6, 0x1b2027);      // display di linea
+    for (const s of [-1, 1]) trim.box(0, 1.15, s * (HW - 0.01), 8.6, 0.24, 0.05, 0x2f6fd0);
+    trim.box(4.1, 2.85, 0, 1.2, 0.34, 1.6, 0x1b2027);
   }
   return {
-    body: smoothNormals(body.build(), 0.95),
+    body: smoothNormals(body.build(), 0.9),
     trim: trim.build(),
+    wheels: wheels.build(),
     glass: smoothNormals(glass.build(), 1.2),
     lights: lights.build(),
   };
@@ -309,6 +433,11 @@ export function initModels(quality) {
   shared.glassMat = new THREE.MeshStandardMaterial({
     color: 0x10161e, roughness: 0.14, metalness: 0.08, envMapIntensity: 0.85,
     transparent: true, opacity: 0.9,
+  });
+  // vetro incrinato: opaco e bianchiccio, come un parabrezza andato
+  shared.crackedGlassMat = new THREE.MeshStandardMaterial({
+    map: crackedGlassTexture(), color: 0x9aa6b4, roughness: 0.72, metalness: 0,
+    envMapIntensity: 0.3, transparent: true, opacity: 0.86,
   });
   shared.lightMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   shared.geo = {};
@@ -324,6 +453,78 @@ export function initModels(quality) {
   return shared;
 }
 
+/**
+ * Ammacca la carrozzeria attorno al punto d'impatto.
+ * La geometria e' condivisa fra tutte le auto dello stesso tipo, quindi al
+ * primo urto questa vettura si prende una copia tutta sua.
+ */
+export function dentCar(group, lx, ly, lz, strength) {
+  const u = group.userData;
+  if (!u.dentable) return;
+  if (!u.owned) {
+    for (const m of u.dentable) m.geometry = m.geometry.clone();
+    u.owned = true;
+    u.dents = 0;
+  }
+  u.dents = (u.dents || 0) + strength;
+
+  // piu' l'auto e' gia' malmessa, meno cede: se no dopo tre urti e' un riccio
+  const worn = 1 / (1 + u.dents * 0.012);
+  const R = 0.85 + strength * 0.03;          // raggio dell'ammaccatura
+  const depth = Math.min(0.21, 0.03 + strength * 0.012) * worn;
+  for (const m of u.dentable) {
+    const pos = m.geometry.attributes.position;
+    const col = m.geometry.attributes.color;
+    const a = pos.array;
+    for (let i = 0; i < a.length; i += 3) {
+      const dx = a[i] - lx, dy = a[i + 1] - ly, dz = a[i + 2] - lz;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > R) continue;
+      const k = (1 - d / R) ** 2;
+      // rientra verso il punto d'urto, con un po' di piega irregolare
+      const inv = d > 0.001 ? 1 / d : 0;
+      a[i] -= dx * inv * depth * k;
+      a[i + 1] -= dy * inv * depth * k * 0.55;
+      a[i + 2] -= dz * inv * depth * k;
+      const j2 = depth * k * 0.35;
+      a[i] += (Math.random() - 0.5) * j2;
+      a[i + 1] += (Math.random() - 0.5) * j2;
+      a[i + 2] += (Math.random() - 0.5) * j2;
+      // la vernice si graffia e si sporca dove ha preso
+      if (col) {
+        const f = 1 - k * 0.3;
+        col.array[i] *= f; col.array[i + 1] *= f; col.array[i + 2] *= f;
+      }
+    }
+    pos.needsUpdate = true;
+    if (col) col.needsUpdate = true;
+    m.geometry.computeVertexNormals();
+    m.geometry.computeBoundingSphere();
+  }
+
+  // vetri incrinati e fari spenti quando l'auto e' messa male
+  if (u.dents > 14 && u.glass && u.glass.material !== shared.crackedGlassMat) {
+    u.glass.material = shared.crackedGlassMat;
+  }
+  if (u.dents > 22 && u.lights) { u.lightsBroken = true; u.lights.visible = false; }
+}
+
+/** Rimette a nuovo la carrozzeria (officina). */
+export function undentCar(group) {
+  const u = group.userData;
+  if (!u.owned || !u.dentable) return;
+  const g = shared.geo[u.geoKey] || shared.geo.sedan;
+  const fresh = { body: g.body, trim: g.trim, glass: g.glass };
+  for (const m of u.dentable) {
+    m.geometry.dispose();
+    m.geometry = fresh[m.userData.part];
+  }
+  u.owned = false;
+  u.dents = 0;
+  u.lightsBroken = false;
+  if (u.glass) u.glass.material = shared.glassMat;
+}
+
 export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   const key = kind === 'civil' ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
@@ -335,14 +536,15 @@ export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   });
   const body = new THREE.Mesh(g.body, bodyMat);
   const trim = new THREE.Mesh(g.trim, shared.trimMat);
+  const wheels = new THREE.Mesh(g.wheels, shared.trimMat);
   const glass = new THREE.Mesh(g.glass, shared.glassMat);
   const lights = new THREE.Mesh(g.lights, shared.lightMat);
   lights.visible = false;
   if (shared.quality.shadows) {
-    body.castShadow = trim.castShadow = true;
+    body.castShadow = trim.castShadow = wheels.castShadow = true;
     body.receiveShadow = true;
   }
-  group.add(body, trim, glass, lights);
+  group.add(body, trim, wheels, glass, lights);
 
   if (!shared.quality.shadows) {
     const sh = new THREE.Mesh(shared.shadowGeo, shared.shadowMat);
@@ -363,6 +565,12 @@ export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   }
   group.userData.bodyMat = bodyMat;
   group.userData.lights = lights;
+  group.userData.glass = glass;
+  group.userData.geoKey = key;
+  body.userData.part = 'body';
+  trim.userData.part = 'trim';
+  glass.userData.part = 'glass';
+  group.userData.dentable = [body, trim, glass];
   return group;
 }
 
@@ -554,6 +762,39 @@ function buildShin(c) {
     { y: -0.28, rx: 0.048, rz: 0.05, color: c.shoes },
   ], c.shoes, 8, false);
   return smoothNormals(gb.build(), 1.15);
+}
+
+/** Ragnatela di crepe su canvas, per il parabrezza rotto. */
+function crackedGlassTexture() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#c9d3de';
+  ctx.fillRect(0, 0, S, S);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  for (let k = 0; k < 3; k++) {
+    const cx = 40 + Math.random() * (S - 80), cy = 40 + Math.random() * (S - 80);
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      let x = cx, y = cy;
+      ctx.lineWidth = 1 + Math.random();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let j = 0; j < 5; j++) {
+        x += Math.cos(a + (Math.random() - 0.5)) * (8 + Math.random() * 16);
+        y += Math.sin(a + (Math.random() - 0.5)) * (8 + Math.random() * 16);
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    for (let r = 8; r < 46; r += 12) {
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 export function makeCharacter(opts = {}) {
