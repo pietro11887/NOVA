@@ -310,7 +310,7 @@ export function asphaltSet() {
     for (let x = 0; x < S; x++) {
       const grain = fbm(n, (x / S) * 90, (y / S) * 90, 3);
       const patch = fbm(n, (x / S) * 4 + 30, (y / S) * 4, 3);
-      let v = 52 + grain * 46 + (patch - 0.5) * 26;
+      let v = 46 + grain * 34 + (patch - 0.5) * 20;
       const i = (y * S + x) * 4;
       img.data[i] = v * 0.96; img.data[i + 1] = v * 0.98; img.data[i + 2] = v * 1.08; img.data[i + 3] = 255;
     }
@@ -348,16 +348,26 @@ export function sidewalkSet() {
     for (let x = 0; x < S; x++) {
       const g = fbm(n, (x / S) * 60, (y / S) * 60, 3);
       const stain = fbm(n, (x / S) * 3, (y / S) * 3 + 12, 4);
-      const v = 150 + g * 32 - (1 - stain) * 34;
+      // cemento chiaro da marciapiede californiano, non grigio scuro
+      const v = 186 + g * 26 - (1 - stain) * 22;
       const i = (y * S + x) * 4;
-      img.data[i] = v; img.data[i + 1] = v * 0.99; img.data[i + 2] = v * 0.94; img.data[i + 3] = 255;
+      img.data[i] = v; img.data[i + 1] = v * 0.995; img.data[i + 2] = v * 0.955; img.data[i + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
-  // giunti tra le lastre (2 x 2 lastre per piastrella = 2 m)
-  ctx.strokeStyle = 'rgba(60,58,54,0.55)';
-  ctx.lineWidth = 4;
+  // inerte: la ghiaietta fine che si vede da vicino nel cemento
+  const agg = mulberry32(707);
+  for (let i = 0; i < 5200; i++) {
+    const a = 0.05 + agg() * 0.09;
+    ctx.fillStyle = agg() < 0.5 ? `rgba(255,255,255,${a})` : `rgba(90,86,80,${a})`;
+    ctx.fillRect(agg() * S, agg() * S, 1 + agg() * 1.6, 1 + agg() * 1.6);
+  }
+  // giunti tra le lastre: solco scuro con lo spigolo chiaro accanto
   for (const p of [0, 0.5, 1]) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(p * S, 0); ctx.lineTo(p * S, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p * S); ctx.lineTo(S, p * S); ctx.stroke();
+    ctx.strokeStyle = 'rgba(52,50,46,0.62)'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(p * S, 0); ctx.lineTo(p * S, S); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, p * S); ctx.lineTo(S, p * S); ctx.stroke();
   }
@@ -370,7 +380,7 @@ export function sidewalkSet() {
     for (let k = 0; k < 4; k++) { x += (rng() - 0.5) * 60; y += (rng() - 0.5) * 60; ctx.lineTo(x, y); }
     ctx.stroke();
   }
-  return { map: tex(c), normal: normalFrom(c, 0.8) };
+  return { map: tex(c), normal: normalFrom(c, 1.15) };
 }
 
 /* ------------------------------------------------------------ vegetazione */

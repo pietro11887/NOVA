@@ -328,6 +328,19 @@ export class City {
           const dx = sx > sz ? 0 : (cx > b.cx ? -sx / 2 : sx / 2);
           const dz = sx > sz ? (cz > b.cz ? -sz / 2 : sz / 2) : 0;
           det.box(cx - dx, CURB / 2 + 0.005, cz - dz, ex, CURB + 0.01, ez, 0xcac4b6);
+          // tratti di divieto dipinti sul cordolo: rosso o giallo, a spezzoni
+          const along = sx > sz ? sx : sz;
+          const paintRng = mulberry32((i * 131 + j * 17 + (sx > sz ? 1 : 2) + (dx + dz) * 7) | 0);
+          for (let k = 0; k < 3; k++) {
+            if (paintRng() > 0.34) continue;
+            const t = (paintRng() - 0.5) * 0.62;
+            const len = along * (0.14 + paintRng() * 0.18);
+            const col = paintRng() < 0.7 ? 0xb4342c : 0xd8a520;
+            det.box(
+              cx - dx + (sx > sz ? along * t : 0), CURB / 2 + 0.012, cz - dz + (sx > sz ? 0 : along * t),
+              sx > sz ? len : 0.175, CURB - 0.02, sx > sz ? 0.175 : len, col
+            );
+          }
         }
       }
     }
@@ -950,8 +963,9 @@ export class City {
     ];
     for (const e of edges) {
       const horiz = e.along === 'x';
-      void horiz;
       const len = horiz ? (b.x1 - b.x0) : (b.z1 - b.z0);
+      // punto sul bordo, misurato in frazione della lunghezza dell'isolato
+      const at = (t) => (horiz ? { x: b.cx + len * t, z: e.z } : { x: e.x, z: b.cz + len * t });
       for (const t of [-0.3, 0.3]) {
         const x = horiz ? b.cx + len * t : e.x;
         const z = horiz ? e.z : b.cz + len * t;
@@ -972,14 +986,18 @@ export class City {
       if (rng() < 0.4) P.hydrant(horiz ? b.cx - len * 0.42 : e.x, horiz ? e.z : b.cz - len * 0.42);
       if (rng() < 0.35) P.bench(horiz ? b.cx : e.x, horiz ? e.z : b.cz, e.dir);
       if (rng() < 0.22) P.busStop(horiz ? b.cx + len * 0.2 : e.x, horiz ? e.z : b.cz + len * 0.2, e.dir);
-      if (rng() < 0.5) {
-        for (let k = -1; k <= 1; k++) {
-          P.meter(horiz ? b.cx + len * 0.18 + k * 2 : e.x, horiz ? e.z : b.cz + len * 0.18 + k * 2);
+      // fila di parchimetri lungo il bordo: nei viali ce n'e' uno ogni posto auto
+      if (rng() < 0.62) {
+        const n = 5 + ((rng() * 4) | 0);
+        const start = -0.34 + rng() * 0.12;
+        for (let k = 0; k < n; k++) {
+          const t = start + k * 0.11;
+          if (t > 0.42) break;
+          const q = at(t);
+          P.meter(q.x, q.z);
         }
       }
       if (rng() < 0.3) P.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
-      // arredo minuto: e' quello che riempie il marciapiede e lo fa sembrare vero
-      const at = (t) => (horiz ? { x: b.cx + len * t, z: e.z } : { x: e.x, z: b.cz + len * t });
       if (rng() < 0.4) { const q = at(-0.36); P.newsbox(q.x, q.z, e.dir); }
       if (rng() < 0.18) { const q = at(0.36); P.phoneBooth(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 0.55, hz: 0.55 }); }
       // le rastrelliere diventano punti dove trovi una bici vera da prendere
