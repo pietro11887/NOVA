@@ -1033,12 +1033,15 @@ class Game {
     const hit = cop || target;
     if (!hit) return;
     hit.hit(dmg, this, from);
+    this.smoke.hit(hit.x, 1.25, hit.z, 0xc0392b, 4, 0.8);
     this.addWanted(cop ? Math.max(2, wanted) : wanted, 'aggressione');
   }
 
   hitScan(from, range, dmg, angle) {
     const a = angle === undefined ? from.a : angle;
     const fx = Math.cos(a), fz = -Math.sin(a);
+    // lampo alla bocca dell'arma
+    this.smoke.hit(from.x + fx * 0.9, 1.45, from.z + fz * 0.9, 0xffd08a, 3, 0.5);
     let best = null, bestD = range;
     const consider = (e) => {
       const dx = e.x - from.x, dz = e.z - from.z;
@@ -1051,7 +1054,12 @@ class Game {
     for (const c of this.police.cops) if (c.active && c.state !== 'down') consider(c);
     if (best) {
       best.hit(dmg, this, from);
+      this.smoke.hit(best.x, 1.2, best.z, 0xc0392b, 6, 1.1);      // sangue
       if (best.role === 'cop') this.addWanted(2, 'agente colpito');
+    } else {
+      // niente bersaglio: scintille dove finisce il colpo
+      const d = Math.min(range, 30);
+      this.smoke.hit(from.x + fx * d, 1.2, from.z + fz * d, 0xbfc6cf, 3, 0.9);
     }
     for (const v of this.police.cars) {
       if (!v.active) continue;

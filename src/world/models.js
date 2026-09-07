@@ -262,6 +262,11 @@ CAR_TYPES.ambulance = {
   ],
 };
 
+export const JACKETS = [
+  0x2b3038, 0x1f2a3a, 0x3a2b24, 0x2f4a3a, 0x4a2b34, 0x1a1d22,
+  0x5a4436, 0x2f3f5a, 0x6b3b2a, 0x3c3f46,
+];
+
 export const CAR_COLORS = [
   0xa8232b, 0x1d4f8f, 0xe6e4de, 0x121418, 0x1f7a4a, 0xe0a62c, 0x6f767e,
   0x53308f, 0xd45f18, 0x0f8fa8, 0xa9b2bd, 0x4a2c18, 0xd6c9ae, 0x24354d,
@@ -696,8 +701,59 @@ function buildBody(c) {
     { y: 1.51, rx: 0.120, rz: 0.085, color: shirt },
   ], shirt, 12);
 
-  // --- spalle arrotondate
-  for (const s of [-1, 1]) blob(gb, 0, 1.465, s * 0.175, 0.085, 0.085, 0.09, shirt, 10, 6);
+  // --- spalle: nel colore del capo, se no la giacca lascia due palle chiare
+  const shoulderCol = c.outfit === 'tee' ? shirt : c.jacket;
+  const shoulderZ = c.outfit === 'tee' ? 0.175 : 0.196;
+  for (const s of [-1, 1]) blob(gb, 0, 1.462, s * shoulderZ, 0.092, 0.092, 0.098, shoulderCol, 10, 6);
+
+  // --- capo d'abbigliamento: giacca aperta, felpa col cappuccio o maglietta
+  if (c.outfit === 'jacket') {
+    const j = c.jacket;
+    // guscio leggermente piu' largo del busto, aperto sul davanti
+    loft(gb, [
+      { y: 1.06, rx: 0.162, rz: 0.112, color: j },
+      { y: 1.20, rx: 0.166, rz: 0.114, color: j },
+      { y: 1.34, rx: 0.192, rz: 0.126, color: j },
+      { y: 1.45, rx: 0.198, rz: 0.126, color: j },
+      { y: 1.49, rx: 0.190, rz: 0.118, color: j },
+    ], j, 12, false);
+    // risvolti del bavero
+    for (const s of [-1, 1]) {
+      gb.box(0.098, 1.40, s * 0.055, 0.05, 0.24, 0.07, j);
+      gb.box(0.086, 1.47, s * 0.085, 0.05, 0.1, 0.09, j);
+    }
+    // cerniera e tasche
+    gb.box(0.108, 1.26, 0, 0.02, 0.34, 0.026, 0x8d949c);
+    for (const s of [-1, 1]) gb.box(0.096, 1.13, s * 0.09, 0.03, 0.07, 0.09, j);
+  } else if (c.outfit === 'hoodie') {
+    const j = c.jacket;
+    loft(gb, [
+      { y: 1.04, rx: 0.168, rz: 0.116, color: j },
+      { y: 1.22, rx: 0.172, rz: 0.118, color: j },
+      { y: 1.36, rx: 0.198, rz: 0.130, color: j },
+      { y: 1.47, rx: 0.200, rz: 0.128, color: j },
+      { y: 1.50, rx: 0.188, rz: 0.116, color: j },
+    ], j, 12, false);
+    // cappuccio appoggiato sulle spalle
+    blob(gb, -0.075, 1.52, 0, 0.105, 0.075, 0.125, j, 10, 6);
+    blob(gb, -0.055, 1.46, 0, 0.115, 0.06, 0.135, j, 10, 6);
+    // tasca a marsupio e cordoncino
+    gb.box(0.098, 1.12, 0, 0.035, 0.13, 0.22, j);
+    for (const s of [-1, 1]) gb.box(0.104, 1.33, s * 0.03, 0.014, 0.16, 0.014, 0xe8e4dc);
+  }
+
+  // --- cintura: separa il busto dai pantaloni
+  loft(gb, [
+    { y: 0.99, rx: 0.158, rz: 0.106, color: c.belt },
+    { y: 1.04, rx: 0.156, rz: 0.104, color: c.belt },
+  ], c.belt, 12, false);
+  gb.box(0.108, 1.015, 0, 0.03, 0.05, 0.06, 0xc9a24a);        // fibbia
+
+  // --- colletto
+  loft(gb, [
+    { y: 1.487, rx: 0.088, rz: 0.072, color: c.outfit === 'tee' ? shirt : c.jacket },
+    { y: 1.535, rx: 0.080, rz: 0.066, color: c.outfit === 'tee' ? shirt : c.jacket },
+  ], shirt, 10, false);
 
   // --- collo e testa
   loft(gb, [
@@ -740,13 +796,14 @@ function buildBody(c) {
 function buildArm(c) {
   const gb = new GeoBuilder();
   const sleeve = c.sleeve;
+  const bulk = c.outfit === 'tee' ? 1 : 1.16;    // la giacca ingrossa la manica
   loft(gb, [
-    { y: 0.02, rx: 0.062, rz: 0.062, color: sleeve },
-    { y: -0.10, rx: 0.058, rz: 0.058, color: sleeve },
-    { y: -0.19, rx: 0.052, rz: 0.052, color: c.shortSleeve ? c.skin : sleeve },
-    { y: -0.30, rx: 0.047, rz: 0.047, color: c.shortSleeve ? c.skin : sleeve },
+    { y: 0.02, rx: 0.062 * bulk, rz: 0.062 * bulk, color: sleeve },
+    { y: -0.10, rx: 0.058 * bulk, rz: 0.058 * bulk, color: sleeve },
+    { y: -0.19, rx: 0.052 * bulk, rz: 0.052 * bulk, color: c.shortSleeve ? c.skin : sleeve },
+    { y: -0.30, rx: 0.047 * bulk, rz: 0.047 * bulk, color: c.shortSleeve ? c.skin : sleeve },
   ], c.skin, 9);
-  blob(gb, 0, -0.30, 0, 0.048, 0.048, 0.048, c.shortSleeve ? c.skin : sleeve, 8, 6);  // gomito
+  blob(gb, 0, -0.30, 0, 0.048 * bulk, 0.048 * bulk, 0.048 * bulk, c.shortSleeve ? c.skin : sleeve, 8, 6);  // gomito
   return smoothNormals(gb.build(), 1.15);
 }
 
@@ -843,7 +900,12 @@ export function makeCharacter(opts = {}) {
     shortSleeve: Math.random() < 0.6,
     shorts: Math.random() < 0.25,
     sleeve: shirt,
+    // sopra la maglietta: niente, giacca o felpa
+    outfit: opts.outfit ?? pick(['tee', 'tee', 'jacket', 'jacket', 'hoodie']),
+    jacket: opts.jacket ?? pick(JACKETS),
+    belt: pick([0x2b2119, 0x1a1d22, 0x3a2b1e]),
   };
+  if (c.outfit !== 'tee') { c.shortSleeve = false; c.sleeve = c.jacket; }
 
   const group = new THREE.Group();
   const bodyGeo = buildBody(c);
@@ -855,8 +917,9 @@ export function makeCharacter(opts = {}) {
   const torso = new THREE.Mesh(bodyGeo, shared.bodyMat);
   torso.position.y = WAIST;
   // le braccia sono figlie del busto: seguono torsioni e inclinazioni
-  const larm = new THREE.Mesh(armGeo, shared.bodyMat); larm.position.set(0, SHOULDER - WAIST, 0.175);
-  const rarm = new THREE.Mesh(armGeo, shared.bodyMat); rarm.position.set(0, SHOULDER - WAIST, -0.175);
+  const armZ = c.outfit === 'tee' ? 0.175 : 0.196;
+  const larm = new THREE.Mesh(armGeo, shared.bodyMat); larm.position.set(0, SHOULDER - WAIST, armZ);
+  const rarm = new THREE.Mesh(armGeo, shared.bodyMat); rarm.position.set(0, SHOULDER - WAIST, -armZ);
   const lleg = new THREE.Mesh(legGeo, shared.bodyMat); lleg.position.set(0, HIP, 0.085);
   const rleg = new THREE.Mesh(legGeo, shared.bodyMat); rleg.position.set(0, HIP, -0.085);
   // gomiti e ginocchia: i segmenti bassi sono figli di quelli alti e si piegano

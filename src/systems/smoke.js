@@ -20,7 +20,7 @@ export class Smoke {
     this.mesh.renderOrder = 3;
     game.scene.add(this.mesh);
     this.p = [];
-    for (let i = 0; i < MAX; i++) this.p.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, hot: 0 });
+    for (let i = 0; i < MAX; i++) this.p.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, hot: 0, tint: null });
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._v = new THREE.Vector3();
@@ -41,6 +41,7 @@ export class Smoke {
     p.vz = (Math.random() - 0.5) * 0.5;
     p.s = hot ? 0.5 + Math.random() * 0.4 : 0.7 + Math.random() * 0.6;
     p.hot = hot;
+    p.tint = null;
   }
 
   update(dt, cars) {
@@ -76,6 +77,7 @@ export class Smoke {
       // il fumo schiarisce e svanisce, la fiamma passa da giallo a rosso
       const fade = Math.sin(Math.min(1, t * 1.15) * Math.PI) * (p.hot ? 1 : 0.5);
       if (p.hot) this._c.setRGB(1.6 * fade, (0.9 - t * 0.7) * fade, 0.15 * fade);
+      else if (p.tint) this._c.copy(p.tint).multiplyScalar(fade * 1.6);
       else {
         const g = (0.22 + t * 0.3) * fade;
         this._c.setRGB(g, g, g * 1.02);
@@ -88,6 +90,26 @@ export class Smoke {
     if (n) {
       this.mesh.instanceMatrix.needsUpdate = true;
       if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  /**
+   * Impatto: pochi sbuffi corti e colorati. Bianco per il muro, rosso per
+   * chi si becca il colpo, giallo per il lampo alla bocca dell'arma.
+   */
+  hit(x, y, z, tint = 0xffffff, n = 5, force = 1) {
+    const c = new THREE.Color(tint);
+    for (let i = 0; i < n; i++) {
+      const p = this.p.find((q) => q.life <= 0);
+      if (!p) return;
+      p.life = p.max = 0.18 + Math.random() * 0.22;
+      p.x = x; p.y = y; p.z = z;
+      p.vx = (Math.random() - 0.5) * 3 * force;
+      p.vy = (Math.random() - 0.2) * 2.2 * force;
+      p.vz = (Math.random() - 0.5) * 3 * force;
+      p.s = 0.12 + Math.random() * 0.2;
+      p.hot = 0;
+      p.tint = c;
     }
   }
 
