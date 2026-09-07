@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Anteprima veicoli importati</title>
+<style>
+  body { margin: 0; background: #202225; }
+  canvas { display: block; }
+</style>
+<canvas id="c"></canvas>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three.module.min.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { loadMeshPack } from '../src/world/meshpack.js';
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(1280, 900);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2d31);
+const camera = new THREE.PerspectiveCamera(38, 1280 / 900, 0.5, 400);
+
+const sun = new THREE.DirectionalLight(0xfff3e2, 2.6);
+sun.position.set(14, 22, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
+sun.shadow.camera.top = 22; sun.shadow.camera.bottom = -22;
+scene.add(sun, new THREE.HemisphereLight(0xbcd8ff, 0x50483c, 0.9));
+
+/*
+ * Ambiente: senza mappa d'ambiente le superfici metalliche non hanno nulla
+ * da riflettere e vengono nere. Basta un cielo a gradiente.
+ */
+const envScene = new THREE.Scene();
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(50, 24, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'varying vec3 vP; void main(){ float t = clamp(vP.y/50.0*0.5+0.5,0.0,1.0); vec3 c = mix(vec3(0.28,0.26,0.24), vec3(0.55,0.68,0.95), t); c += pow(t,8.0)*2.0; gl_FragColor = vec4(c,1.0); }',
+  })
+);
+envScene.add(sky);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(envScene, 0.03).texture;
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x3b3f45, roughness: 0.9 })
+);
+floor.rotateX(-Math.PI / 2);
+floor.receiveShadow = true;
+scene.add(floor);
+
+const RIM = {
+  compact: 'wheel_c', coupe: 'wheel_1', hatchback: 'wheel_b', minivan: 'wheel_d',
+  offroad: 'wheel_g', pickup: 'wheel_e', sedan: 'wheel_a', sport: 'wheel_h',
+  suv: 'wheel_e', wagon: 'wheel_a',
+};
+
+const loader = new THREE.TextureLoader();
+const tex = (name, srgb) => {
+  const t = loader.load(`../assets/tex/${name}.jpg`);
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  t.anisotropy = 8;
+  return t;
+};
+
+const pack = await loadMeshPack('cars.bin', '../assets/models/');
+const names = Object.keys(pack);
+console.log('veicoli:', names.join(', '));
+
+const box = new THREE.Box3();
+names.forEach((name, i) => {
+  const col = i % 4, row = (i / 4) | 0;
+  const group = new THREE.Group();
+  group.position.set((col - 1.5) * 7.5, 0, (row - 1) * 7.5);
+
+  const bodyMat = new THREE.MeshStandardMaterial({
+    map: tex(`car_${name}_c`, true),
+    roughnessMap: tex(`car_${name}_s`, false),
+    metalnessMap: tex(`car_${name}_s`, false),
+    roughness: 1, metalness: 1,
+  });
+  const rimMat = new THREE.MeshStandardMaterial({
+    map: tex(`rim_${RIM[name]}_c`, true),
+    roughnessMap: tex(`rim_${RIM[name]}_s`, false),
+    metalnessMap: tex(`rim_${RIM[name]}_s`, false),
+    roughness: 1, metalness: 1,
+  });
+
+  for (const [role, geo] of Object.entries(pack[name])) {
+    const m = new THREE.Mesh(geo, role === 'body' ? bodyMat : rimMat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  // etichetta: un piano col nome, per riconoscere i modelli nello scatto
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 64;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#11131500'; cx.fillRect(0, 0, 256, 64);
+  cx.fillStyle = '#ffffff'; cx.font = 'bold 34px system-ui'; cx.textAlign = 'center';
+  cx.fillText(name, 128, 44);
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 0.65),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, toneMapped: false })
+  );
+  label.position.set(0, 0.02, 3.1);
+  label.rotateX(-Math.PI / 2);
+  group.add(label);
+
+  scene.add(group);
+  box.expandByObject(group);
+});
+
+camera.position.set(13, 12, 17);
+camera.lookAt(0, 0.4, 0);
+
+// le texture arrivano quando arrivano: si ridisegna finche' non ci sono tutte
+let frames = 0;
+(function loop() {
+  renderer.render(scene, camera);
+  if (++frames > 90) { renderer.getContext().finish(); window.__ready = true; return; }
+  requestAnimationFrame(loop);
+})();
+window.__names = names;
+</script>
