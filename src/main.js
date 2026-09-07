@@ -94,7 +94,7 @@ class Game {
     this.input = new Input(this.canvas);
     // ingressi neutri: quando un menu e' aperto il personaggio resta fermo
     this.frozenInput = {
-      look: { x: 0, y: 0 }, forward: 0, strafe: 0, throttle: 0, running: false, braking: false,
+      look: { x: 0, y: 0 }, forward: 0, strafe: 0, steering: 0, throttle: 0, running: false, braking: false,
       invertY: false, btn: { action: false, attack: false, jump: false, run: false },
       pressed: () => false,
     };

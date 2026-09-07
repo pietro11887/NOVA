@@ -81,17 +81,17 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #stick-base.on{opacity:1}
 #stick-knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
   background:#ffffffcc;box-shadow:0 3px 14px #0008}
-#stick-zone-r{position:absolute;right:0;bottom:0;width:34%;height:62%;pointer-events:auto}
-#stick-base-r{position:absolute;width:92px;height:150px;border-radius:46px;border:2px solid #ffffff33;
+#stick-zone-r{position:absolute;right:0;bottom:0;width:45%;height:52%;pointer-events:auto}
+#stick-base-r{position:absolute;width:158px;height:92px;border-radius:46px;border:2px solid #ffffff33;
   background:#ffffff12;left:0;top:0;opacity:0;transition:opacity .14s;backdrop-filter:blur(2px)}
 #stick-base-r.on{opacity:1}
 #stick-base-r.ghost{opacity:.45}
 #stick-knob-r{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
   background:#ffd23fdd;box-shadow:0 3px 14px #0008}
-#stick-base-r em{position:absolute;left:0;right:0;text-align:center;font-style:normal;font-size:9px;
+#stick-base-r em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:13px;
   letter-spacing:1px;color:#ffffffb0}
-#stick-base-r .lever-up{top:6px}
-#stick-base-r .lever-down{bottom:6px}
+#stick-base-r .lever-left{left:10px}
+#stick-base-r .lever-right{right:10px}
 
 #pad{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + var(--pad));
   width:158px;height:150px;pointer-events:none}
@@ -146,6 +146,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 .item.cant{opacity:.45}
 
 @media (max-height:430px){
+  #weatherchip{top:156px}
+  #radiochip{top:158px}
   #mission-panel{max-width:min(38vw,240px);padding:6px 10px}
   #mission-sub{font-size:10.5px}
   #minimap{width:104px;height:104px}
@@ -257,6 +259,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #friendline{position:absolute;top:calc(78px + env(safe-area-inset-top,0px));left:14px;font-size:12px;
   background:#000000a8;border:1px solid #c56bff55;color:#e8d4ff;padding:3px 9px;border-radius:999px}
 @media (max-height:430px){
+  #weatherchip{top:156px}
+  #radiochip{top:158px}
   .map-legend{font-size:9.5px;gap:8px;padding:5px 8px}
   .map-tools button{padding:7px 9px;font-size:11px}
 }
@@ -264,9 +268,9 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 
 /* --- radio dell'auto e meteo -------------------------------------------- */
 #radiochip {
-  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 8px; border-radius: 999px;
+  position: absolute; left: 14px; top: 182px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 7px; border-radius: 999px;
   background: rgba(10, 14, 22, .62); border: 1px solid rgba(255, 255, 255, .14);
   font-size: 12px; letter-spacing: .3px; color: #eaf2ff;
   backdrop-filter: blur(6px); pointer-events: auto;
@@ -276,9 +280,9 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   background: rgba(255, 255, 255, .12); color: #eaf2ff; font-size: 14px; line-height: 1;
 }
 #radiochip button:active { background: rgba(255, 255, 255, .28); }
-#radio-name { min-width: 148px; text-align: center; font-weight: 600; }
+#radio-name { min-width: 118px; text-align: center; font-weight: 600; font-size: 11.5px; }
 #weatherchip {
-  position: absolute; right: 14px; top: 196px;
+  position: absolute; right: 14px; top: 190px;
   padding: 4px 9px; border-radius: 999px; font-size: 12px;
   background: rgba(10, 14, 22, .55); border: 1px solid rgba(255, 255, 255, .12);
   color: #dce8f8; backdrop-filter: blur(6px);

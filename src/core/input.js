@@ -8,7 +8,7 @@ export class Input {
   constructor(canvas) {
     this.canvas = canvas;
     this.move = { x: 0, y: 0 };      // y>0 = avanti
-    this.move2 = { x: 0, y: 0 };     // levetta destra: gas e freno quando si guida
+    this.move2 = { x: 0, y: 0 };     // levetta destra: sterzo quando si guida
     this.driveMode = false;
     this.look = { x: 0, y: 0 };      // delta consumato ogni frame
     this.keys = new Set();
@@ -62,38 +62,47 @@ export class Input {
     const R = 52;
     let stickId = null, ox = 0, oy = 0;
 
-    // --- levetta destra: solo avanti/indietro, compare quando si guida
+    // --- levetta destra: solo sinistra/destra, e' lo sterzo, compare in auto
     const zoneR = document.getElementById('stick-zone-r');
     const baseR = document.getElementById('stick-base-r');
     const knobR = document.getElementById('stick-knob-r');
-    const RY = 58;
-    let stickR = null, oyR = 0;
+    const RX = 62;
+    // NB: baseR e' figlio della zona, quindi left/top vanno in coordinate
+    // della zona, non dello schermo: prima la levetta finiva fuori campo.
+    const placeR = (clientX, clientY) => {
+      const z = zoneR.getBoundingClientRect();
+      baseR.style.left = `${clientX - z.left - 79}px`;
+      baseR.style.top = `${clientY - z.top - 46}px`;
+    };
+    // posizione di riposo: sopra i pulsanti, cosi' non ci finisce sotto
+    const parkR = () => {
+      const z = zoneR.getBoundingClientRect();
+      baseR.style.left = '8px';                       // a sinistra dei pulsanti
+      baseR.style.top = `${Math.max(0, z.height - 104)}px`;
+    };
+    let stickR = null, oxR = 0;
     const startR = (t) => {
       stickR = t.identifier;
-      oyR = t.clientY;
-      baseR.style.left = `${t.clientX - 46}px`;
-      baseR.style.top = `${oyR - 75}px`;
+      oxR = t.clientX;
+      placeR(t.clientX, t.clientY);
       baseR.classList.add('on');
       baseR.classList.remove('ghost');
     };
     const moveR = (t) => {
-      let dy = t.clientY - oyR;
-      if (dy > RY) { oyR = t.clientY - RY; dy = RY; }
-      if (dy < -RY) { oyR = t.clientY + RY; dy = -RY; }
-      knobR.style.transform = `translateY(${dy}px)`;
-      this.move2.y = clamp(-dy / RY, -1, 1);
+      let dx = t.clientX - oxR;
+      if (dx > RX) { oxR = t.clientX - RX; dx = RX; }
+      if (dx < -RX) { oxR = t.clientX + RX; dx = -RX; }
+      knobR.style.transform = `translateX(${dx}px)`;
+      this.move2.x = clamp(dx / RX, -1, 1);
     };
     const endR = () => {
       stickR = null;
-      this.move2.y = 0;
+      this.move2.x = 0;
       baseR.classList.remove('on');
-      if (this.driveMode) {
-        baseR.classList.add('ghost');
-        baseR.style.left = `${innerWidth - 250}px`;
-        baseR.style.top = `${innerHeight - 210}px`;
-      }
+      if (this.driveMode) { baseR.classList.add('ghost'); parkR(); }
       knobR.style.transform = '';
     };
+    this._parkR = parkR;
     zoneR.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (stickR === null) { startR(e.changedTouches[0]); moveR(e.changedTouches[0]); }
@@ -105,8 +114,10 @@ export class Input {
     const startStick = (t) => {
       stickId = t.identifier;
       ox = t.clientX; oy = t.clientY;
-      base.style.left = `${ox - 62}px`;
-      base.style.top = `${oy - 62}px`;
+      // stessa storia: base e' dentro #stick-zone, che non parte da (0,0)
+      const z = zone.getBoundingClientRect();
+      base.style.left = `${ox - z.left - 62}px`;
+      base.style.top = `${oy - z.top - 62}px`;
       base.classList.add('on');
     };
     const moveStick = (t) => {
@@ -187,7 +198,7 @@ export class Input {
 
   pressed(name) { return this._edge[name]; }
 
-  /** Attiva la doppia levetta: sinistra sterza, destra accelera e frena. */
+  /** Attiva la doppia levetta: sinistra gas e freno, destra sterzo. */
   setDriveMode(on) {
     if (this.driveMode === on) return;
     this.driveMode = on;
@@ -198,16 +209,14 @@ export class Input {
       // in guida la levetta resta visibile in trasparenza: cosi' si vede
       // dov'e', ma si puo' comunque afferrare dove fa piu' comodo
       baseR.classList.toggle('ghost', on);
-      if (on) {
-        baseR.style.left = `${innerWidth - 250}px`;
-        baseR.style.top = `${innerHeight - 210}px`;
-      } else if (this._endR) this._endR();
+      if (on) { if (this._parkR) this._parkR(); }
+      else if (this._endR) this._endR();
     }
   }
 
-  /** Acceleratore: levetta destra su telefono, W/S da tastiera. */
+  /** Acceleratore: levetta sinistra su telefono, W/S da tastiera. */
   get throttle() {
-    let v = this.driveMode ? this.move2.y : this.move.y;
+    let v = this.move.y;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) v += 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) v -= 1;
     return clamp(v, -1, 1);
@@ -219,6 +228,14 @@ export class Input {
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) v -= 1;
     return clamp(v, -1, 1);
   }
+  /** Sterzo: levetta destra su telefono, A/D da tastiera. */
+  get steering() {
+    let v = this.driveMode ? this.move2.x : this.move.x;
+    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) v += 1;
+    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) v -= 1;
+    return clamp(v, -1, 1);
+  }
+
   get strafe() {
     let v = this.move.x;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) v += 1;

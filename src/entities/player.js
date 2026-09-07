@@ -31,6 +31,7 @@ export class Player {
     this.respawnT = 0;
 
     this.camYaw = 0;
+    this.lookHoldT = 0;
     this.camPitch = 0.22;
     this.camDist = 3.5;
     this.indoor = false;
@@ -70,6 +71,9 @@ export class Player {
 
   // ------------------------------------------------------------------ loop
   update(dt, input) {
+    // toccando lo schermo per guardarsi intorno, la camera smette di inseguire
+    // l'auto per un attimo: se no si combatte col dito
+    if (Math.abs(input.look.x) > 0.0005) this.lookHoldT = 1.1;
     this.camYaw -= input.look.x;
     this.camPitch = clamp(this.camPitch + (input.invertY ? -1 : 1) * input.look.y, -0.35, 1.15);
 
@@ -139,7 +143,7 @@ export class Player {
   _driving(dt, input) {
     const car = this.car;
     const throttle = input.throttle !== undefined ? input.throttle : input.forward;
-    const steer = -input.strafe;
+    const steer = -(input.steering !== undefined ? input.steering : input.strafe);
     car.update(dt, { throttle, steer, hand: input.braking });
     this.x = car.x; this.z = car.z; this.y = 0;
     this.a = car.a;
@@ -164,6 +168,9 @@ export class Player {
     this.car = car;
     car.driver = 'player';
     car.locked = false;
+    // la camera si mette subito dietro l'auto, senza la giravolta iniziale
+    this.camYaw = car.a;
+    this.lookHoldT = 0;
     this.game.audio.door();
     this.mesh.visible = false;
     return true;
@@ -213,10 +220,16 @@ export class Player {
   _camera(dt, dead) {
     const inCar = this.inCar;
     if (inCar) {
-      // si riallinea dietro l'auto quando si guida in avanti
-      const behind = this.car.a + Math.PI;
-      const align = clamp(Math.abs(this.car.speed) / 12, 0, 1) * (this.car.speed > 0 ? 1 : 0);
-      this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt * 2.4, 0, 0.14);
+      // La camera guarda dove punta l'auto: camYaw e' la direzione di vista e
+      // l'auto avanza verso (cos a, -sin a), quindi il bersaglio e' esattamente
+      // car.a. (Prima era car.a + PI: appena partivi la vista girava all'indietro.)
+      if (this.lookHoldT > 0) this.lookHoldT -= dt;
+      else {
+        const sp = Math.abs(this.car.speed);
+        // ferma non insegue, cosi' puoi guardarti intorno; in movimento segue subito
+        const align = clamp((sp - 0.6) / 5, 0, 1);
+        this.camYaw += angleDelta(this.camYaw, this.car.a) * clamp(align * dt * 6.5, 0, 0.3);
+      }
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
     const dist = this.indoor ? 3.4 : dead ? 5.0 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;

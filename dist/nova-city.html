@@ -83,17 +83,17 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #stick-base.on{opacity:1}
 #stick-knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
   background:#ffffffcc;box-shadow:0 3px 14px #0008}
-#stick-zone-r{position:absolute;right:0;bottom:0;width:34%;height:62%;pointer-events:auto}
-#stick-base-r{position:absolute;width:92px;height:150px;border-radius:46px;border:2px solid #ffffff33;
+#stick-zone-r{position:absolute;right:0;bottom:0;width:45%;height:52%;pointer-events:auto}
+#stick-base-r{position:absolute;width:158px;height:92px;border-radius:46px;border:2px solid #ffffff33;
   background:#ffffff12;left:0;top:0;opacity:0;transition:opacity .14s;backdrop-filter:blur(2px)}
 #stick-base-r.on{opacity:1}
 #stick-base-r.ghost{opacity:.45}
 #stick-knob-r{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
   background:#ffd23fdd;box-shadow:0 3px 14px #0008}
-#stick-base-r em{position:absolute;left:0;right:0;text-align:center;font-style:normal;font-size:9px;
+#stick-base-r em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:13px;
   letter-spacing:1px;color:#ffffffb0}
-#stick-base-r .lever-up{top:6px}
-#stick-base-r .lever-down{bottom:6px}
+#stick-base-r .lever-left{left:10px}
+#stick-base-r .lever-right{right:10px}
 
 #pad{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + var(--pad));
   width:158px;height:150px;pointer-events:none}
@@ -148,6 +148,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 .item.cant{opacity:.45}
 
 @media (max-height:430px){
+  #weatherchip{top:156px}
+  #radiochip{top:158px}
   #mission-panel{max-width:min(38vw,240px);padding:6px 10px}
   #mission-sub{font-size:10.5px}
   #minimap{width:104px;height:104px}
@@ -259,6 +261,8 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #friendline{position:absolute;top:calc(78px + env(safe-area-inset-top,0px));left:14px;font-size:12px;
   background:#000000a8;border:1px solid #c56bff55;color:#e8d4ff;padding:3px 9px;border-radius:999px}
 @media (max-height:430px){
+  #weatherchip{top:156px}
+  #radiochip{top:158px}
   .map-legend{font-size:9.5px;gap:8px;padding:5px 8px}
   .map-tools button{padding:7px 9px;font-size:11px}
 }
@@ -266,9 +270,9 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 
 /* --- radio dell'auto e meteo -------------------------------------------- */
 #radiochip {
-  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 8px; border-radius: 999px;
+  position: absolute; left: 14px; top: 182px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 7px; border-radius: 999px;
   background: rgba(10, 14, 22, .62); border: 1px solid rgba(255, 255, 255, .14);
   font-size: 12px; letter-spacing: .3px; color: #eaf2ff;
   backdrop-filter: blur(6px); pointer-events: auto;
@@ -278,9 +282,9 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   background: rgba(255, 255, 255, .12); color: #eaf2ff; font-size: 14px; line-height: 1;
 }
 #radiochip button:active { background: rgba(255, 255, 255, .28); }
-#radio-name { min-width: 148px; text-align: center; font-weight: 600; }
+#radio-name { min-width: 118px; text-align: center; font-weight: 600; font-size: 11.5px; }
 #weatherchip {
-  position: absolute; right: 14px; top: 196px;
+  position: absolute; right: 14px; top: 190px;
   padding: 4px 9px; border-radius: 999px; font-size: 12px;
   background: rgba(10, 14, 22, .55); border: 1px solid rgba(255, 255, 255, .12);
   color: #dce8f8; backdrop-filter: blur(6px);
@@ -334,7 +338,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 <div id="touch" class="hidden">
   <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
   <div id="stick-zone-r" class="hidden"><div id="stick-base-r"><div id="stick-knob-r"></div>
-    <em class="lever-up">GAS</em><em class="lever-down">FRENO</em></div></div>
+    <em class="lever-left">◀</em><em class="lever-right">▶</em></div></div>
   <div id="pad">
     <button class="tbtn big" data-btn="action"><span>E</span><em id="lbl-action">AZIONE</em></button>
     <button class="tbtn" data-btn="attack"><span>✊</span><em id="lbl-attack">COLPO</em></button>
@@ -422,7 +426,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 
     <div class="legend">
       <div><b>Telefono</b> — joystick a sinistra, trascina a destra per la camera, pulsanti in basso a destra.</div>
-      <div><b>In auto</b> — levetta sinistra per sterzare, levetta destra per gas e freno.</div>
+      <div><b>In auto</b> — levetta sinistra per gas e freno, levetta destra per sterzare. La visuale segue l'auto da sola.</div>
       <div><b>PC</b> — WASD, mouse, E per entrare in auto / nei negozi, click per colpire.</div>
     </div>
   </div>
@@ -10477,40 +10481,49 @@ var Input = class {
     const zoneR = document.getElementById("stick-zone-r");
     const baseR = document.getElementById("stick-base-r");
     const knobR = document.getElementById("stick-knob-r");
-    const RY = 58;
-    let stickR = null, oyR = 0;
+    const RX = 62;
+    const placeR = (clientX, clientY) => {
+      const z = zoneR.getBoundingClientRect();
+      baseR.style.left = `${clientX - z.left - 79}px`;
+      baseR.style.top = `${clientY - z.top - 46}px`;
+    };
+    const parkR = () => {
+      const z = zoneR.getBoundingClientRect();
+      baseR.style.left = "8px";
+      baseR.style.top = `${Math.max(0, z.height - 104)}px`;
+    };
+    let stickR = null, oxR = 0;
     const startR = (t2) => {
       stickR = t2.identifier;
-      oyR = t2.clientY;
-      baseR.style.left = `${t2.clientX - 46}px`;
-      baseR.style.top = `${oyR - 75}px`;
+      oxR = t2.clientX;
+      placeR(t2.clientX, t2.clientY);
       baseR.classList.add("on");
       baseR.classList.remove("ghost");
     };
     const moveR = (t2) => {
-      let dy = t2.clientY - oyR;
-      if (dy > RY) {
-        oyR = t2.clientY - RY;
-        dy = RY;
+      let dx = t2.clientX - oxR;
+      if (dx > RX) {
+        oxR = t2.clientX - RX;
+        dx = RX;
       }
-      if (dy < -RY) {
-        oyR = t2.clientY + RY;
-        dy = -RY;
+      if (dx < -RX) {
+        oxR = t2.clientX + RX;
+        dx = -RX;
       }
-      knobR.style.transform = `translateY(${dy}px)`;
-      this.move2.y = clamp(-dy / RY, -1, 1);
+      knobR.style.transform = `translateX(${dx}px)`;
+      this.move2.x = clamp(dx / RX, -1, 1);
     };
     const endR = () => {
       stickR = null;
-      this.move2.y = 0;
+      this.move2.x = 0;
       baseR.classList.remove("on");
       if (this.driveMode) {
         baseR.classList.add("ghost");
-        baseR.style.left = `${innerWidth - 250}px`;
-        baseR.style.top = `${innerHeight - 210}px`;
+        parkR();
       }
       knobR.style.transform = "";
     };
+    this._parkR = parkR;
     zoneR.addEventListener("touchstart", (e) => {
       e.preventDefault();
       if (stickR === null) {
@@ -10525,8 +10538,9 @@ var Input = class {
       stickId = t2.identifier;
       ox = t2.clientX;
       oy = t2.clientY;
-      base.style.left = `${ox - 62}px`;
-      base.style.top = `${oy - 62}px`;
+      const z = zone.getBoundingClientRect();
+      base.style.left = `${ox - z.left - 62}px`;
+      base.style.top = `${oy - z.top - 62}px`;
       base.classList.add("on");
     };
     const moveStick = (t2) => {
@@ -10619,7 +10633,7 @@ var Input = class {
   pressed(name) {
     return this._edge[name];
   }
-  /** Attiva la doppia levetta: sinistra sterza, destra accelera e frena. */
+  /** Attiva la doppia levetta: sinistra gas e freno, destra sterzo. */
   setDriveMode(on) {
     if (this.driveMode === on) return;
     this.driveMode = on;
@@ -10629,14 +10643,13 @@ var Input = class {
     if (baseR) {
       baseR.classList.toggle("ghost", on);
       if (on) {
-        baseR.style.left = `${innerWidth - 250}px`;
-        baseR.style.top = `${innerHeight - 210}px`;
+        if (this._parkR) this._parkR();
       } else if (this._endR) this._endR();
     }
   }
-  /** Acceleratore: levetta destra su telefono, W/S da tastiera. */
+  /** Acceleratore: levetta sinistra su telefono, W/S da tastiera. */
   get throttle() {
-    let v = this.driveMode ? this.move2.y : this.move.y;
+    let v = this.move.y;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) v += 1;
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) v -= 1;
     return clamp(v, -1, 1);
@@ -10645,6 +10658,13 @@ var Input = class {
     let v = this.move.y;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) v += 1;
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) v -= 1;
+    return clamp(v, -1, 1);
+  }
+  /** Sterzo: levetta destra su telefono, A/D da tastiera. */
+  get steering() {
+    let v = this.driveMode ? this.move2.x : this.move.x;
+    if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) v += 1;
+    if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) v -= 1;
     return clamp(v, -1, 1);
   }
   get strafe() {
@@ -16309,6 +16329,7 @@ var Player = class {
     this.dead = false;
     this.respawnT = 0;
     this.camYaw = 0;
+    this.lookHoldT = 0;
     this.camPitch = 0.22;
     this.camDist = 3.5;
     this.indoor = false;
@@ -16357,6 +16378,7 @@ var Player = class {
   }
   // ------------------------------------------------------------------ loop
   update(dt2, input) {
+    if (Math.abs(input.look.x) > 5e-4) this.lookHoldT = 1.1;
     this.camYaw -= input.look.x;
     this.camPitch = clamp(this.camPitch + (input.invertY ? -1 : 1) * input.look.y, -0.35, 1.15);
     if (this.dead) {
@@ -16425,7 +16447,7 @@ var Player = class {
   _driving(dt2, input) {
     const car = this.car;
     const throttle = input.throttle !== void 0 ? input.throttle : input.forward;
-    const steer = -input.strafe;
+    const steer = -(input.steering !== void 0 ? input.steering : input.strafe);
     car.update(dt2, { throttle, steer, hand: input.braking });
     this.x = car.x;
     this.z = car.z;
@@ -16451,6 +16473,8 @@ var Player = class {
     this.car = car;
     car.driver = "player";
     car.locked = false;
+    this.camYaw = car.a;
+    this.lookHoldT = 0;
     this.game.audio.door();
     this.mesh.visible = false;
     return true;
@@ -16498,9 +16522,12 @@ var Player = class {
   _camera(dt2, dead) {
     const inCar = this.inCar;
     if (inCar) {
-      const behind = this.car.a + Math.PI;
-      const align = clamp(Math.abs(this.car.speed) / 12, 0, 1) * (this.car.speed > 0 ? 1 : 0);
-      this.camYaw += angleDelta(this.camYaw, behind) * clamp(align * dt2 * 2.4, 0, 0.14);
+      if (this.lookHoldT > 0) this.lookHoldT -= dt2;
+      else {
+        const sp2 = Math.abs(this.car.speed);
+        const align = clamp((sp2 - 0.6) / 5, 0, 1);
+        this.camYaw += angleDelta(this.camYaw, this.car.a) * clamp(align * dt2 * 6.5, 0, 0.3);
+      }
     }
     const dist = this.indoor ? 3.4 : dead ? 5 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
     const height = this.indoor ? 0.8 : dead ? 2.4 : inCar ? 1.95 : 1.5;
@@ -19358,6 +19385,7 @@ var Game = class {
       look: { x: 0, y: 0 },
       forward: 0,
       strafe: 0,
+      steering: 0,
       throttle: 0,
       running: false,
       braking: false,
