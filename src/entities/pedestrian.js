@@ -139,6 +139,7 @@ export class Ped {
 
   panic(game, from) {
     if (this.state === 'down' || this.state === 'flinch') return;
+    this.foe = null;
     this.state = 'flee';
     this.bench = null;
     this.timer = rand(4, 9);
@@ -190,18 +191,21 @@ export class Ped {
         break;
       }
       case 'fight': {
-        const dx = p.x - this.x, dz = p.z - this.z;
+        // di solito se la prende col giocatore, ma puo' avere un altro bersaglio
+        const foe = (this.foe && this.foe.state !== 'down' && this.foe.health > -5) ? this.foe : p;
+        const dx = foe.x - this.x, dz = foe.z - this.z;
         const d = Math.hypot(dx, dz) || 1;
         this.a = turnToward(this.a, Math.atan2(-dz / d, dx / d), dt * 8);
         this.speed = d > 1.9 ? 3.4 : 0;
         this.timer -= dt;
-        if (d < 2.2 && this.punchCd <= 0 && !p.dead) {
+        if (d < 2.2 && this.punchCd <= 0 && !foe.dead) {
           this.punchCd = rand(0.9, 1.5);
           this.punchT = 1;
           game.audio.punch();
-          p.damage(rand(5, 9), 'rissa');
+          if (foe === p) p.damage(rand(5, 9), 'rissa');
+          else foe.hit(rand(4, 8), game, this);
         }
-        if (this.timer <= 0 || this.health < this.maxHealth * 0.4 || d > 28) this.panic(game, p);
+        if (this.timer <= 0 || this.health < this.maxHealth * 0.4 || d > 28) { this.foe = null; this.panic(game, foe); }
         anim = 'fight';
         break;
       }
@@ -338,7 +342,8 @@ export class PedManager {
     for (const ped of this.peds) {
       const d = Math.hypot(ped.x - p.x, ped.z - p.z);
       const spent = ped.state === 'down' && ped.timer <= 0 && ped.health <= -12;
-      if (d > CFG.STREAM_RADIUS || spent) { this._recycle(ped, p.x, p.z); continue; }
+      // i bot impegnati in un evento non vengono riciclati sotto il naso
+      if (!ped.event && (d > CFG.STREAM_RADIUS || spent)) { this._recycle(ped, p.x, p.z); continue; }
       if (d > 90 && (this.game.frame + ped.offset * 10 | 0) % 3 !== 0) continue;
       ped.update(d > 90 ? dt * 3 : dt, this.game);
     }

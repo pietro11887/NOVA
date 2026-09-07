@@ -430,6 +430,14 @@ function buildCarGeo(t, kind) {
 export function initModels(quality) {
   shared.quality = quality;
   shared.trimMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.55, envMapIntensity: 1.0 });
+  // cerchi: stesso disegno, finiture diverse
+  const rim = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, envMapIntensity: 1.2, ...o });
+  shared.rimMats = {
+    standard: shared.trimMat,
+    cromo: rim({ roughness: 0.08, metalness: 1.0, color: 0xf2f6fa }),
+    nero: rim({ roughness: 0.62, metalness: 0.35, color: 0x3a3d43 }),
+    bronzo: rim({ roughness: 0.3, metalness: 0.9, color: 0xc08a3e }),
+  };
   shared.glassMat = new THREE.MeshStandardMaterial({
     color: 0x10161e, roughness: 0.14, metalness: 0.08, envMapIntensity: 0.85,
     transparent: true, opacity: 0.9,
@@ -525,6 +533,28 @@ export function undentCar(group) {
   if (u.glass) u.glass.material = shared.glassMat;
 }
 
+/** Riverniciatura in officina. */
+export function paintCar(group, color) {
+  const m = group.userData.bodyMat;
+  if (m) m.color.setHex(color);
+}
+
+/** Cerchi: cambia il materiale delle ruote (cromo, nero opaco, bronzo). */
+export function setRims(group, style) {
+  const u = group.userData;
+  if (!u.wheelMesh) return;
+  const m = shared.rimMats[style] || shared.trimMat;
+  u.wheelMesh.material = m;
+  u.rims = style;
+}
+
+export const RIM_STYLES = {
+  standard: { name: 'Lega chiara', price: 0 },
+  cromo: { name: 'Cromati', price: 260 },
+  nero: { name: 'Neri opachi', price: 220 },
+  bronzo: { name: 'Bronzo', price: 340 },
+};
+
 export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   const key = kind === 'civil' ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
@@ -571,6 +601,8 @@ export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
   trim.userData.part = 'trim';
   glass.userData.part = 'glass';
   group.userData.dentable = [body, trim, glass];
+  group.userData.wheelMesh = wheels;
+  group.userData.rims = 'standard';
   return group;
 }
 

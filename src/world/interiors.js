@@ -68,10 +68,14 @@ export const SHOP_MENUS = {
     ],
   },
   garage: {
-    title: 'GARAGE PIT', desc: 'Meccanica, gomme e qualche domanda in meno.',
+    title: 'GARAGE PIT', desc: 'Meccanica, vernice, cerchi e qualche domanda in meno.',
     items: [
-      { id: 'repair', icon: '🔧', name: 'Riparazione completa', desc: 'Ripara il veicolo parcheggiato fuori', price: 120,
+      { id: 'repair', icon: '🔧', name: 'Riparazione completa', desc: 'Raddrizza la lamiera e rimette i vetri', price: 120,
         effect: (g) => { g.repairLastCar(); } },
+      { id: 'paint', icon: '🎨', name: 'Riverniciatura', desc: 'Colore nuovo e la polizia ti perde', price: 220,
+        effect: (g) => g.repaintCar() },
+      { id: 'rims', icon: '⚙️', name: 'Cerchi nuovi', desc: 'Cromati, neri opachi o bronzo', price: 260,
+        effect: (g) => g.nextRims() },
       { id: 'sport', icon: '🏎️', name: 'Coupé sportiva', desc: 'Consegnata fuori dal garage', price: 2500, effect: (g) => g.deliverCar('sport') },
       { id: 'suv', icon: '🚙', name: 'SUV', desc: 'Consegnato fuori dal garage', price: 1400, effect: (g) => g.deliverCar('suv') },
     ],

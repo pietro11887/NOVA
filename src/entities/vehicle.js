@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, pick } from '../core/utils.js';
-import { makeCar, dentCar, undentCar, CAR_TYPES, CAR_COLORS } from '../world/models.js';
+import { makeCar, dentCar, undentCar, paintCar, setRims, CAR_TYPES, CAR_COLORS } from '../world/models.js';
 
 const TMP = { x: 0, z: 0 };
 
@@ -195,8 +195,10 @@ export class Vehicle {
   repair() {
     this.health = 100;
     undentCar(this.mesh);
-    this.smokeT = 0;
   }
+
+  paint(color) { this.color = color; paintCar(this.mesh, color); }
+  rims(style) { setRims(this.mesh, style); }
 
   /** Lampeggianti della polizia: i due lati si alternano. */
   updateSiren(t) {

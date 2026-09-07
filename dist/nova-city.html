@@ -542,6 +542,7 @@ var Qe = "rec709";
 var tn = "p3";
 var nn = 7680;
 var wn = 35044;
+var An = 35048;
 var On = "300 es";
 var Fn = 1035;
 var Bn = 2e3;
@@ -13396,6 +13397,15 @@ var City = class {
     }
     return this.walkNodes[Math.random() * this.walkNodes.length | 0];
   }
+  /** Come randomWalkNode ma sulla carreggiata: serve agli eventi in strada. */
+  randomRoadNode(nearX, nearZ, minD, maxD) {
+    for (let k = 0; k < 40; k++) {
+      const n = this.roadNodes[Math.random() * this.roadNodes.length | 0];
+      const d2 = Math.hypot(n.x - nearX, n.z - nearZ);
+      if (d2 > minD && d2 < maxD) return n;
+    }
+    return null;
+  }
   // ------------------------------------------------------------- dinamica
   setTrafficAxis(axis) {
     const m = this.mats;
@@ -14765,35 +14775,66 @@ var Post = class {
 };
 
 // src/world/models.js
-function hull(gb, sections, color, uv = 0.35) {
+function clampIdx2(i, n) {
+  return i < 0 ? 0 : i >= n ? n - 1 : i;
+}
+function hull(gb, sections, color, uv = 0.35, rings = 18) {
   const ringOf = (s) => {
     const { hw, yb, yt } = s;
-    const bx = Math.min(hw * 0.32, 0.16), by = Math.min((yt - yb) * 0.3, 0.14);
-    return [
-      [s.x, yb + by, hw],
-      [s.x, yb, hw - bx],
-      [s.x, yb, -(hw - bx)],
-      [s.x, yb + by, -hw],
-      [s.x, yt - by, -hw],
-      [s.x, yt, -(hw - bx)],
-      [s.x, yt, hw - bx],
-      [s.x, yt - by, hw]
-    ];
+    const h2 = yt - yb, cy = (yt + yb) / 2;
+    const out = [];
+    for (let i = 0; i < rings; i++) {
+      const a = -(i / rings) * TAU;
+      const ca2 = Math.cos(a), sa2 = Math.sin(a);
+      const n = 3.6;
+      const k = Math.pow(Math.pow(Math.abs(ca2), n) + Math.pow(Math.abs(sa2), n), -1 / n);
+      out.push([s.x, cy + sa2 * k * (h2 / 2), ca2 * k * hw]);
+    }
+    return out;
+  };
+  const cap = (ring2, front) => {
+    for (let i = 1; i < ring2.length - 1; i++) {
+      if (front) gb.quad(ring2[0], ring2[i], ring2[i + 1], ring2[i + 1], color, uv, uv);
+      else gb.quad(ring2[0], ring2[i + 1], ring2[i], ring2[i], color, uv, uv);
+    }
   };
   let prev = ringOf(sections[0]);
-  for (let i = 1; i < prev.length - 1; i++) gb.quad(prev[0], prev[i], prev[i + 1], prev[i + 1], color, uv, uv);
+  cap(prev, true);
   for (let s = 1; s < sections.length; s++) {
     const cur = ringOf(sections[s]);
-    for (let i = 0; i < 8; i++) {
-      const j = (i + 1) % 8;
+    for (let i = 0; i < rings; i++) {
+      const j = (i + 1) % rings;
       gb.quad(prev[i], cur[i], cur[j], prev[j], color, uv, uv);
     }
     prev = cur;
   }
-  for (let i = 1; i < prev.length - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, uv, uv);
+  cap(prev, false);
 }
-function wheel(gb, x, y, z, r, w, side) {
-  const N = 16;
+function refine(sections, sub = 4) {
+  if (sections.length < 2) return sections;
+  const at = (i) => sections[clampIdx2(i, sections.length)];
+  const spline = (p0, p1, p2, p3, t2) => {
+    const t22 = t2 * t2, t3 = t22 * t2;
+    return 0.5 * (2 * p1 + (-p0 + p2) * t2 + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t22 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const out = [];
+  for (let i = 0; i < sections.length - 1; i++) {
+    const a = at(i - 1), b = at(i), c2 = at(i + 1), d2 = at(i + 2);
+    for (let k = 0; k < sub; k++) {
+      const t2 = k / sub;
+      out.push({
+        x: spline(a.x, b.x, c2.x, d2.x, t2),
+        hw: Math.max(0.02, spline(a.hw, b.hw, c2.hw, d2.hw, t2)),
+        yb: spline(a.yb, b.yb, c2.yb, d2.yb, t2),
+        yt: spline(a.yt, b.yt, c2.yt, d2.yt, t2)
+      });
+    }
+  }
+  out.push(sections[sections.length - 1]);
+  return out;
+}
+function wheel(gb, x, y, z, r, w, side, spokes = 5) {
+  const N = 20;
   const ringZ = (zz, rr2) => {
     const out = [];
     for (let i = 0; i < N; i++) {
@@ -14803,34 +14844,39 @@ function wheel(gb, x, y, z, r, w, side) {
     return out;
   };
   const zi2 = z - side * w / 2, zo2 = z + side * w / 2;
-  const tread = ringZ(zi2 + side * w * 0.12, r);
-  const treadO = ringZ(zo2 - side * w * 0.12, r);
-  const shoulderI = ringZ(zi2, r * 0.93);
-  const shoulderO = ringZ(zo2, r * 0.93);
-  const rim = ringZ(zo2 + side * 4e-3, r * 0.6);
-  const hub = ringZ(zo2 + side * 8e-3, r * 0.2);
   const flip = side > 0;
   const q = (a, b, c2, d2, col) => flip ? gb.quad(a, b, c2, d2, col, 1, 1) : gb.quad(d2, c2, b, a, col, 1, 1);
+  const treadI = ringZ(zi2 + side * w * 0.18, r);
+  const treadO = ringZ(zo2 - side * w * 0.18, r);
+  const shoulderI = ringZ(zi2, r * 0.9);
+  const shoulderO = ringZ(zo2, r * 0.9);
+  const bead = ringZ(zo2 - side * 5e-3, r * 0.66);
+  const beadI = ringZ(zi2 + side * 5e-3, r * 0.66);
+  const dish = ringZ(zo2 - side * w * 0.3, r * 0.6);
+  const hub = ringZ(zo2 - side * w * 0.26, r * 0.17);
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
-    q(tread[i], tread[j], treadO[j], treadO[i], 1579293);
-    q(shoulderI[i], shoulderI[j], tread[j], tread[i], 1250327);
+    q(treadI[i], treadI[j], treadO[j], treadO[i], 1776672);
+    q(shoulderI[i], shoulderI[j], treadI[j], treadI[i], 1250327);
     q(treadO[i], treadO[j], shoulderO[j], shoulderO[i], 1250327);
-    q(shoulderO[i], shoulderO[j], rim[j], rim[i], 2369067);
-    q(rim[i], rim[j], hub[j], hub[i], 12173512);
-    if (i % 3 === 0) {
-      q(
-        [x + Math.cos(i / N * TAU) * r * 0.55, y + Math.sin(i / N * TAU) * r * 0.55, zo2 + side * 0.012],
-        [x + Math.cos((i + 1) / N * TAU) * r * 0.55, y + Math.sin((i + 1) / N * TAU) * r * 0.55, zo2 + side * 0.012],
-        [x + Math.cos((i + 1) / N * TAU) * r * 0.26, y + Math.sin((i + 1) / N * TAU) * r * 0.26, zo2 + side * 0.012],
-        [x + Math.cos(i / N * TAU) * r * 0.26, y + Math.sin(i / N * TAU) * r * 0.26, zo2 + side * 0.012],
-        2830134
-      );
-    }
+    q(shoulderO[i], shoulderO[j], bead[j], bead[i], 987155);
+    q(beadI[i], beadI[j], shoulderI[j], shoulderI[i], 987155);
+    q(bead[i], bead[j], dish[j], dish[i], 13489372);
+    q(dish[i], dish[j], hub[j], hub[i], 1711394);
   }
-  for (let i = 1; i < N - 1; i++) {
-    q(hub[0], hub[i], hub[i + 1], hub[i + 1], 14673128);
+  for (let k = 0; k < spokes; k++) {
+    const a0 = k / spokes * TAU, half = TAU / spokes * 0.19;
+    const zf = zo2 - side * w * 0.24;
+    const p2 = (ang, rr2) => [x + Math.cos(ang) * rr2, y + Math.sin(ang) * rr2, zf];
+    const pb = (ang, rr2) => [x + Math.cos(ang) * rr2, y + Math.sin(ang) * rr2, zo2 - side * w * 0.3];
+    q(p2(a0 - half, r * 0.2), p2(a0 - half * 1.5, r * 0.6), p2(a0 + half * 1.5, r * 0.6), p2(a0 + half, r * 0.2), 14081509);
+    q(pb(a0 - half, r * 0.2), pb(a0 - half * 1.5, r * 0.6), p2(a0 - half * 1.5, r * 0.6), p2(a0 - half, r * 0.2), 10134187);
+    q(p2(a0 + half, r * 0.2), p2(a0 + half * 1.5, r * 0.6), pb(a0 + half * 1.5, r * 0.6), pb(a0 + half, r * 0.2), 10134187);
   }
+  for (let i = 1; i < N - 1; i++) q(hub[0], hub[i], hub[i + 1], hub[i + 1], 15002094);
+  const disc = ringZ(zo2 - side * w * 0.46, r * 0.56);
+  for (let i = 1; i < N - 1; i++) q(disc[0], disc[i], disc[i + 1], disc[i + 1], 6120556);
+  gb.box(x - r * 0.34, y + r * 0.16, zo2 - side * w * 0.4, 0.07, r * 0.5, w * 0.22, 12071468);
 }
 var CAR_TYPES = {
   sedan: {
@@ -15043,54 +15089,119 @@ var shared = {};
 function buildCarGeo(t2, kind) {
   const body = new GeoBuilder();
   const trim = new GeoBuilder();
+  const wheels = new GeoBuilder();
   const glass = new GeoBuilder();
   const lights = new GeoBuilder();
-  hull(body, t2.body, 16777215);
-  hull(glass, t2.cabin.map((s) => ({ ...s, hw: s.hw * 0.99 })), 2831940);
-  const roof = t2.cabin.map((s) => ({ x: s.x, hw: s.hw * 0.93, yb: s.yt - 0.1, yt: s.yt }));
-  hull(body, roof, 16777215);
+  const bodyS = refine(t2.body, 4);
+  const cabinS = refine(t2.cabin, 4);
+  hull(body, bodyS, 16777215);
+  hull(glass, cabinS.map((s) => ({ ...s, hw: s.hw * 0.985 })), 2831940, 0.35, 14);
+  hull(body, cabinS.map((s) => ({ x: s.x, hw: s.hw * 0.94, yb: s.yt - 0.11, yt: s.yt })), 16777215, 0.35, 14);
   const fr2 = t2.body[0], rr2 = t2.body[t2.body.length - 1];
+  const mid = t2.body[t2.body.length / 2 | 0];
+  const HW = t2.W / 2;
+  const roofY = Math.max(...t2.cabin.map((c2) => c2.yt));
+  const floorY = t2.cabin[1].yb - 0.02;
+  const ch = Math.max(0.3, roofY - floorY);
+  const cw = t2.cabin[1].hw;
+  trim.box(t2.cabin[1].x - 0.15, floorY + 0.03, 0, 1.9, 0.06, cw * 1.7, 1316378);
+  const seatRow = (sx, hw) => {
+    for (const sz of [1, -1]) {
+      const zz = sz * hw * 0.42;
+      trim.box(sx, floorY + ch * 0.16, zz, 0.46, ch * 0.12, hw * 0.62, 2303532);
+      trim.box(sx - 0.2, floorY + ch * 0.42, zz, 0.1, ch * 0.42, hw * 0.62, 2303532);
+      trim.box(sx - 0.22, floorY + ch * 0.7, zz, 0.1, ch * 0.16, hw * 0.36, 1711394);
+    }
+  };
+  seatRow(t2.cabin[1].x - 0.1, cw);
+  if (t2.cabin.length > 3) seatRow(t2.cabin[2].x - 0.05, t2.cabin[2].hw);
+  trim.box(t2.cabin[0].x + 0.16, floorY + ch * 0.26, 0, 0.36, ch * 0.16, t2.cabin[0].hw * 1.5, 1711394);
+  trim.box(t2.cabin[0].x - 0.06, floorY + ch * 0.36, cw * 0.42, 0.04, ch * 0.2, ch * 0.2, 987412);
+  const gx = fr2.x - 0.03, gW = fr2.hw * 1.15;
+  trim.box(gx, fr2.yb + 0.32, 0, 0.1, 0.2, gW, 1053206);
+  for (let i = -2; i <= 2; i++) {
+    trim.box(gx + 0.02, fr2.yb + 0.32 + i * 0.045, 0, 0.07, 0.018, gW * 0.96, 7107709);
+  }
+  for (const s of [-1, 1]) trim.box(gx, fr2.yb + 0.15, s * fr2.hw * 0.62, 0.08, 0.09, 0.3, 1316378);
+  const frW = fr2.hw * 2 + 0.03, rrW = rr2.hw * 2 + 0.03;
+  trim.box(fr2.x - 0.09, fr2.yb + 0.13, 0, 0.26, 0.26, frW, 2830391);
+  trim.box(fr2.x - 0.14, fr2.yb + 0.02, 0, 0.16, 0.09, frW * 0.92, 1777187);
+  trim.box(rr2.x + 0.09, rr2.yb + 0.13, 0, 0.26, 0.26, rrW, 2830391);
+  trim.box(rr2.x + 0.14, rr2.yb + 0.02, 0, 0.16, 0.09, rrW * 0.92, 1777187);
+  for (const s of [-1, 1]) trim.box(0, mid.yb + 0.02, s * (HW - 0.06), t2.L * 0.5, 0.08, 0.1, 1777187);
+  const doorX = [t2.cabin[0].x + 0.15, t2.cabin[1].x - 0.55];
+  for (const s of [-1, 1]) {
+    for (const dx of doorX) {
+      trim.box(dx, mid.yb + (mid.yt - mid.yb) * 0.5, s * (mid.hw + 4e-3), 0.014, (mid.yt - mid.yb) * 0.7, 0.014, 2369582);
+    }
+    trim.box(t2.cabin[1].x - 0.2, t2.cabin[1].yb - 0.04, s * (mid.hw + 0.015), 0.2, 0.045, 0.04, 10134187);
+    trim.box(0, mid.yb + (mid.yt - mid.yb) * 0.3, s * (mid.hw + 6e-3), t2.L * 0.6, 0.022, 0.016, 4870232);
+  }
   for (const s of [-1, 1]) {
     for (let i = 0; i < t2.cabin.length - 1; i++) {
       const a = t2.cabin[i], b = t2.cabin[i + 1];
       trim.quad(
-        [a.x, a.yt - 0.02, s * (a.hw + 0.012)],
-        [b.x, b.yt - 0.02, s * (b.hw + 0.012)],
-        [b.x, b.yb + 0.02, s * (b.hw + 0.012)],
-        [a.x, a.yb + 0.02, s * (a.hw + 0.012)],
+        [a.x, a.yt - 0.02, s * (a.hw + 0.014)],
+        [b.x, b.yt - 0.02, s * (b.hw + 0.014)],
+        [b.x, b.yb + 0.02, s * (b.hw + 0.014)],
+        [a.x, a.yb + 0.02, s * (a.hw + 0.014)],
         10134187,
         1,
         1
       );
     }
   }
-  trim.box(fr2.x - 0.06, fr2.yb + 0.16, 0, 0.28, 0.3, t2.W * 0.9, 2830391);
-  trim.box(rr2.x + 0.06, rr2.yb + 0.16, 0, 0.28, 0.3, t2.W * 0.9, 2830391);
-  trim.box(fr2.x - 0.1, fr2.yb + 0.42, 0, 0.16, 0.22, t2.W * 0.62, 3488579);
   for (const s of [-1, 1]) {
-    trim.box(t2.cabin[0].x + 0.1, t2.cabin[0].yb + 0.14, s * (t2.W / 2 + 0.02), 0.24, 0.14, 0.3, 3093820);
+    const mz = t2.cabin[0].hw;
+    trim.box(t2.cabin[0].x + 0.1, t2.cabin[0].yb + 0.02, s * (mz + 0.03), 0.09, 0.04, 0.1, 3093820);
+    trim.box(t2.cabin[0].x + 0.14, t2.cabin[0].yb + 0.06, s * (mz + 0.11), 0.15, 0.1, 0.07, 3093820);
   }
-  const wr2 = t2.wheel, ww = 0.28;
+  for (const s of [-1, 1]) {
+    trim.box(t2.cabin[0].x + 0.12, t2.cabin[0].yb + 0.05, s * t2.W * 0.18, 0.34, 0.02, 0.025, 1711394);
+  }
+  const wr2 = t2.wheel, ww = 0.3;
   for (const sx of [1, -1]) {
     for (const sz of [1, -1]) {
-      wheel(trim, sx * t2.wx, wr2, sz * (t2.W / 2 + 0.01), wr2, ww, sz);
-      trim.box(sx * t2.wx, wr2 + 0.05, sz * (t2.W / 2 - 0.18), wr2 * 2.2, wr2 * 1.6, 0.34, 1316378);
-      body.box(sx * t2.wx, wr2 + 0.42, sz * (t2.W / 2 - 0.1), wr2 * 2.4, 0.26, 0.32, 16777215);
+      wheel(wheels, sx * t2.wx, wr2, sz * (HW - 0.05), wr2, ww, sz);
+      trim.box(sx * t2.wx, wr2 + 0.05, sz * (HW - 0.26), wr2 * 2.2, wr2 * 1.55, 0.34, 1053206);
+      body.box(sx * t2.wx, wr2 + 0.34, sz * (HW - 0.14), wr2 * 2.3, 0.12, 0.26, 16777215);
     }
   }
-  trim.box(fr2.x - 0.12, fr2.yb + 0.12, 0, 0.06, 0.16, 0.55, 15263454);
-  trim.box(rr2.x + 0.12, rr2.yb + 0.12, 0, 0.06, 0.16, 0.55, 15263454);
-  trim.box(rr2.x + 0.06, rr2.yb - 0.02, 0.42, 0.28, 0.11, 0.11, 9278620);
-  const roofTop = t2.cabin.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 5e-3 }));
-  hull(body, roofTop, 14211288);
-  lights.box(fr2.x - 0.02, fr2.yb + 0.42, t2.W * 0.3, 0.1, 0.22, 0.5, 16773324);
-  lights.box(fr2.x - 0.02, fr2.yb + 0.42, -t2.W * 0.3, 0.1, 0.22, 0.5, 16773324);
-  lights.box(rr2.x + 0.02, rr2.yb + 0.44, t2.W * 0.31, 0.09, 0.2, 0.46, 14166814);
-  lights.box(rr2.x + 0.02, rr2.yb + 0.44, -t2.W * 0.31, 0.09, 0.2, 0.46, 14166814);
+  trim.box(fr2.x - 0.14, fr2.yb + 0.1, 0, 0.05, 0.15, 0.52, 15263454);
+  trim.box(rr2.x + 0.14, rr2.yb + 0.1, 0, 0.05, 0.15, 0.52, 15263454);
+  for (const s of t2.spoiler ? [-1, 1] : [1]) {
+    trim.box(rr2.x + 0.08, rr2.yb - 0.01, s * 0.4, 0.24, 0.1, 0.1, 10134187);
+    trim.box(rr2.x + 0.16, rr2.yb - 0.01, s * 0.4, 0.06, 0.12, 0.12, 1316378);
+  }
+  trim.box(
+    t2.cabin[t2.cabin.length - 1].x,
+    t2.cabin[t2.cabin.length - 1].yt + 0.13,
+    HW * 0.55,
+    0.02,
+    0.26,
+    0.02,
+    1711394
+  );
+  hull(
+    body,
+    cabinS.map((sec) => ({ x: sec.x, hw: sec.hw * 0.9, yb: sec.yt - 0.04, yt: sec.yt + 5e-3 })),
+    14342874,
+    0.35,
+    14
+  );
+  const fz = fr2.hw * 0.66, rz = rr2.hw * 0.66;
+  for (const s of [-1, 1]) {
+    trim.box(fr2.x - 0.1, fr2.yb + 0.44, s * fz, 0.08, 0.24, 0.5, 1316378);
+    lights.box(fr2.x - 0.02, fr2.yb + 0.44, s * fz, 0.09, 0.2, 0.44, 16774102);
+    lights.box(fr2.x - 0.04, fr2.yb + 0.3, s * fz * 1.12, 0.07, 0.07, 0.18, 16758858);
+    trim.box(rr2.x + 0.1, rr2.yb + 0.46, s * rz, 0.08, 0.23, 0.48, 1316378);
+    lights.box(rr2.x - 0.03, rr2.yb + 0.46, s * rz, 0.09, 0.19, 0.42, 14166814);
+    lights.box(rr2.x - 0.02, rr2.yb + 0.46, s * rz * 0.45, 0.07, 0.1, 0.13, 15787730);
+  }
   if (kind === "police") {
     trim.box(t2.cabin[1].x, t2.cabin[1].yt + 0.1, 0, 1.15, 0.14, 1.2, 1711396);
-    trim.box(0, t2.body[2].yt + 0.02, t2.W / 2 - 0.02, 2.2, 0.5, 0.06, 15790837);
-    trim.box(0, t2.body[2].yt + 0.02, -(t2.W / 2 - 0.02), 2.2, 0.5, 0.06, 15790837);
+    trim.box(0, t2.body[2].yt + 0.02, HW - 0.02, 2.2, 0.5, 0.06, 15790837);
+    trim.box(0, t2.body[2].yt + 0.02, -(HW - 0.02), 2.2, 0.5, 0.06, 15790837);
   }
   if (kind === "taxi") {
     trim.box(t2.cabin[1].x, t2.cabin[1].yt + 0.18, 0, 0.85, 0.3, 0.42, 16042272);
@@ -15103,20 +15214,19 @@ function buildCarGeo(t2, kind) {
   if (kind === "ambulance") {
     trim.box(t2.cabin[1].x, t2.cabin[1].yt + 0.14, 0, 1.2, 0.16, 1.3, 15265007);
     for (const s of [-1, 1]) {
-      trim.box(0, 1.5, s * (t2.W / 2 - 0.01), 3.2, 0.34, 0.05, 13644844);
-      trim.box(0.4, 2, s * (t2.W / 2 - 0.01), 0.9, 0.24, 0.06, 13644844);
-      trim.box(0.4, 2, s * (t2.W / 2 - 0.01), 0.24, 0.9, 0.06, 13644844);
+      trim.box(0, 1.5, s * (HW - 0.01), 3.2, 0.34, 0.05, 13644844);
+      trim.box(0.4, 2, s * (HW - 0.01), 0.9, 0.24, 0.06, 13644844);
+      trim.box(0.4, 2, s * (HW - 0.01), 0.24, 0.9, 0.06, 13644844);
     }
   }
   if (kind === "bus") {
-    for (const s of [-1, 1]) {
-      trim.box(0, 1.15, s * (t2.W / 2 - 0.01), 8.6, 0.24, 0.05, 3108816);
-    }
+    for (const s of [-1, 1]) trim.box(0, 1.15, s * (HW - 0.01), 8.6, 0.24, 0.05, 3108816);
     trim.box(4.1, 2.85, 0, 1.2, 0.34, 1.6, 1777703);
   }
   return {
-    body: smoothNormals(body.build(), 0.95),
+    body: smoothNormals(body.build(), 0.9),
     trim: trim.build(),
+    wheels: wheels.build(),
     glass: smoothNormals(glass.build(), 1.2),
     lights: lights.build()
   };
@@ -15124,6 +15234,13 @@ function buildCarGeo(t2, kind) {
 function initModels(quality) {
   shared.quality = quality;
   shared.trimMat = new sd({ vertexColors: true, roughness: 0.55, metalness: 0.55, envMapIntensity: 1 });
+  const rim = (o) => new sd({ vertexColors: true, envMapIntensity: 1.2, ...o });
+  shared.rimMats = {
+    standard: shared.trimMat,
+    cromo: rim({ roughness: 0.08, metalness: 1, color: 15922938 }),
+    nero: rim({ roughness: 0.62, metalness: 0.35, color: 3816771 }),
+    bronzo: rim({ roughness: 0.3, metalness: 0.9, color: 12618302 })
+  };
   shared.glassMat = new sd({
     color: 1054238,
     roughness: 0.14,
@@ -15131,6 +15248,15 @@ function initModels(quality) {
     envMapIntensity: 0.85,
     transparent: true,
     opacity: 0.9
+  });
+  shared.crackedGlassMat = new sd({
+    map: crackedGlassTexture(),
+    color: 10135220,
+    roughness: 0.72,
+    metalness: 0,
+    envMapIntensity: 0.3,
+    transparent: true,
+    opacity: 0.86
   });
   shared.lightMat = new es({ vertexColors: true, toneMapped: false });
   shared.geo = {};
@@ -15145,6 +15271,86 @@ function initModels(quality) {
   shared.shadowMat = new es({ color: 0, transparent: true, opacity: 0.3, depthWrite: false });
   return shared;
 }
+function dentCar(group, lx, ly, lz, strength) {
+  const u2 = group.userData;
+  if (!u2.dentable) return;
+  if (!u2.owned) {
+    for (const m of u2.dentable) m.geometry = m.geometry.clone();
+    u2.owned = true;
+    u2.dents = 0;
+  }
+  u2.dents = (u2.dents || 0) + strength;
+  const worn = 1 / (1 + u2.dents * 0.012);
+  const R = 0.85 + strength * 0.03;
+  const depth = Math.min(0.21, 0.03 + strength * 0.012) * worn;
+  for (const m of u2.dentable) {
+    const pos = m.geometry.attributes.position;
+    const col = m.geometry.attributes.color;
+    const a = pos.array;
+    for (let i = 0; i < a.length; i += 3) {
+      const dx = a[i] - lx, dy = a[i + 1] - ly, dz = a[i + 2] - lz;
+      const d2 = Math.hypot(dx, dy, dz);
+      if (d2 > R) continue;
+      const k = (1 - d2 / R) ** 2;
+      const inv = d2 > 1e-3 ? 1 / d2 : 0;
+      a[i] -= dx * inv * depth * k;
+      a[i + 1] -= dy * inv * depth * k * 0.55;
+      a[i + 2] -= dz * inv * depth * k;
+      const j2 = depth * k * 0.35;
+      a[i] += (Math.random() - 0.5) * j2;
+      a[i + 1] += (Math.random() - 0.5) * j2;
+      a[i + 2] += (Math.random() - 0.5) * j2;
+      if (col) {
+        const f2 = 1 - k * 0.3;
+        col.array[i] *= f2;
+        col.array[i + 1] *= f2;
+        col.array[i + 2] *= f2;
+      }
+    }
+    pos.needsUpdate = true;
+    if (col) col.needsUpdate = true;
+    m.geometry.computeVertexNormals();
+    m.geometry.computeBoundingSphere();
+  }
+  if (u2.dents > 14 && u2.glass && u2.glass.material !== shared.crackedGlassMat) {
+    u2.glass.material = shared.crackedGlassMat;
+  }
+  if (u2.dents > 22 && u2.lights) {
+    u2.lightsBroken = true;
+    u2.lights.visible = false;
+  }
+}
+function undentCar(group) {
+  const u2 = group.userData;
+  if (!u2.owned || !u2.dentable) return;
+  const g = shared.geo[u2.geoKey] || shared.geo.sedan;
+  const fresh = { body: g.body, trim: g.trim, glass: g.glass };
+  for (const m of u2.dentable) {
+    m.geometry.dispose();
+    m.geometry = fresh[m.userData.part];
+  }
+  u2.owned = false;
+  u2.dents = 0;
+  u2.lightsBroken = false;
+  if (u2.glass) u2.glass.material = shared.glassMat;
+}
+function paintCar(group, color) {
+  const m = group.userData.bodyMat;
+  if (m) m.color.setHex(color);
+}
+function setRims(group, style) {
+  const u2 = group.userData;
+  if (!u2.wheelMesh) return;
+  const m = shared.rimMats[style] || shared.trimMat;
+  u2.wheelMesh.material = m;
+  u2.rims = style;
+}
+var RIM_STYLES = {
+  standard: { name: "Lega chiara", price: 0 },
+  cromo: { name: "Cromati", price: 260 },
+  nero: { name: "Neri opachi", price: 220 },
+  bronzo: { name: "Bronzo", price: 340 }
+};
 function makeCar(type = "sedan", color = 11545387, kind = "civil") {
   const key = kind === "civil" ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
@@ -15160,14 +15366,15 @@ function makeCar(type = "sedan", color = 11545387, kind = "civil") {
   });
   const body = new Xs(g.body, bodyMat);
   const trim = new Xs(g.trim, shared.trimMat);
+  const wheels = new Xs(g.wheels, shared.trimMat);
   const glass = new Xs(g.glass, shared.glassMat);
   const lights = new Xs(g.lights, shared.lightMat);
   lights.visible = false;
   if (shared.quality.shadows) {
-    body.castShadow = trim.castShadow = true;
+    body.castShadow = trim.castShadow = wheels.castShadow = true;
     body.receiveShadow = true;
   }
-  group.add(body, trim, glass, lights);
+  group.add(body, trim, wheels, glass, lights);
   if (!shared.quality.shadows) {
     const sh2 = new Xs(shared.shadowGeo, shared.shadowMat);
     sh2.scale.set(CAR_TYPES[type].L / 1, 1, CAR_TYPES[type].W / 1);
@@ -15189,6 +15396,14 @@ function makeCar(type = "sedan", color = 11545387, kind = "civil") {
   }
   group.userData.bodyMat = bodyMat;
   group.userData.lights = lights;
+  group.userData.glass = glass;
+  group.userData.geoKey = key;
+  body.userData.part = "body";
+  trim.userData.part = "trim";
+  glass.userData.part = "glass";
+  group.userData.dentable = [body, trim, glass];
+  group.userData.wheelMesh = wheels;
+  group.userData.rims = "standard";
   return group;
 }
 var SKINS = [15977384, 15251852, 13869172, 12157786, 9855807, 7620908, 5912611];
@@ -15360,6 +15575,39 @@ function buildShin(c2) {
     { y: -0.28, rx: 0.048, rz: 0.05, color: c2.shoes }
   ], c2.shoes, 8, false);
   return smoothNormals(gb.build(), 1.15);
+}
+function crackedGlassTexture() {
+  const S = 256;
+  const c2 = document.createElement("canvas");
+  c2.width = c2.height = S;
+  const ctx = c2.getContext("2d");
+  ctx.fillStyle = "#c9d3de";
+  ctx.fillRect(0, 0, S, S);
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  for (let k = 0; k < 3; k++) {
+    const cx = 40 + Math.random() * (S - 80), cy = 40 + Math.random() * (S - 80);
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      let x = cx, y = cy;
+      ctx.lineWidth = 1 + Math.random();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let j = 0; j < 5; j++) {
+        x += Math.cos(a + (Math.random() - 0.5)) * (8 + Math.random() * 16);
+        y += Math.sin(a + (Math.random() - 0.5)) * (8 + Math.random() * 16);
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    for (let r = 8; r < 46; r += 12) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  const t2 = new Uh(c2);
+  t2.colorSpace = qe;
+  return t2;
 }
 function makeCharacter(opts = {}) {
   const skin = opts.skin ?? pick(SKINS);
@@ -15706,17 +15954,33 @@ var SHOP_MENUS = {
   },
   garage: {
     title: "GARAGE PIT",
-    desc: "Meccanica, gomme e qualche domanda in meno.",
+    desc: "Meccanica, vernice, cerchi e qualche domanda in meno.",
     items: [
       {
         id: "repair",
         icon: "\u{1F527}",
         name: "Riparazione completa",
-        desc: "Ripara il veicolo parcheggiato fuori",
+        desc: "Raddrizza la lamiera e rimette i vetri",
         price: 120,
         effect: (g) => {
           g.repairLastCar();
         }
+      },
+      {
+        id: "paint",
+        icon: "\u{1F3A8}",
+        name: "Riverniciatura",
+        desc: "Colore nuovo e la polizia ti perde",
+        price: 220,
+        effect: (g) => g.repaintCar()
+      },
+      {
+        id: "rims",
+        icon: "\u2699\uFE0F",
+        name: "Cerchi nuovi",
+        desc: "Cromati, neri opachi o bronzo",
+        price: 260,
+        effect: (g) => g.nextRims()
       },
       { id: "sport", icon: "\u{1F3CE}\uFE0F", name: "Coup\xE9 sportiva", desc: "Consegnata fuori dal garage", price: 2500, effect: (g) => g.deliverCar("sport") },
       { id: "suv", icon: "\u{1F699}", name: "SUV", desc: "Consegnato fuori dal garage", price: 1400, effect: (g) => g.deliverCar("suv") }
@@ -16678,6 +16942,7 @@ var Vehicle = class {
     this.speed = vLong;
     const r = spec.W * 0.5;
     let bumped = false;
+    let hitOff = 0, hitNx = 0, hitNz = 0;
     for (const off of [spec.L * 0.34, -spec.L * 0.34]) {
       const px = this.x + fx * off, pz = this.z + fz * off;
       if (this.city.resolve(px, pz, r, TMP2)) {
@@ -16685,6 +16950,9 @@ var Vehicle = class {
         this.x += dx;
         this.z += dz;
         bumped = true;
+        hitOff = off;
+        hitNx = dx;
+        hitNz = dz;
       }
     }
     if (bumped) {
@@ -16692,6 +16960,12 @@ var Vehicle = class {
       if (impact > 4) {
         this.health -= impact * 0.9;
         this.lastCrash = impact;
+        const nl2 = Math.hypot(hitNx, hitNz) || 1;
+        this.dentAt(
+          this.x + fx * hitOff - hitNx / nl2 * 0.4,
+          this.z + fz * hitOff - hitNz / nl2 * 0.4,
+          impact
+        );
       }
       this.setVelocity(-vLong * 0.18, vLat * 0.3);
     }
@@ -16709,6 +16983,23 @@ var Vehicle = class {
     this.vx = fx * long + rx * lat;
     this.vz = fz * long + rz * lat;
     this.speed = long;
+  }
+  /**
+   * Ammacca la carrozzeria nel punto d'urto (in coordinate mondo).
+   * Converte nel sistema locale dell'auto e delega al modello.
+   */
+  dentAt(wx, wz, strength) {
+    if (!this.mesh || strength < 4) return;
+    const ox = wx - this.x, oz = wz - this.z;
+    const fx = this.fx, fz = this.fz;
+    const rx = Math.sin(this.a), rz = Math.cos(this.a);
+    dentCar(
+      this.mesh,
+      ox * fx + oz * fz,
+      this.spec.top * 0.45,
+      ox * rx + oz * rz,
+      Math.min(18, strength)
+    );
   }
   /** Urto tra veicoli: separazione elastica semplificata. */
   collideWith(o) {
@@ -16728,6 +17019,10 @@ var Vehicle = class {
     if (rel > 6) {
       this.health -= rel * 0.5;
       o.health -= rel * 0.5;
+      const cx = this.x + nx * rr2 * 0.42, cz = this.z + nz * rr2 * 0.42;
+      this.dentAt(cx, cz, rel * 0.8);
+      o.dentAt(cx, cz, rel * 0.8);
+      this.lastCrash = Math.max(this.lastCrash || 0, rel);
     }
     return rel;
   }
@@ -16736,7 +17031,20 @@ var Vehicle = class {
     this.mesh.rotation.y = this.a;
   }
   setNight(on) {
-    this.mesh.userData.lights.visible = on;
+    const u2 = this.mesh.userData;
+    u2.lights.visible = on && !u2.lightsBroken;
+  }
+  /** Riparazione in officina: raddrizza la lamiera e rimette i vetri. */
+  repair() {
+    this.health = 100;
+    undentCar(this.mesh);
+  }
+  paint(color) {
+    this.color = color;
+    paintCar(this.mesh, color);
+  }
+  rims(style) {
+    setRims(this.mesh, style);
   }
   /** Lampeggianti della polizia: i due lati si alternano. */
   updateSiren(t2) {
@@ -16885,6 +17193,7 @@ var Ped = class {
   }
   panic(game2, from) {
     if (this.state === "down" || this.state === "flinch") return;
+    this.foe = null;
     this.state = "flee";
     this.bench = null;
     this.timer = rand(4, 9);
@@ -16936,18 +17245,23 @@ var Ped = class {
         break;
       }
       case "fight": {
-        const dx = p2.x - this.x, dz = p2.z - this.z;
+        const foe = this.foe && this.foe.state !== "down" && this.foe.health > -5 ? this.foe : p2;
+        const dx = foe.x - this.x, dz = foe.z - this.z;
         const d2 = Math.hypot(dx, dz) || 1;
         this.a = turnToward(this.a, Math.atan2(-dz / d2, dx / d2), dt2 * 8);
         this.speed = d2 > 1.9 ? 3.4 : 0;
         this.timer -= dt2;
-        if (d2 < 2.2 && this.punchCd <= 0 && !p2.dead) {
+        if (d2 < 2.2 && this.punchCd <= 0 && !foe.dead) {
           this.punchCd = rand(0.9, 1.5);
           this.punchT = 1;
           game2.audio.punch();
-          p2.damage(rand(5, 9), "rissa");
+          if (foe === p2) p2.damage(rand(5, 9), "rissa");
+          else foe.hit(rand(4, 8), game2, this);
         }
-        if (this.timer <= 0 || this.health < this.maxHealth * 0.4 || d2 > 28) this.panic(game2, p2);
+        if (this.timer <= 0 || this.health < this.maxHealth * 0.4 || d2 > 28) {
+          this.foe = null;
+          this.panic(game2, foe);
+        }
         anim = "fight";
         break;
       }
@@ -17109,7 +17423,7 @@ var PedManager = class {
     for (const ped of this.peds) {
       const d2 = Math.hypot(ped.x - p2.x, ped.z - p2.z);
       const spent = ped.state === "down" && ped.timer <= 0 && ped.health <= -12;
-      if (d2 > CFG.STREAM_RADIUS || spent) {
+      if (!ped.event && (d2 > CFG.STREAM_RADIUS || spent)) {
         this._recycle(ped, p2.x, p2.z);
         continue;
       }
@@ -19312,6 +19626,349 @@ function midi(n) {
   return 440 * Math.pow(2, (n - 69) / 12);
 }
 
+// src/systems/smoke.js
+var MAX = 90;
+var Smoke = class {
+  constructor(game2) {
+    this.game = game2;
+    const geo = new ma(1, 1);
+    this.mesh = new jc(geo, new es({
+      map: puffTexture(),
+      transparent: true,
+      depthWrite: false,
+      opacity: 1,
+      toneMapped: false
+    }), MAX);
+    this.mesh.instanceMatrix.setUsage(An);
+    this.mesh.frustumCulled = false;
+    this.mesh.count = 0;
+    this.mesh.renderOrder = 3;
+    game2.scene.add(this.mesh);
+    this.p = [];
+    for (let i = 0; i < MAX; i++) this.p.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s: 1, hot: 0 });
+    this._m = new cr();
+    this._q = new Ii();
+    this._v = new Ui();
+    this._c = new Kr();
+    this.emitT = 0;
+  }
+  /** Sbuffo singolo: usato anche dalle esplosioni. */
+  puff(x, y, z, hot = 0, spread = 0.5) {
+    const p2 = this.p.find((q) => q.life <= 0);
+    if (!p2) return;
+    p2.life = p2.max = hot ? 0.55 + Math.random() * 0.4 : 1.4 + Math.random() * 1.2;
+    p2.x = x + (Math.random() - 0.5) * spread;
+    p2.y = y + (Math.random() - 0.5) * spread * 0.4;
+    p2.z = z + (Math.random() - 0.5) * spread;
+    p2.vx = (Math.random() - 0.5) * 0.5;
+    p2.vy = hot ? 1.8 + Math.random() : 0.9 + Math.random() * 0.7;
+    p2.vz = (Math.random() - 0.5) * 0.5;
+    p2.s = hot ? 0.5 + Math.random() * 0.4 : 0.7 + Math.random() * 0.6;
+    p2.hot = hot;
+  }
+  update(dt2, cars) {
+    this.emitT -= dt2;
+    if (this.emitT <= 0) {
+      this.emitT = 0.07;
+      const pl2 = this.game.player;
+      for (const c2 of cars) {
+        if (c2.health > 42) continue;
+        if (Math.abs(c2.x - pl2.x) > 70 || Math.abs(c2.z - pl2.z) > 70) continue;
+        const burning = c2.health < 16;
+        const nose = c2.spec.L * 0.36;
+        this.puff(c2.x + c2.fx * nose, 0.9, c2.z + c2.fz * nose, burning && Math.random() < 0.6 ? 1 : 0, 0.4);
+      }
+    }
+    let n = 0;
+    const cam = this.game.camera;
+    for (const p2 of this.p) {
+      if (p2.life <= 0) continue;
+      p2.life -= dt2;
+      if (p2.life <= 0) continue;
+      p2.x += p2.vx * dt2;
+      p2.y += p2.vy * dt2;
+      p2.z += p2.vz * dt2;
+      p2.vy *= 1 - dt2 * 0.5;
+      p2.vx *= 1 - dt2 * 0.8;
+      p2.vz *= 1 - dt2 * 0.8;
+      const t2 = 1 - p2.life / p2.max;
+      const size = p2.s * (p2.hot ? 1 + t2 * 0.8 : 1 + t2 * 2.4);
+      this._v.set(p2.x, p2.y, p2.z);
+      this._q.copy(cam.quaternion);
+      this._m.compose(this._v, this._q, new Ui(size, size, size));
+      this.mesh.setMatrixAt(n, this._m);
+      const fade = Math.sin(Math.min(1, t2 * 1.15) * Math.PI) * (p2.hot ? 1 : 0.5);
+      if (p2.hot) this._c.setRGB(1.6 * fade, (0.9 - t2 * 0.7) * fade, 0.15 * fade);
+      else {
+        const g = (0.22 + t2 * 0.3) * fade;
+        this._c.setRGB(g, g, g * 1.02);
+      }
+      this.mesh.setColorAt(n, this._c);
+      n++;
+      if (n >= MAX) break;
+    }
+    this.mesh.count = n;
+    if (n) {
+      this.mesh.instanceMatrix.needsUpdate = true;
+      if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+  /** Nuvola grossa: esplosioni. */
+  burst(x, z, big = 1) {
+    for (let i = 0; i < 14 * big; i++) this.puff(x, 0.7 + Math.random() * 1.4, z, i < 8 * big ? 1 : 0, 2.2);
+  }
+};
+function puffTexture() {
+  const S = 128;
+  const c2 = document.createElement("canvas");
+  c2.width = c2.height = S;
+  const ctx = c2.getContext("2d");
+  for (let i = 0; i < 7; i++) {
+    const cx = S / 2 + (Math.random() - 0.5) * 34, cy = S / 2 + (Math.random() - 0.5) * 34;
+    const r = 22 + Math.random() * 24;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, "rgba(255,255,255,0.5)");
+    g.addColorStop(0.55, "rgba(255,255,255,0.18)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const t2 = new Uh(c2);
+  t2.colorSpace = qe;
+  return t2;
+}
+
+// src/systems/events.js
+var RandomEvents = class {
+  constructor(game2) {
+    this.game = game2;
+    this.timer = 35 + Math.random() * 40;
+    this.active = null;
+    this.cooldown = 0;
+    this.done = 0;
+  }
+  update(dt2) {
+    if (this.cooldown > 0) this.cooldown -= dt2;
+    if (this.active) {
+      this._run(dt2);
+      return;
+    }
+    if (this.game.interiors.current || this.game.wanted > 0 || this.game.missions.active) return;
+    this.timer -= dt2;
+    if (this.timer > 0) return;
+    this.timer = 55 + Math.random() * 70;
+    this._start();
+  }
+  // ------------------------------------------------------------------ avvio
+  _start() {
+    const g = this.game;
+    const kinds = ["scippo", "rissa", "incidente", "autostop"];
+    const kind = pick(kinds);
+    const spot = this._spotAhead(kind === "incidente" || kind === "autostop" ? "road" : "walk");
+    if (!spot) return;
+    if (kind === "scippo") this._mugging(spot);
+    else if (kind === "rissa") this._brawl(spot);
+    else if (kind === "incidente") this._crash(spot);
+    else this._hitchhiker(spot);
+  }
+  /** Un punto davanti al giocatore, abbastanza vicino da vederlo arrivare. */
+  _spotAhead(kind) {
+    const g = this.game, p2 = g.player;
+    const node = kind === "road" ? g.city.randomRoadNode(p2.x, p2.z, 30, 150) || g.city.randomWalkNode(p2.x, p2.z, 26, 90) : g.city.randomWalkNode(p2.x, p2.z, 26, 70);
+    return node || null;
+  }
+  /** Prende due bot liberi e li piazza sul posto. */
+  _grab(n, x, z) {
+    const out = [];
+    for (const ped of this.game.peds.peds) {
+      if (out.length >= n) break;
+      if (ped.state === "down" || ped.event) continue;
+      out.push(ped);
+    }
+    for (const ped of out) {
+      ped.spawnFree(x + rand(-1.2, 1.2), z + rand(-1.2, 1.2));
+      ped.event = true;
+    }
+    return out.length === n ? out : (out.forEach((p2) => {
+      p2.event = false;
+    }), null);
+  }
+  // ------------------------------------------------------------- gli eventi
+  _mugging(spot) {
+    const two = this._grab(2, spot.x, spot.z);
+    if (!two) return;
+    const [thief, victim] = two;
+    thief.mood = "brave";
+    victim.knockDown(this.game, thief);
+    thief.state = "flee";
+    thief.timer = 30;
+    thief.fleeX = victim.x;
+    thief.fleeZ = victim.z;
+    thief.baseSpeed = 4.6;
+    this.active = {
+      kind: "scippo",
+      t: 26,
+      thief,
+      victim,
+      title: "SCIPPO",
+      sub: "Fermalo e ti tieni il malloppo.",
+      loot: 120 + (Math.random() * 220 | 0)
+    };
+    this._announce("Scippo in corso!", "bad");
+  }
+  _brawl(spot) {
+    const two = this._grab(2, spot.x, spot.z);
+    if (!two) return;
+    for (const p2 of two) {
+      p2.state = "fight";
+      p2.timer = 24;
+      p2.mood = "brave";
+    }
+    two[0].foe = two[1];
+    two[1].foe = two[0];
+    this.active = { kind: "rissa", t: 22, peds: two, title: "RISSA", sub: "Due tizi se le danno di santa ragione." };
+    this._announce("Rissa per strada", "");
+  }
+  _crash(spot) {
+    const g = this.game;
+    const cars = [];
+    for (let i = 0; i < 2; i++) {
+      const v = new Vehicle(g.city, { type: pick(["sedan", "suv", "muscle"]) });
+      v.x = spot.x + (i ? 2.6 : -1.2) + rand(-0.6, 0.6);
+      v.z = spot.z + (i ? 1.1 : -0.8) + rand(-0.6, 0.6);
+      v.a = rand(0, 6.28);
+      v.speed = 0;
+      v.driver = "wreck";
+      v.health = 22 + Math.random() * 14;
+      g.worldGroup.add(v.mesh);
+      v.sync();
+      for (let k = 0; k < 3; k++) {
+        v.dentAt(v.x + v.fx * v.spec.L * 0.4 + rand(-0.6, 0.6), v.z + v.fz * v.spec.L * 0.4 + rand(-0.6, 0.6), 13);
+      }
+      cars.push(v);
+    }
+    const watchers = this._grab(2, spot.x + 3, spot.z + 3);
+    if (watchers) for (const w of watchers) w.watch(g, spot.x, spot.z);
+    this.active = {
+      kind: "incidente",
+      t: 40,
+      cars,
+      peds: watchers || [],
+      title: "INCIDENTE",
+      sub: "Tamponamento. Le auto sono ancora guidabili."
+    };
+    this._announce("Incidente poco pi\xF9 avanti", "");
+  }
+  _hitchhiker(spot) {
+    const one = this._grab(1, spot.x, spot.z);
+    if (!one) return;
+    const ped = one[0];
+    ped.state = "wave";
+    ped.timer = 60;
+    ped.speed = 0;
+    const dest = this.game.city.randomWalkNode(spot.x, spot.z, 120, 300) || spot;
+    this.active = {
+      kind: "autostop",
+      t: 55,
+      ped,
+      dest,
+      picked: false,
+      title: "AUTOSTOP",
+      sub: "Fermati in auto accanto a lui.",
+      fee: 90 + (Math.random() * 160 | 0)
+    };
+    this._announce("Qualcuno chiede un passaggio", "");
+  }
+  // ------------------------------------------------------------ svolgimento
+  _run(dt2) {
+    const g = this.game, a = this.active;
+    a.t -= dt2;
+    if (!g.missions.active) g.hud.mission(a.title, a.sub);
+    if (a.kind === "scippo") {
+      const t2 = a.thief;
+      if (t2.state === "down" || t2.health < t2.maxHealth * 0.55) {
+        g.player.earn(a.loot);
+        g.toast(`Ladro fermato: +$${a.loot}`, "good");
+        this.done++;
+        return this._end();
+      }
+      if (a.t <= 0) {
+        g.toast("Il ladro \xE8 scappato", "bad");
+        return this._end();
+      }
+      return;
+    }
+    if (a.kind === "rissa") {
+      if (a.t <= 0 || a.peds.every((p2) => p2.state === "down")) return this._end();
+      return;
+    }
+    if (a.kind === "incidente") {
+      if (a.t <= 0) {
+        for (const c2 of a.cars) {
+          if (c2.driver === "player") continue;
+          g.worldGroup.remove(c2.mesh);
+        }
+        return this._end();
+      }
+      return;
+    }
+    if (a.kind === "autostop") {
+      const p2 = g.player;
+      if (!a.picked) {
+        const d2 = Math.hypot(a.ped.x - p2.x, a.ped.z - p2.z);
+        if (p2.inCar && d2 < 4.5 && Math.abs(p2.car.speed) < 2) {
+          a.picked = true;
+          a.ped.mesh.visible = false;
+          a.sub = "Portalo a destinazione.";
+          g.setWaypoint({ x: a.dest.x, z: a.dest.z, label: "Passeggero" });
+          g.toast("\xC8 salito. Portalo dove ti indica", "good");
+        } else if (a.t <= 0) {
+          g.toast("Se ne \xE8 andato a piedi", "");
+          return this._end();
+        }
+        return;
+      }
+      const dd = Math.hypot(a.dest.x - p2.x, a.dest.z - p2.z);
+      if (dd < 9 && p2.inCar && Math.abs(p2.car.speed) < 3) {
+        a.ped.mesh.visible = true;
+        a.ped.spawnFree(p2.x + 2, p2.z + 2);
+        a.ped.state = "walk";
+        g.player.earn(a.fee);
+        g.toast(`Passaggio pagato: +$${a.fee}`, "good");
+        this.done++;
+        g.setWaypoint(null);
+        return this._end();
+      }
+      if (a.t <= -90) {
+        a.ped.mesh.visible = true;
+        g.setWaypoint(null);
+        return this._end();
+      }
+      return;
+    }
+  }
+  _announce(msg, kind) {
+    this.game.toast(msg, kind);
+    this.game.audio.blip(520, 0.08, "sine", 0.16);
+  }
+  _end() {
+    const a = this.active;
+    if (a) {
+      for (const p2 of [a.thief, a.victim, a.ped, ...a.peds || []]) {
+        if (!p2) continue;
+        p2.event = false;
+        p2.foe = null;
+        if (p2.baseSpeed > 3) p2.baseSpeed = rand(1.1, 1.9);
+      }
+    }
+    this.active = null;
+    if (!this.game.missions.active) this.game.hud.mission(null);
+    this.cooldown = 20;
+  }
+};
+
 // src/main.js
 var $3 = (id) => document.getElementById(id);
 var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -19447,6 +20104,8 @@ var Game = class {
     this.map = new MapView(this);
     this.weather = new Weather(this);
     this.radio = new Radio(this);
+    this.smoke = new Smoke(this);
+    this.events = new RandomEvents(this);
     this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
@@ -19589,17 +20248,8 @@ var Game = class {
     this.beam.visible = false;
     this.worldGroup.add(this.beam);
   }
-  /** Fumo del motore danneggiato ed esplosioni. */
+  /** Esplosioni. Il fumo lo fa il sistema a particelle (systems/smoke.js). */
   _effects() {
-    const smokeMat = new es({ color: 10133672, transparent: true, opacity: 0.5, depthWrite: false });
-    this.smoke = new Wl();
-    for (let i = 0; i < 5; i++) {
-      const m = new Xs(new qs(0.7, 0.7, 0.7), smokeMat);
-      m.userData.seed = i * 1.7;
-      this.smoke.add(m);
-    }
-    this.smoke.visible = false;
-    this.worldGroup.add(this.smoke);
     this.boom = new Xs(
       new Zu(1, 12, 8),
       new es({ color: 16753466, transparent: true, opacity: 0.9, depthWrite: false })
@@ -19615,23 +20265,10 @@ var Game = class {
     this.audio.crash(20);
     this.audio.noise(0.6, 140, 0.6);
     this.hud.flash();
+    this.smoke.burst(x, z, 1.4);
     this.alarm(x, z, 30);
   }
   _effectsUpdate(dt2) {
-    const p2 = this.player;
-    const car = p2.inCar ? p2.car : null;
-    const damaged = car && car.health < 42;
-    this.smoke.visible = !!damaged && !this.interiors.current;
-    if (damaged) {
-      const k = 1 - car.health / 42;
-      this.smoke.position.set(car.x + car.fx * car.spec.L * 0.42, 1, car.z + car.fz * car.spec.L * 0.42);
-      for (const m of this.smoke.children) {
-        const t2 = (this.time * 0.9 + m.userData.seed) % 1;
-        m.position.set(Math.sin(m.userData.seed + this.time) * 0.5, t2 * 3.2, Math.cos(m.userData.seed * 2) * 0.5);
-        m.scale.setScalar(0.4 + t2 * 1.6);
-        m.material.opacity = 0.55 * (1 - t2) * k;
-      }
-    }
     if (this.boomT > 0) {
       this.boomT -= dt2;
       const k = 1 - this.boomT / 0.6;
@@ -19941,6 +20578,13 @@ var Game = class {
     this.hud.weather(this.weather.label);
     this.radio.setOn(this.player.inCar && !this.interiors.current);
     this.radio.update(dt2);
+    this._smokeCars = this._smokeCars || [];
+    this._smokeCars.length = 0;
+    for (const v of this.traffic.all()) this._smokeCars.push(v);
+    for (const v of this.police.cars) this._smokeCars.push(v);
+    if (this.player.car) this._smokeCars.push(this.player.car);
+    this.smoke.update(dt2, this._smokeCars);
+    this.events.update(dt2);
     this.trafficT += dt2;
     if (this.trafficT > 13) {
       this.trafficT = 0;
@@ -20194,9 +20838,40 @@ var Game = class {
   }
   repairLastCar() {
     if (this.lastCar) {
-      this.lastCar.health = 100;
-      this.toast("Veicolo riparato", "good");
+      this.lastCar.repair();
+      this.toast("Veicolo riparato e raddrizzato", "good");
     } else this.toast("Nessun veicolo da riparare");
+  }
+  /** Pay'n'Spray: colore nuovo, lamiera dritta e la polizia ti perde. */
+  repaintCar() {
+    const car = this.lastCar;
+    if (!car) {
+      this.toast("Nessun veicolo qui fuori");
+      return;
+    }
+    let c2 = pick(CAR_COLORS);
+    for (let i = 0; i < 6 && c2 === car.color; i++) c2 = pick(CAR_COLORS);
+    car.paint(c2);
+    car.repair();
+    if (this.wanted > 0) {
+      this.setWanted(0);
+      this.police.standDown();
+      this.toast("Verniciata. La polizia ti ha perso", "good");
+    } else this.toast("Verniciata a nuovo", "good");
+    this.audio.ui();
+  }
+  nextRims() {
+    const car = this.lastCar;
+    if (!car) {
+      this.toast("Nessun veicolo qui fuori");
+      return;
+    }
+    const keys = Object.keys(RIM_STYLES);
+    const i = keys.indexOf(car.mesh.userData.rims || "standard");
+    const next = keys[(i + 1) % keys.length];
+    car.rims(next);
+    this.toast(`Cerchi: ${RIM_STYLES[next].name}`, "good");
+    this.audio.ui();
   }
   deliverCar(type) {
     const door = this.interiors.door;

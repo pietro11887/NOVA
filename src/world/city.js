@@ -1084,6 +1084,16 @@ export class City {
     return this.walkNodes[(Math.random() * this.walkNodes.length) | 0];
   }
 
+  /** Come randomWalkNode ma sulla carreggiata: serve agli eventi in strada. */
+  randomRoadNode(nearX, nearZ, minD, maxD) {
+    for (let k = 0; k < 40; k++) {
+      const n = this.roadNodes[(Math.random() * this.roadNodes.length) | 0];
+      const d = Math.hypot(n.x - nearX, n.z - nearZ);
+      if (d > minD && d < maxD) return n;
+    }
+    return null;
+  }
+
   // ------------------------------------------------------------- dinamica
   setTrafficAxis(axis) {
     const m = this.mats;

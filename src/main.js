@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { CFG } from './core/config.js';
-import { clamp, lerp, IS_TOUCH, IS_MOBILE } from './core/utils.js';
+import { clamp, lerp, pick, IS_TOUCH, IS_MOBILE } from './core/utils.js';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
 import { SkySystem } from './world/sky.js';
 import { Post } from './systems/post.js';
-import { initModels, dressCharacter, animateCharacter } from './world/models.js';
+import { initModels, dressCharacter, animateCharacter, CAR_COLORS, RIM_STYLES } from './world/models.js';
 import { InteriorManager, SHOP_MENUS } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
@@ -22,6 +22,7 @@ import { MapView } from './systems/map.js';
 import { Weather } from './systems/weather.js';
 import { Radio } from './systems/radio.js';
 import { Smoke } from './systems/smoke.js';
+import { RandomEvents } from './systems/events.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -161,6 +162,7 @@ class Game {
     this.weather = new Weather(this);
     this.radio = new Radio(this);
     this.smoke = new Smoke(this);
+    this.events = new RandomEvents(this);
     this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
@@ -632,6 +634,7 @@ class Game {
     for (const v of this.police.cars) this._smokeCars.push(v);
     if (this.player.car) this._smokeCars.push(this.player.car);
     this.smoke.update(dt, this._smokeCars);
+    this.events.update(dt);
     this.trafficT += dt;
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
@@ -891,6 +894,33 @@ class Game {
   repairLastCar() {
     if (this.lastCar) { this.lastCar.repair(); this.toast('Veicolo riparato e raddrizzato', 'good'); }
     else this.toast('Nessun veicolo da riparare');
+  }
+
+  /** Pay'n'Spray: colore nuovo, lamiera dritta e la polizia ti perde. */
+  repaintCar() {
+    const car = this.lastCar;
+    if (!car) { this.toast('Nessun veicolo qui fuori'); return; }
+    let c = pick(CAR_COLORS);
+    for (let i = 0; i < 6 && c === car.color; i++) c = pick(CAR_COLORS);
+    car.paint(c);
+    car.repair();
+    if (this.wanted > 0) {
+      this.setWanted(0);
+      this.police.standDown();
+      this.toast('Verniciata. La polizia ti ha perso', 'good');
+    } else this.toast('Verniciata a nuovo', 'good');
+    this.audio.ui();
+  }
+
+  nextRims() {
+    const car = this.lastCar;
+    if (!car) { this.toast('Nessun veicolo qui fuori'); return; }
+    const keys = Object.keys(RIM_STYLES);
+    const i = keys.indexOf(car.mesh.userData.rims || 'standard');
+    const next = keys[(i + 1) % keys.length];
+    car.rims(next);
+    this.toast(`Cerchi: ${RIM_STYLES[next].name}`, 'good');
+    this.audio.ui();
   }
 
   deliverCar(type) {
