@@ -6,6 +6,32 @@ import { ShaderPass } from '../../vendor/examples/postprocessing/ShaderPass.js';
 import { OutputPass } from '../../vendor/examples/postprocessing/OutputPass.js';
 import { clamp } from '../core/utils.js';
 
+
+/**
+ * Rete di sicurezza prima del bloom.
+ *
+ * Un solo pixel non finito (NaN o infinito) uscito da uno shader viene
+ * sfocato dal bloom su mezzo fotogramma, e quel mezzo fotogramma diventa
+ * nero. Qui i pixel malati si sostituiscono col nero e le alte luci si
+ * limitano a un valore che il mezzo float regge: costa un passaggio a
+ * schermo pieno e rende il resto della catena a prova di guasto.
+ */
+const SanitizeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      // il confronto con se stesso e' falso solo per NaN
+      c = mix(vec4(0.0, 0.0, 0.0, 1.0), c, vec4(equal(c, c)));
+      gl_FragColor = vec4(clamp(c.rgb, 0.0, 4096.0), c.a);
+    }`,
+};
+
 /** Correzione colore finale: vignettatura, saturazione e un filo di grana. */
 const GradeShader = {
   uniforms: {
@@ -82,6 +108,7 @@ export class Post {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
+    this.composer.addPass(new ShaderPass(SanitizeShader));
     /*
      * Il bloom c'e' sempre nella catena e non si disattiva mai: in questa
      * versione di three, spegnere un passaggio intermedio scombina lo scambio

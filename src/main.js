@@ -4,6 +4,7 @@ import { clamp, lerp, pick, IS_TOUCH, IS_MOBILE } from './core/utils.js';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
+import { loadPBRSets } from './world/assets.js';
 import { SkySystem } from './world/sky.js';
 import { Post } from './systems/post.js';
 import { initModels, dressCharacter, animateCharacter, CAR_COLORS, RIM_STYLES } from './world/models.js';
@@ -56,6 +57,8 @@ class Game {
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,
+      // parallax sulle superfici stradali: costa, quindi solo sul massimo
+      parallax: !IS_MOBILE,
     };
     const forced = new URLSearchParams(location.search).get('q');
     if (forced !== null) {
@@ -66,6 +69,7 @@ class Game {
         this.quality.tier = clamp(t, 0, 3);
         this.quality.shadows = this.quality.tier >= 1;
         this.quality.bloom = this.quality.tier >= 3;
+        this.quality.parallax = this.quality.tier >= 3;
         if (this.quality.tier === 0) this.quality.pixelRatio = 1;
       }
     }
@@ -126,8 +130,12 @@ class Game {
     await step(12, 'Preparo i materiali…');
     initModels(this.quality);
 
-    await step(24, 'Costruisco strade e isolati…');
-    this.city = new City(this.quality).build();
+    await step(20, 'Scarico i materiali della strada…');
+    const aniso = Math.min(this.renderer.capabilities.getMaxAnisotropy(), IS_MOBILE ? 4 : 16);
+    this.pbr = await loadPBRSets(aniso);
+
+    await step(28, 'Costruisco strade e isolati…');
+    this.city = new City(this.quality, this.pbr).build();
     this._sharpenTextures();
     this.worldGroup.add(this.city.group);
 

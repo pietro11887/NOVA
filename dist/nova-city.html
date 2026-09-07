@@ -9722,6 +9722,15 @@ Cd.prototype.ValueTypeName = "string", Cd.prototype.ValueBufferType = Array, Cd.
 var Pd = class extends bd {
 };
 Pd.prototype.ValueTypeName = "vector";
+var Ud = { enabled: false, files: {}, add: function(t2, e) {
+  false !== this.enabled && (this.files[t2] = e);
+}, get: function(t2) {
+  if (false !== this.enabled) return this.files[t2];
+}, remove: function(t2) {
+  delete this.files[t2];
+}, clear: function() {
+  this.files = {};
+} };
 var Nd = class {
   constructor(t2, e, n) {
     const i = this;
@@ -9783,6 +9792,40 @@ var Od = class {
   }
 };
 Od.DEFAULT_MATERIAL_NAME = "__DEFAULT";
+var kd = class extends Od {
+  constructor(t2) {
+    super(t2);
+  }
+  load(t2, e, n, i) {
+    void 0 !== this.path && (t2 = this.path + t2), t2 = this.manager.resolveURL(t2);
+    const r = this, s = Ud.get(t2);
+    if (void 0 !== s) return r.manager.itemStart(t2), setTimeout((function() {
+      e && e(s), r.manager.itemEnd(t2);
+    }), 0), s;
+    const a = ai("img");
+    function o() {
+      c2(), Ud.add(t2, this), e && e(this), r.manager.itemEnd(t2);
+    }
+    function l2(e2) {
+      c2(), i && i(e2), r.manager.itemError(t2), r.manager.itemEnd(t2);
+    }
+    function c2() {
+      a.removeEventListener("load", o, false), a.removeEventListener("error", l2, false);
+    }
+    return a.addEventListener("load", o, false), a.addEventListener("error", l2, false), "data:" !== t2.slice(0, 5) && void 0 !== this.crossOrigin && (a.crossOrigin = this.crossOrigin), r.manager.itemStart(t2), a.src = t2, a;
+  }
+};
+var Xd = class extends Od {
+  constructor(t2) {
+    super(t2);
+  }
+  load(t2, e, n, i) {
+    const r = new bi(), s = new kd(this.manager);
+    return s.setCrossOrigin(this.crossOrigin), s.setPath(this.path), s.load(t2, (function(t3) {
+      r.image = t3, r.needsUpdate = true, void 0 !== e && e(r);
+    }), n, i), r;
+  }
+};
 var jd = class extends Nr {
   constructor(t2, e = 1) {
     super(), this.isLight = true, this.type = "Light", this.color = new Kr(t2), this.intensity = e;
@@ -11716,6 +11759,123 @@ function grassTuftTexture() {
   return t2;
 }
 
+// src/world/pbr.js
+var POM_FUNCS = (
+  /* glsl */
+  `
+uniform sampler2D novaPackMap;
+uniform float novaPomScale;
+uniform vec2 novaPomFade;      // x = distanza piena, y = distanza nulla
+uniform float novaMacroScale;
+uniform float novaMacroAmount;
+
+// Base tangente ricavata dalle derivate: non servono tangenti nella geometria.
+// Attenzione: dFdx/dFdy vanno chiamate SEMPRE, mai dentro un if. Dentro un
+// ramo non uniforme il risultato non e' definito e su alcune schede esce NaN;
+// il NaN poi finisce nel bloom, che lo sfoca su tutto il fotogramma e lo
+// schermo diventa nero. E' esattamente il "mezzo schermo nero" gia' visto.
+mat3 novaTBN(vec3 N, vec3 p, vec2 uv) {
+  vec3 dp1 = dFdx(p), dp2 = dFdy(p);
+  vec2 duv1 = dFdx(uv), duv2 = dFdy(uv);
+  vec3 dp2perp = cross(dp2, N);
+  vec3 dp1perp = cross(N, dp1);
+  vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+  vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+  // superficie degenere (quad visto di taglio): senza il minimo qui
+  // inversesqrt(0) darebbe infinito
+  float d = max(dot(T, T), dot(B, B));
+  float invmax = inversesqrt(max(d, 1e-12));
+  return mat3(T * invmax, B * invmax, N);
+}
+
+vec2 novaParallax(vec2 uv, vec3 viewPos) {
+  vec3 N = normalize(vNormal);
+  mat3 tbn = novaTBN(N, -viewPos, uv);        // fuori da ogni ramo: vedi sopra
+
+  float dist = length(viewPos);
+  float near = 1.0 - smoothstep(novaPomFade.x, novaPomFade.y, dist);
+  if (near <= 0.002 || novaPomScale <= 0.0) return uv;
+
+  vec3 V = normalize(viewPos);                // dal punto verso la camera
+  vec3 Vt = vec3(dot(tbn[0], V), dot(tbn[1], V), dot(tbn[2], V));
+
+  // di sbieco il passo si allunga: piu' campioni dove serve, meno di fronte
+  float steps = mix(8.0, 26.0, near * (1.0 - abs(Vt.z)) + near * 0.35);
+  float layer = 1.0 / steps;
+  vec2 maxOffset = (Vt.xy / max(0.30, abs(Vt.z))) * (novaPomScale * near);
+  vec2 delta = maxOffset * layer;
+
+  vec2 cur = uv;
+  float depth = 0.0;
+  float h = 1.0 - texture2D(novaPackMap, cur).b;
+  for (int i = 0; i < 26; i++) {
+    if (float(i) >= steps || depth >= h) break;
+    cur -= delta;
+    h = 1.0 - texture2D(novaPackMap, cur).b;
+    depth += layer;
+  }
+  // il punto d'impatto sta fra l'ultimo passo fuori e il primo dentro
+  vec2 prev = cur + delta;
+  float after = h - depth;
+  float before = (1.0 - texture2D(novaPackMap, prev).b) - (depth - layer);
+  float w = clamp(after / max(1e-4, after - before), 0.0, 1.0);
+  vec2 res = mix(cur, prev, w);
+  // rete di sicurezza: se qualcosa e' andato storto si torna alle UV originali
+  // (il confronto con se stesso e' falso solo per NaN)
+  return mix(uv, res, vec2(equal(res, res)));
+}
+`
+);
+var MACRO_COLOR = (
+  /* glsl */
+  `
+  vec3 novaMacro = texture2D(map, novaUv * novaMacroScale).rgb;
+  float novaVar = dot(novaMacro, vec3(0.3333));
+  diffuseColor.rgb *= mix(1.0, novaVar * 2.0, novaMacroAmount);
+`
+);
+var MACRO_ROUGH = (
+  /* glsl */
+  `
+  // dove il macro e' scuro la superficie e' lisciata dal passaggio: piu' lucida
+  roughnessFactor *= mix(1.0, 0.62 + novaVar * 0.9, novaMacroAmount);
+`
+);
+function enableParallax(mat, o = {}) {
+  const packMap = o.packMap || mat.roughnessMap;
+  if (!packMap) return mat;
+  const u2 = {
+    novaPackMap: { value: packMap },
+    novaPomScale: { value: o.scale ?? 0 },
+    novaPomFade: { value: new ti(o.fade?.[0] ?? 14, o.fade?.[1] ?? 42) },
+    novaMacroScale: { value: o.macroScale ?? 0 },
+    novaMacroAmount: { value: o.macroAmount ?? 0 }
+  };
+  mat.userData.nova = u2;
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, u2);
+    const C = fa;
+    let f2 = shader.fragmentShader;
+    f2 = f2.replace("void main() {", `${POM_FUNCS}
+void main() {
+  vec2 novaUv = novaParallax(vMapUv, vViewPosition);`);
+    f2 = f2.replace(
+      "#include <map_fragment>",
+      C.map_fragment.replace(/vMapUv/g, "novaUv") + (u2.novaMacroAmount.value > 0 ? MACRO_COLOR : "")
+    );
+    f2 = f2.replace("#include <normal_fragment_maps>", C.normal_fragment_maps.replace(/vNormalMapUv/g, "novaUv"));
+    f2 = f2.replace(
+      "#include <roughnessmap_fragment>",
+      C.roughnessmap_fragment.replace(/vRoughnessMapUv/g, "novaUv") + (u2.novaMacroAmount.value > 0 ? MACRO_ROUGH : "")
+    );
+    f2 = f2.replace("#include <aomap_fragment>", C.aomap_fragment.replace(/vAoMapUv/g, "novaUv"));
+    shader.fragmentShader = f2;
+  };
+  mat.customProgramCacheKey = () => `nova-pom-${u2.novaMacroAmount.value > 0 ? 1 : 0}`;
+  mat.needsUpdate = true;
+  return mat;
+}
+
 // src/world/props.js
 function tube(gb, pts, radii, color, sides = 6, uvRepeat = 1) {
   const ring2 = (p2, r, a0) => {
@@ -12501,8 +12661,9 @@ var HashGrid = class {
   }
 };
 var City = class {
-  constructor(quality) {
+  constructor(quality, pbr = null) {
     this.quality = quality;
+    this.pbr = pbr;
     this.group = new Wl();
     this.grid = new HashGrid(24);
     this.doors = [];
@@ -12548,6 +12709,28 @@ var City = class {
     const store = storefrontTexture();
     const asphalt = asphaltSet();
     const walk = sidewalkSet();
+    const ground = (set, tile, o) => {
+      const m = std({
+        map: set.map,
+        normalMap: set.normalMap,
+        roughnessMap: set.packMap,
+        aoMap: set.packMap,
+        roughness: 1,
+        metalness: 0,
+        aoMapIntensity: o.ao ?? 1,
+        normalScale: new ti(o.normal ?? 1, o.normal ?? 1),
+        envMapIntensity: o.env ?? 0.25
+      });
+      for (const t2 of [set.map, set.normalMap, set.packMap]) t2.repeat.set(tile, tile);
+      enableParallax(m, {
+        packMap: set.packMap,
+        scale: this.quality.parallax ? o.depth ?? 0.03 : 0,
+        fade: o.fade || [16, 46],
+        macroScale: o.macroScale ?? 0.11,
+        macroAmount: o.macroAmount ?? 0.35
+      });
+      return m;
+    };
     const sand = sandTexture();
     const bark = palmBarkTexture();
     const roof = roofTexture();
@@ -12567,7 +12750,15 @@ var City = class {
       }),
       detail: std({ roughness: 0.84, metalness: 0.06, envMapIntensity: 0.35 }),
       roof: std({ map: roof.map, normalMap: roof.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),
-      road: std({
+      road: this.pbr && this.pbr.asphalt ? ground(this.pbr.asphalt, 1, {
+        normal: 1.15,
+        depth: 0.028,
+        ao: 0.9,
+        env: 0.22,
+        fade: [18, 52],
+        macroScale: 0.09,
+        macroAmount: 0.42
+      }) : std({
         map: asphalt.map,
         normalMap: asphalt.normal,
         roughnessMap: asphalt.roughness,
@@ -12577,7 +12768,15 @@ var City = class {
         normalScale: new ti(0.55, 0.55)
       }),
       paint: std({ roughness: 0.7, metalness: 0, envMapIntensity: 0.25 }),
-      walk: std({
+      walk: this.pbr && this.pbr.concrete ? ground(this.pbr.concrete, 1, {
+        normal: 0.85,
+        depth: 0.018,
+        ao: 0.85,
+        env: 0.2,
+        fade: [12, 34],
+        macroScale: 0.13,
+        macroAmount: 0.3
+      }) : std({
         map: walk.map,
         normalMap: walk.normal,
         roughness: 0.94,
@@ -13477,16 +13676,6 @@ var City = class {
       if (rng() < 0.4) P2.hydrant(horiz ? b.cx - len * 0.42 : e.x, horiz ? e.z : b.cz - len * 0.42);
       if (rng() < 0.35) P2.bench(horiz ? b.cx : e.x, horiz ? e.z : b.cz, e.dir);
       if (rng() < 0.22) P2.busStop(horiz ? b.cx + len * 0.2 : e.x, horiz ? e.z : b.cz + len * 0.2, e.dir);
-      if (rng() < 0.62) {
-        const n = 5 + (rng() * 4 | 0);
-        const start = -0.34 + rng() * 0.12;
-        for (let k = 0; k < n; k++) {
-          const t2 = start + k * 0.11;
-          if (t2 > 0.42) break;
-          const q = at(t2);
-          P2.meter(q.x, q.z);
-        }
-      }
       if (rng() < 0.3) P2.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
       if (rng() < 0.4) {
         const q = at(-0.36);
@@ -13681,6 +13870,45 @@ var City = class {
     }
   }
 };
+
+// src/world/assets.js
+var PBR_SETS = ["asphalt", "concrete"];
+var BASE = "assets/tex/";
+var url = (name) => globalThis.NOVA_TEX && globalThis.NOVA_TEX[name] || BASE + name;
+function loadSet(loader, name, aniso) {
+  const one = (suffix, srgb) => {
+    const t2 = loader.load(url(`${name}_${suffix}.jpg`));
+    t2.wrapS = t2.wrapT = pt;
+    t2.colorSpace = srgb ? qe : je;
+    t2.anisotropy = aniso;
+    return t2;
+  };
+  return { map: one("c", true), normalMap: one("n", false), packMap: one("s", false) };
+}
+function loadPBRSets(anisotropy = 8, names = PBR_SETS) {
+  return new Promise((resolve) => {
+    if (!names.length) {
+      resolve(null);
+      return;
+    }
+    const manager = new Nd();
+    const loader = new Xd(manager);
+    let broken = false;
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(ok ? sets : null);
+    };
+    manager.onError = () => {
+      broken = true;
+    };
+    manager.onLoad = () => finish(!broken);
+    setTimeout(() => finish(false), 2e4);
+    const sets = {};
+    for (const n of names) sets[n] = loadSet(loader, n, anisotropy);
+  });
+}
 
 // vendor/examples/objects/Sky.js
 var Sky = class _Sky extends Xs {
@@ -13972,6 +14200,7 @@ var SkySystem = class {
     skyIntensity(this._envSky, 0.8);
     this._envScene.add(this._envSky);
     this._lastEnvElev = -99;
+    this._envRT = null;
     this.sunDir = new Ui();
     this.fog = new $l(12571876, 32e-4);
     scene.fog = this.fog;
@@ -14048,8 +14277,10 @@ var SkySystem = class {
     const u2 = this.sky.material.uniforms;
     for (const k of ["turbidity", "rayleigh", "mieCoefficient", "mieDirectionalG"]) eu2[k].value = u2[k].value;
     eu2.sunPosition.value.copy(this.sunDir);
-    const old = this.env;
-    this.env = this.pmrem.fromScene(this._envScene, 0.04).texture;
+    const fresh = this.pmrem.fromScene(this._envScene, 0.04);
+    const old = this._envRT;
+    this._envRT = fresh;
+    this.env = fresh.texture;
     this.scene.environment = this.env;
     if (old) old.dispose();
   }
@@ -14951,6 +15182,21 @@ var OutputPass = class extends Pass {
 };
 
 // src/systems/post.js
+var SanitizeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      // il confronto con se stesso e' falso solo per NaN
+      c = mix(vec4(0.0, 0.0, 0.0, 1.0), c, vec4(equal(c, c)));
+      gl_FragColor = vec4(clamp(c.rgb, 0.0, 4096.0), c.a);
+    }`
+};
 var GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -15020,6 +15266,7 @@ var Post = class {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
+    this.composer.addPass(new ShaderPass(SanitizeShader));
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
     this.bloomOn = !!quality.bloom;
     this.composer.addPass(this.bloom);
@@ -21602,7 +21849,9 @@ var Game = class {
       shadowMap: IS_MOBILE ? 1024 : 3072,
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
-      grade: true
+      grade: true,
+      // parallax sulle superfici stradali: costa, quindi solo sul massimo
+      parallax: !IS_MOBILE
     };
     const forced = new URLSearchParams(location.search).get("q");
     if (forced !== null) {
@@ -21613,6 +21862,7 @@ var Game = class {
         this.quality.tier = clamp(t2, 0, 3);
         this.quality.shadows = this.quality.tier >= 1;
         this.quality.bloom = this.quality.tier >= 3;
+        this.quality.parallax = this.quality.tier >= 3;
         if (this.quality.tier === 0) this.quality.pixelRatio = 1;
       }
     }
@@ -21672,8 +21922,11 @@ var Game = class {
     this.sky.update(this.clock, new Ui());
     await step(12, "Preparo i materiali\u2026");
     initModels(this.quality);
-    await step(24, "Costruisco strade e isolati\u2026");
-    this.city = new City(this.quality).build();
+    await step(20, "Scarico i materiali della strada\u2026");
+    const aniso = Math.min(this.renderer.capabilities.getMaxAnisotropy(), IS_MOBILE ? 4 : 16);
+    this.pbr = await loadPBRSets(aniso);
+    await step(28, "Costruisco strade e isolati\u2026");
+    this.city = new City(this.quality, this.pbr).build();
     this._sharpenTextures();
     this.worldGroup.add(this.city.group);
     await step(52, "Apro i negozi\u2026");

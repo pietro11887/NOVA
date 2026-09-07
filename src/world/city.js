@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CFG, roadX, roadZ, blockBounds, WORLD_MIN, WORLD_MAX } from '../core/config.js';
 import { GeoBuilder, mulberry32, clamp, rand, randInt, pick } from '../core/utils.js';
 import * as TX from './textures.js';
+import { enableParallax } from './pbr.js';
 import { Props } from './props.js';
 import { tower, midrise, house, strip, awning, entrance } from './buildings.js';
 
@@ -73,8 +74,11 @@ class HashGrid {
 }
 
 export class City {
-  constructor(quality) {
+  constructor(quality, pbr = null) {
     this.quality = quality;
+    // set fotografici PBR gia' caricati (asfalto, cemento); se mancano si
+    // ripiega sulle texture disegnate a mano
+    this.pbr = pbr;
     this.group = new THREE.Group();
     this.grid = new HashGrid(24);
     this.doors = [];
@@ -117,6 +121,33 @@ export class City {
     const store = TX.storefrontTexture();
     const asphalt = TX.asphaltSet();
     const walk = TX.sidewalkSet();
+
+    /*
+     * Strada e marciapiede: se i set fotografici sono arrivati si usano
+     * quelli. Una sola immagine "pack" alimenta occlusione (R), rugosita'
+     * (G) e altezza per il parallax (B), quindi il costo e' di tre texture
+     * per materiale come prima.
+     */
+    const ground = (set, tile, o) => {
+      const m = std({
+        map: set.map, normalMap: set.normalMap,
+        roughnessMap: set.packMap, aoMap: set.packMap,
+        roughness: 1, metalness: 0, aoMapIntensity: o.ao ?? 1,
+        normalScale: new THREE.Vector2(o.normal ?? 1, o.normal ?? 1),
+        envMapIntensity: o.env ?? 0.25,
+      });
+      // le tre texture condividono la stessa trasformazione: il parallax
+      // sposta un'unica coordinata per tutte
+      for (const t of [set.map, set.normalMap, set.packMap]) t.repeat.set(tile, tile);
+      enableParallax(m, {
+        packMap: set.packMap,
+        scale: this.quality.parallax ? (o.depth ?? 0.03) : 0,
+        fade: o.fade || [16, 46],
+        macroScale: o.macroScale ?? 0.11,
+        macroAmount: o.macroAmount ?? 0.35,
+      });
+      return m;
+    };
     const sand = TX.sandTexture();
     const bark = TX.palmBarkTexture();
     const roof = TX.roofTexture();
@@ -132,16 +163,26 @@ export class City {
       }),
       detail: std({ roughness: 0.84, metalness: 0.06, envMapIntensity: 0.35 }),
       roof: std({ map: roof.map, normalMap: roof.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),
-      road: std({
-        map: asphalt.map, normalMap: asphalt.normal, roughnessMap: asphalt.roughness,
-        roughness: 1, metalness: 0.0, envMapIntensity: 0.2,
-        normalScale: new THREE.Vector2(0.55, 0.55),
-      }),
+      road: this.pbr && this.pbr.asphalt
+        ? ground(this.pbr.asphalt, 1, {
+          normal: 1.15, depth: 0.028, ao: 0.9, env: 0.22,
+          fade: [18, 52], macroScale: 0.09, macroAmount: 0.42,
+        })
+        : std({
+          map: asphalt.map, normalMap: asphalt.normal, roughnessMap: asphalt.roughness,
+          roughness: 1, metalness: 0.0, envMapIntensity: 0.2,
+          normalScale: new THREE.Vector2(0.55, 0.55),
+        }),
       paint: std({ roughness: 0.7, metalness: 0, envMapIntensity: 0.25 }),
-      walk: std({
-        map: walk.map, normalMap: walk.normal, roughness: 0.94, metalness: 0,
-        envMapIntensity: 0.22, normalScale: new THREE.Vector2(0.4, 0.4),
-      }),
+      walk: this.pbr && this.pbr.concrete
+        ? ground(this.pbr.concrete, 1, {
+          normal: 0.85, depth: 0.018, ao: 0.85, env: 0.2,
+          fade: [12, 34], macroScale: 0.13, macroAmount: 0.3,
+        })
+        : std({
+          map: walk.map, normalMap: walk.normal, roughness: 0.94, metalness: 0,
+          envMapIntensity: 0.22, normalScale: new THREE.Vector2(0.4, 0.4),
+        }),
       grass: std({ map: TX.grassTexture(), roughness: 0.98, envMapIntensity: 0.3 }),
       sand: std({ map: sand.map, normalMap: sand.normal, roughness: 0.95, envMapIntensity: 0.4 }),
       foliage: std({ roughness: 0.95, metalness: 0, envMapIntensity: 0.4 }),

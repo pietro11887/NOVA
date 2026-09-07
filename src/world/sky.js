@@ -103,6 +103,7 @@ export class SkySystem {
     skyIntensity(this._envSky, 0.8);
     this._envScene.add(this._envSky);
     this._lastEnvElev = -99;
+    this._envRT = null;
     this.sunDir = new THREE.Vector3();
 
     this.fog = new THREE.FogExp2(0xbfd4e4, 0.0032);
@@ -198,8 +199,19 @@ export class SkySystem {
     const u = this.sky.material.uniforms;
     for (const k of ['turbidity', 'rayleigh', 'mieCoefficient', 'mieDirectionalG']) eu[k].value = u[k].value;
     eu.sunPosition.value.copy(this.sunDir);
-    const old = this.env;
-    this.env = this.pmrem.fromScene(this._envScene, 0.04).texture;
+    /*
+     * fromScene restituisce un render target, non una texture sciolta.
+     * Buttare via solo `.texture` lasciava in piedi il target a cui era
+     * ancora agganciata: three cancellava la texture GL sotto un framebuffer
+     * vivo e la mappa d'ambiente tornava piena di NaN. Ogni materiale la
+     * campiona, quindi il NaN finiva ovunque, il bloom lo sfocava e mezzo
+     * schermo diventava nero. Si dispone il target intero, e solo dopo aver
+     * costruito quello nuovo.
+     */
+    const fresh = this.pmrem.fromScene(this._envScene, 0.04);
+    const old = this._envRT;
+    this._envRT = fresh;
+    this.env = fresh.texture;
     this.scene.environment = this.env;
     if (old) old.dispose();
   }
