@@ -977,6 +977,13 @@ export class City {
         }
       }
       if (rng() < 0.3) P.clutter(horiz ? b.cx - len * 0.25 : e.x, horiz ? e.z : b.cz - len * 0.25, rng);
+      // arredo minuto: e' quello che riempie il marciapiede e lo fa sembrare vero
+      const at = (t) => (horiz ? { x: b.cx + len * t, z: e.z } : { x: e.x, z: b.cz + len * t });
+      if (rng() < 0.4) { const q = at(-0.36); P.newsbox(q.x, q.z, e.dir); }
+      if (rng() < 0.18) { const q = at(0.36); P.phoneBooth(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 0.55, hz: 0.55 }); }
+      if (rng() < 0.3) { const q = at(-0.06); P.bike(q.x, q.z, e.dir + Math.PI / 2); }
+      if (rng() < 0.16) { const q = at(0.12); P.roadwork(q.x, q.z, rng); }
+      if (rng() < 0.22) { const q = at(0.28); P.dumpster(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 1.0, hz: 0.6 }); }
     }
 
     // posti auto lungo il bordo

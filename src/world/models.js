@@ -904,6 +904,9 @@ export function makeCharacter(opts = {}) {
     outfit: opts.outfit ?? pick(['tee', 'tee', 'jacket', 'jacket', 'hoodie']),
     jacket: opts.jacket ?? pick(JACKETS),
     belt: pick([0x2b2119, 0x1a1d22, 0x3a2b1e]),
+    // corporatura: alti, bassi, magri, robusti. In citta' non sono tutti uguali
+    tall: opts.tall ?? (0.93 + Math.random() * 0.15),
+    girth: opts.girth ?? (0.88 + Math.random() * 0.3),
   };
   if (c.outfit !== 'tee') { c.shortSleeve = false; c.sleeve = c.jacket; }
 
@@ -942,6 +945,8 @@ export function makeCharacter(opts = {}) {
     group.add(sh);
   }
 
+  // la corporatura si applica al gruppo: vale per corpo, braccia e gambe
+  group.scale.set(c.girth, c.tall, c.girth);
   group.userData.parts = { torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin };
   group.userData.colors = c;
   group.userData.geo = { bodyGeo, armGeo, foreGeo, legGeo, shinGeo };

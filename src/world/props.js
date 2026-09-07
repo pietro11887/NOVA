@@ -309,6 +309,69 @@ export class Props {
   }
 
   /** Cassonetto, cassette postali, scatoloni: piccolo disordine urbano. */
+  /** Cassetta dei giornali: due colori, sportello e gambe. */
+  newsbox(x, z, dir = 0) {
+    const det = this.B.detail;
+    const col = pick([0x2f6bd0, 0xd0342c, 0x2f8f5a, 0xe0a92c]);
+    det.box(x, 0.72, z, 0.44, 0.62, 0.36, col, 0, dir);
+    det.box(x, 1.05, z, 0.46, 0.06, 0.38, 0x2b2f36, 0, dir);
+    det.box(x + Math.cos(dir) * 0.19, 0.82, z - Math.sin(dir) * 0.19, 0.04, 0.34, 0.26, 0x1a1d22, 0, dir);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      det.box(x + Math.cos(dir) * sx * 0.16 - Math.sin(dir) * sz * 0.13, 0.2,
+        z - Math.sin(dir) * sx * 0.16 - Math.cos(dir) * sz * 0.13, 0.04, 0.4, 0.04, 0x3a3f47);
+    }
+  }
+
+  /** Cabina telefonica: vetri, cornice e lampadina. */
+  phoneBooth(x, z, dir = 0) {
+    const det = this.B.detail, gl = this.B.glass || this.B.detail;
+    det.box(x, 1.25, z, 0.9, 2.5, 0.9, 0x1f3f6b, 0, dir);
+    gl.box(x, 1.35, z, 0.78, 1.9, 0.78, 0x9fd6e8, 0, dir);
+    det.box(x, 2.56, z, 1.0, 0.14, 1.0, 0x16304f, 0, dir);
+    this.B.glowB && this.B.glowB.box(x, 2.44, z, 0.7, 0.1, 0.7, 0xfff0c0, 0, dir);
+  }
+
+  /** Cassonetto con coperchio e ruote. */
+  dumpster(x, z, dir = 0) {
+    const det = this.B.detail;
+    const col = pick([0x2f6b4a, 0x3a5f8a, 0x6b5a2f, 0x5a3a3a]);
+    det.box(x, 0.62, z, 1.9, 1.05, 1.05, col, 0, dir);
+    det.box(x, 1.18, z, 1.96, 0.1, 1.12, 0x2a2f34, 0, dir);
+    det.box(x, 1.3, z - 0.5, 1.9, 0.16, 0.1, 0x2a2f34, 0, dir);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      det.box(x + sx * 0.78, 0.09, z + sz * 0.42, 0.18, 0.18, 0.1, 0x1a1d22);
+    }
+  }
+
+  /** Coni e transenna: piccolo cantiere. */
+  roadwork(x, z, rng) {
+    const det = this.B.detail;
+    for (let i = 0; i < 4; i++) {
+      const cx = x + rand(-1.4, 1.4), cz = z + rand(-1.0, 1.0);
+      det.box(cx, 0.03, cz, 0.36, 0.06, 0.36, 0x2b2f36);
+      det.box(cx, 0.28, cz, 0.16, 0.5, 0.16, 0xe8621f);
+      det.box(cx, 0.34, cz, 0.19, 0.09, 0.19, 0xf2f2f2);
+    }
+    det.box(x, 0.55, z + 1.2, 2.2, 0.12, 0.1, 0xe8621f);
+    det.box(x, 0.8, z + 1.2, 2.2, 0.12, 0.1, 0xf2f2f2);
+    for (const sx of [-1, 1]) det.box(x + sx * 1.05, 0.35, z + 1.2, 0.08, 0.7, 0.16, 0x9aa0a6);
+  }
+
+  /** Bici appoggiata alla rastrelliera. */
+  bike(x, z, dir = 0) {
+    const det = this.B.detail;
+    const col = pick([0x2f6bd0, 0xd0342c, 0x2f8f5a, 0x1a1d22, 0xe0a92c]);
+    const c = Math.cos(dir), s2 = Math.sin(dir);
+    for (const off of [-0.5, 0.5]) {
+      det.box(x + c * off, 0.32, z - s2 * off, 0.62, 0.62, 0.05, 0x1a1d22, 0, dir);
+      det.box(x + c * off, 0.32, z - s2 * off, 0.5, 0.5, 0.07, 0x53585f, 0, dir);
+    }
+    det.box(x, 0.5, z, 1.0, 0.06, 0.05, col, 0, dir);
+    det.box(x - c * 0.18, 0.66, z + s2 * 0.18, 0.5, 0.06, 0.05, col, 0, dir);
+    det.box(x - c * 0.34, 0.72, z + s2 * 0.34, 0.1, 0.1, 0.4, 0x2b2f36, 0, dir);
+    det.box(x + c * 0.44, 0.78, z - s2 * 0.44, 0.06, 0.3, 0.06, col, 0, dir);
+  }
+
   clutter(x, z, rng) {
     const det = this.B.detail;
     if (rng() < 0.5) {
