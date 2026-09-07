@@ -19,6 +19,39 @@ export class Audio {
     this.master.connect(this.ctx.destination);
     this._buildEngine();
     this._buildSiren();
+    this._buildRain();
+  }
+
+  /** Pioggia: rumore bianco filtrato, il volume segue l'intensita'. */
+  _buildRain() {
+    const c = this.ctx;
+    const src = c.createBufferSource();
+    src.buffer = this._noiseBuffer();
+    src.loop = true;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.4;
+    const hp = c.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 420;
+    this.rainGain = c.createGain();
+    this.rainGain.gain.value = 0;
+    src.connect(hp); hp.connect(lp); lp.connect(this.rainGain); this.rainGain.connect(this.master);
+    src.start();
+    this.rainFilter = lp;
+  }
+
+  setRain(k) {
+    if (!this.ctx || !this.rainGain) return;
+    const t = this.ctx.currentTime;
+    this.rainGain.gain.setTargetAtTime(Math.min(0.34, k * 0.34), t, 0.6);
+    this.rainFilter.frequency.setTargetAtTime(1500 + k * 2600, t, 0.6);
+  }
+
+  /** Tuono: botto grave con coda lunga. */
+  thunder() {
+    if (!this.ctx) return;
+    this.noise(1.4, 180, 0.5, 'lowpass');
+    this.blip(46, 1.1, 'sine', 0.4);
+    setTimeout(() => this.noise(0.9, 320, 0.25, 'lowpass'), 260);
   }
 
   _noiseBuffer() {
@@ -79,6 +112,23 @@ export class Audio {
       s.t += dt;
       s.osc.frequency.setTargetAtTime(Math.sin(s.t * 4) > 0 ? 880 : 620, t, 0.02);
     }
+  }
+
+  /** Nota con inviluppo morbido e filtro: la base della radio. */
+  tone(freq, dur = 0.3, type = 'sawtooth', vol = 0.18, cutoff = 2000) {
+    if (!this.ctx || !this.enabled) return;
+    const c = this.ctx, t = c.currentTime;
+    const o = c.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = cutoff; f.Q.value = 0.8;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
   }
 
   blip(freq = 440, dur = 0.12, type = 'square', vol = 0.25) {

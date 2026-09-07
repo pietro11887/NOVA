@@ -16,6 +16,7 @@ export class HUD {
       lblAttack: $('lbl-attack'), lblJump: $('lbl-jump'), lblRun: $('lbl-run'), weapon: $('weapon'),
       evade: $('evade'), evadeBar: $('evade').firstElementChild,
       wayDist: $('waydist'), wayVal: $('way-dist'), friendLine: $('friendline'), friendVal: $('friend-dist'),
+      radio: $('radiochip'), radioName: $('radio-name'), weather: $('weatherchip'),
     };
     this.map = $('minimap');
     this.ctx = this.map.getContext('2d');
@@ -24,9 +25,24 @@ export class HUD {
     this.shopOpen = false;
 
     $('shop-close').addEventListener('click', () => this.hideShop());
+    $('radio-prev').addEventListener('click', () => this.game.radio.change(-1));
+    $('radio-next').addEventListener('click', () => this.game.radio.change(1));
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
+
+  /** Targhetta della radio: nome stazione e colore della stazione. */
+  radio(station) {
+    this.el.radio.classList.toggle('hidden', !station);
+    if (!station) return;
+    this.el.radioName.textContent = station.name;
+    this.el.radioName.style.color = station.color;
+  }
+
+  weather(label) {
+    this.el.weather.classList.toggle('hidden', !label);
+    if (label) this.el.weather.textContent = label;
+  }
 
   toast(msg, kind = '') {
     const d = document.createElement('div');

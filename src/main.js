@@ -19,6 +19,8 @@ import { Casino } from './systems/casino.js';
 import { Net } from './systems/net.js';
 import { Multiplayer } from './systems/multiplayer.js';
 import { MapView } from './systems/map.js';
+import { Weather } from './systems/weather.js';
+import { Radio } from './systems/radio.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -155,6 +157,8 @@ class Game {
     this._applyTier();
     this.casino = new Casino(this);
     this.map = new MapView(this);
+    this.weather = new Weather(this);
+    this.radio = new Radio(this);
     this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
@@ -637,6 +641,11 @@ class Game {
     const p = this.player;
 
     this._dayNight(dt);
+    // il meteo va dopo il ciclo giorno/notte: ne corregge sole, foschia e cielo
+    this.weather.update(dt, this.camera);
+    this.hud.weather(this.weather.label);
+    this.radio.setOn(this.player.inCar && !this.interiors.current);
+    this.radio.update(dt);
     this.trafficT += dt;
     if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
 
