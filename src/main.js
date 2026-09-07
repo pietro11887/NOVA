@@ -23,6 +23,8 @@ import { Weather } from './systems/weather.js';
 import { Radio } from './systems/radio.js';
 import { Smoke } from './systems/smoke.js';
 import { RandomEvents } from './systems/events.js';
+import { TaxiService } from './systems/taxi.js';
+import { Phone } from './systems/phone.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -172,6 +174,8 @@ class Game {
     this.radio = new Radio(this);
     this.smoke = new Smoke(this);
     this.events = new RandomEvents(this);
+    this.taxi = new TaxiService(this);
+    this.phone = new Phone(this);
     this._waypointMarker();
     this.net = new Net();
     this.mp = new Multiplayer(this, this.net);
@@ -357,6 +361,7 @@ class Game {
     $('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
     $('btn-quality').addEventListener('click', () => this.cycleQuality());
     $('btn-safe').addEventListener('click', () => this.toggleSafeMode());
+    $('btn-phone').addEventListener('click', () => this.phone.toggle());
     $('btn-invert').addEventListener('click', () => {
       this.input.invertY = !this.input.invertY;
       $('btn-invert').textContent = `Camera: ${this.input.invertY ? 'Invertita' : 'Normale'}`;
@@ -366,7 +371,12 @@ class Game {
       location.reload();
     });
     addEventListener('keydown', (e) => {
-      if (e.code === 'Escape') { if (this.map.open) this.map.hide(); else this.setPaused(!this.paused); }
+      if (e.code === 'KeyT' && this.running && !this.paused) this.phone.toggle();
+      if (e.code === 'Escape') {
+        if (this.phone.open) this.phone.hide();
+        else if (this.map.open) this.map.hide();
+        else this.setPaused(!this.paused);
+      }
       if (e.code === 'KeyP') this.setPaused(!this.paused);
       if (e.code === 'KeyM' && this.running) this.map.toggle();
     });
@@ -656,6 +666,7 @@ class Game {
     if (this.player.car) this._smokeCars.push(this.player.car);
     this.smoke.update(dt, this._smokeCars);
     this.events.update(dt);
+    this.taxi.update(dt);
     if (this.heistCd > 0) this.heistCd -= dt;
     if (this.invoiceCd > 0) this.invoiceCd -= dt;
     this.trafficT += dt;
@@ -667,11 +678,11 @@ class Game {
     const slot = this.input._edge.slot;
     if (slot) p.selectSlot(slot);
     this.input.setDriveMode(p.inCar && !this.interiors.current);
-    const busy = this.hud.shopOpen || this.casino.open || this.map.open;
+    const busy = this.hud.shopOpen || this.casino.open || this.map.open || this.phone.open;
     if (this.input.attacking && !busy) p.attack(this.input.pressed('attack'));
     // tasto destro: pugno anche se hai un'arma addosso (in auto suona il clacson)
     if (this.input.punching && !busy) p.punch();
-    p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open) ? this.frozenInput : this.input);
+    p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open || this.phone.open || this.taxi.state === 'riding') ? this.frozenInput : this.input);
 
     if (this.interiors.current) {
       this.interiors.update(dt);
@@ -1006,6 +1017,31 @@ class Game {
     this.audio.ui();
   }
 
+  /** Il meccanico ti riporta l'ultima auto, riparata, davanti a te. */
+  phoneMechanic() {
+    const p = this.player;
+    if (p.money < 200) { this.toast('Servono $200', 'bad'); return; }
+    if (!this.lastCar) { this.toast('Non hai un\'auto da farti portare'); return; }
+    p.pay(200);
+    const car = this.lastCar;
+    car.repair();
+    const a = p.a;
+    car.place(p.x + Math.cos(a) * 5, p.z - Math.sin(a) * 5, a);
+    if (!car.mesh.parent) this.worldGroup.add(car.mesh);
+    this.toast('🔧 Il meccanico te l\'ha portata', 'good');
+    this.audio.cash();
+  }
+
+  /** Consegna a domicilio: mangi senza cercare un locale. */
+  phoneFood() {
+    const p = this.player;
+    if (p.money < 45) { this.toast('Servono $45', 'bad'); return; }
+    p.pay(45);
+    p.heal(999);
+    this.toast('🍔 Consegna arrivata', 'good');
+    this.audio.cash();
+  }
+
   deliverCar(type) {
     const door = this.interiors.door;
     const v = new Vehicle(this.city, { type });
@@ -1293,7 +1329,7 @@ class Game {
   setWorldVisible(v) { this.worldGroup.visible = v; }
 
   /** L'auto ha qualcosa davanti entro `dist` metri? */
-  blockedAhead(v, dist) {
+  blockedAhead(v, dist, skipParked = false) {
     const fx = v.fx, fz = v.fz;
     const test = (o) => {
       if (o === v) return false;
@@ -1303,7 +1339,7 @@ class Game {
       return Math.abs(-dx * fz + dz * fx) < 2.4;
     };
     for (const t of this.traffic.cars) if (test(t.v)) return true;
-    for (const o of this.traffic.parked) if (test(o)) return true;
+    if (!skipParked) { for (const o of this.traffic.parked) if (test(o)) return true; }
     if (this.player.inCar && test(this.player.car)) return true;
     if (!this.player.inCar && test(this.player)) return true;
     return false;
