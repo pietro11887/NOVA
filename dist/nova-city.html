@@ -13965,8 +13965,143 @@ function loadPBRSets(anisotropy = 8, names = PBR_SETS) {
 // src/world/meshpack.js
 var MAGIC = "NVM2";
 async function inflateRaw(buf) {
-  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  if (typeof DecompressionStream === "function") {
+    try {
+      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch (e) {
+    }
+  }
+  return inflateRawJS(new Uint8Array(buf.buffer || buf, buf.byteOffset || 0, buf.byteLength ?? buf.length));
+}
+function buildHuffman(lengths) {
+  const MAXBITS = 15;
+  const count = new Int32Array(MAXBITS + 1);
+  for (const l2 of lengths) count[l2]++;
+  count[0] = 0;
+  const offs = new Int32Array(MAXBITS + 2);
+  for (let i = 1; i <= MAXBITS; i++) offs[i + 1] = offs[i] + count[i];
+  const symbols = new Int32Array(lengths.length);
+  for (let sym = 0; sym < lengths.length; sym++) {
+    if (lengths[sym]) symbols[offs[lengths[sym]]++] = sym;
+  }
+  return { count, symbols };
+}
+function makeReader(src) {
+  let pos = 0, bit = 0, acc = 0;
+  return {
+    bits(n) {
+      while (bit < n) {
+        acc |= src[pos++] << bit;
+        bit += 8;
+      }
+      const v = acc & (1 << n) - 1;
+      acc >>>= n;
+      bit -= n;
+      return v;
+    },
+    align() {
+      acc = 0;
+      bit = 0;
+    },
+    byte() {
+      return src[pos++];
+    },
+    skip(n) {
+      pos += n;
+    },
+    symbol(h2) {
+      let code = 0, first = 0, index = 0;
+      for (let len = 1; len <= 15; len++) {
+        code |= this.bits(1);
+        const n = h2.count[len];
+        if (code - first < n) return h2.symbols[index + (code - first)];
+        index += n;
+        first = first + n << 1;
+        code <<= 1;
+      }
+      throw new Error("codice deflate non valido");
+    }
+  };
+}
+var LEN_BASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+var LEN_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+var DIST_BASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+var DIST_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+var CLEN_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+function inflateRawJS(src) {
+  const r = makeReader(src);
+  let out = new Uint8Array(1 << 18);
+  let n = 0;
+  const push = (b) => {
+    if (n === out.length) {
+      const g = new Uint8Array(out.length * 2);
+      g.set(out);
+      out = g;
+    }
+    out[n++] = b;
+  };
+  let fixedLit = null, fixedDist = null;
+  for (; ; ) {
+    const last = r.bits(1);
+    const type = r.bits(2);
+    if (type === 0) {
+      r.align();
+      const len = r.byte() | r.byte() << 8;
+      r.skip(2);
+      for (let i = 0; i < len; i++) push(r.byte());
+    } else {
+      let lit, dist2;
+      if (type === 1) {
+        if (!fixedLit) {
+          const ll2 = new Uint8Array(288);
+          for (let i = 0; i < 288; i++) ll2[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+          fixedLit = buildHuffman(ll2);
+          fixedDist = buildHuffman(new Uint8Array(30).fill(5));
+        }
+        lit = fixedLit;
+        dist2 = fixedDist;
+      } else {
+        const nlit = r.bits(5) + 257, ndist = r.bits(5) + 1, nclen = r.bits(4) + 4;
+        const clen = new Uint8Array(19);
+        for (let i = 0; i < nclen; i++) clen[CLEN_ORDER[i]] = r.bits(3);
+        const clh = buildHuffman(clen);
+        const lengths = new Uint8Array(nlit + ndist);
+        for (let i = 0; i < lengths.length; ) {
+          const sym = r.symbol(clh);
+          if (sym < 16) lengths[i++] = sym;
+          else if (sym === 16) {
+            const prev = lengths[i - 1];
+            let c2 = 3 + r.bits(2);
+            while (c2--) lengths[i++] = prev;
+          } else if (sym === 17) {
+            let c2 = 3 + r.bits(3);
+            while (c2--) lengths[i++] = 0;
+          } else {
+            let c2 = 11 + r.bits(7);
+            while (c2--) lengths[i++] = 0;
+          }
+        }
+        lit = buildHuffman(lengths.subarray(0, nlit));
+        dist2 = buildHuffman(lengths.subarray(nlit));
+      }
+      for (; ; ) {
+        const sym = r.symbol(lit);
+        if (sym === 256) break;
+        if (sym < 256) {
+          push(sym);
+          continue;
+        }
+        const li2 = sym - 257;
+        const length = LEN_BASE[li2] + r.bits(LEN_EXTRA[li2]);
+        const ds = r.symbol(dist2);
+        const back = DIST_BASE[ds] + r.bits(DIST_EXTRA[ds]);
+        for (let i = 0; i < length; i++) push(out[n - back]);
+      }
+    }
+    if (last) break;
+  }
+  return out.subarray(0, n);
 }
 var Cursor = class {
   constructor(bytes) {
@@ -14056,8 +14191,15 @@ async function parseMeshPack(buffer) {
   }
   return out;
 }
+function base64Bytes(uri) {
+  const bin = atob(uri.slice(uri.indexOf(",") + 1));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 async function loadMeshPack(name = "cars.bin", base = "assets/models/") {
   const src = globalThis.NOVA_MESH && globalThis.NOVA_MESH[name] || base + name;
+  if (src.startsWith("data:")) return parseMeshPack(base64Bytes(src));
   const res = await fetch(src);
   if (!res.ok) throw new Error(`pacchetto mesh mancante: ${name}`);
   return parseMeshPack(await res.arrayBuffer());
@@ -23367,7 +23509,13 @@ var Game = class {
     this.pbr = await loadPBRSets(aniso);
     await step(20, "Porto dentro i veicoli\u2026");
     const [pack2, carTex] = await Promise.all([
-      loadMeshPack().catch(() => null),
+      // se il pacchetto non si apre il gioco parte lo stesso con le
+      // carrozzerie disegnate a mano, ma il motivo va detto: e' cosi' che
+      // per giorni le auto sono state tutte squadrate senza che si sapesse
+      loadMeshPack().catch((e) => {
+        console.warn("NOVA: modelli auto non caricati \u2014", e);
+        return null;
+      }),
       loadCarTextures(CAR_PACK_BODIES, CAR_PACK_RIMS, aniso)
     ]);
     this.carPack = useCarPack(pack2, carTex, this.quality);

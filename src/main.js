@@ -162,7 +162,10 @@ class Game {
     // il pacchetto di modelli va agganciato prima di initModels: le misure
     // della fisica si prendono dalle mesh vere
     const [pack, carTex] = await Promise.all([
-      loadMeshPack().catch(() => null),
+      // se il pacchetto non si apre il gioco parte lo stesso con le
+      // carrozzerie disegnate a mano, ma il motivo va detto: e' cosi' che
+      // per giorni le auto sono state tutte squadrate senza che si sapesse
+      loadMeshPack().catch((e) => { console.warn('NOVA: modelli auto non caricati —', e); return null; }),
       loadCarTextures(CAR_PACK_BODIES, CAR_PACK_RIMS, aniso),
     ]);
     this.carPack = useCarPack(pack, carTex, this.quality);
