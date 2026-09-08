@@ -4,10 +4,11 @@ import { clamp, lerp, pick, IS_TOUCH, IS_MOBILE } from './core/utils.js';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { City } from './world/city.js';
-import { loadPBRSets } from './world/assets.js';
+import { loadPBRSets, loadCarTextures } from './world/assets.js';
+import { loadMeshPack } from './world/meshpack.js';
 import { SkySystem } from './world/sky.js';
 import { Post } from './systems/post.js';
-import { initModels, dressCharacter, animateCharacter, CAR_COLORS, RIM_STYLES } from './world/models.js';
+import { initModels, useCarPack, dressCharacter, animateCharacter, CAR_COLORS, RIM_STYLES } from './world/models.js';
 import { InteriorManager, SHOP_MENUS, buildAmmuMenu } from './world/interiors.js';
 import { Player } from './entities/player.js';
 import { Vehicle } from './entities/vehicle.js';
@@ -29,6 +30,12 @@ import { Phone } from './systems/phone.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+/** Carrozzerie e cerchi presenti nel pacchetto di modelli. */
+const CAR_PACK_BODIES = ['compact', 'coupe', 'hatchback', 'minivan', 'offroad',
+  'pickup', 'sedan', 'sport', 'suv', 'wagon'];
+const CAR_PACK_RIMS = ['wheel_a', 'wheel_b', 'wheel_c', 'wheel_d', 'wheel_e',
+  'wheel_1', 'wheel_g', 'wheel_h'];
 
 class Game {
   constructor() {
@@ -127,12 +134,22 @@ class Game {
     this.sky = new SkySystem(this.scene, this.renderer, this.quality);
     this.sky.update(this.clock, new THREE.Vector3());
 
-    await step(12, 'Preparo i materiali…');
-    initModels(this.quality);
 
-    await step(20, 'Scarico i materiali della strada…');
+    await step(14, 'Scarico i materiali della strada…');
     const aniso = Math.min(this.renderer.capabilities.getMaxAnisotropy(), IS_MOBILE ? 4 : 16);
     this.pbr = await loadPBRSets(aniso);
+
+    await step(20, 'Porto dentro i veicoli…');
+    // il pacchetto di modelli va agganciato prima di initModels: le misure
+    // della fisica si prendono dalle mesh vere
+    const [pack, carTex] = await Promise.all([
+      loadMeshPack().catch(() => null),
+      loadCarTextures(CAR_PACK_BODIES, CAR_PACK_RIMS, aniso),
+    ]);
+    this.carPack = useCarPack(pack, carTex, this.quality);
+
+    await step(24, 'Preparo i materiali…');
+    initModels(this.quality);
 
     await step(28, 'Costruisco strade e isolati…');
     this.city = new City(this.quality, this.pbr).build();

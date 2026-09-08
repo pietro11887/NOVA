@@ -37,6 +37,35 @@ function loadSet(loader, name, aniso) {
  * i materiali si costruiscono dopo, e una texture non ancora pronta
  * lascerebbe la strada bianca al primo fotogramma.
  */
+/**
+ * Texture dei veicoli importati: colore piu' la mappa "pack", che qui porta
+ * R = maschera vernice, G = rugosita', B = metallo.
+ */
+export function loadCarTextures(cars, rims, anisotropy = 8) {
+  return new Promise((resolve) => {
+    const manager = new THREE.LoadingManager();
+    const loader = new THREE.TextureLoader(manager);
+    let broken = false, done = false;
+    const out = { car: {}, rim: {} };
+    const finish = (ok) => { if (!done) { done = true; resolve(ok ? out : null); } };
+    manager.onError = () => { broken = true; };
+    manager.onLoad = () => finish(!broken);
+    setTimeout(() => finish(false), 25000);
+
+    const pair = (prefix, name) => {
+      const one = (suffix, srgb) => {
+        const t = loader.load(url(`${prefix}_${name}_${suffix}.jpg`));
+        t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.anisotropy = anisotropy;
+        return t;
+      };
+      return { map: one('c', true), packMap: one('s', false) };
+    };
+    for (const n of cars) out.car[n] = pair('car', n);
+    for (const n of rims) out.rim[n] = pair('rim', n);
+  });
+}
+
 export function loadPBRSets(anisotropy = 8, names = PBR_SETS) {
   return new Promise((resolve) => {
     if (!names.length) { resolve(null); return; }

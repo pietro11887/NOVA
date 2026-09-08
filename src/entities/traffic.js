@@ -18,13 +18,17 @@ export function driveTo(v, tx, tz, cruise = 0.6) {
 
 // il traffico non e' fatto solo di berline: ogni tipo ha il suo peso
 const TYPE_WEIGHTS = [
-  ['sedan', 26], ['suv', 16], ['pickup', 10], ['sport', 9], ['muscle', 9],
-  ['van', 10], ['bus', 6], ['ambulance', 4],
+  ['sedan', 18], ['suv', 11], ['pickup', 7], ['sport', 6], ['muscle', 7],
+  ['van', 7], ['compact', 9], ['hatchback', 9], ['wagon', 8], ['offroad', 5],
+  ['bus', 5], ['ambulance', 3],
 ];
 function weightedType() {
-  const total = TYPE_WEIGHTS.reduce((a, t) => a + t[1], 0);
+  // i tipi che arrivano dal pacchetto di modelli esistono solo se il
+  // pacchetto e' stato caricato: quelli mancanti si scartano
+  const list = TYPE_WEIGHTS.filter(([n]) => n === 'bus' || n === 'ambulance' || CAR_TYPES[n]);
+  const total = list.reduce((a, t) => a + t[1], 0);
   let r = Math.random() * total;
-  for (const [name, w] of TYPE_WEIGHTS) { r -= w; if (r <= 0) return name; }
+  for (const [name, w] of list) { r -= w; if (r <= 0) return name; }
   return 'sedan';
 }
 

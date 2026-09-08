@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { GeoBuilder, pick, rand, TAU, smoothNormals } from '../core/utils.js';
+import {
+  initCarPack, carPackReady, carPackSpec, carPackNames, carPackBody,
+  makePackCar, paintPackCar, tintPackRims,
+} from './carpack.js';
 
 /**
  * Modelli di auto e personaggi. Niente scatole impilate: le carrozzerie
@@ -524,6 +528,49 @@ function buildCarGeo(t, kind) {
   };
 }
 
+/**
+ * Quale carrozzeria del pacchetto usa ogni tipo di veicolo del gioco.
+ * Autobus, ambulanza e bici non ci sono nel pacchetto e restano costruiti
+ * a mano.
+ */
+const PACK_FOR_TYPE = {
+  sedan: 'sedan', sport: 'sport', suv: 'suv',
+  van: 'minivan', pickup: 'pickup', muscle: 'coupe',
+};
+
+/** Carrozzerie del pacchetto senza un corrispettivo: diventano tipi nuovi. */
+const EXTRA_TYPES = ['compact', 'hatchback', 'wagon', 'offroad'];
+
+/**
+ * Aggancia il pacchetto di modelli.
+ *
+ * Le misure della fisica (lunghezza, larghezza, raggio ruota, passo) si
+ * prendono dalla mesh vera: se la scocca e la sagoma di collisione non
+ * coincidono si finisce a sbattere contro l'aria.
+ */
+export function useCarPack(pack, tex, quality) {
+  if (!pack || !tex) return false;
+  initCarPack(pack, tex, quality);
+  if (!carPackReady()) return false;
+
+  for (const [type, name] of Object.entries(PACK_FOR_TYPE)) {
+    const spec = carPackSpec(name);
+    if (!spec || !CAR_TYPES[type]) continue;
+    Object.assign(CAR_TYPES[type], {
+      L: spec.L, W: spec.W, top: spec.top, wheel: spec.wheel, wx: spec.wx,
+      mass: spec.mass, speed: spec.speed, imported: name,
+    });
+  }
+  for (const name of EXTRA_TYPES) {
+    const spec = carPackSpec(name);
+    if (!spec) continue;
+    CAR_TYPES[name] = { ...spec, body: CAR_TYPES.sedan.body, cabin: CAR_TYPES.sedan.cabin };
+    if (!TRAFFIC_TYPES.includes(name)) TRAFFIC_TYPES.push(name);
+  }
+  shared.pack = carPackNames();
+  return true;
+}
+
 export function initModels(quality) {
   shared.quality = quality;
   shared.trimMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.55, envMapIntensity: 1.0 });
@@ -547,6 +594,10 @@ export function initModels(quality) {
   shared.lightMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   shared.geo = {};
   for (const k of Object.keys(CAR_TYPES)) {
+    // per i tipi che arrivano dal pacchetto la scocca disegnata non serve.
+    // La berlina si costruisce sempre: e' la riserva usata quando manca la
+    // combinazione tipo+allestimento richiesta.
+    if (k !== 'sedan' && CAR_TYPES[k].imported && carPackReady()) continue;
     shared.geo[k] = buildCarGeo(CAR_TYPES[k], 'civil');
     shared.geo[k + ':police'] = buildCarGeo(CAR_TYPES[k], 'police');
     shared.geo[k + ':taxi'] = buildCarGeo(CAR_TYPES[k], 'taxi');
@@ -618,6 +669,17 @@ export function dentCar(group, lx, ly, lz, strength) {
 export function undentCar(group) {
   const u = group.userData;
   if (!u.owned || !u.dentable) return;
+  if (u.imported) {
+    const clean = carPackBody(u.imported);
+    if (clean) {
+      for (const m of u.dentable) { m.geometry.dispose(); m.geometry = clean; }
+      u.owned = false;
+      u.dents = 0;
+      u.lightsBroken = false;
+      if (u.lights) u.lights.visible = false;
+    }
+    return;
+  }
   const g = shared.geo[u.geoKey] || shared.geo.sedan;
   const fresh = { body: g.body, trim: g.trim, glass: g.glass };
   for (const m of u.dentable) {
@@ -632,6 +694,7 @@ export function undentCar(group) {
 
 /** Riverniciatura in officina. */
 export function paintCar(group, color) {
+  if (group.userData.imported) { paintPackCar(group, color); return; }
   const m = group.userData.bodyMat;
   if (m) m.color.setHex(color);
 }
@@ -639,11 +702,21 @@ export function paintCar(group, color) {
 /** Cerchi: cambia il materiale delle ruote (cromo, nero opaco, bronzo). */
 export function setRims(group, style) {
   const u = group.userData;
+  if (u.imported) {
+    // sulle auto importate il disegno del cerchio e' nella texture: si
+    // cambia solo la tinta del metallo
+    tintPackRims(group, RIM_TINT[style] || 0xffffff);
+    u.rims = style;
+    return;
+  }
   if (!u.wheelMesh) return;
   const m = shared.rimMats[style] || shared.trimMat;
   u.wheelMesh.material = m;
   u.rims = style;
 }
+
+/** Tinte per i cerchi delle auto importate. */
+const RIM_TINT = { standard: 0xffffff, cromo: 0xf4f8ff, nero: 0x50545c, bronzo: 0xc79a52 };
 
 export const RIM_STYLES = {
   standard: { name: 'Lega chiara', price: 0 },
@@ -653,6 +726,16 @@ export const RIM_STYLES = {
 };
 
 export function makeCar(type = 'sedan', color = 0xb02b2b, kind = 'civil') {
+  // se il tipo ha una carrozzeria importata si usa quella
+  const imported = CAR_TYPES[type] && CAR_TYPES[type].imported;
+  if (imported && carPackReady()) {
+    const g = makePackCar(imported, color, kind);
+    if (g) {
+      g.userData.geoKey = `pack:${imported}`;
+      g.userData.vehicleType = type;
+      return g;
+    }
+  }
   const key = kind === 'civil' ? type : `${type}:${kind}`;
   const g = shared.geo[key] || shared.geo.sedan;
   const group = new THREE.Group();

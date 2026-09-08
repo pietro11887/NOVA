@@ -54,6 +54,19 @@ try {
   }
 } catch { /* nessuna texture: il gioco usa quelle disegnate a mano */ }
 
+// stessa cosa per i modelli dei veicoli
+const meshDir = resolve(ROOT, 'assets/models');
+const meshes = {};
+let meshBytes = 0;
+try {
+  for (const f of await readdir(meshDir)) {
+    if (!f.endsWith('.bin')) continue;
+    const raw = await readFile(resolve(meshDir, f));
+    meshBytes += raw.length;
+    meshes[f] = `data:application/octet-stream;base64,${raw.toString('base64')}`;
+  }
+} catch { /* nessun modello: restano le auto costruite a mano */ }
+
 // dall'index tengo solo il contenuto del body, senza gli script esterni
 const body = html
   .slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
@@ -65,7 +78,7 @@ const out = `<title>NOVA CITY</title>
 ${css}
 </style>
 ${body}
-<script>globalThis.NOVA_TEX = ${JSON.stringify(tex)};</script>
+<script>globalThis.NOVA_TEX = ${JSON.stringify(tex)};globalThis.NOVA_MESH = ${JSON.stringify(meshes)};</script>
 <script type="module">
 ${js}
 </script>
@@ -74,4 +87,4 @@ ${js}
 await mkdir(resolve(ROOT, 'dist'), { recursive: true });
 await writeFile(resolve(ROOT, 'dist/nova-city.html'), out);
 console.log(`dist/nova-city.html — ${(out.length / 1024).toFixed(0)} KB` +
-  (texBytes ? ` (di cui ${(texBytes / 1024).toFixed(0)} KB di texture)` : ''));
+  ` — texture ${(texBytes / 1024).toFixed(0)} KB, modelli ${(meshBytes / 1024).toFixed(0)} KB`);

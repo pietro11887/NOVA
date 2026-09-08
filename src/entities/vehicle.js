@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, pick } from '../core/utils.js';
 import { makeCar, dentCar, undentCar, paintCar, setRims, CAR_TYPES, CAR_COLORS, TRAFFIC_TYPES } from '../world/models.js';
+import { spinPackWheels } from '../world/carpack.js';
 
 const TMP = { x: 0, z: 0 };
 
@@ -33,6 +34,7 @@ export class Vehicle {
     this.driver = null;         // 'player' | ped | null
     this.locked = false;
 
+    this.roll = 0;              // angolo delle ruote, cumulato
     this.topSpeed = 27 * this.spec.speed;
     this.accel = 11 / this.spec.mass;
     this.brake = 20 / this.spec.mass;
@@ -134,6 +136,7 @@ export class Vehicle {
       this.z = clamp(this.z, -640, 700);
     }
 
+    this.roll += (this.speed * dt) / Math.max(0.12, this.spec.wheel || 0.34);
     this.sync();
   }
 
@@ -216,6 +219,12 @@ export class Vehicle {
   sync() {
     this.mesh.position.set(this.x, 0, this.z);
     this.mesh.rotation.y = this.a;
+    // ruote: rotolano in proporzione allo spazio percorso e sterzano davanti.
+    // Il segno e' negativo perche' una rotazione positiva attorno a +Z porta
+    // la sommita' della ruota all'indietro.
+    if (this.mesh.userData.wheels) {
+      spinPackWheels(this.mesh, -this.roll, this.steer);
+    }
   }
 
   setNight(on) {
