@@ -8,13 +8,15 @@ export const CFG = {
   LANE: 3.2,       // scostamento della corsia dal centro strada
 
   // --- gameplay ---
-  PED_MAX_DESKTOP: 68,
-  PED_MAX_MOBILE: 17,
-  CAR_MAX_DESKTOP: 30,
-  CAR_MAX_MOBILE: 9,
-  PARKED_DESKTOP: 52,
-  PARKED_MOBILE: 12,
-  STREAM_RADIUS: 190,   // oltre questa distanza i bot vengono riciclati
+  // Densita' della citta'. Le auto in circolazione seguono corsie e
+  // semafori, quindi si possono tenere alte senza che si accavallino.
+  PED_MAX_DESKTOP: 130,
+  PED_MAX_MOBILE: 26,
+  CAR_MAX_DESKTOP: 58,
+  CAR_MAX_MOBILE: 14,
+  PARKED_DESKTOP: 90,
+  PARKED_MOBILE: 18,
+  STREAM_RADIUS: 210,   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,
   VIEW_FAR_MOBILE: 260,
 

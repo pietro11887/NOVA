@@ -9417,6 +9417,14 @@ var ad = class extends sd {
     return super.copy(t2), this.defines = { STANDARD: "", PHYSICAL: "" }, this.anisotropy = t2.anisotropy, this.anisotropyRotation = t2.anisotropyRotation, this.anisotropyMap = t2.anisotropyMap, this.clearcoat = t2.clearcoat, this.clearcoatMap = t2.clearcoatMap, this.clearcoatRoughness = t2.clearcoatRoughness, this.clearcoatRoughnessMap = t2.clearcoatRoughnessMap, this.clearcoatNormalMap = t2.clearcoatNormalMap, this.clearcoatNormalScale.copy(t2.clearcoatNormalScale), this.ior = t2.ior, this.iridescence = t2.iridescence, this.iridescenceMap = t2.iridescenceMap, this.iridescenceIOR = t2.iridescenceIOR, this.iridescenceThicknessRange = [...t2.iridescenceThicknessRange], this.iridescenceThicknessMap = t2.iridescenceThicknessMap, this.sheen = t2.sheen, this.sheenColor.copy(t2.sheenColor), this.sheenColorMap = t2.sheenColorMap, this.sheenRoughness = t2.sheenRoughness, this.sheenRoughnessMap = t2.sheenRoughnessMap, this.transmission = t2.transmission, this.transmissionMap = t2.transmissionMap, this.thickness = t2.thickness, this.thicknessMap = t2.thicknessMap, this.attenuationDistance = t2.attenuationDistance, this.attenuationColor.copy(t2.attenuationColor), this.specularIntensity = t2.specularIntensity, this.specularIntensityMap = t2.specularIntensityMap, this.specularColor.copy(t2.specularColor), this.specularColorMap = t2.specularColorMap, this;
   }
 };
+var cd = class extends ts {
+  constructor(t2) {
+    super(), this.isMeshNormalMaterial = true, this.type = "MeshNormalMaterial", this.bumpMap = null, this.bumpScale = 1, this.normalMap = null, this.normalMapType = 0, this.normalScale = new ti(1, 1), this.displacementMap = null, this.displacementScale = 1, this.displacementBias = 0, this.wireframe = false, this.wireframeLinewidth = 1, this.flatShading = false, this.setValues(t2);
+  }
+  copy(t2) {
+    return super.copy(t2), this.bumpMap = t2.bumpMap, this.bumpScale = t2.bumpScale, this.normalMap = t2.normalMap, this.normalMapType = t2.normalMapType, this.normalScale.copy(t2.normalScale), this.displacementMap = t2.displacementMap, this.displacementScale = t2.displacementScale, this.displacementBias = t2.displacementBias, this.wireframe = t2.wireframe, this.wireframeLinewidth = t2.wireframeLinewidth, this.flatShading = t2.flatShading, this;
+  }
+};
 function pd(t2, e, n) {
   return !t2 || !n && t2.constructor === e ? t2 : "number" == typeof e.BYTES_PER_ELEMENT ? new e(t2) : Array.prototype.slice.call(t2);
 }
@@ -10224,13 +10232,15 @@ var CFG = {
   LANE: 3.2,
   // scostamento della corsia dal centro strada
   // --- gameplay ---
-  PED_MAX_DESKTOP: 68,
-  PED_MAX_MOBILE: 17,
-  CAR_MAX_DESKTOP: 30,
-  CAR_MAX_MOBILE: 9,
-  PARKED_DESKTOP: 52,
-  PARKED_MOBILE: 12,
-  STREAM_RADIUS: 190,
+  // Densita' della citta'. Le auto in circolazione seguono corsie e
+  // semafori, quindi si possono tenere alte senza che si accavallino.
+  PED_MAX_DESKTOP: 130,
+  PED_MAX_MOBILE: 26,
+  CAR_MAX_DESKTOP: 58,
+  CAR_MAX_MOBILE: 14,
+  PARKED_DESKTOP: 90,
+  PARKED_MOBILE: 18,
+  STREAM_RADIUS: 210,
   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,
   VIEW_FAR_MOBILE: 260,
@@ -13411,15 +13421,15 @@ var City = class {
     sign.position.set(sx, 4.75, sz + sd2 / 2 + 0.6);
     this.group.add(sign);
     const cx = b.cx, cz = b.cz + 6;
-    const cw = Math.min(b.x1 - b.x0 - 10, 26), cd = 13;
+    const cw = Math.min(b.x1 - b.x0 - 10, 26), cd2 = 13;
     for (const dx of [-1, 1]) for (const dz of [-1, 1]) {
-      const px = cx + dx * (cw / 2 - 1.2), pz = cz + dz * (cd / 2 - 1.2);
+      const px = cx + dx * (cw / 2 - 1.2), pz = cz + dz * (cd2 / 2 - 1.2);
       B.detail.box(px, 2.6, pz, 0.7, 5.2, 0.7, 15263458);
       this.grid.add({ x: px, z: pz, hx: 0.45, hz: 0.45 });
     }
-    B.detail.box(cx, 5.5, cz, cw, 0.9, cd, 15921388);
-    B.detail.box(cx, 5.9, cz, cw + 0.6, 0.5, cd + 0.6, 16734762);
-    B.glow.quadY(cx - cw / 2, cz - cd / 2, cx + cw / 2, cz + cd / 2, 4.98, 16773848);
+    B.detail.box(cx, 5.5, cz, cw, 0.9, cd2, 15921388);
+    B.detail.box(cx, 5.9, cz, cw + 0.6, 0.5, cd2 + 0.6, 16734762);
+    B.glow.quadY(cx - cw / 2, cz - cd2 / 2, cx + cw / 2, cz + cd2 / 2, 4.98, 16773848);
     for (const dx of [-1, 1]) {
       for (const dz of [-1, 1]) {
         const px = cx + dx * 4.5, pz = cz + dz * 3.4;
@@ -13586,16 +13596,16 @@ var City = class {
     this.landmarks.push({ kind: "sport", x: b.cx, z: b.cz });
     B.grass.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 16777215, (b.x1 - b.x0) / 6, (b.z1 - b.z0) / 6);
     B.props.grassPatch(b.x0 + 1, b.z0 + 1, b.x1 - 1, b.z1 - 1, rng, 0.55);
-    const cw = Math.min(b.x1 - b.x0 - 10, 28), cd = Math.min(b.z1 - b.z0 - 10, 16);
+    const cw = Math.min(b.x1 - b.x0 - 10, 28), cd2 = Math.min(b.z1 - b.z0 - 10, 16);
     const cx = b.cx, cz = b.cz;
     B.road = B.road || new GeoBuilder();
-    B.road.quadY(cx - cw / 2, cz - cd / 2, cx + cw / 2, cz + cd / 2, 0.03, 16777215, cw / 8, cd / 8);
+    B.road.quadY(cx - cw / 2, cz - cd2 / 2, cx + cw / 2, cz + cd2 / 2, 0.03, 16777215, cw / 8, cd2 / 8);
     const line = (x0, z0, x1, z1) => B.paint.quadY(x0, z0, x1, z1, 0.05, 15789280);
-    line(cx - cw / 2 + 1, cz - cd / 2 + 1, cx + cw / 2 - 1, cz - cd / 2 + 1.16);
-    line(cx - cw / 2 + 1, cz + cd / 2 - 1.16, cx + cw / 2 - 1, cz + cd / 2 - 1);
-    line(cx - cw / 2 + 1, cz - cd / 2 + 1, cx - cw / 2 + 1.16, cz + cd / 2 - 1);
-    line(cx + cw / 2 - 1.16, cz - cd / 2 + 1, cx + cw / 2 - 1, cz + cd / 2 - 1);
-    line(cx - 0.08, cz - cd / 2 + 1, cx + 0.08, cz + cd / 2 - 1);
+    line(cx - cw / 2 + 1, cz - cd2 / 2 + 1, cx + cw / 2 - 1, cz - cd2 / 2 + 1.16);
+    line(cx - cw / 2 + 1, cz + cd2 / 2 - 1.16, cx + cw / 2 - 1, cz + cd2 / 2 - 1);
+    line(cx - cw / 2 + 1, cz - cd2 / 2 + 1, cx - cw / 2 + 1.16, cz + cd2 / 2 - 1);
+    line(cx + cw / 2 - 1.16, cz - cd2 / 2 + 1, cx + cw / 2 - 1, cz + cd2 / 2 - 1);
+    line(cx - 0.08, cz - cd2 / 2 + 1, cx + 0.08, cz + cd2 / 2 - 1);
     for (const s of [-1, 1]) {
       const px = cx + s * (cw / 2 - 2);
       B.detail.box(px, 1.7, cz, 0.18, 3.4, 0.18, 10133670);
@@ -13605,8 +13615,8 @@ var City = class {
       this.grid.add({ x: px, z: cz, hx: 0.2, hz: 0.2 });
     }
     for (const s of [-1, 1]) {
-      B.detail.box(cx, 1.6, cz + s * (cd / 2 + 0.6), cw + 2, 3.2, 0.1, 9080984);
-      B.detail.box(cx + s * (cw / 2 + 1), 1.6, cz, 0.1, 3.2, cd + 2, 9080984);
+      B.detail.box(cx, 1.6, cz + s * (cd2 / 2 + 0.6), cw + 2, 3.2, 0.1, 9080984);
+      B.detail.box(cx + s * (cw / 2 + 1), 1.6, cz, 0.1, 3.2, cd2 + 2, 9080984);
     }
     for (let k = 0; k < 4; k++) {
       const p2 = B.props.palm(b.x0 + 4 + rng() * 4, b.z0 + 5 + k * ((b.z1 - b.z0 - 10) / 3), rng);
@@ -13847,12 +13857,23 @@ var City = class {
     return null;
   }
   // ------------------------------------------------------------- dinamica
-  setTrafficAxis(axis) {
+  /**
+   * Stato dei semafori.
+   * @param {number} axis  asse che ha la precedenza (0 est-ovest, 1 nord-sud)
+   * @param {boolean} amber  fase gialla su quell'asse
+   * @param {boolean} allRed rosso su entrambi, fra una fase e l'altra
+   */
+  setTrafficAxis(axis, amber = false, allRed = false) {
     const m = this.mats;
-    m.redA.color.setHex(axis === 0 ? 3804429 : 16722474);
-    m.greenA.color.setHex(axis === 0 ? 2412634 : 862740);
-    m.redB.color.setHex(axis === 1 ? 3804429 : 16722474);
-    m.greenB.color.setHex(axis === 1 ? 2412634 : 862740);
+    const RED2 = 16722474, RED_OFF = 3804429;
+    const GREEN = 2412634, GREEN_OFF = 862740;
+    const AMBER = 16756768;
+    const goA = axis === 0 && !allRed;
+    const goB = axis === 1 && !allRed;
+    m.redA.color.setHex(goA ? RED_OFF : RED2);
+    m.redB.color.setHex(goB ? RED_OFF : RED2);
+    m.greenA.color.setHex(goA ? amber ? AMBER : GREEN : GREEN_OFF);
+    m.greenB.color.setHex(goB ? amber ? AMBER : GREEN : GREEN_OFF);
   }
   setNight(k) {
     const e = clamp(k, 0, 1);
@@ -14362,9 +14383,9 @@ var SkySystem = class {
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 3.15, day) * (1 - dusk * 0.3);
+    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
-    this.hemi.intensity = lerp(0.62, 0.55, day);
+    this.hemi.intensity = lerp(0.58, 0.3, day);
     this.hemi.color.setHex(day > 0.5 ? 12376319 : 4874124);
     this.hemi.groundColor.setHex(day > 0.4 ? 9075294 : 2830914);
     const nightK = clamp((0.4 - day) / 0.4, 0, 1);
@@ -15313,6 +15334,272 @@ var OutputPass = class extends Pass {
   }
 };
 
+// src/systems/ssao.js
+var AO_SHADER = {
+  uniforms: {
+    tNormal: { value: null },
+    tDepth: { value: null },
+    projection: { value: new cr() },
+    inverseProjection: { value: new cr() },
+    resolution: { value: new ti() },
+    radius: { value: 1.5 },
+    bias: { value: 0.02 },
+    power: { value: 2.2 },
+    strength: { value: 1.55 },
+    cameraNear: { value: 0.4 },
+    cameraFar: { value: 4200 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: (
+    /* glsl */
+    `
+    uniform sampler2D tNormal;
+    uniform sampler2D tDepth;
+    uniform mat4 projection, inverseProjection;
+    uniform vec2 resolution;
+    uniform float radius, bias, power, strength, cameraNear, cameraFar;
+    varying vec2 vUv;
+
+    vec3 viewFromDepth(vec2 uv, float d) {
+      vec4 clip = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+      vec4 v = inverseProjection * clip;
+      return v.xyz / v.w;
+    }
+
+    void main() {
+      float d = texture2D(tDepth, vUv).x;
+      // fondale: niente da occludere
+      if (d >= 0.9999) { gl_FragColor = vec4(1.0); return; }
+
+      vec3 p = viewFromDepth(vUv, d);
+      vec3 n = normalize(texture2D(tNormal, vUv).xyz * 2.0 - 1.0);
+
+      // base tangente attorno alla normale, per campionare nell'emisfero
+      vec3 up = abs(n.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+      vec3 t = normalize(cross(up, n));
+      vec3 b = cross(n, t);
+
+      // rotazione per pixel: sparpaglia l'errore invece di lasciare bande
+      float ang = fract(sin(dot(vUv * resolution, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+
+      float occ = 0.0;
+      const float N = 12.0;
+      for (int i = 0; i < 12; i++) {
+        // spirale ad angolo aureo: dodici direzioni ben sparse senza tabelle
+        float fi = float(i);
+        float a = fi * 2.39996323 + ang;
+        float rr = sqrt((fi + 0.5) / N);
+        vec3 dir = normalize(t * (cos(a) * rr) + b * (sin(a) * rr) + n * (0.35 + 0.65 * (1.0 - rr)));
+        vec3 sp = p + dir * radius * (0.35 + 0.65 * rr);
+
+        vec4 proj = projection * vec4(sp, 1.0);
+        vec2 suv = (proj.xy / proj.w) * 0.5 + 0.5;
+        if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) continue;
+
+        float sd = texture2D(tDepth, suv).x;
+        if (sd >= 0.9999) continue;
+        float sampleZ = viewFromDepth(suv, sd).z;
+
+        /*
+         * Conta solo se quello che si vede in quel punto sta davvero davanti
+         * al campione. La sfumatura sulla distanza evita che un oggetto
+         * staccato proietti un alone su quello dietro.
+         */
+        float diff = sampleZ - sp.z;
+        float range = smoothstep(0.0, 1.0, radius / max(0.0001, abs(p.z - sampleZ)));
+        occ += step(bias, diff) * range;
+      }
+
+      float ao = clamp(1.0 - (occ * strength) / N, 0.0, 1.0);
+      gl_FragColor = vec4(vec3(pow(ao, power)), 1.0);
+    }`
+  )
+};
+var BLUR_SHADER = {
+  uniforms: {
+    tAO: { value: null },
+    tDepth: { value: null },
+    direction: { value: new ti(1, 0) },
+    texel: { value: new ti() },
+    cameraNear: { value: 0.4 },
+    cameraFar: { value: 120 }
+  },
+  vertexShader: AO_SHADER.vertexShader,
+  fragmentShader: (
+    /* glsl */
+    `
+    uniform sampler2D tAO, tDepth;
+    uniform vec2 direction, texel;
+    uniform float cameraNear, cameraFar;
+    varying vec2 vUv;
+
+    // il buffer di profondita' non e' lineare: confrontarlo cosi' com'e'
+    // renderebbe il peso quasi costante da lontano, e la sfocatura
+    // scavalcherebbe i bordi lasciando aloni
+    float linear(float d) {
+      float z = d * 2.0 - 1.0;
+      return (2.0 * cameraNear * cameraFar) / (cameraFar + cameraNear - z * (cameraFar - cameraNear));
+    }
+
+    void main() {
+      float centre = linear(texture2D(tDepth, vUv).x);
+      float sum = 0.0, wsum = 0.0;
+      for (int i = -3; i <= 3; i++) {
+        vec2 uv = vUv + direction * texel * float(i);
+        float d = linear(texture2D(tDepth, uv).x);
+        float w = exp(-abs(d - centre) * 3.0) * (1.0 - abs(float(i)) * 0.12);
+        sum += texture2D(tAO, uv).r * w;
+        wsum += w;
+      }
+      gl_FragColor = vec4(vec3(sum / max(wsum, 0.0001)), 1.0);
+    }`
+  )
+};
+var APPLY_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null },
+    tAO: { value: null },
+    intensity: { value: 1 }
+  },
+  vertexShader: AO_SHADER.vertexShader,
+  fragmentShader: (
+    /* glsl */
+    `
+    uniform sampler2D tDiffuse, tAO;
+    uniform float intensity;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float ao = mix(1.0, texture2D(tAO, vUv).r, intensity);
+      gl_FragColor = vec4(c.rgb * ao, c.a);
+    }`
+  )
+};
+var Quad = class {
+  constructor(shader) {
+    this.material = new $s({
+      uniforms: Ks.clone(shader.uniforms),
+      vertexShader: shader.vertexShader,
+      fragmentShader: shader.fragmentShader,
+      depthTest: false,
+      depthWrite: false
+    });
+    this.scene = new tc();
+    this.camera = new Ta(-1, 1, 1, -1, 0, 1);
+    this.scene.add(new Xs(new ma(2, 2), this.material));
+  }
+  render(renderer, target) {
+    renderer.setRenderTarget(target);
+    renderer.clear(true, false, false);
+    renderer.render(this.scene, this.camera);
+  }
+};
+var SSAO = class {
+  constructor(renderer, width, height, scale = 0.5) {
+    this.renderer = renderer;
+    this.scale = scale;
+    this.enabled = true;
+    this.intensity = 1;
+    this.normalMaterial = new cd();
+    this.far = 90;
+    this.depthCamera = new ta();
+    this.skip = [];
+    this.ao = new Quad(AO_SHADER);
+    this.blur = new Quad(BLUR_SHADER);
+    this.applyPass = new ShaderPass(APPLY_SHADER);
+    this._makeTargets(width, height);
+  }
+  _makeTargets(width, height) {
+    const w = Math.max(2, Math.round(width * this.scale));
+    const h2 = Math.max(2, Math.round(height * this.scale));
+    for (const t2 of [this.rtPrep, this.rtAO, this.rtBlur]) if (t2) t2.dispose();
+    const depth = new Ka(w, h2);
+    depth.type = Lt;
+    depth.minFilter = gt;
+    depth.magFilter = gt;
+    this.rtPrep = new wi(w, h2, {
+      minFilter: gt,
+      magFilter: gt,
+      depthTexture: depth
+    });
+    this.rtAO = new wi(w, h2, { depthBuffer: false });
+    this.rtBlur = new wi(w, h2, { depthBuffer: false });
+    this.ao.material.uniforms.tNormal.value = this.rtPrep.texture;
+    this.ao.material.uniforms.tDepth.value = depth;
+    this.ao.material.uniforms.resolution.value.set(w, h2);
+    this.blur.material.uniforms.tDepth.value = depth;
+    this.blur.material.uniforms.texel.value.set(1 / w, 1 / h2);
+    this.applyPass.uniforms.tAO.value = this.rtBlur.texture;
+  }
+  setSize(width, height) {
+    this._makeTargets(width, height);
+  }
+  /** Forza dell'effetto: 0 lo spegne senza toccare la catena dei passaggi. */
+  setIntensity(v) {
+    this.intensity = v;
+    this.applyPass.uniforms.intensity.value = v;
+  }
+  /**
+   * Da chiamare prima del rendering della catena: prepara la mappa di
+   * occlusione per la vista corrente.
+   */
+  update(scene, camera) {
+    if (!this.enabled || this.intensity <= 1e-3) return;
+    const r = this.renderer;
+    const prevTarget = r.getRenderTarget();
+    const prevOverride = scene.overrideMaterial;
+    const prevBg = scene.background;
+    const cam = this.depthCamera;
+    cam.fov = camera.fov;
+    cam.aspect = camera.aspect;
+    cam.near = camera.near;
+    cam.far = this.far;
+    cam.position.copy(camera.position);
+    cam.quaternion.copy(camera.quaternion);
+    cam.updateMatrixWorld(true);
+    cam.updateProjectionMatrix();
+    const hidden = [];
+    for (const o of this.skip) {
+      if (o && o.visible) {
+        o.visible = false;
+        hidden.push(o);
+      }
+    }
+    scene.overrideMaterial = this.normalMaterial;
+    scene.background = null;
+    r.setRenderTarget(this.rtPrep);
+    r.setClearColor(8421631, 1);
+    r.clear(true, true, false);
+    r.render(scene, cam);
+    scene.overrideMaterial = prevOverride;
+    scene.background = prevBg;
+    for (const o of hidden) o.visible = true;
+    const u2 = this.ao.material.uniforms;
+    u2.projection.value.copy(cam.projectionMatrix);
+    u2.inverseProjection.value.copy(cam.projectionMatrixInverse);
+    u2.cameraNear.value = cam.near;
+    u2.cameraFar.value = cam.far;
+    const bu2 = this.blur.material.uniforms;
+    bu2.cameraNear.value = cam.near;
+    bu2.cameraFar.value = cam.far;
+    this.ao.render(r, this.rtAO);
+    const b = this.blur.material.uniforms;
+    b.tAO.value = this.rtAO.texture;
+    b.direction.value.set(1, 0);
+    this.blur.render(r, this.rtBlur);
+    b.tAO.value = this.rtBlur.texture;
+    b.direction.value.set(0, 1);
+    this.blur.render(r, this.rtAO);
+    this.applyPass.uniforms.tAO.value = this.rtAO.texture;
+    r.setRenderTarget(prevTarget);
+  }
+  dispose() {
+    for (const t2 of [this.rtPrep, this.rtAO, this.rtBlur]) if (t2) t2.dispose();
+  }
+};
+
 // src/systems/post.js
 var SanitizeShader = {
   uniforms: { tDiffuse: { value: null } },
@@ -15334,7 +15621,8 @@ var GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.22 },
+    saturation: { value: 1.18 },
+    vibrance: { value: 0.45 },
     warmth: { value: 0.025 },
     contrast: { value: 1.08 },
     lift: { value: 0 },
@@ -15345,7 +15633,7 @@ var GradeShader = {
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float vignette, saturation, warmth, contrast, lift, time;
+    uniform float vignette, saturation, vibrance, warmth, contrast, lift, time;
     varying vec2 vUv;
 
     void main() {
@@ -15366,7 +15654,15 @@ var GradeShader = {
       // contrasto attorno al grigio medio lineare (0.18, non 0.5)
       c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);
 
-      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, saturation);
+      /*
+       * Vividezza selettiva: l'erba e il cielo prendono piu' colore della
+       * media, la pelle e l'asfalto restano dove sono. Si riconosce la
+       * parte "fredda" del pixel, cioe' quanto verde e blu ha in piu' del
+       * rosso, e si spinge solo quella.
+       */
+      float cool = clamp((c.g + c.b) * 0.5 - c.r, 0.0, 1.0);
+      float sat = saturation + cool * vibrance;
+      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, sat);
       c.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth * 0.8);
 
       // vignettatura morbida, non un cerchio netto
@@ -15398,6 +15694,9 @@ var Post = class {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
+    this.ssao = new SSAO(renderer, size.width * dpr, size.height * dpr, quality.ssaoScale || 0.5);
+    this.ssao.setIntensity(quality.ssao ? 1 : 0);
+    this.composer.addPass(this.ssao.applyPass);
     this.composer.addPass(new ShaderPass(SanitizeShader));
     this.bloom = new UnrealBloomPass(size, 0.42, 0.85, 0.92);
     this.bloomOn = !!quality.bloom;
@@ -15417,17 +15716,24 @@ var Post = class {
     if (!this.grade) return;
     const u2 = this.grade.uniforms;
     u2.warmth.value = 0.03 - n * 0.055;
-    u2.contrast.value = 1.08 + n * 0.1;
-    u2.saturation.value = 1.24 - n * 0.2;
+    u2.contrast.value = 1.17 + n * 0.09;
+    u2.saturation.value = 1.2 - n * 0.18;
+    u2.vibrance.value = 0.45 - n * 0.3;
     u2.lift.value = n * 0.012;
+  }
+  /** Occlusione ambientale: 0 la spegne, 1 e' piena. */
+  setSSAO(v) {
+    if (this.ssao) this.ssao.setIntensity(v);
   }
   setSize(w, h2, pixelRatio) {
     if (!this.composer) return;
     this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(w, h2);
+    if (this.ssao) this.ssao.setSize(w * pixelRatio, h2 * pixelRatio);
   }
-  render(dt2) {
+  render(dt2, scene, camera) {
     if (this.grade) this.grade.uniforms.time.value += dt2;
+    if (this.ssao && scene) this.ssao.update(scene, camera);
     this.composer.render(dt2);
   }
 };
@@ -18356,6 +18662,13 @@ var Player = class {
       this._camera(dt2, true);
       return;
     }
+    if (this.inTaxi) {
+      this.speed = 0;
+      this.mesh.position.set(this.x, this.y, this.z);
+      this.mesh.rotation.y = this.a;
+      this._camera(dt2, false);
+      return;
+    }
     if (this.inCar) this._driving(dt2, input);
     else this._onFoot(dt2, input);
     this._camera(dt2, false);
@@ -18592,15 +18905,15 @@ var Player = class {
       }
     }
     const bike = inCar && this.car.spec.bike;
-    const dist = this.indoor ? 3.4 : dead ? 5 : bike ? 4 + Math.abs(this.car.speed) * 0.06 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const dist2 = this.indoor ? 3.4 : dead ? 5 : bike ? 4 + Math.abs(this.car.speed) * 0.06 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
     const height = this.indoor ? 0.8 : dead ? 2.4 : bike ? 1.6 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1 : 1.25) + this.y;
     const cp = Math.cos(this.camPitch);
     V.set(
-      tx - Math.cos(this.camYaw) * dist * cp,
-      ty + height + Math.sin(this.camPitch) * dist,
-      tz + Math.sin(this.camYaw) * dist * cp
+      tx - Math.cos(this.camYaw) * dist2 * cp,
+      ty + height + Math.sin(this.camPitch) * dist2,
+      tz + Math.sin(this.camYaw) * dist2 * cp
     );
     if (this.city.resolve(V.x, V.z, 0.6, TMP)) {
       V.x = TMP.x;
@@ -19314,8 +19627,197 @@ var PedManager = class {
   }
 };
 
+// src/entities/driving.js
+var LANE = 2.5;
+var HALF_ROAD = CFG.ROAD / 2 - CFG.WALK;
+var WHEELBASE = 2.6;
+var dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
+function lanePoint(from, to2, t2, lane = LANE) {
+  const dx = to2.x - from.x, dz = to2.z - from.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const rx = dz / len, rz = -dx / len;
+  return {
+    x: from.x + dx * t2 + rx * lane,
+    z: from.z + dz * t2 + rz * lane
+  };
+}
+function legPoints(prev, node, next, lane = LANE) {
+  const out = [];
+  const len = dist(prev.x, prev.z, node.x, node.z);
+  const stopAt = Math.max(0, 1 - (HALF_ROAD + 1) / Math.max(len, 1));
+  const steps = Math.max(2, Math.round(len * stopAt / 6));
+  for (let k = 1; k <= steps; k++) out.push(lanePoint(prev, node, k / steps * stopAt, lane));
+  if (!next) {
+    out.push(lanePoint(prev, node, 1, lane));
+    return out;
+  }
+  const enter = lanePoint(prev, node, 1 - (HALF_ROAD + 1) / Math.max(len, 1), lane);
+  const outLen = dist(node.x, node.z, next.x, next.z);
+  const exit = lanePoint(node, next, (HALF_ROAD + 1) / Math.max(outLen, 1), lane);
+  const ctrl = lanePoint(prev, node, 1 + 0.2 / Math.max(len, 1), lane);
+  const arcSteps = 6;
+  for (let k = 1; k <= arcSteps; k++) {
+    const t2 = k / arcSteps;
+    const u2 = 1 - t2;
+    out.push({
+      x: u2 * u2 * enter.x + 2 * u2 * t2 * ctrl.x + t2 * t2 * exit.x,
+      z: u2 * u2 * enter.z + 2 * u2 * t2 * ctrl.z + t2 * t2 * exit.z
+    });
+  }
+  return out;
+}
+function buildLaneRoute(route, lane = LANE) {
+  const path = [], marks = [];
+  for (let k = 1; k < route.length; k++) {
+    const pts = legPoints(route[k - 1], route[k], route[k + 1] || null, lane);
+    const axis = legAxis(route[k - 1], route[k]);
+    for (const p2 of pts) {
+      path.push(p2);
+      marks.push({ node: route[k], axis });
+    }
+  }
+  return { path, marks };
+}
+function followPath(v, path, st, opt = {}) {
+  if (!path || path.length === 0) return { throttle: 0, steer: 0, hand: true, done: true };
+  const speed = Math.abs(v.speed);
+  const look = clamp(4.5 + speed * 0.75, 4.5, 18);
+  const fx = Math.cos(v.a), fz = -Math.sin(v.a);
+  while (st.i < path.length - 1) {
+    const dx = path[st.i].x - v.x, dz = path[st.i].z - v.z;
+    const ahead = dx * fx + dz * fz;
+    if (Math.hypot(dx, dz) < look || ahead < 0.5) st.i++;
+    else break;
+  }
+  const target = path[st.i];
+  const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
+  const want = Math.atan2(-(target.z - v.z), target.x - v.x);
+  const alpha = angleDelta(v.a, want);
+  const ld = Math.max(2, dist(v.x, v.z, target.x, target.z));
+  const curvature = 2 * Math.sin(alpha) / ld;
+  const steer = clamp(Math.atan(curvature * WHEELBASE) / 0.46, -1, 1);
+  let bend = 0;
+  for (let k = st.i; k < Math.min(path.length - 1, st.i + 7); k++) {
+    const a1 = Math.atan2(path[k].z - (path[k - 1] || v).z, path[k].x - (path[k - 1] || v).x);
+    const a2 = Math.atan2(path[k + 1].z - path[k].z, path[k + 1].x - path[k].x);
+    bend += Math.abs(angleDelta(a1, a2));
+  }
+  const cruise = opt.cruise ?? 0.7;
+  let wanted = (opt.maxSpeed ?? 22) * cruise * clamp(1 - bend * 0.85, 0.16, 1);
+  const stopDist = opt.stopDist;
+  if (stopDist !== void 0 && stopDist < Infinity) {
+    wanted = Math.min(wanted, Math.sqrt(Math.max(0, stopDist - 1.2) * 8));
+  }
+  const lead = opt.lead;
+  if (lead && lead.d < Infinity) {
+    const desired = 5.5 + speed * 1.1;
+    const follow = lead.speed + (lead.d - desired) * 0.65;
+    wanted = Math.min(wanted, Math.max(0, follow));
+  }
+  if (opt.endStop !== false && st.i >= path.length - 1) {
+    wanted = Math.min(wanted, Math.sqrt(Math.max(0, toEnd - 0.8) * 8));
+  }
+  const diff = wanted - speed;
+  let throttle = clamp(diff * 0.5, -1, 1);
+  if (Math.abs(steer) > 0.55 && throttle > 0.5) throttle = 0.5;
+  const done = st.i >= path.length - 1 && toEnd < 3;
+  return { throttle, steer, hand: false, done, target, wanted, toEnd };
+}
+function stopLineDistance(v, node, axis, greenAxis, amber) {
+  if (!node) return Infinity;
+  const d2 = dist(v.x, v.z, node.x, node.z) - (HALF_ROAD + 1.6);
+  if (d2 > 34 || d2 < -2) return Infinity;
+  if (axis === greenAxis && !amber) return Infinity;
+  if (amber && axis === greenAxis) {
+    const need = v.speed * v.speed / 8;
+    if (d2 < need + 1.5) return Infinity;
+  }
+  return Math.max(0, d2);
+}
+var legAxis = (from, to2) => Math.abs(to2.x - from.x) > Math.abs(to2.z - from.z) ? 0 : 1;
+function nearestNode(nodes, x, z) {
+  let best = 0, bd2 = Infinity;
+  for (let k = 0; k < nodes.length; k++) {
+    if (!nodes[k].links.length) continue;
+    const d2 = (nodes[k].x - x) ** 2 + (nodes[k].z - z) ** 2;
+    if (d2 < bd2) {
+      bd2 = d2;
+      best = k;
+    }
+  }
+  return best;
+}
+function nodeAheadOf(nodes, x, z, heading) {
+  const fx = Math.cos(heading), fz = -Math.sin(heading);
+  let best = -1, bd2 = Infinity;
+  for (let k = 0; k < nodes.length; k++) {
+    const n = nodes[k];
+    if (!n.links.length) continue;
+    const dx = n.x - x, dz = n.z - z;
+    const d2 = Math.hypot(dx, dz);
+    if (d2 > 1 && (dx * fx + dz * fz) / d2 < -0.25) continue;
+    if (d2 < bd2) {
+      bd2 = d2;
+      best = k;
+    }
+  }
+  return best >= 0 ? best : nearestNode(nodes, x, z);
+}
+function routeBetween(nodes, fromIdx, toIdx) {
+  if (fromIdx === toIdx) return [nodes[toIdx]];
+  const prev = /* @__PURE__ */ new Map([[fromIdx, -1]]);
+  const queue = [fromIdx];
+  for (let head = 0; head < queue.length; head++) {
+    const cur = queue[head];
+    if (cur === toIdx) break;
+    for (const nx of nodes[cur].links) {
+      if (prev.has(nx)) continue;
+      prev.set(nx, cur);
+      queue.push(nx);
+    }
+  }
+  if (!prev.has(toIdx)) return null;
+  const out = [];
+  for (let k = toIdx; k !== -1; k = prev.get(k)) out.push(nodes[k]);
+  return out.reverse();
+}
+function kerbStop(nodes, x, z, lane = LANE + 0.6) {
+  let best = null, bd2 = Infinity;
+  for (const n of nodes) {
+    for (const k of n.links) {
+      const m = nodes[k];
+      if (m.i * 1e3 + m.j < n.i * 1e3 + n.j) continue;
+      const dx2 = m.x - n.x, dz2 = m.z - n.z;
+      const len2 = dx2 * dx2 + dz2 * dz2;
+      let t3 = ((x - n.x) * dx2 + (z - n.z) * dz2) / len2;
+      t3 = clamp(t3, 0.08, 0.92);
+      const px = n.x + dx2 * t3, pz = n.z + dz2 * t3;
+      const d2 = (px - x) ** 2 + (pz - z) ** 2;
+      if (d2 < bd2) {
+        bd2 = d2;
+        best = { from: n, to: m, t: t3, px, pz };
+      }
+    }
+  }
+  if (!best) return null;
+  const dx = best.to.x - best.from.x, dz = best.to.z - best.from.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const rx = dz / len, rz = -dx / len;
+  const side = (x - best.px) * rx + (z - best.pz) * rz >= 0 ? 1 : -1;
+  const from = side > 0 ? best.from : best.to;
+  const to2 = side > 0 ? best.to : best.from;
+  const t2 = side > 0 ? best.t : 1 - best.t;
+  const p2 = lanePoint(from, to2, t2, lane);
+  return {
+    x: p2.x,
+    z: p2.z,
+    a: Math.atan2(-(to2.z - from.z), to2.x - from.x),
+    from,
+    to: to2
+  };
+}
+
 // src/entities/traffic.js
-var LANE = 2.4;
 function driveTo(v, tx, tz, cruise = 0.6) {
   const dx = tx - v.x, dz = tz - v.z;
   const want = Math.atan2(-dz, dx);
@@ -19339,7 +19841,7 @@ var TYPE_WEIGHTS = [
   ["ambulance", 3]
 ];
 function weightedType() {
-  const list = TYPE_WEIGHTS.filter(([n]) => n === "bus" || n === "ambulance" || CAR_TYPES[n]);
+  const list = TYPE_WEIGHTS.filter(([n]) => CAR_TYPES[n]);
   const total = list.reduce((a, t2) => a + t2[1], 0);
   let r = Math.random() * total;
   for (const [name, w] of list) {
@@ -19348,21 +19850,27 @@ function weightedType() {
   }
   return "sedan";
 }
+var TRIM_AFTER = 30;
 var TrafficCar = class {
   constructor(city, kind = "civil") {
     const type = kind === "taxi" ? "sedan" : weightedType();
     const forced = type === "ambulance" ? "ambulance" : type === "bus" ? "bus" : kind;
     this.v = new Vehicle(city, { type, kind: forced, color: pick(CAR_COLORS) });
     this.city = city;
-    this.node = null;
-    this.target = null;
-    this.cruise = rand(0.42, 0.72);
+    this.path = [];
+    this.marks = [];
+    this.st = { i: 0 };
+    this.chain = [];
+    this.cruise = rand(0.64, 0.96);
     this.patience = 0;
+    this.hornT = 0;
+    this.blockedT = 0;
   }
-  respawn(px, pz, minD = 45, maxD = 145) {
+  /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
+  respawn(px, pz, minD = 55, maxD = 175) {
     const nodes = this.city.roadNodes;
     let n = null;
-    for (let k = 0; k < 60; k++) {
+    for (let k = 0; k < 80; k++) {
       const c2 = nodes[randInt(0, nodes.length - 1)];
       const d2 = Math.hypot(c2.x - px, c2.z - pz);
       if (d2 > minD && d2 < maxD && c2.links.length) {
@@ -19370,62 +19878,98 @@ var TrafficCar = class {
         break;
       }
     }
-    if (!n) n = nodes[randInt(0, nodes.length - 1)];
-    this.node = n;
-    this.target = nodes[pick(n.links)];
-    const a = Math.atan2(-(this.target.z - n.z), this.target.x - n.x);
-    this.v.place(n.x + this._rx(a) * LANE, n.z + this._rz(a) * LANE, a);
-    this.v.speed = rand(4, 11);
+    if (!n) n = nodes[nearestNode(nodes, px + 130, pz + 130)];
+    const next = nodes[pick(n.links)];
+    this.chain = [n, next];
+    this.path = [];
+    this.marks = [];
+    this.st.i = 0;
+    this._extend();
+    this._extend();
+    const a = Math.atan2(-(next.z - n.z), next.x - n.x);
+    this.v.place(n.x + Math.sin(a) * LANE, n.z + Math.cos(a) * LANE, a);
+    this.v.speed = rand(5, 12);
     this.v.health = 100;
     return this;
   }
-  _rx(a) {
-    return Math.sin(a);
-  }
-  // componente x del vettore "destra"
-  _rz(a) {
-    return Math.cos(a);
-  }
-  // componente z del vettore "destra"
-  /** Sceglie il prossimo incrocio: dritto quando puo', altrimenti svolta. */
-  _advance() {
+  /**
+   * Sceglie il prossimo incrocio e allunga il tracciato.
+   * Va dritto quando puo': un traffico che svolta a caso a ogni incrocio
+   * sembra un formicaio, non una citta'.
+   */
+  _extend() {
     const nodes = this.city.roadNodes;
-    const cur = this.target;
-    const from = this.node;
+    const from = this.chain[this.chain.length - 2];
+    const cur = this.chain[this.chain.length - 1];
+    if (!from || !cur) return;
     const dirX = Math.sign(cur.i - from.i), dirZ = Math.sign(cur.j - from.j);
     const straight = nodes.find((n) => n.i === cur.i + dirX && n.j === cur.j + dirZ);
     const opts = cur.links.map((k) => nodes[k]).filter((n) => n !== from);
     let next;
-    if (straight && Math.random() < 0.62) next = straight;
+    if (straight && opts.includes(straight) && Math.random() < 0.68) next = straight;
     else next = opts.length ? pick(opts) : from;
-    this.node = cur;
-    this.target = next;
+    const pts = legPoints(from, cur, next);
+    const axis = legAxis(from, cur);
+    for (const p2 of pts) {
+      this.path.push(p2);
+      this.marks.push({ node: cur, axis });
+    }
+    this.chain.push(next);
+    if (this.chain.length > 4) this.chain.shift();
+  }
+  /** Butta via i punti gia' passati: il tracciato non deve crescere all'infinito. */
+  _trim() {
+    if (this.st.i < TRIM_AFTER) return;
+    const cut = this.st.i - 8;
+    this.path.splice(0, cut);
+    this.marks.splice(0, cut);
+    this.st.i -= cut;
   }
   update(dt2, game2) {
     const v = this.v;
-    if (!this.target) this.respawn(game2.player.x, game2.player.z);
-    const a = Math.atan2(-(this.target.z - this.node.z), this.target.x - this.node.x);
-    const tx = this.target.x + this._rx(a) * LANE;
-    const tz = this.target.z + this._rz(a) * LANE;
-    const ctrl = driveTo(v, tx, tz, this.cruise);
-    const axis = Math.abs(this.target.x - this.node.x) > Math.abs(this.target.z - this.node.z) ? 0 : 1;
-    const dist = Math.hypot(this.target.x - v.x, this.target.z - v.z);
-    let stop = false;
-    if (game2.trafficAxis !== axis && dist < 13 && dist > 5.5) stop = true;
-    const ahead = game2.blockedAhead(v, 10);
-    if (ahead) stop = true;
-    if (stop) {
-      ctrl.throttle = -0.55;
-      this.patience += dt2;
-      if (this.patience > 6 && ahead) {
-        ctrl.throttle = 0.3;
-      }
-      if (this.patience > 3.5 && this.patience < 3.7) game2.audio.horn();
-    } else {
-      this.patience = 0;
+    while (this.path.length - this.st.i < 16) this._extend();
+    this._trim();
+    const mark = this.marks[Math.min(this.st.i, this.marks.length - 1)];
+    let stopDist = Infinity;
+    if (mark) {
+      stopDist = Math.min(
+        stopDist,
+        stopLineDistance(v, mark.node, mark.axis, game2.trafficAxis, game2.trafficAmber)
+      );
     }
+    const lead = game2.leaderAhead(v, 26, true);
+    const gap = lead.d;
+    if (mark) {
+      const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
+      if (toLine > 0 && toLine < 12 && gap < 9) stopDist = Math.min(stopDist, toLine);
+    }
+    const ctrl = followPath(v, this.path, this.st, {
+      cruise: this.cruise,
+      maxSpeed: 26,
+      stopDist,
+      lead,
+      endStop: false
+    });
+    const redLight = stopDist < 6;
+    if (Math.abs(v.speed) < 0.4 && !redLight) this.blockedT += dt2;
+    else this.blockedT = 0;
+    if (this.blockedT > 8) {
+      this.blockedT = 0;
+      const p2 = game2.player;
+      if (Math.hypot(v.x - p2.x, v.z - p2.z) > 40) {
+        this.respawn(p2.x, p2.z);
+        return;
+      }
+    }
+    if (Math.abs(v.speed) < 0.5) {
+      this.patience += dt2;
+      if (this.patience > 4.5 && this.hornT <= 0) {
+        game2.audio.horn();
+        this.hornT = 7;
+      }
+    } else this.patience = 0;
+    this.hornT -= dt2;
     v.update(dt2, ctrl);
-    if (dist < 6.5) this._advance();
     if (v.health <= 0) {
       v.health = 100;
       this.respawn(game2.player.x, game2.player.z);
@@ -19439,12 +19983,12 @@ var TrafficManager = class {
     this.parked = [];
     for (let i = 0; i < max; i++) {
       const t2 = new TrafficCar(game2.city, Math.random() < 0.12 ? "taxi" : "civil");
-      t2.respawn(0, 0, 25, 150);
+      t2.respawn(0, 0, 30, 200);
       game2.worldGroup.add(t2.v.mesh);
       this.cars.push(t2);
     }
     this._spawnParked(game2.quality.parked);
-    this._spawnBikes(game2.quality.parked < 20 ? 8 : 18);
+    this._spawnBikes(game2.quality.parked < 20 ? 8 : 20);
   }
   _spawnParked(n) {
     const spots = this.game.city.parkSpots.slice();
@@ -19479,7 +20023,7 @@ var TrafficManager = class {
     for (const t2 of this.cars) {
       if (t2.v.driver === "player") continue;
       const d2 = Math.hypot(t2.v.x - p2.x, t2.v.z - p2.z);
-      if (d2 > CFG.STREAM_RADIUS + 60) {
+      if (d2 > CFG.STREAM_RADIUS + 70) {
         t2.respawn(p2.x, p2.z);
         continue;
       }
@@ -19951,11 +20495,11 @@ var HUD = class {
       let sx = (dx * cos - dz * sin) * scale;
       let sy = (dx * sin + dz * cos) * scale;
       const r = half - 12;
-      const dist = Math.hypot(sx, sy);
-      const outside = dist > r;
+      const dist2 = Math.hypot(sx, sy);
+      const outside = dist2 > r;
       if (outside) {
-        sx = sx / dist * r;
-        sy = sy / dist * r;
+        sx = sx / dist2 * r;
+        sy = sy / dist2 * r;
       }
       ctx.save();
       ctx.translate(half + sx, half + sy);
@@ -21864,57 +22408,77 @@ var RandomEvents = class {
 };
 
 // src/systems/taxi.js
-var LANE2 = 2.4;
 var FARE_BASE = 25;
 var FARE_PER_M = 0.35;
+var KERB_LANE = LANE + 1.1;
 var TaxiService = class {
   constructor(game2) {
     this.game = game2;
     this.taxi = null;
     this.state = null;
-    this.route = [];
-    this.step = 0;
+    this.path = [];
+    this.marks = [];
+    this.st = { i: 0 };
+    this.stop = null;
     this.dest = null;
     this.fare = 0;
     this.waitT = 0;
     this.stuck = 0;
     this.replanT = 0;
     this.age = 0;
+    this.reverseT = 0;
+    this.reverseSteer = 0;
   }
   get busy() {
     return !!this.taxi;
   }
-  /** Percorso fra due nodi stradali, in ampiezza sul grafo delle strade. */
-  _route(fromIdx, toIdx) {
-    const nodes = this.game.city.roadNodes;
-    if (fromIdx === toIdx) return [nodes[toIdx]];
-    const prev = /* @__PURE__ */ new Map([[fromIdx, -1]]);
-    const queue = [fromIdx];
-    for (let head = 0; head < queue.length; head++) {
-      const cur = queue[head];
-      if (cur === toIdx) break;
-      for (const nx of nodes[cur].links) {
-        if (prev.has(nx)) continue;
-        prev.set(nx, cur);
-        queue.push(nx);
-      }
-    }
-    if (!prev.has(toIdx)) return null;
-    const out = [];
-    for (let k = toIdx; k !== -1; k = prev.get(k)) out.push(nodes[k]);
-    return out.reverse();
+  get _nodes() {
+    return this.game.city.roadNodes;
   }
-  _nearestNode(x, z) {
-    const nodes = this.game.city.roadNodes;
-    let best = 0, bd2 = Infinity;
-    for (let k = 0; k < nodes.length; k++) {
-      const d2 = (nodes[k].x - x) ** 2 + (nodes[k].z - z) ** 2;
-      if (d2 < bd2 && nodes[k].links.length) {
+  /**
+   * Tracciato dal punto in cui si trova il taxi fino a un punto di sosta a
+   * bordo strada. L'ultimo tratto scavalca il nodo e finisce sull'accosto,
+   * cosi' il taxi si ferma dritto lungo il marciapiede.
+   */
+  _pathTo(stop, fromX, fromZ, heading = null) {
+    const nodes = this._nodes;
+    const startIdx = heading === null ? nearestNode(nodes, fromX, fromZ) : nodeAheadOf(nodes, fromX, fromZ, heading);
+    const endIdx = nodes.indexOf(stop.from);
+    if (endIdx < 0) return null;
+    const route = routeBetween(nodes, startIdx, endIdx);
+    if (!route) return null;
+    if (route[route.length - 1] !== stop.to) route.push(stop.to);
+    const built = buildLaneRoute(route);
+    let bi2 = built.path.length - 1, bd2 = Infinity;
+    for (let k = 0; k < built.path.length; k++) {
+      const d2 = (built.path[k].x - stop.x) ** 2 + (built.path[k].z - stop.z) ** 2;
+      if (d2 < bd2) {
         bd2 = d2;
-        best = k;
+        bi2 = k;
       }
     }
-    return best;
+    const path = built.path.slice(0, bi2 + 1);
+    const marks = built.marks.slice(0, bi2 + 1);
+    path.push({ x: stop.x, z: stop.z });
+    marks.push(marks[marks.length - 1] || null);
+    return { path, marks };
+  }
+  _setRoute(built, fromX = null, fromZ = null) {
+    if (!built) return false;
+    this.path = built.path;
+    this.marks = built.marks;
+    this.st.i = 0;
+    if (fromX !== null) {
+      let bd2 = Infinity;
+      for (let k = 0; k < this.path.length; k++) {
+        const d2 = (this.path[k].x - fromX) ** 2 + (this.path[k].z - fromZ) ** 2;
+        if (d2 < bd2) {
+          bd2 = d2;
+          this.st.i = k;
+        }
+      }
+    }
+    return true;
   }
   /** Chiamata dal telefono: fa partire un taxi verso di te. */
   call() {
@@ -21927,33 +22491,56 @@ var TaxiService = class {
       g.toast("Scendi prima di chiamare un taxi");
       return false;
     }
-    const nodes = g.city.roadNodes;
-    const meIdx = this._nearestNode(g.player.x, g.player.z);
-    let fromIdx = meIdx, bd2 = -1;
-    for (let k = 0; k < 60; k++) {
-      const c2 = Math.random() * nodes.length | 0;
-      const d2 = Math.hypot(nodes[c2].x - g.player.x, nodes[c2].z - g.player.z);
-      if (d2 > 60 && d2 < 190 && d2 > bd2 && nodes[c2].links.length) {
+    const stop = kerbStop(this._nodes, g.player.x, g.player.z, KERB_LANE);
+    if (!stop) {
+      g.toast("Nessun taxi disponibile qui");
+      return false;
+    }
+    const nodes = this._nodes;
+    let from = null, bd2 = -1;
+    for (let k = 0; k < 80; k++) {
+      const c2 = nodes[Math.random() * nodes.length | 0];
+      const d2 = Math.hypot(c2.x - g.player.x, c2.z - g.player.z);
+      if (d2 > 70 && d2 < 200 && d2 > bd2 && c2.links.length) {
         bd2 = d2;
-        fromIdx = c2;
+        from = c2;
       }
     }
-    const route = this._route(fromIdx, meIdx);
-    if (!route) {
+    if (!from) from = nodes[nearestNode(nodes, g.player.x + 90, g.player.z + 90)];
+    const built = this._pathTo(stop, from.x, from.z);
+    if (!built || built.path.length < 3) {
       g.toast("Nessun taxi disponibile qui");
       return false;
     }
     const v = new Vehicle(g.city, { kind: "taxi" });
-    const n0 = route[0], n1 = route[1] || route[0];
-    const a = Math.atan2(-(n1.z - n0.z), n1.x - n0.x);
-    v.place(n0.x + Math.sin(a) * LANE2, n0.z + Math.cos(a) * LANE2, a);
+    let at = 0;
+    for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
+      const q = built.path[k];
+      let free = true;
+      for (const o of g.traffic.all()) {
+        if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) {
+          free = false;
+          break;
+        }
+      }
+      if (free) {
+        at = k;
+        break;
+      }
+    }
+    const p0 = built.path[at], p1 = built.path[at + 1];
+    v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
     v.driver = "taxi";
     g.worldGroup.add(v.mesh);
     this.taxi = v;
-    this.route = route;
-    this.step = 1;
+    this._setRoute(built);
+    this.st.i = at;
+    this.stop = stop;
     this.state = "coming";
     this.fare = 0;
+    this.age = 0;
+    this.stuck = 0;
+    this.replanT = 4;
     g.toast("\u{1F695} Taxi in arrivo", "good");
     return true;
   }
@@ -21966,18 +22553,22 @@ var TaxiService = class {
       g.toast("Metti prima una destinazione sulla mappa");
       return false;
     }
-    const meIdx = this._nearestNode(this.taxi.x, this.taxi.z);
-    const toIdx = this._nearestNode(dest.x, dest.z);
-    const route = this._route(meIdx, toIdx);
-    if (!route) {
+    const stop = kerbStop(this._nodes, dest.x, dest.z, KERB_LANE);
+    if (!stop) {
       g.toast("Non ci arrivo da qui");
       return false;
     }
-    this.route = route;
-    this.step = 1;
+    const built = this._pathTo(stop, this.taxi.x, this.taxi.z, this.taxi.a);
+    if (!built) {
+      g.toast("Non ci arrivo da qui");
+      return false;
+    }
+    this._setRoute(built, this.taxi.x, this.taxi.z);
+    this.stop = stop;
     this.state = "riding";
     this.age = 0;
-    this.replanT = 0;
+    this.stuck = 0;
+    this.replanT = 4;
     this.dest = { x: dest.x, z: dest.z };
     this.fare = FARE_BASE;
     g.player.mesh.visible = false;
@@ -21993,8 +22584,8 @@ var TaxiService = class {
       const cost = Math.round(this.fare);
       g.player.pay(cost);
       g.toast(`\u{1F695} Corsa: $${cost}${reason ? " \xB7 " + reason : ""}`, cost > g.player.money ? "bad" : "");
-      g.player.x = this.taxi.x + Math.sin(this.taxi.a) * 2.2;
-      g.player.z = this.taxi.z + Math.cos(this.taxi.a) * 2.2;
+      g.player.x = this.taxi.x + Math.sin(this.taxi.a) * 2.4;
+      g.player.z = this.taxi.z + Math.cos(this.taxi.a) * 2.4;
       g.player.a = this.taxi.a;
       g.player.mesh.visible = true;
       g.player.inTaxi = false;
@@ -22003,58 +22594,20 @@ var TaxiService = class {
     g.worldGroup.remove(this.taxi.mesh);
     this.taxi = null;
     this.state = null;
-    this.route = [];
+    this.path = [];
+    this.marks = [];
+    this.stop = null;
+  }
+  /** Ricalcola il tracciato dal punto in cui si trova davvero. */
+  _replan() {
+    if (!this.stop) return;
+    const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, this.taxi.a);
+    if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
   }
   update(dt2) {
     const g = this.game, v = this.taxi;
     if (!v) return;
     this.age += dt2;
-    this.replanT -= dt2;
-    if (this.replanT <= 0 && (this.state === "coming" || this.state === "riding")) {
-      this.replanT = 2.5;
-      const from = this._nearestNode(v.x, v.z);
-      const target = this.state === "coming" ? this._nearestNode(g.player.x, g.player.z) : this._nearestNode(this.dest.x, this.dest.z);
-      const r = this._route(from, target);
-      if (r && r.length) {
-        this.route = r;
-        this.step = Math.min(1, r.length - 1);
-      }
-    }
-    if (this.state === "coming" && this.age > 90) {
-      const a2 = g.player.a;
-      v.place(g.player.x + Math.cos(a2) * 6, g.player.z - Math.sin(a2) * 6, a2 + Math.PI);
-      v.speed = 0;
-      this.state = "waiting";
-      this.waitT = 45;
-      g.audio.horn();
-      g.toast("\u{1F695} Il taxi ti aspetta", "good");
-      return;
-    }
-    const node = this.route[this.step] || this.route[this.route.length - 1];
-    const prev = this.route[this.step - 1] || node;
-    const a = Math.atan2(-(node.z - prev.z), node.x - prev.x);
-    const tx = node.x + Math.sin(a) * LANE2, tz = node.z + Math.cos(a) * LANE2;
-    if (this.state === "coming") {
-      const dPlayer = Math.hypot(v.x - g.player.x, v.z - g.player.z);
-      const last = this.step >= this.route.length - 1;
-      if (last && dPlayer > 10) {
-        const straight = dPlayer < 26;
-        this._drive(dt2, straight ? g.player.x : tx, straight ? g.player.z : tz, 0.55, straight);
-        return;
-      }
-      if (dPlayer <= 10) {
-        v.update(dt2, { throttle: -1, steer: 0, hand: true });
-        if (Math.abs(v.speed) < 1.2) {
-          this.state = "waiting";
-          this.waitT = 45;
-          g.audio.horn();
-          g.toast("\u{1F695} Il taxi ti aspetta", "good");
-        }
-        return;
-      }
-      this._drive(dt2, tx, tz, 0.72);
-      return;
-    }
     if (this.state === "waiting") {
       v.update(dt2, { throttle: 0, steer: 0, hand: true });
       this.waitT -= dt2;
@@ -22065,61 +22618,104 @@ var TaxiService = class {
       return;
     }
     if (this.state === "riding") {
-      const moved = Math.hypot(v.x - g.player.x, v.z - g.player.z);
       this.fare += Math.abs(v.speed) * dt2 * FARE_PER_M;
       g.player.x = v.x;
       g.player.z = v.z;
       g.player.a = v.a;
-      void moved;
-      const dDest = Math.hypot(v.x - this.dest.x, v.z - this.dest.z);
-      if (this.step >= this.route.length - 1 && dDest > 12) {
-        const straight = dDest < 30;
-        this._drive(dt2, straight ? this.dest.x : tx, straight ? this.dest.z : tz, 0.7);
-        return;
-      }
-      if (dDest < 12) {
-        v.update(dt2, { throttle: -1, steer: 0, hand: true });
-        if (Math.abs(v.speed) < 1.5) {
-          this.drop("arrivato");
-        }
-        return;
-      }
-      this._drive(dt2, tx, tz, 0.85);
     }
-  }
-  /**
-   * Guida verso il prossimo nodo. Se resta imbottigliato prima insiste, poi
-   * scarta di lato: un taxi che si pianta per sempre rende inutile il
-   * servizio, ed e' esattamente quello che succedeva.
-   */
-  _drive(dt2, tx, tz, cruise, ignoreBlock = false) {
-    const g = this.game, v = this.taxi;
-    const ctrl = driveTo(v, tx, tz, cruise);
-    const blocked = !ignoreBlock && g.blockedAhead(v, 7, true);
-    const slow = Math.abs(v.speed) < 1.2;
-    if (blocked || slow) this.stuck += dt2;
-    else this.stuck = 0;
-    if (this.stuck > 6) {
+    const mark = this.marks[Math.min(this.st.i, this.marks.length - 1)];
+    let stopDist = Infinity;
+    if (mark) {
+      stopDist = Math.min(
+        stopDist,
+        stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber)
+      );
+    }
+    const lead = g.leaderAhead(v, 24, true);
+    const ctrl = followPath(v, this.path, this.st, {
+      cruise: 0.82,
+      maxSpeed: 24,
+      stopDist,
+      lead
+    });
+    this.dbg = {
+      stopDist: stopDist === Infinity ? null : +stopDist.toFixed(1),
+      leadD: lead.d === Infinity ? null : +lead.d.toFixed(1),
+      markAxis: mark ? mark.axis : null,
+      verde: g.trafficAxis,
+      giallo: g.trafficAmber,
+      throttle: +ctrl.throttle.toFixed(2),
+      steer: +ctrl.steer.toFixed(2),
+      wanted: +(ctrl.wanted || 0).toFixed(1),
+      i: this.st.i,
+      n: this.path.length
+    };
+    const redLight = stopDist < 6;
+    if (Math.abs(v.speed) < 0.4 && !redLight) this.stuck += dt2;
+    else if (this.reverseT <= 0) this.stuck = 0;
+    if (this.reverseT > 0) {
+      this.reverseT -= dt2;
+      v.update(dt2, { throttle: -0.9, steer: this.reverseSteer, hand: false });
+    } else if (this.stuck > 3) {
+      this.reverseT = 1.5;
+      this.reverseSteer = Math.random() < 0.5 ? 0.7 : -0.7;
       this.stuck = 0;
-      const n = this.route[Math.min(this.step + 1, this.route.length - 1)];
-      const p2 = this.route[Math.max(0, this.step)];
-      const a = Math.atan2(-(n.z - p2.z), n.x - p2.x);
-      v.place(n.x + Math.sin(a) * LANE2, n.z + Math.cos(a) * LANE2, a);
-      v.speed = 6;
-      if (this.step < this.route.length - 1) this.step++;
+      this.recoveries = (this.recoveries || 0) + 1;
+      v.update(dt2, { throttle: -0.9, steer: this.reverseSteer, hand: false });
+    } else {
+      v.update(dt2, ctrl);
+      if (Math.abs(v.speed) > 3) this.recoveries = 0;
+    }
+    if ((this.recoveries || 0) >= 3) {
+      this.recoveries = 0;
+      const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
+      if (this.state === "coming" && lontano && this.path.length > 3) {
+        const k = Math.min(this.path.length - 2, this.st.i + 8);
+        const a0 = this.path[k], a1 = this.path[k + 1];
+        v.place(a0.x, a0.z, Math.atan2(-(a1.z - a0.z), a1.x - a0.x));
+        v.speed = 6;
+        this.st.i = k;
+      } else if (this.state === "riding") {
+        this.drop("traffico impossibile");
+        return;
+      }
+    }
+    const toStopNow = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
+    const offPath = ctrl.target ? Math.hypot(v.x - ctrl.target.x, v.z - ctrl.target.z) : 0;
+    this.replanT -= dt2;
+    if (toStopNow > 45 && (this.stuck > 3.5 || offPath > 26 && this.replanT <= 0)) {
+      this.replanT = 8;
+      this.stuck = 0;
+      this._replan();
+    }
+    const tooLong = this.state === "coming" ? 150 : 420;
+    if (this.age > tooLong) {
+      if (this.state === "riding") this.drop("traffico impossibile");
+      else {
+        g.toast("\u{1F695} Il taxi non riesce ad arrivare");
+        this.drop();
+      }
       return;
     }
-    if (this.stuck > 3) {
-      ctrl.throttle = 0.6;
-      ctrl.steer = clamp(ctrl.steer + (this.stuck % 2 < 1 ? 0.7 : -0.7), -1, 1);
-    } else if (this.stuck > 1.4) {
-      ctrl.throttle = -0.75;
-      ctrl.steer = clamp(-ctrl.steer, -1, 1);
-    } else if (blocked) {
-      ctrl.throttle = -0.4;
+    const toStop = toStopNow;
+    if (this.state === "coming") {
+      const near = Math.hypot(v.x - g.player.x, v.z - g.player.z);
+      if ((ctrl.done || toStop < 3.5) && Math.abs(v.speed) < 1.4) {
+        this.state = "waiting";
+        this.waitT = 45;
+        g.audio.horn();
+        g.toast("\u{1F695} Il taxi ti aspetta", "good");
+      } else if (near < 4 && Math.abs(v.speed) < 1.4) {
+        this.state = "waiting";
+        this.waitT = 45;
+        g.audio.horn();
+        g.toast("\u{1F695} Il taxi ti aspetta", "good");
+      }
+      return;
     }
-    v.update(dt2, ctrl);
-    if (Math.hypot(v.x - tx, v.z - tz) < 7 && this.step < this.route.length - 1) this.step++;
+    if (this.state === "riding" && (ctrl.done || toStop < 3) && Math.abs(v.speed) < 1.4) {
+      this.drop("arrivato");
+    }
   }
 };
 
@@ -22318,6 +22914,10 @@ var Game = class {
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,
+      // occlusione ambientale: una seconda passata sulla geometria, solo
+      // dove c'e' margine
+      ssao: !IS_MOBILE,
+      ssaoScale: 0.5,
       // parallax sulle superfici stradali: costa, quindi solo sul massimo
       parallax: !IS_MOBILE
     };
@@ -22331,6 +22931,7 @@ var Game = class {
         this.quality.shadows = this.quality.tier >= 1;
         this.quality.bloom = this.quality.tier >= 3;
         this.quality.parallax = this.quality.tier >= 3;
+        this.quality.ssao = this.quality.tier >= 3;
         if (this.quality.tier === 0) this.quality.pixelRatio = 1;
       }
     }
@@ -22346,6 +22947,8 @@ var Game = class {
     this.evading = false;
     this.trafficAxis = 0;
     this.trafficT = 0;
+    this.trafficAmber = false;
+    this.trafficAllRed = false;
     this.paused = true;
     this.running = false;
     this.fpsAvg = 60;
@@ -22431,6 +23034,9 @@ var Game = class {
     await step(92, "Distribuisco i lavori\u2026");
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
+    if (this.post.ssao) {
+      this.post.ssao.skip = [this.sky.sky, this.sky.clouds, this.sky.stars, this.sky.moon];
+    }
     const params = new URLSearchParams(location.search);
     let safe = false;
     try {
@@ -22876,6 +23482,17 @@ var Game = class {
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       this.post.setBloom(tier >= 3);
+      q.ssao = tier >= 3;
+      this.post.setSSAO(q.ssao ? 1 : 0);
+    }
+    q.parallax = tier >= 3;
+    if (this.city) {
+      for (const name of ["road", "walk"]) {
+        const m = this.city.mats[name];
+        if (m && m.userData.nova) {
+          m.userData.nova.novaPomScale.value = q.parallax ? name === "road" ? 0.028 : 0.018 : 0;
+        }
+      }
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
     this.renderer.shadowMap.needsUpdate = true;
@@ -22910,7 +23527,7 @@ var Game = class {
       this._autoQuality(dt2);
     }
     this.player.applyCamera(this.camera);
-    if (this.post && this.post.enabled) this.post.render(dt2);
+    if (this.post && this.post.enabled) this.post.render(dt2, this.scene, this.camera);
     else this.renderer.render(this.scene, this.camera);
   }
   _autoQuality(dt2) {
@@ -22944,10 +23561,22 @@ var Game = class {
     if (this.heistCd > 0) this.heistCd -= dt2;
     if (this.invoiceCd > 0) this.invoiceCd -= dt2;
     this.trafficT += dt2;
-    if (this.trafficT > 13) {
+    const GREEN = 10, AMBER = 2.4, ALL_RED = 1.2;
+    const wasAmber = this.trafficAmber;
+    this.trafficAmber = this.trafficT > GREEN;
+    this.trafficAllRed = this.trafficT > GREEN + AMBER;
+    if (this.trafficAmber !== wasAmber || this._lightsDirty) {
+      this._lightsDirty = false;
+      this.city.setTrafficAxis(this.trafficAxis, this.trafficAmber, this.trafficAllRed);
+    }
+    if (this.trafficT > GREEN + AMBER + ALL_RED) {
       this.trafficT = 0;
       this.trafficAxis ^= 1;
-      this.city.setTrafficAxis(this.trafficAxis);
+      this.trafficAmber = false;
+      this.trafficAllRed = false;
+      this.city.setTrafficAxis(this.trafficAxis, false, false);
+    } else if (this.trafficAllRed) {
+      this.city.setTrafficAxis(this.trafficAxis, true, true);
     }
     const swap = this.input._edge.swap;
     if (swap) p2.cycleWeapon(swap > 0 ? 1 : -1);
@@ -22997,7 +23626,7 @@ var Game = class {
     this.city.setNight(night);
     this.city.animate(this.time);
     if (this.post) this.post.setNight(night);
-    this.renderer.toneMappingExposure = 0.98 - this.sky.day * 0.14;
+    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27;
     if (this.interiors.current) {
       this.sky.sun.intensity = 0.5;
       this.sky.hemi.intensity = 1;
@@ -23619,22 +24248,54 @@ var Game = class {
     this.worldGroup.visible = v;
   }
   /** L'auto ha qualcosa davanti entro `dist` metri? */
-  blockedAhead(v, dist, skipParked = false) {
+  blockedAhead(v, dist2, skipParked = false) {
+    return this.gapAhead(v, dist2, skipParked) < Infinity;
+  }
+  /**
+   * Distanza dal primo ostacolo davanti al veicolo, o Infinity se la strada
+   * e' libera. Serve al traffico per accodarsi frenando invece di fermarsi
+   * di colpo quando l'ostacolo entra nel raggio.
+   */
+  gapAhead(v, dist2, skipParked = false) {
+    return this.leaderAhead(v, dist2, skipParked).d;
+  }
+  /**
+   * Primo veicolo davanti: distanza e sua velocita'.
+   *
+   * La velocita' serve per accodarsi come si fa davvero. Considerando chi
+   * sta davanti come un muro fermo, un'auto a venti metri costringeva a
+   * scendere sotto i 45 all'ora anche se stava viaggiando: il traffico
+   * strisciava.
+   */
+  leaderAhead(v, dist2, skipParked = false) {
     const fx = v.fx, fz = v.fz;
+    let best = Infinity;
+    let lead = 0;
     const test = (o) => {
-      if (o === v) return false;
+      if (o === v) return;
       const dx = o.x - v.x, dz = o.z - v.z;
       const t2 = dx * fx + dz * fz;
-      if (t2 < 0.5 || t2 > dist) return false;
-      return Math.abs(-dx * fz + dz * fx) < 2.4;
+      if (t2 < 0.4 || t2 > dist2 || t2 >= best) return;
+      const half = t2 < 8 ? 2.3 : 1.9;
+      if (Math.abs(-dx * fz + dz * fx) >= half) return;
+      if (o.a !== void 0 && t2 > 6) {
+        let d2 = Math.abs(o.a - v.a) % (Math.PI * 2);
+        if (d2 > Math.PI) d2 = Math.PI * 2 - d2;
+        if (d2 > 1.1) return;
+      }
+      best = t2;
+      lead = o.speed !== void 0 ? Math.max(0, o.speed) : 0;
     };
-    for (const t2 of this.traffic.cars) if (test(t2.v)) return true;
-    if (!skipParked) {
-      for (const o of this.traffic.parked) if (test(o)) return true;
+    for (const t2 of this.traffic.cars) test(t2.v);
+    if (!skipParked) for (const o of this.traffic.parked) test(o);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c2 of this.police.cars) {
+      if (c2.active) test(c2);
     }
-    if (this.player.inCar && test(this.player.car)) return true;
-    if (!this.player.inCar && test(this.player)) return true;
-    return false;
+    if (this.player.inCar) {
+      if (this.player.car) test(this.player.car);
+    } else if (!this.player.inTaxi) test(this.player);
+    return { d: best, speed: best < Infinity ? lead : 0 };
   }
   // ------------------------------------------------------------ salvataggio
   save() {

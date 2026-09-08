@@ -99,6 +99,8 @@ class Game {
     this.evading = false;
     this.trafficAxis = 0;
     this.trafficT = 0;
+    this.trafficAmber = false;      // giallo sull'asse che ha il verde
+    this.trafficAllRed = false;     // rosso su entrambi, fra una fase e l'altra
     this.paused = true;
     this.running = false;
     this.fpsAvg = 60;
@@ -716,8 +718,29 @@ class Game {
     this.taxi.update(dt);
     if (this.heistCd > 0) this.heistCd -= dt;
     if (this.invoiceCd > 0) this.invoiceCd -= dt;
+    /*
+     * Semafori. Verde lungo, poi giallo, poi un attimo di rosso su entrambi
+     * gli assi prima di dare il verde all'altro: senza quella pausa chi
+     * entra col giallo si scontra con chi parte col verde.
+     */
     this.trafficT += dt;
-    if (this.trafficT > 13) { this.trafficT = 0; this.trafficAxis ^= 1; this.city.setTrafficAxis(this.trafficAxis); }
+    const GREEN = 10, AMBER = 2.4, ALL_RED = 1.2;
+    const wasAmber = this.trafficAmber;
+    this.trafficAmber = this.trafficT > GREEN;
+    this.trafficAllRed = this.trafficT > GREEN + AMBER;
+    if (this.trafficAmber !== wasAmber || this._lightsDirty) {
+      this._lightsDirty = false;
+      this.city.setTrafficAxis(this.trafficAxis, this.trafficAmber, this.trafficAllRed);
+    }
+    if (this.trafficT > GREEN + AMBER + ALL_RED) {
+      this.trafficT = 0;
+      this.trafficAxis ^= 1;
+      this.trafficAmber = false;
+      this.trafficAllRed = false;
+      this.city.setTrafficAxis(this.trafficAxis, false, false);
+    } else if (this.trafficAllRed) {
+      this.city.setTrafficAxis(this.trafficAxis, true, true);
+    }
 
     // cambio arma: Q, rotellina, tasti 1-8, o lo scudetto nell'HUD
     const swap = this.input._edge.swap;
@@ -1379,19 +1402,61 @@ class Game {
 
   /** L'auto ha qualcosa davanti entro `dist` metri? */
   blockedAhead(v, dist, skipParked = false) {
+    return this.gapAhead(v, dist, skipParked) < Infinity;
+  }
+
+  /**
+   * Distanza dal primo ostacolo davanti al veicolo, o Infinity se la strada
+   * e' libera. Serve al traffico per accodarsi frenando invece di fermarsi
+   * di colpo quando l'ostacolo entra nel raggio.
+   */
+  gapAhead(v, dist, skipParked = false) {
+    return this.leaderAhead(v, dist, skipParked).d;
+  }
+
+  /**
+   * Primo veicolo davanti: distanza e sua velocita'.
+   *
+   * La velocita' serve per accodarsi come si fa davvero. Considerando chi
+   * sta davanti come un muro fermo, un'auto a venti metri costringeva a
+   * scendere sotto i 45 all'ora anche se stava viaggiando: il traffico
+   * strisciava.
+   */
+  leaderAhead(v, dist, skipParked = false) {
     const fx = v.fx, fz = v.fz;
+    let best = Infinity;
+    let lead = 0;
     const test = (o) => {
-      if (o === v) return false;
+      if (o === v) return;
       const dx = o.x - v.x, dz = o.z - v.z;
       const t = dx * fx + dz * fz;
-      if (t < 0.5 || t > dist) return false;
-      return Math.abs(-dx * fz + dz * fx) < 2.4;
+      if (t < 0.4 || t > dist || t >= best) return;
+      // corridoio piu' stretto lontano: cosi' non ci si ferma per un'auto
+      // che sta girando in un'altra corsia
+      const half = t < 8 ? 2.3 : 1.9;
+      if (Math.abs(-dx * fz + dz * fx) >= half) return;
+      /*
+       * Chi attraversa non conta come coda, se non e' proprio addosso: al
+       * semaforo due file perpendicolari si vedevano a vicenda "davanti" e
+       * si bloccavano l'un l'altra per sempre. A chi ha il diritto di
+       * passare ci pensa il semaforo.
+       */
+      if (o.a !== undefined && t > 6) {
+        let d = Math.abs(o.a - v.a) % (Math.PI * 2);
+        if (d > Math.PI) d = Math.PI * 2 - d;
+        if (d > 1.1) return;
+      }
+      best = t;
+      lead = o.speed !== undefined ? Math.max(0, o.speed) : 0;
     };
-    for (const t of this.traffic.cars) if (test(t.v)) return true;
-    if (!skipParked) { for (const o of this.traffic.parked) if (test(o)) return true; }
-    if (this.player.inCar && test(this.player.car)) return true;
-    if (!this.player.inCar && test(this.player)) return true;
-    return false;
+    for (const t of this.traffic.cars) test(t.v);
+    if (!skipParked) for (const o of this.traffic.parked) test(o);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    // le volanti sono veicoli veri, non incapsulati come quelle del traffico
+    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
+    if (this.player.inCar) { if (this.player.car) test(this.player.car); }
+    else if (!this.player.inTaxi) test(this.player);
+    return { d: best, speed: best < Infinity ? lead : 0 };
   }
 
   // ------------------------------------------------------------ salvataggio

@@ -1177,12 +1177,24 @@ export class City {
   }
 
   // ------------------------------------------------------------- dinamica
-  setTrafficAxis(axis) {
+  /**
+   * Stato dei semafori.
+   * @param {number} axis  asse che ha la precedenza (0 est-ovest, 1 nord-sud)
+   * @param {boolean} amber  fase gialla su quell'asse
+   * @param {boolean} allRed rosso su entrambi, fra una fase e l'altra
+   */
+  setTrafficAxis(axis, amber = false, allRed = false) {
     const m = this.mats;
-    m.redA.color.setHex(axis === 0 ? 0x3a0d0d : 0xff2a2a);
-    m.greenA.color.setHex(axis === 0 ? 0x24d05a : 0x0d2a14);
-    m.redB.color.setHex(axis === 1 ? 0x3a0d0d : 0xff2a2a);
-    m.greenB.color.setHex(axis === 1 ? 0x24d05a : 0x0d2a14);
+    const RED = 0xff2a2a, RED_OFF = 0x3a0d0d;
+    const GREEN = 0x24d05a, GREEN_OFF = 0x0d2a14;
+    const AMBER = 0xffb020;
+    // sull'asse con la precedenza: verde, poi giallo, poi rosso
+    const goA = axis === 0 && !allRed;
+    const goB = axis === 1 && !allRed;
+    m.redA.color.setHex(goA ? RED_OFF : RED);
+    m.redB.color.setHex(goB ? RED_OFF : RED);
+    m.greenA.color.setHex(goA ? (amber ? AMBER : GREEN) : GREEN_OFF);
+    m.greenB.color.setHex(goB ? (amber ? AMBER : GREEN) : GREEN_OFF);
   }
 
   setNight(k) {

@@ -91,6 +91,20 @@ export class Player {
       return;
     }
 
+    /*
+     * In taxi si e' passeggeri: la posizione la decide il taxi. Se qui
+     * girasse la logica a piedi, il personaggio camminerebbe dentro
+     * l'abitacolo e la collisione lo spingerebbe fuori portandosi dietro
+     * l'auto — era cosi' che il taxi finiva sul marciapiede durante la corsa.
+     */
+    if (this.inTaxi) {
+      this.speed = 0;
+      this.mesh.position.set(this.x, this.y, this.z);
+      this.mesh.rotation.y = this.a;
+      this._camera(dt, false);
+      return;
+    }
+
     if (this.inCar) this._driving(dt, input);
     else this._onFoot(dt, input);
 
