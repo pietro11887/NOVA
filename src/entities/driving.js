@@ -125,8 +125,20 @@ export function followPath(v, path, st, opt = {}) {
   const fx = Math.cos(v.a), fz = -Math.sin(v.a);
   while (st.i < path.length - 1) {
     const dx = path[st.i].x - v.x, dz = path[st.i].z - v.z;
+    const d = Math.hypot(dx, dz);
     const ahead = dx * fx + dz * fz;
-    if (Math.hypot(dx, dz) < look || ahead < 0.5) st.i++;
+    /*
+     * Un punto si consuma se e' piu' vicino della distanza di mira, oppure
+     * se e' ormai dietro — ma dietro E vicino.
+     *
+     * Senza quel secondo limite bastava trovarsi girati per il verso
+     * sbagliato (dopo un urto, o appena ricalcolato il percorso) perche'
+     * questo ciclo si mangiasse in un colpo solo tutto il tracciato: il
+     * veicolo si ritrovava "a fine percorso" con la meta' a duecento metri
+     * e ci puntava dritto in linea d'aria, attraversando gli isolati.
+     * E' il motivo per cui il taxi finiva lontanissimo e non arrivava mai.
+     */
+    if (d < look || (ahead < 0.5 && d < look * 1.6)) st.i++;
     else break;
   }
   const target = path[st.i];
@@ -143,19 +155,37 @@ export function followPath(v, path, st, opt = {}) {
    * Velocita': si guarda quanto gira il tracciato nei prossimi punti e si
    * arriva in curva gia' rallentati, invece di frenare dentro la curva.
    */
+  /*
+   * Curvatura del tracciato davanti.
+   *
+   * Si somma quanto gira il percorso nei prossimi venti METRI, non nei
+   * prossimi sette punti. E' una differenza sostanziale: sugli archi degli
+   * incroci i punti sono fitti, due o tre metri l'uno dall'altro, quindi
+   * sette punti coprivano mezza svolta e la somma degli angoli sfondava il
+   * limite. Il fattore restava incollato al minimo e ogni veicolo
+   * viaggiava a tre metri al secondo — a passo d'uomo — anche sui
+   * rettilinei. E' per questo che il taxi non arrivava mai: non era
+   * bloccato, andava piano.
+   *
+   * Si guarda anche solo la forma del percorso, non dove si trova il
+   * veicolo: includendo l'angolo fra veicolo e primo punto, un'auto
+   * spostata di lato dopo un urto vedeva una curva enorme proprio quando le
+   * serviva spinta per rimettersi in carreggiata.
+   */
   let bend = 0;
-  for (let k = st.i; k < Math.min(path.length - 1, st.i + 7); k++) {
-    const a1 = Math.atan2(path[k].z - (path[k - 1] || v).z, path[k].x - (path[k - 1] || v).x);
+  let span = 0;
+  for (let k = Math.max(1, st.i); k < path.length - 1 && span < 14; k++) {
+    const a1 = Math.atan2(path[k].z - path[k - 1].z, path[k].x - path[k - 1].x);
     const a2 = Math.atan2(path[k + 1].z - path[k].z, path[k + 1].x - path[k].x);
     bend += Math.abs(angleDelta(a1, a2));
+    span += dist(path[k].x, path[k].z, path[k + 1].x, path[k + 1].z);
   }
-  /*
-   * In curva si rallenta molto: la sterzata massima basterebbe a girare, ma
-   * il modello dell'auto ha deriva laterale e sopra i dieci metri al secondo
-   * la svolta d'incrocio finisce sul marciapiede. Meglio passare piano.
-   */
+  // una svolta d'incrocio vale mezzo pi greco: oltre non ha senso rallentare
+  // ancora, e sommando due archi si finiva a passo d'uomo su tutto il giro
+  bend = Math.min(bend, 1.6);
+
   const cruise = opt.cruise ?? 0.7;
-  let wanted = (opt.maxSpeed ?? 22) * cruise * clamp(1 - bend * 0.85, 0.16, 1);
+  let wanted = (opt.maxSpeed ?? 22) * cruise * clamp(1 - bend * 0.42, 0.28, 1);
 
   // fermata programmata: semaforo o fine corsa. Qui l'ostacolo e' fermo,
   // quindi si punta ad arrivarci a velocita' zero

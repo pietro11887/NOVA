@@ -63,10 +63,43 @@ export class TaxiService {
     // si prosegue oltre l'incrocio finale: cosi' l'arco della svolta c'e'
     if (route[route.length - 1] !== stop.to) route.push(stop.to);
 
+    /*
+     * Primo tratto: si aggiunge un incrocio fittizio dietro al veicolo,
+     * lungo la direzione in cui sta gia' andando.
+     *
+     * Senza, il percorso comincia all'incrocio davanti e il primo tratto
+     * puo' essere quello del senso opposto: la corsia sta cinque metri
+     * dall'altra parte della strada, il veicolo ci punta, taglia la
+     * carreggiata e sale sul marciapiede opposto. Da li' non si schioda
+     * piu'. Con il nodo fittizio la prima corsia e' quella in cui si trova
+     * gia'.
+     */
+    if (heading !== null && route.length) {
+      const a = route[0];
+      const fx = Math.cos(heading), fz = -Math.sin(heading);
+      route.unshift({ x: a.x - fx * 45, z: a.z - fz * 45, i: a.i, j: a.j, links: [] });
+    }
+
     const built = buildLaneRoute(route);
-    // il tracciato si taglia dove passa piu' vicino all'accosto
+
+    /*
+     * Il tracciato finisce sull'accosto, quindi va tagliato dove gli passa
+     * piu' vicino — ma solo lungo l'ULTIMO tratto, quello che porta a
+     * stop.to.
+     *
+     * Cercando il punto piu' vicino su tutto il percorso si prendeva a
+     * volte il primo punto, perche' in linea d'aria l'accosto era li'
+     * accanto anche se su strada bisognava fare il giro dell'isolato. Il
+     * tracciato si riduceva a due punti e il taxi partiva in linea retta
+     * attraverso gli isolati, per poi piantarsi sul marciapiede. E' questa
+     * la ragione per cui non arrivava.
+     */
+    let legStart = 0;
+    for (let k = 0; k < built.marks.length; k++) {
+      if (built.marks[k] && built.marks[k].node === stop.to) { legStart = k; break; }
+    }
     let bi = built.path.length - 1, bd = Infinity;
-    for (let k = 0; k < built.path.length; k++) {
+    for (let k = legStart; k < built.path.length; k++) {
       const d = (built.path[k].x - stop.x) ** 2 + (built.path[k].z - stop.z) ** 2;
       if (d < bd) { bd = d; bi = k; }
     }
@@ -116,62 +149,140 @@ export class TaxiService {
     const stop = kerbStop(this._nodes, g.player.x, g.player.z, KERB_LANE);
     if (!stop) { g.toast('Nessun taxi disponibile qui'); return false; }
 
-    const hired = g.traffic.freeTaxi(g.player.x, g.player.z, 260);
-    let v, built;
-
-    if (hired) {
-      built = this._pathTo(stop, hired.v.x, hired.v.z, hired.v.a);
-      if (!built || built.path.length < 2) { g.toast('Nessun taxi disponibile qui'); return false; }
-      v = hired.v;
-      hired.hired = true;
-      v.driver = 'taxi';
-      this.hired = hired;
-      const d = Math.round(Math.hypot(v.x - g.player.x, v.z - g.player.z));
-      g.toast(`🚕 Taxi in arrivo · ${d} m`, 'good');
-    } else {
-      // riserva: nessun taxi in giro, se ne immette uno
-      const nodes = this._nodes;
-      let from = null, bd = -1;
-      for (let k = 0; k < 80; k++) {
-        const c = nodes[(Math.random() * nodes.length) | 0];
-        const dd = Math.hypot(c.x - g.player.x, c.z - g.player.z);
-        if (dd > 60 && dd < 130 && dd > bd && c.links.length) { bd = dd; from = c; }
-      }
-      if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
-      built = this._pathTo(stop, from.x, from.z);
-      if (!built || built.path.length < 3) { g.toast('Nessun taxi disponibile qui'); return false; }
-
-      v = new Vehicle(g.city, { kind: 'taxi' });
-      // punto di partenza libero: nascere addosso a un'altra auto vuol dire
-      // restare incastrati e non arrivare mai
-      let at = 0;
-      for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
-        const q = built.path[k];
-        let free = true;
-        for (const o of g.traffic.all()) {
-          if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) { free = false; break; }
-        }
-        if (free) { at = k; break; }
-      }
-      const p0 = built.path[at], p1 = built.path[at + 1];
-      v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
-      v.driver = 'taxi';
-      g.worldGroup.add(v.mesh);
-      this.hired = null;
-      this.spawned = v;
-      g.toast('🚕 Taxi in arrivo', 'good');
-    }
+    /*
+     * Raggio contenuto: un taxi a duecento metri deve attraversare mezza
+     * citta' e ogni incrocio in piu' e' un'occasione di restare
+     * imbottigliato. Misurato: le chiamate da oltre cento metri sono quelle
+     * che non arrivavano. Se non ce n'e' uno vicino se ne immette uno.
+     */
+    const scelta = this._dispatch(stop);
+    if (!scelta) { g.toast('Nessun taxi disponibile qui'); return false; }
+    const { v, built } = scelta;
 
     this.taxi = v;
     this._setRoute(built, v.x, v.z);
+    {
+      const d = Math.round(Math.hypot(v.x - g.player.x, v.z - g.player.z));
+      g.toast(`🚕 Taxi in arrivo · ${d} m`, 'good');
+    }
     this.stop = stop;
     this.state = 'coming';
     this.fare = 0;
     this.age = 0;
+    this._scartati = new Set();
+    this._swaps = 0;
+    this._probe = null;
+    this.partenza = Math.hypot(v.x - g.player.x, v.z - g.player.z);
     this.stuck = 0;
     this.reverseT = 0;
     this.recoveries = 0;
     this.replanT = 4;
+    return true;
+  }
+
+
+  /**
+   * Sceglie chi viene a prenderti e prepara il suo percorso.
+   *
+   * Si guarda il PERCORSO piu' corto, non la distanza in linea d'aria: sono
+   * due cose diverse. Un taxi a cinquanta metri ma dall'altra parte
+   * dell'isolato, col muso girato dalla parte sbagliata, deve fare il giro e
+   * attraversare tre incroci; uno a novanta metri sulla stessa strada arriva
+   * dritto. Ogni incrocio in piu' e' un'occasione di restare imbottigliato.
+   *
+   * @param {Set} escludi vetture gia' provate e rimaste bloccate
+   */
+  _dispatch(stop, escludi = null) {
+    const g = this.game;
+    const MAX_PUNTI = 40;          // circa tre incroci
+    let hired = null, built = null;
+
+    const candidati = g.traffic.cars
+      .filter((t) => t.isTaxi && !t.hired && !t.v.driver && !(escludi && escludi.has(t)))
+      .map((t) => ({ t, d: Math.hypot(t.v.x - g.player.x, t.v.z - g.player.z) }))
+      .filter((c) => c.d < 200)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 8);
+
+    for (const c of candidati) {
+      const path = this._pathTo(stop, c.t.v.x, c.t.v.z, c.t.v.a);
+      if (!path || path.path.length < 2) continue;
+      if (!built || path.path.length < built.path.length) { built = path; hired = c.t; }
+      if (built.path.length <= 14) break;      // gia' vicinissimo, basta cosi'
+    }
+    if (built && built.path.length > MAX_PUNTI) { built = null; hired = null; }
+
+    if (hired) {
+      hired.hired = true;
+      hired.v.driver = 'taxi';
+      this.hired = hired;
+      this.spawned = null;
+      return { v: hired.v, built };
+    }
+
+    /*
+     * Nessuno con un percorso breve: se ne immette uno a un paio di incroci
+     * di distanza, fuori dalla tua visuale.
+     */
+    const nodes = this._nodes;
+    let from = null, bd = Infinity;
+    for (const n of nodes) {
+      if (!n.links.length) continue;
+      const dd = Math.hypot(n.x - g.player.x, n.z - g.player.z);
+      if (dd > 55 && dd < bd) { bd = dd; from = n; }
+    }
+    if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
+    built = this._pathTo(stop, from.x, from.z);
+    if (!built || built.path.length < 3) return null;
+
+    const v = new Vehicle(g.city, { kind: 'taxi' });
+    // punto di partenza libero: nascere addosso a un'altra auto vuol dire
+    // restare incastrati e non arrivare mai
+    let at = 0;
+    for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
+      const q = built.path[k];
+      let free = true;
+      for (const o of g.traffic.all()) {
+        if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) { free = false; break; }
+      }
+      if (free) { at = k; break; }
+    }
+    const p0 = built.path[at], p1 = built.path[at + 1];
+    v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
+    v.driver = 'taxi';
+    g.worldGroup.add(v.mesh);
+    this.hired = null;
+    this.spawned = v;
+    return { v, built };
+  }
+
+  /**
+   * Cambio vettura. Se quella in arrivo e' impantanata da troppo tempo, la
+   * si lascia al traffico e si manda la prossima: e' quello che farebbe una
+   * centrale vera, ed e' molto meglio che farti aspettare un taxi che non
+   * arrivera' mai.
+   */
+  _swap() {
+    const g = this.game;
+    if (!this.stop) return false;
+    if (!this._scartati) this._scartati = new Set();
+    if (this.hired) { this._scartati.add(this.hired); this.hired.resume(); this.hired = null; }
+    else if (this.spawned) { g.worldGroup.remove(this.spawned.mesh); this.spawned = null; }
+    this.taxi = null;
+
+    const scelta = this._dispatch(this.stop, this._scartati);
+    if (!scelta) { g.toast('Nessun taxi riesce ad arrivare'); this.state = null; return false; }
+    this.taxi = scelta.v;
+    this._setRoute(scelta.built, scelta.v.x, scelta.v.z);
+    this.age = 0;
+    this.stuck = 0;
+    this.reverseT = 0;
+    this.recoveries = 0;
+    this._probe = null;
+    this._swaps = (this._swaps || 0) + 1;
+    const d = Math.round(Math.hypot(scelta.v.x - g.player.x, scelta.v.z - g.player.z));
+    this.partenza = d;
+    g.toast(`🚕 Quello era bloccato, ne arriva un altro · ${d} m`, 'good');
     return true;
   }
 
@@ -239,7 +350,13 @@ export class TaxiService {
   /** Ricalcola il tracciato dal punto in cui si trova davvero. */
   _replan() {
     if (!this.stop) return;
-    const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, this.taxi.a);
+    /*
+     * Se e' fermo, la direzione del muso non dice piu' dove sta andando:
+     * puo' essere girato contro un muro. In quel caso si riparte
+     * dall'incrocio piu' vicino invece che da quello "davanti".
+     */
+    const heading = Math.abs(this.taxi.speed) > 1 ? this.taxi.a : null;
+    const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, heading);
     if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
   }
 
@@ -270,6 +387,25 @@ export class TaxiService {
     }
     const lead = g.leaderAhead(v, 24, true);
 
+    /*
+     * Avvicinamento finale. La frenata di fine percorso da sola e' troppo
+     * dolce: a sette metri dall'accosto il taxi viaggiava ancora a sette
+     * metri al secondo, superava il punto e si metteva a girargli attorno
+     * senza fermarsi mai. Sotto i quindici metri si punta a fermarsi
+     * esattamente li'.
+     */
+    const toGoal = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
+    if (toGoal < 15) stopDist = Math.min(stopDist, toGoal);
+    // negli ultimi metri si tira il freno: arrivare e non riuscire a
+    // fermarsi e' il modo piu' stupido di fallire una corsa
+    // il freno a mano si tira proprio sotto: fermarsi a otto metri e
+    // considerarsi non arrivato e' il modo migliore per restare li' per
+    // sempre, ed e' quello che succedeva
+    // si frena entro la stessa soglia in cui l'arrivo viene riconosciuto:
+    // fermarsi appena fuori da quella soglia significava restare li' per
+    // sempre a un metro dal traguardo
+    const frena = toGoal < 9 && this.state === 'coming';
+
     const ctrl = followPath(v, this.path, this.st, {
       cruise: 0.82,
       maxSpeed: 24,
@@ -288,6 +424,12 @@ export class TaxiService {
       wanted: +(ctrl.wanted || 0).toFixed(1),
       i: this.st.i,
       n: this.path.length,
+      stuck: +this.stuck.toFixed(1),
+      recoveries: this.recoveries || 0,
+      reverseT: +this.reverseT.toFixed(1),
+      nRetro: this._nRetro || 0,
+      nSalti: this._nSalti || 0,
+      nRicalcoli: this._nRicalcoli || 0,
     };
 
     /*
@@ -313,8 +455,10 @@ export class TaxiService {
     this._probe.t += dt;
     if (this._probe.t > 2.5) {
       const moved = Math.hypot(v.x - this._probe.x, v.z - this._probe.z);
+      // al rosso non si accumula, ma non si azzera nemmeno: se prima del
+      // semaforo era gia' incastrato, quel conteggio serve ancora
       if (moved < 2 && !redLight) this.stuck += this._probe.t;
-      else this.stuck = 0;
+      else if (moved >= 2) this.stuck = 0;
       this._probe = { x: v.x, z: v.z, t: 0 };
     }
 
@@ -334,7 +478,13 @@ export class TaxiService {
      * coda invece si aspetta, altrimenti si indietreggia addosso a chi sta
      * dietro — ed e' proprio la manovra continua che si vedeva.
      */
-    const incoda = lead.d < 8;
+    /*
+     * "In coda" vale solo se chi sta davanti si sta muovendo. Restare
+     * appiccicati a un'auto ferma non e' una coda, e' un incastro: con il
+     * muso a un metro e mezzo dal paraurti di una vettura che non parte, il
+     * taxi aspettava all'infinito perche' la manovra era vietata in coda.
+     */
+    const incoda = lead.d < 8 && lead.speed > 0.4;
     if (this.reverseT > 0) {
       this.reverseT -= dt;
       // indietro dritto: sterzando si striscia lungo il cordolo invece di
@@ -343,9 +493,11 @@ export class TaxiService {
     } else if (this.stuck > 6 && !incoda) {
       this.reverseT = 1.4;
       this.stuck = 0;
+      this._nRetro = (this._nRetro || 0) + 1;
       this.recoveries = (this.recoveries || 0) + 1;
       v.update(dt, { throttle: -0.9, steer: 0, hand: false });
     } else {
+      if (frena) { ctrl.throttle = Math.min(ctrl.throttle, -0.5); ctrl.hand = true; }
       v.update(dt, ctrl);
       if (Math.abs(v.speed) > 3) { this.recoveries = 0; this.stuck = 0; }
     }
@@ -362,6 +514,7 @@ export class TaxiService {
         v.place(a0.x, a0.z, Math.atan2(-(a1.z - a0.z), a1.x - a0.x));
         v.speed = 6;
         this.st.i = k;
+        this._nSalti = (this._nSalti || 0) + 1;
       } else if (this.state === 'riding') {
         this.drop('traffico impossibile');
         return;
@@ -375,33 +528,56 @@ export class TaxiService {
      * meta' il taxi finiva a girare attorno all'isolato senza mai fermarsi.
      */
     const toStopNow = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
-    const offPath = ctrl.target
-      ? Math.hypot(v.x - ctrl.target.x, v.z - ctrl.target.z) : 0;
+    /*
+     * Il percorso si rifa' SOLO se il taxi e' davvero fermo.
+     *
+     * Prima bastava che si fosse allontanato dal tracciato, e li' nasceva un
+     * circolo vizioso: ogni ricalcolo ripartiva da un incrocio diverso, il
+     * taxi si ritrovava di nuovo lontano dal nuovo tracciato, e si
+     * ricalcolava ancora. Misurato: fino a diciassette ricalcoli in novanta
+     * secondi, con l'indice del percorso sempre fermo a zero — cioe' non
+     * avanzava di un metro. Meglio un percorso imperfetto ma seguito fino in
+     * fondo che uno perfetto rifatto ogni sei secondi.
+     */
     this.replanT -= dt;
-    if (toStopNow > 45 && (this.stuck > 3.5 || (offPath > 26 && this.replanT <= 0))) {
-      this.replanT = 8;
+    if (toStopNow > 45 && this.stuck > 6 && this.replanT <= 0) {
+      this.replanT = 12;
       this.stuck = 0;
+      this._nRicalcoli = (this._nRicalcoli || 0) + 1;
       this._replan();
     }
 
     // rinuncia: meglio dirlo che restare in giro all'infinito
-    const tooLong = this.state === 'coming' ? 150 : 420;
-    if (this.age > tooLong) {
-      if (this.state === 'riding') this.drop('traffico impossibile');
-      else { g.toast('🚕 Il taxi non riesce ad arrivare'); this.drop(); }
-      return;
+    /*
+     * Se dopo mezzo minuto non ha fatto strada, non aspetta all'infinito:
+     * quella vettura torna al traffico e ne parte un'altra. Al massimo due
+     * cambi, poi si rinuncia dicendolo.
+     */
+    if (this.state === 'coming' && this.age > 32) {
+      const fatto = this.partenza - Math.hypot(v.x - g.player.x, v.z - g.player.z);
+      if (fatto < this.partenza * 0.45) {
+        if ((this._swaps || 0) < 2 && this._swap()) return;
+        g.toast('🚕 Il taxi non riesce ad arrivare');
+        this.drop();
+        return;
+      }
+      this.age = 12;   // sta avanzando: gli si da' altro tempo
     }
+    if (this.state === 'riding' && this.age > 420) { this.drop('traffico impossibile'); return; }
 
     // --- arrivo
     const toStop = toStopNow;
     if (this.state === 'coming') {
       const near = Math.hypot(v.x - g.player.x, v.z - g.player.z);
-      if ((ctrl.done || toStop < 3.5) && Math.abs(v.speed) < 1.4) {
+      // sette metri dall'accosto vanno benissimo: sei comunque sul
+      // marciapiede accanto, e pretendere il centimetro voleva dire non
+      // fermarsi mai
+      if ((ctrl.done || toStop < 9) && Math.abs(v.speed) < 2) {
         this.state = 'waiting';
         this.waitT = 45;
         g.audio.horn();
         g.toast('🚕 Il taxi ti aspetta', 'good');
-      } else if (near < 4 && Math.abs(v.speed) < 1.4) {
+      } else if (near < 8 && Math.abs(v.speed) < 2) {
         // ti ha raggiunto prima del punto di sosta: va bene lo stesso
         this.state = 'waiting';
         this.waitT = 45;
@@ -411,7 +587,7 @@ export class TaxiService {
       return;
     }
 
-    if (this.state === 'riding' && (ctrl.done || toStop < 3) && Math.abs(v.speed) < 1.4) {
+    if (this.state === 'riding' && (ctrl.done || toStop < 8) && Math.abs(v.speed) < 2) {
       this.drop('arrivato');
     }
   }
