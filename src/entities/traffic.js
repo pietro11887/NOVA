@@ -54,6 +54,10 @@ class TrafficCar {
     const forced = type === 'ambulance' ? 'ambulance' : type === 'bus' ? 'bus' : kind;
     this.v = new Vehicle(city, { type, kind: forced, color: pick(CAR_COLORS) });
     this.city = city;
+    this.isTaxi = kind === 'taxi';
+    // quando lo chiami, il servizio taxi prende in mano questa vettura e
+    // il traffico smette di guidarla
+    this.hired = false;
     this.path = [];
     this.marks = [];
     this.st = { i: 0 };
@@ -113,6 +117,37 @@ class TrafficCar {
     for (const p of pts) { this.path.push(p); this.marks.push({ node: cur, axis }); }
     this.chain.push(next);
     if (this.chain.length > 4) this.chain.shift();
+  }
+
+  /**
+   * Riprende a circolare da dove si trova, senza teletrasporti: serve
+   * quando il servizio taxi restituisce la vettura al traffico dopo una
+   * corsa.
+   */
+  resume() {
+    const nodes = this.city.roadNodes;
+    const v = this.v;
+    const fx = Math.cos(v.a), fz = -Math.sin(v.a);
+    let ahead = null, bd = Infinity;
+    for (const n of nodes) {
+      if (!n.links.length) continue;
+      const dx = n.x - v.x, dz = n.z - v.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 1 && (dx * fx + dz * fz) / d < 0.2) continue;
+      if (d < bd) { bd = d; ahead = n; }
+    }
+    if (!ahead) ahead = nodes[nearestNode(nodes, v.x, v.z)];
+    // l'incrocio "da cui viene" si ricava dalla direzione di marcia
+    const back = { x: ahead.x - fx * 40, z: ahead.z - fz * 40, i: ahead.i, j: ahead.j };
+    this.chain = [back, ahead];
+    this.path = [];
+    this.marks = [];
+    this.st.i = 0;
+    this._extend();
+    this._extend();
+    this.hired = false;
+    this.blockedT = 0;
+    this.v.driver = null;
   }
 
   /** Butta via i punti gia' passati: il tracciato non deve crescere all'infinito. */
@@ -215,7 +250,7 @@ export class TrafficManager {
     this.cars = [];
     this.parked = [];
     for (let i = 0; i < max; i++) {
-      const t = new TrafficCar(game.city, Math.random() < 0.12 ? 'taxi' : 'civil');
+      const t = new TrafficCar(game.city, Math.random() < 0.2 ? 'taxi' : 'civil');
       t.respawn(0, 0, 30, 200);
       game.worldGroup.add(t.v.mesh);
       this.cars.push(t);
@@ -249,6 +284,23 @@ export class TrafficManager {
     }
   }
 
+  /** I taxi che circolano, per la mappa e per le chiamate. */
+  get taxis() { return this.cars.filter((t) => t.isTaxi); }
+
+  /**
+   * Il taxi libero piu' vicino a un punto, entro un raggio.
+   * Si scartano quelli gia' impegnati e quelli guidati dal giocatore.
+   */
+  freeTaxi(x, z, maxD = 220) {
+    let best = null, bd = maxD * maxD;
+    for (const t of this.cars) {
+      if (!t.isTaxi || t.hired || t.v.driver) continue;
+      const d = (t.v.x - x) ** 2 + (t.v.z - z) ** 2;
+      if (d < bd) { bd = d; best = t; }
+    }
+    return best;
+  }
+
   /** Tutti i veicoli guidabili/urtabili presenti nel mondo. */
   *all() {
     for (const t of this.cars) yield t.v;
@@ -259,6 +311,7 @@ export class TrafficManager {
     const p = this.game.player;
     for (const t of this.cars) {
       if (t.v.driver === 'player') continue;    // il giocatore l'ha rubata
+      if (t.hired) continue;                    // la guida il servizio taxi
       const d = Math.hypot(t.v.x - p.x, t.v.z - p.z);
       if (d > CFG.STREAM_RADIUS + 70) { t.respawn(p.x, p.z); continue; }
       t.update(dt, this.game);

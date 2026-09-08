@@ -19857,6 +19857,8 @@ var TrafficCar = class {
     const forced = type === "ambulance" ? "ambulance" : type === "bus" ? "bus" : kind;
     this.v = new Vehicle(city, { type, kind: forced, color: pick(CAR_COLORS) });
     this.city = city;
+    this.isTaxi = kind === "taxi";
+    this.hired = false;
     this.path = [];
     this.marks = [];
     this.st = { i: 0 };
@@ -19916,6 +19918,38 @@ var TrafficCar = class {
     }
     this.chain.push(next);
     if (this.chain.length > 4) this.chain.shift();
+  }
+  /**
+   * Riprende a circolare da dove si trova, senza teletrasporti: serve
+   * quando il servizio taxi restituisce la vettura al traffico dopo una
+   * corsa.
+   */
+  resume() {
+    const nodes = this.city.roadNodes;
+    const v = this.v;
+    const fx = Math.cos(v.a), fz = -Math.sin(v.a);
+    let ahead = null, bd2 = Infinity;
+    for (const n of nodes) {
+      if (!n.links.length) continue;
+      const dx = n.x - v.x, dz = n.z - v.z;
+      const d2 = Math.hypot(dx, dz);
+      if (d2 > 1 && (dx * fx + dz * fz) / d2 < 0.2) continue;
+      if (d2 < bd2) {
+        bd2 = d2;
+        ahead = n;
+      }
+    }
+    if (!ahead) ahead = nodes[nearestNode(nodes, v.x, v.z)];
+    const back = { x: ahead.x - fx * 40, z: ahead.z - fz * 40, i: ahead.i, j: ahead.j };
+    this.chain = [back, ahead];
+    this.path = [];
+    this.marks = [];
+    this.st.i = 0;
+    this._extend();
+    this._extend();
+    this.hired = false;
+    this.blockedT = 0;
+    this.v.driver = null;
   }
   /** Butta via i punti gia' passati: il tracciato non deve crescere all'infinito. */
   _trim() {
@@ -19982,7 +20016,7 @@ var TrafficManager = class {
     this.cars = [];
     this.parked = [];
     for (let i = 0; i < max; i++) {
-      const t2 = new TrafficCar(game2.city, Math.random() < 0.12 ? "taxi" : "civil");
+      const t2 = new TrafficCar(game2.city, Math.random() < 0.2 ? "taxi" : "civil");
       t2.respawn(0, 0, 30, 200);
       game2.worldGroup.add(t2.v.mesh);
       this.cars.push(t2);
@@ -20013,6 +20047,26 @@ var TrafficManager = class {
       this.parked.push(v);
     }
   }
+  /** I taxi che circolano, per la mappa e per le chiamate. */
+  get taxis() {
+    return this.cars.filter((t2) => t2.isTaxi);
+  }
+  /**
+   * Il taxi libero piu' vicino a un punto, entro un raggio.
+   * Si scartano quelli gia' impegnati e quelli guidati dal giocatore.
+   */
+  freeTaxi(x, z, maxD = 220) {
+    let best = null, bd2 = maxD * maxD;
+    for (const t2 of this.cars) {
+      if (!t2.isTaxi || t2.hired || t2.v.driver) continue;
+      const d2 = (t2.v.x - x) ** 2 + (t2.v.z - z) ** 2;
+      if (d2 < bd2) {
+        bd2 = d2;
+        best = t2;
+      }
+    }
+    return best;
+  }
   /** Tutti i veicoli guidabili/urtabili presenti nel mondo. */
   *all() {
     for (const t2 of this.cars) yield t2.v;
@@ -20022,6 +20076,7 @@ var TrafficManager = class {
     const p2 = this.game.player;
     for (const t2 of this.cars) {
       if (t2.v.driver === "player") continue;
+      if (t2.hired) continue;
       const d2 = Math.hypot(t2.v.x - p2.x, t2.v.z - p2.z);
       if (d2 > CFG.STREAM_RADIUS + 70) {
         t2.respawn(p2.x, p2.z);
@@ -20486,6 +20541,11 @@ var HUD = class {
       if (Math.abs(v.x - p2.x) > 200 || Math.abs(v.z - p2.z) > 200) continue;
       blip(v.x, v.z, "#98a3b5", 3);
     }
+    for (const t2 of g.traffic.taxis) {
+      if (Math.abs(t2.v.x - p2.x) > 200 || Math.abs(t2.v.z - p2.z) > 200) continue;
+      blip(t2.v.x, t2.v.z, t2.hired ? "#ffffff" : "#ffd23f", 6);
+    }
+    if (g.taxi && g.taxi.taxi) blip(g.taxi.taxi.x, g.taxi.taxi.z, "#ffffff", 7);
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, "#4cc2ff", 6);
     ctx.restore();
     const edgeMarker = (wx, wz, color, label) => {
@@ -21716,6 +21776,24 @@ var MapView = class {
     for (const m of g.missions.markers) dot(m.x, m.z, "#ffd23f", 7);
     if (g.missions.objective) dot(g.missions.objective.x, g.missions.objective.z, "#ff9d3f", 8);
     for (const v of g.police.cars) if (v.active) dot(v.x, v.z, "#4cc2ff", 6);
+    for (const t2 of g.traffic.taxis) {
+      const s2 = toS(t2.v.x, t2.v.z);
+      if (this.scale > 0.55) {
+        ctx.font = "15px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("\u{1F695}", s2.x, s2.y + 5);
+      } else {
+        dot(t2.v.x, t2.v.z, t2.hired ? "#ffffff" : "#ffd23f", 6);
+      }
+    }
+    if (g.taxi && g.taxi.taxi) {
+      const s2 = toS(g.taxi.taxi.x, g.taxi.taxi.z);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(s2.x, s2.y, 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     if (g.waypoint) {
       const s = toS(g.waypoint.x, g.waypoint.z);
       ctx.strokeStyle = "#ff9d3f";
@@ -22428,6 +22506,8 @@ var TaxiService = class {
     this.age = 0;
     this.reverseT = 0;
     this.reverseSteer = 0;
+    this.hired = null;
+    this.spawned = null;
   }
   get busy() {
     return !!this.taxi;
@@ -22480,7 +22560,15 @@ var TaxiService = class {
     }
     return true;
   }
-  /** Chiamata dal telefono: fa partire un taxi verso di te. */
+  /**
+   * Chiamata dal telefono.
+   *
+   * Non fa comparire un taxi dal nulla: prende quello libero piu' vicino
+   * fra quelli che stanno gia' girando per la citta' — gli stessi che vedi
+   * sulla mappa — e gli dice di venire da te. Solo se non ce n'e' nessuno
+   * nel raggio ne immette uno nuovo, e in quel caso lo fa entrare da un
+   * incrocio lontano dalla tua vista.
+   */
   call() {
     const g = this.game;
     if (this.taxi) {
@@ -22496,52 +22584,71 @@ var TaxiService = class {
       g.toast("Nessun taxi disponibile qui");
       return false;
     }
-    const nodes = this._nodes;
-    let from = null, bd2 = -1;
-    for (let k = 0; k < 80; k++) {
-      const c2 = nodes[Math.random() * nodes.length | 0];
-      const d2 = Math.hypot(c2.x - g.player.x, c2.z - g.player.z);
-      if (d2 > 45 && d2 < 110 && d2 > bd2 && c2.links.length) {
-        bd2 = d2;
-        from = c2;
+    const hired = g.traffic.freeTaxi(g.player.x, g.player.z, 260);
+    let v, built;
+    if (hired) {
+      built = this._pathTo(stop, hired.v.x, hired.v.z, hired.v.a);
+      if (!built || built.path.length < 2) {
+        g.toast("Nessun taxi disponibile qui");
+        return false;
       }
-    }
-    if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
-    const built = this._pathTo(stop, from.x, from.z);
-    if (!built || built.path.length < 3) {
-      g.toast("Nessun taxi disponibile qui");
-      return false;
-    }
-    const v = new Vehicle(g.city, { kind: "taxi" });
-    let at = 0;
-    for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
-      const q = built.path[k];
-      let free = true;
-      for (const o of g.traffic.all()) {
-        if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) {
-          free = false;
+      v = hired.v;
+      hired.hired = true;
+      v.driver = "taxi";
+      this.hired = hired;
+      const d2 = Math.round(Math.hypot(v.x - g.player.x, v.z - g.player.z));
+      g.toast(`\u{1F695} Taxi in arrivo \xB7 ${d2} m`, "good");
+    } else {
+      const nodes = this._nodes;
+      let from = null, bd2 = -1;
+      for (let k = 0; k < 80; k++) {
+        const c2 = nodes[Math.random() * nodes.length | 0];
+        const dd = Math.hypot(c2.x - g.player.x, c2.z - g.player.z);
+        if (dd > 60 && dd < 130 && dd > bd2 && c2.links.length) {
+          bd2 = dd;
+          from = c2;
+        }
+      }
+      if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
+      built = this._pathTo(stop, from.x, from.z);
+      if (!built || built.path.length < 3) {
+        g.toast("Nessun taxi disponibile qui");
+        return false;
+      }
+      v = new Vehicle(g.city, { kind: "taxi" });
+      let at = 0;
+      for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
+        const q = built.path[k];
+        let free = true;
+        for (const o of g.traffic.all()) {
+          if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) {
+            free = false;
+            break;
+          }
+        }
+        if (free) {
+          at = k;
           break;
         }
       }
-      if (free) {
-        at = k;
-        break;
-      }
+      const p0 = built.path[at], p1 = built.path[at + 1];
+      v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
+      v.driver = "taxi";
+      g.worldGroup.add(v.mesh);
+      this.hired = null;
+      this.spawned = v;
+      g.toast("\u{1F695} Taxi in arrivo", "good");
     }
-    const p0 = built.path[at], p1 = built.path[at + 1];
-    v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
-    v.driver = "taxi";
-    g.worldGroup.add(v.mesh);
     this.taxi = v;
-    this._setRoute(built);
-    this.st.i = at;
+    this._setRoute(built, v.x, v.z);
     this.stop = stop;
     this.state = "coming";
     this.fare = 0;
     this.age = 0;
     this.stuck = 0;
+    this.reverseT = 0;
+    this.recoveries = 0;
     this.replanT = 4;
-    g.toast("\u{1F695} Taxi in arrivo", "good");
     return true;
   }
   /** Sali a bordo: da qui in poi guida lui. */
@@ -22591,7 +22698,13 @@ var TaxiService = class {
       g.player.inTaxi = false;
       g.setWaypoint(null);
     }
-    g.worldGroup.remove(this.taxi.mesh);
+    if (this.hired) {
+      this.hired.resume();
+      this.hired = null;
+    } else {
+      g.worldGroup.remove(this.taxi.mesh);
+    }
+    this.spawned = null;
     this.taxi = null;
     this.state = null;
     this.path = [];
@@ -22651,22 +22764,35 @@ var TaxiService = class {
       n: this.path.length
     };
     const redLight = stopDist < 6;
-    if (Math.abs(v.speed) < 0.4 && !redLight) this.stuck += dt2;
-    else if (this.reverseT <= 0) this.stuck = 0;
+    if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
+    this._probe.t += dt2;
+    if (this._probe.t > 2.5) {
+      const moved = Math.hypot(v.x - this._probe.x, v.z - this._probe.z);
+      if (moved < 2 && !redLight) this.stuck += this._probe.t;
+      else this.stuck = 0;
+      this._probe = { x: v.x, z: v.z, t: 0 };
+    }
+    const incoda = lead.d < 8;
     if (this.reverseT > 0) {
       this.reverseT -= dt2;
-      v.update(dt2, { throttle: -0.9, steer: this.reverseSteer, hand: false });
-    } else if (this.stuck > 3) {
-      this.reverseT = 1.5;
-      this.reverseSteer = Math.random() < 0.5 ? 0.7 : -0.7;
+      v.update(dt2, { throttle: -0.9, steer: 0, hand: false });
+    } else if (this.stuck > 6 && !incoda) {
+      this.reverseT = 1.4;
       this.stuck = 0;
       this.recoveries = (this.recoveries || 0) + 1;
-      v.update(dt2, { throttle: -0.9, steer: this.reverseSteer, hand: false });
+      v.update(dt2, { throttle: -0.9, steer: 0, hand: false });
     } else {
       v.update(dt2, ctrl);
-      if (Math.abs(v.speed) > 3) this.recoveries = 0;
+      if (Math.abs(v.speed) > 3) {
+        this.recoveries = 0;
+        this.stuck = 0;
+      }
     }
-    if ((this.recoveries || 0) >= 3) {
+    if (this.stuck > 30) {
+      this.stuck = 0;
+      this.recoveries = (this.recoveries || 0) + 2;
+    }
+    if ((this.recoveries || 0) >= 2) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === "coming" && lontano && this.path.length > 3) {
@@ -22774,10 +22900,12 @@ var Phone = class {
         }
       });
     } else {
+      const near = g.traffic.freeTaxi(g.player.x, g.player.z, 260);
+      const desc = near ? `Il pi\xF9 vicino \xE8 a ${Math.round(Math.hypot(near.v.x - g.player.x, near.v.z - g.player.z))} m` : "Nessuno qui vicino: ne arriva uno da fuori";
       out.push({
         icon: "\u{1F695}",
         name: "Chiama un taxi",
-        desc: "Arriva da te e ti porta dove vuoi",
+        desc,
         cost: "$25 + $0,35/m",
         go: () => {
           taxi.call();

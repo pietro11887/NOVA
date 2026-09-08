@@ -140,13 +140,27 @@ const out = await p.evaluate(async (SECONDS) => {
     g.setWaypoint({ x: far.x, z: far.z });
     taxi.saliBordo = g.taxi.board();
     let t2 = 0, m2 = 0, f2 = 0, c2 = 0;
+    const tr2 = [];
     while (t2 < 300 && g.taxi.state === 'riding') {
       g.update(1 / 60);
       t2 += 1 / 60;
       const v = g.taxi.taxi;
-      if (v) { c2++; if (v.speed < -0.6) m2++; if (offRoad(v) > half + 1.6) f2++; }
+      if (v) {
+        c2++; if (v.speed < -0.6) m2++; if (offRoad(v) > half + 1.6) f2++;
+        if (Math.round(t2 * 60) % 300 === 0) {
+          tr2.push({
+            s: +t2.toFixed(0),
+            allaMeta: +Math.hypot(v.x - g.taxi.stop.x, v.z - g.taxi.stop.z).toFixed(0),
+            vel: +v.speed.toFixed(1),
+            asse: +offRoad(v).toFixed(1),
+            i: g.taxi.st.i, n: g.taxi.path.length,
+            dbg: g.taxi.dbg,
+          });
+        }
+      }
       if (Math.round(t2 * 60) % 600 === 0) await new Promise((r) => setTimeout(r, 0));
     }
+    taxi.tracciaCorsa = tr2.slice(0, 12);
     taxi.corsaSecondi = +t2.toFixed(1);
     taxi.corsaCompletata = g.taxi.state === null;
     taxi.corsaManovrePercento = +((m2 / Math.max(1, c2)) * 100).toFixed(1);

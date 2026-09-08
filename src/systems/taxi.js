@@ -38,6 +38,8 @@ export class TaxiService {
     this.age = 0;
     this.reverseT = 0;
     this.reverseSteer = 0;
+    this.hired = null;       // vettura presa dal traffico
+    this.spawned = null;     // vettura immessa apposta
   }
 
   get busy() { return !!this.taxi; }
@@ -97,7 +99,15 @@ export class TaxiService {
     return true;
   }
 
-  /** Chiamata dal telefono: fa partire un taxi verso di te. */
+  /**
+   * Chiamata dal telefono.
+   *
+   * Non fa comparire un taxi dal nulla: prende quello libero piu' vicino
+   * fra quelli che stanno gia' girando per la citta' — gli stessi che vedi
+   * sulla mappa — e gli dice di venire da te. Solo se non ce n'e' nessuno
+   * nel raggio ne immette uno nuovo, e in quel caso lo fa entrare da un
+   * incrocio lontano dalla tua vista.
+   */
   call() {
     const g = this.game;
     if (this.taxi) { g.toast('Il taxi sta già arrivando'); return false; }
@@ -106,55 +116,62 @@ export class TaxiService {
     const stop = kerbStop(this._nodes, g.player.x, g.player.z, KERB_LANE);
     if (!stop) { g.toast('Nessun taxi disponibile qui'); return false; }
 
-    /*
-     * Parte da vicino, non dall'altra parte della citta'. Deve vedersi
-     * arrivare, ma ogni incrocio in piu' e' un'occasione in piu' di
-     * restare imbottigliato: con partenze a duecento metri capitava che non
-     * arrivasse proprio.
-     */
-    const nodes = this._nodes;
-    let from = null, bd = -1;
-    for (let k = 0; k < 80; k++) {
-      const c = nodes[(Math.random() * nodes.length) | 0];
-      const d = Math.hypot(c.x - g.player.x, c.z - g.player.z);
-      if (d > 45 && d < 110 && d > bd && c.links.length) { bd = d; from = c; }
-    }
-    if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
+    const hired = g.traffic.freeTaxi(g.player.x, g.player.z, 260);
+    let v, built;
 
-    const built = this._pathTo(stop, from.x, from.z);
-    if (!built || built.path.length < 3) { g.toast('Nessun taxi disponibile qui'); return false; }
-
-    const v = new Vehicle(g.city, { kind: 'taxi' });
-    /*
-     * Si sceglie un punto del percorso che sia libero: facendolo comparire
-     * sempre sul primo, poteva nascere addosso a un'auto del traffico e i
-     * due restavano incastrati per sempre, con il taxi fermo a 100 metri
-     * da te che non arrivava mai.
-     */
-    let at = 0;
-    for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
-      const q = built.path[k];
-      let free = true;
-      for (const o of g.traffic.all()) {
-        if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) { free = false; break; }
+    if (hired) {
+      built = this._pathTo(stop, hired.v.x, hired.v.z, hired.v.a);
+      if (!built || built.path.length < 2) { g.toast('Nessun taxi disponibile qui'); return false; }
+      v = hired.v;
+      hired.hired = true;
+      v.driver = 'taxi';
+      this.hired = hired;
+      const d = Math.round(Math.hypot(v.x - g.player.x, v.z - g.player.z));
+      g.toast(`🚕 Taxi in arrivo · ${d} m`, 'good');
+    } else {
+      // riserva: nessun taxi in giro, se ne immette uno
+      const nodes = this._nodes;
+      let from = null, bd = -1;
+      for (let k = 0; k < 80; k++) {
+        const c = nodes[(Math.random() * nodes.length) | 0];
+        const dd = Math.hypot(c.x - g.player.x, c.z - g.player.z);
+        if (dd > 60 && dd < 130 && dd > bd && c.links.length) { bd = dd; from = c; }
       }
-      if (free) { at = k; break; }
+      if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
+      built = this._pathTo(stop, from.x, from.z);
+      if (!built || built.path.length < 3) { g.toast('Nessun taxi disponibile qui'); return false; }
+
+      v = new Vehicle(g.city, { kind: 'taxi' });
+      // punto di partenza libero: nascere addosso a un'altra auto vuol dire
+      // restare incastrati e non arrivare mai
+      let at = 0;
+      for (let k = 0; k < Math.min(12, built.path.length - 2); k++) {
+        const q = built.path[k];
+        let free = true;
+        for (const o of g.traffic.all()) {
+          if ((o.x - q.x) ** 2 + (o.z - q.z) ** 2 < 49) { free = false; break; }
+        }
+        if (free) { at = k; break; }
+      }
+      const p0 = built.path[at], p1 = built.path[at + 1];
+      v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
+      v.driver = 'taxi';
+      g.worldGroup.add(v.mesh);
+      this.hired = null;
+      this.spawned = v;
+      g.toast('🚕 Taxi in arrivo', 'good');
     }
-    const p0 = built.path[at], p1 = built.path[at + 1];
-    v.place(p0.x, p0.z, Math.atan2(-(p1.z - p0.z), p1.x - p0.x));
-    v.driver = 'taxi';
-    g.worldGroup.add(v.mesh);
 
     this.taxi = v;
-    this._setRoute(built);
-    this.st.i = at;
+    this._setRoute(built, v.x, v.z);
     this.stop = stop;
     this.state = 'coming';
     this.fare = 0;
     this.age = 0;
     this.stuck = 0;
+    this.reverseT = 0;
+    this.recoveries = 0;
     this.replanT = 4;
-    g.toast('🚕 Taxi in arrivo', 'good');
     return true;
   }
 
@@ -200,7 +217,18 @@ export class TaxiService {
       g.player.inTaxi = false;
       g.setWaypoint(null);
     }
-    g.worldGroup.remove(this.taxi.mesh);
+    /*
+     * Fine corsa. Se la vettura veniva dal traffico torna a circolare da
+     * dov'e', e la ritrovi sulla mappa: e' la stessa auto, non sparisce
+     * davanti a te. Solo quella immessa apposta si toglie.
+     */
+    if (this.hired) {
+      this.hired.resume();
+      this.hired = null;
+    } else {
+      g.worldGroup.remove(this.taxi.mesh);
+    }
+    this.spawned = null;
     this.taxi = null;
     this.state = null;
     this.path = [];
@@ -270,14 +298,25 @@ export class TaxiService {
      * percorso, e solo dopo molto tempo rinuncia.
      */
     /*
-     * Fermo senza un semaforo rosso a giustificarlo. Non si guarda se c'e'
-     * qualcuno davanti: capita di restare incastrati muso contro muso con
-     * un'auto a sua volta bloccata, e in quel caso aspettare non serve a
-     * niente. Al rosso invece si aspetta e basta.
+     * Bloccato o no: si guarda quanta strada ha fatto davvero negli ultimi
+     * secondi, non la velocita' istantanea.
+     *
+     * Un'auto premuta contro il cordolo o contro un palo rimbalza di
+     * continuo, quindi la velocita' oscilla e non risulta mai ferma: il
+     * conteggio non partiva e il taxi restava li' a spingere. Lo
+     * spostamento invece non mente.
+     *
+     * Al semaforo rosso si aspetta e basta: quello non e' un blocco.
      */
     const redLight = stopDist < 6;
-    if (Math.abs(v.speed) < 0.4 && !redLight) this.stuck += dt;
-    else if (this.reverseT <= 0) this.stuck = 0;
+    if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
+    this._probe.t += dt;
+    if (this._probe.t > 2.5) {
+      const moved = Math.hypot(v.x - this._probe.x, v.z - this._probe.z);
+      if (moved < 2 && !redLight) this.stuck += this._probe.t;
+      else this.stuck = 0;
+      this._probe = { x: v.x, z: v.z, t: 0 };
+    }
 
     /*
      * Recupero, in due tempi.
@@ -289,21 +328,32 @@ export class TaxiService {
      * cosi' non lo vedi comparire. Con te a bordo un salto sarebbe evidente,
      * e li' l'unica cosa onesta e' interrompere la corsa.
      */
+    /*
+     * La retromarcia serve solo quando davanti non c'e' nessuno: vuol dire
+     * che e' finito addosso a qualcosa di fermo, un cordolo o un palo. In
+     * coda invece si aspetta, altrimenti si indietreggia addosso a chi sta
+     * dietro — ed e' proprio la manovra continua che si vedeva.
+     */
+    const incoda = lead.d < 8;
     if (this.reverseT > 0) {
       this.reverseT -= dt;
-      v.update(dt, { throttle: -0.9, steer: this.reverseSteer, hand: false });
-    } else if (this.stuck > 3) {
-      this.reverseT = 1.5;
-      this.reverseSteer = Math.random() < 0.5 ? 0.7 : -0.7;
+      // indietro dritto: sterzando si striscia lungo il cordolo invece di
+      // staccarsene
+      v.update(dt, { throttle: -0.9, steer: 0, hand: false });
+    } else if (this.stuck > 6 && !incoda) {
+      this.reverseT = 1.4;
       this.stuck = 0;
       this.recoveries = (this.recoveries || 0) + 1;
-      v.update(dt, { throttle: -0.9, steer: this.reverseSteer, hand: false });
+      v.update(dt, { throttle: -0.9, steer: 0, hand: false });
     } else {
       v.update(dt, ctrl);
-      if (Math.abs(v.speed) > 3) this.recoveries = 0;
+      if (Math.abs(v.speed) > 3) { this.recoveries = 0; this.stuck = 0; }
     }
 
-    if ((this.recoveries || 0) >= 3) {
+    // fermo da mezzo minuto comunque, coda o non coda: e' un ingorgo vero
+    if (this.stuck > 30) { this.stuck = 0; this.recoveries = (this.recoveries || 0) + 2; }
+
+    if ((this.recoveries || 0) >= 2) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === 'coming' && lontano && this.path.length > 3) {

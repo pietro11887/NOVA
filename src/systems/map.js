@@ -234,6 +234,27 @@ export class MapView {
     if (g.missions.objective) dot(g.missions.objective.x, g.missions.objective.z, '#ff9d3f', 8);
     for (const v of g.police.cars) if (v.active) dot(v.x, v.z, '#4cc2ff', 6);
 
+    /*
+     * Taxi in circolazione. Sono le stesse vetture che vedi per strada:
+     * quando ne chiami uno, e' il piu' vicino di questi che arriva.
+     */
+    for (const t of g.traffic.taxis) {
+      const s2 = toS(t.v.x, t.v.z);
+      if (this.scale > 0.55) {
+        ctx.font = '15px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🚕', s2.x, s2.y + 5);
+      } else {
+        dot(t.v.x, t.v.z, t.hired ? '#ffffff' : '#ffd23f', 6);
+      }
+    }
+    if (g.taxi && g.taxi.taxi) {
+      const s2 = toS(g.taxi.taxi.x, g.taxi.taxi.z);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s2.x, s2.y, 10, 0, Math.PI * 2); ctx.stroke();
+    }
+
     // --- destinazione
     if (g.waypoint) {
       const s = toS(g.waypoint.x, g.waypoint.z);

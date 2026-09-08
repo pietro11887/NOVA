@@ -41,7 +41,12 @@ export class Phone {
       out.push({ icon: '🚕', name: 'Annulla il taxi', desc: 'Lascia perdere la corsa',
         cost: '', go: () => { taxi.drop(); this.hide(); } });
     } else {
-      out.push({ icon: '🚕', name: 'Chiama un taxi', desc: 'Arriva da te e ti porta dove vuoi',
+      // si dice quale taxi arriverebbe: e' uno di quelli che vedi sulla mappa
+      const near = g.traffic.freeTaxi(g.player.x, g.player.z, 260);
+      const desc = near
+        ? `Il più vicino è a ${Math.round(Math.hypot(near.v.x - g.player.x, near.v.z - g.player.z))} m`
+        : 'Nessuno qui vicino: ne arriva uno da fuori';
+      out.push({ icon: '🚕', name: 'Chiama un taxi', desc,
         cost: '$25 + $0,35/m', go: () => { taxi.call(); this.hide(); } });
     }
     out.push({ icon: '🔧', name: 'Meccanico', desc: 'Ti porta qui la tua ultima auto, riparata',

@@ -201,6 +201,12 @@ export class HUD {
       if (Math.abs(v.x - p.x) > 200 || Math.abs(v.z - p.z) > 200) continue;
       blip(v.x, v.z, '#98a3b5', 3);
     }
+    // i taxi in giro: gialli e piu' grossi, sono quelli che puoi chiamare
+    for (const t of g.traffic.taxis) {
+      if (Math.abs(t.v.x - p.x) > 200 || Math.abs(t.v.z - p.z) > 200) continue;
+      blip(t.v.x, t.v.z, t.hired ? '#ffffff' : '#ffd23f', 6);
+    }
+    if (g.taxi && g.taxi.taxi) blip(g.taxi.taxi.x, g.taxi.taxi.z, '#ffffff', 7);
     for (const v of g.police.cars) if (v.active) blip(v.x, v.z, '#4cc2ff', 6);
 
     ctx.restore();
