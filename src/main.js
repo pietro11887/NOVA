@@ -123,6 +123,18 @@ class Game {
       invertY: false, btn: { action: false, attack: false, jump: false, run: false },
       pressed: () => false,
     };
+    /*
+     * Da passeggero in taxi non si comanda l'auto, ma la testa si gira
+     * eccome: si guarda fuori dal finestrino. Prima in corsa passavano gli
+     * ingressi congelati e la visuale restava inchiodata dietro alla
+     * vettura, che e' la cosa piu' fastidiosa di tutto il viaggio.
+     */
+    const vero = this.input;
+    this.rideInput = {
+      ...this.frozenInput,
+      look: vero.look,
+      get invertY() { return vero.invertY; },
+    };
     addEventListener('resize', () => this.resize());
     this.resize();
   }
@@ -752,7 +764,12 @@ class Game {
     if (this.input.attacking && !busy) p.attack(this.input.pressed('attack'));
     // tasto destro: pugno anche se hai un'arma addosso (in auto suona il clacson)
     if (this.input.punching && !busy) p.punch();
-    p.update(dt, (this.hud.shopOpen || this.casino.open || this.map.open || this.phone.open || this.taxi.state === 'riding') ? this.frozenInput : this.input);
+    /*
+     * In taxi il personaggio non comanda niente, ma la visuale resta sua:
+     * ingressi da passeggero, non ingressi congelati.
+     */
+    p.update(dt, busy ? this.frozenInput
+      : this.taxi.state === 'riding' ? this.rideInput : this.input);
 
     if (this.interiors.current) {
       this.interiors.update(dt);
@@ -1270,8 +1287,17 @@ class Game {
         v.setVelocity(v.speed * 0.75, 0);
         if (byPlayer) { this.addWanted(2, 'investimento'); this.toast('Hai investito qualcuno!', 'bad'); }
       }
-      // pedoni investiti dalla polizia o dal traffico spaventano la folla
-      if (!p.inCar && Math.hypot(px - p.x, pz - p.z) < 1.7) {
+      /*
+       * Pedoni investiti dalla polizia o dal traffico.
+       *
+       * Da passeggero in taxi non sei un pedone: sei dentro l'abitacolo, e
+       * il muso della vettura ti passa sopra la testa per definizione. Senza
+       * questa esclusione il taxi investiva il proprio cliente a ogni
+       * fotogramma, si tagliava la velocita' del quaranta per cento ogni
+       * volta e la corsa moriva li' — misurato: media 1,6 m/s, muso contro i
+       * muri e vettura distrutta.
+       */
+      if (!p.inCar && !p.inTaxi && Math.hypot(px - p.x, pz - p.z) < 1.7) {
         p.damage(Math.abs(v.speed) * 1.9, 'investito');
         v.setVelocity(v.speed * 0.6, 0);
       }
@@ -1283,6 +1309,9 @@ class Game {
     // urti tra veicoli
     const list = [...this.traffic.cars.map((t) => t.v)];
     if (p.inCar) list.push(p.car);
+    // il taxi immesso apposta non sta nel traffico: senza questo attraversava
+    // le altre auto come un fantasma
+    if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
         const rel = list[i].collideWith(list[j]);
@@ -1457,6 +1486,62 @@ class Game {
     if (this.player.inCar) { if (this.player.car) test(this.player.car); }
     else if (!this.player.inTaxi) test(this.player);
     return { d: best, speed: best < Infinity ? lead : 0 };
+  }
+
+  /**
+   * Rischio di scontro nei prossimi secondi.
+   *
+   * L'accodamento guarda solo chi sta nella propria corsia e con lo stesso
+   * muso: al semaforo serve cosi', se no due file perpendicolari si
+   * bloccherebbero a vicenda. Ma quello che ti fa sbattere davvero e' chi
+   * arriva di traverso — chi svolta tagliandoti la strada, chi esce
+   * dall'incrocio in ritardo. Qui si guarda dove saranno tutti fra poco: se
+   * le due traiettorie si incontrano, si rallenta.
+   *
+   * @returns {{t:number, miss:number}} tempo al punto di minima distanza
+   */
+  crashRisk(v, horizon = 2.4) {
+    /*
+     * Da fermi non si cede il passo a nessuno: si e' gia' fermi. Senza
+     * questo si creava lo stallo — io aspetto te, tu aspetti me — e la fila
+     * non ripartiva piu': misurato, il cinque per cento delle auto ferme
+     * con la strada libera davanti.
+     */
+    if (Math.abs(v.speed) < 1.5) return { t: Infinity, miss: Infinity };
+    const ax = v.fx * v.speed, az = v.fz * v.speed;
+    let bestT = Infinity, bestMiss = Infinity;
+    const test = (o) => {
+      if (o === v) return;
+      const px = o.x - v.x, pz = o.z - v.z;
+      const d0 = Math.hypot(px, pz);
+      if (d0 > 30) return;
+      // chi e' dietro non e' un problema nostro
+      if (px * v.fx + pz * v.fz < -1.5) return;
+      /*
+       * Solo chi si muove davvero taglia la strada: un'auto ferma o che
+       * striscia e' un ostacolo, e di quello si occupa l'accodamento. Se
+       * si frenasse anche per loro, bastava una vettura piantata di
+       * traverso per bloccare mezzo quartiere.
+       */
+      if (o.speed === undefined || Math.abs(o.speed) < 2.2) return;
+      const ox = o.fx * o.speed, oz = o.fz * o.speed;
+      const wx = ox - ax, wz = oz - az;
+      const ww = wx * wx + wz * wz;
+      // si allontanano o vanno alla stessa andatura: ci pensa l'accodamento
+      if (ww < 0.25) return;
+      let t = -(px * wx + pz * wz) / ww;
+      if (t < 0 || t > horizon) return;
+      const mx = px + wx * t, mz = pz + wz * t;
+      const miss = Math.hypot(mx, mz);
+      // due auto larghe 1,8: sotto i due metri e mezzo si toccano
+      if (miss > 2.5) return;
+      if (t < bestT) { bestT = t; bestMiss = miss; }
+    };
+    for (const t of this.traffic.cars) test(t.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
+    if (this.player.car) test(this.player.car);
+    return { t: bestT, miss: bestMiss };
   }
 
   // ------------------------------------------------------------ salvataggio

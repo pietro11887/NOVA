@@ -194,6 +194,7 @@ class TrafficCar {
       maxSpeed: 26,
       stopDist,
       lead,
+      risk: game.crashRisk(v),
       endStop: false,
     });
 

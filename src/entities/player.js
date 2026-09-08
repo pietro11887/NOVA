@@ -42,6 +42,8 @@ export class Player {
     this.camPitch = 0.22;
     this.camDist = 3.5;
     this.indoor = false;
+    this.inTaxi = false;
+    this.rideCar = null;      // la vettura su cui viaggi da passeggero
     this.camPos = new THREE.Vector3(0, 5, 10);
     this.camLook = new THREE.Vector3();
     this._lookTarget = new THREE.Vector3();
@@ -333,24 +335,34 @@ export class Player {
 
   // ------------------------------------------------------------------ camera
   _camera(dt, dead) {
-    const inCar = this.inCar;
+    /*
+     * Da passeggero la camera si comporta come in auto — piu' indietro e
+     * piu' alta, se no sta dentro il tetto — ma la vista resta tua: segue
+     * il taxi solo finche' non tocchi lo schermo, e poi ti lascia guardare
+     * dove vuoi.
+     */
+    const ride = this.inTaxi ? this.rideCar : null;
+    const car = this.car || ride;
+    const inCar = !!car;
     if (inCar) {
       // La camera guarda dove punta l'auto: camYaw e' la direzione di vista e
       // l'auto avanza verso (cos a, -sin a), quindi il bersaglio e' esattamente
       // car.a. (Prima era car.a + PI: appena partivi la vista girava all'indietro.)
       if (this.lookHoldT > 0) this.lookHoldT -= dt;
       else {
-        const sp = Math.abs(this.car.speed);
+        const sp = Math.abs(car.speed);
         // ferma non insegue, cosi' puoi guardarti intorno; in movimento segue subito
         const align = clamp((sp - 0.6) / 5, 0, 1);
-        this.camYaw += angleDelta(this.camYaw, this.car.a) * clamp(align * dt * 6.5, 0, 0.3);
+        // da passeggero il richiamo e' piu' morbido: sei li' per guardarti
+        // la citta', non per stare incollato al muso
+        this.camYaw += angleDelta(this.camYaw, car.a) * clamp(align * dt * (ride ? 2.4 : 6.5), 0, 0.3);
       }
     }
     // al chiuso la camera si abbassa e si avvicina, altrimenti finisce nel soffitto
-    const bike = inCar && this.car.spec.bike;
+    const bike = inCar && car.spec.bike;
     const dist = this.indoor ? 3.4 : dead ? 5.0
-      : bike ? 4.0 + Math.abs(this.car.speed) * 0.06
-      : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+      : bike ? 4.0 + Math.abs(car.speed) * 0.06
+      : inCar ? 5.7 + Math.abs(car.speed) * 0.08 : this.camDist;
     const height = this.indoor ? 0.8 : dead ? 2.4 : bike ? 1.6 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1.0 : 1.25) + this.y;
@@ -368,7 +380,7 @@ export class Player {
     const k = clamp(dt * (inCar ? 7 : 11), 0, 1);
     this.camPos.lerp(V, k);
     // guidando si guarda avanti all'auto, non il tetto
-    const ahead = inCar ? 3.5 + Math.abs(this.car.speed) * 0.25 : 0;
+    const ahead = inCar ? 3.5 + Math.abs(car.speed) * 0.25 : 0;
     this._lookTarget.set(tx + Math.cos(this.camYaw) * ahead, ty + (inCar ? 0.9 : 0.5),
                          tz - Math.sin(this.camYaw) * ahead);
     this.camLook.lerp(this._lookTarget, clamp(dt * 14, 0, 1));

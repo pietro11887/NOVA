@@ -1,12 +1,16 @@
 import { Vehicle } from '../entities/vehicle.js';
+import { clamp, angleDelta } from '../core/utils.js';
 import {
   LANE, buildLaneRoute, followPath, stopLineDistance,
-  nearestNode, nodeAheadOf, routeBetween, kerbStop,
+  nearestNode, nodeAheadOf, routeBetween, kerbStop, roadDistance, HALF_ROAD,
 } from '../entities/driving.js';
 
 const FARE_BASE = 25;        // scatto iniziale
 const FARE_PER_M = 0.35;     // tariffa al metro
-const KERB_LANE = LANE + 1.1;  // quanto accosta per caricare
+// Quanto accosta per caricare. Piu' vicino al cordolo e' piu' bello ma
+// basta un filo di troppo in curva e ci si sale sopra: un metro tondo di
+// scarto dalla corsia e' il compromesso che regge.
+const KERB_LANE = LANE + 0.7;
 
 /**
  * Taxi su chiamata.
@@ -177,6 +181,8 @@ export class TaxiService {
     this.reverseT = 0;
     this.recoveries = 0;
     this.replanT = 4;
+    this.bloccoT = 0;
+    this.sorpassoT = 0;
     return true;
   }
 
@@ -304,10 +310,13 @@ export class TaxiService {
     this.age = 0;
     this.stuck = 0;
     this.replanT = 4;
+    this.bloccoT = 0;
+    this.sorpassoT = 0;
     this.dest = { x: dest.x, z: dest.z };
     this.fare = FARE_BASE;
     g.player.mesh.visible = false;
     g.player.inTaxi = true;
+    g.player.rideCar = this.taxi;   // serve alla camera per inquadrare come in auto
     g.toast('In viaggio…', 'good');
     return true;
   }
@@ -326,6 +335,7 @@ export class TaxiService {
       g.player.a = this.taxi.a;
       g.player.mesh.visible = true;
       g.player.inTaxi = false;
+      g.player.rideCar = null;
       g.setWaypoint(null);
     }
     /*
@@ -358,6 +368,34 @@ export class TaxiService {
     const heading = Math.abs(this.taxi.speed) > 1 ? this.taxi.a : null;
     const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, heading);
     if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
+  }
+
+  /**
+   * Rientro in carreggiata.
+   *
+   * Quando il taxi finisce sul marciapiede, inseguire il tracciato non
+   * serve a niente: il punto di mira sta quindici metri piu' avanti e in
+   * mezzo c'e' un palazzo. Ci va contro, rimbalza, ci riprova. Misurato:
+   * minuti interi di gas a tavoletta contro lo stesso muro, ed e' il modo
+   * in cui finivano quasi tutte le corse. Qui si punta il pezzo di corsia
+   * piu' vicino — di fianco, non davanti — e appena si e' di nuovo in
+   * strada si riprende il percorso da dove si e' rientrati.
+   */
+  _rientro(v) {
+    const p = kerbStop(this._nodes, v.x, v.z, LANE);
+    if (!p) return null;
+    // un filo avanti lungo la corsia: mirando al fianco si gira in tondo
+    const ax = p.x + Math.cos(p.a) * 5, az = p.z - Math.sin(p.a) * 5;
+    const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
+    // se la strada e' dietro le spalle si va indietro, e a marcia indietro
+    // il muso gira al contrario
+    if (Math.abs(err) > 1.9) {
+      return { throttle: -0.7, steer: clamp(-err * 1.2, -1, 1), hand: false, done: false,
+               target: { x: ax, z: az }, rientro: true };
+    }
+    return { throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
+             steer: clamp(err * 1.8, -1, 1), hand: false, done: false,
+             target: { x: ax, z: az }, rientro: true };
   }
 
   update(dt) {
@@ -404,13 +442,40 @@ export class TaxiService {
     // si frena entro la stessa soglia in cui l'arrivo viene riconosciuto:
     // fermarsi appena fuori da quella soglia significava restare li' per
     // sempre a un metro dal traguardo
-    const frena = toGoal < 9 && this.state === 'coming';
+    // vale anche a fine corsa: senza, arrivato a destinazione continuava a
+    // girarci attorno senza mai scendere sotto i due metri al secondo
+    const frena = toGoal < 9;
+
+    /*
+     * Aggirare chi non riparte.
+     *
+     * Un'auto ferma in mezzo alla corsia — un tamponamento, uno che si e'
+     * piantato — fermava il taxi per sempre: l'accodamento gli dice di
+     * stare dietro e basta, e li' restava. Dopo qualche secondo di attesa
+     * inutile si scarta di tre metri verso la mezzeria e si passa, come
+     * farebbe chiunque. Non si sorpassa mai al semaforo ne' in vista
+     * dell'accosto, e comunque chi arriva di fronte fa scattare la frenata
+     * d'emergenza.
+     */
+    const ostacoloFermo = lead.d < 10 && lead.speed < 0.6;
+    if (ostacoloFermo && stopDist > 14 && toGoal > 18 && Math.abs(v.speed) < 1.2) {
+      this.bloccoT = (this.bloccoT || 0) + dt;
+    } else {
+      this.bloccoT = 0;
+    }
+    if ((this.bloccoT || 0) > 3.5) { this.sorpassoT = 7; this.bloccoT = 0; }
+    if (this.sorpassoT > 0) {
+      this.sorpassoT -= dt;
+      if (lead.d > 16) this.sorpassoT = 0;      // passato: si rientra
+    }
 
     const ctrl = followPath(v, this.path, this.st, {
       cruise: 0.82,
       maxSpeed: 24,
       stopDist,
       lead,
+      risk: g.crashRisk(v),
+      sideOffset: this.sorpassoT > 0 ? 3 : 0,
     });
     // stato utile a capire perche' si e' fermato, letto dai collaudi
     this.dbg = {
@@ -430,6 +495,21 @@ export class TaxiService {
       nRetro: this._nRetro || 0,
       nSalti: this._nSalti || 0,
       nRicalcoli: this._nRicalcoli || 0,
+      sorpasso: +(this.sorpassoT || 0).toFixed(1),
+      blocco: +(this.bloccoT || 0).toFixed(1),
+      fuori: +(this.fuoriT || 0).toFixed(1),
+      // dove sono i prossimi punti del tracciato, visti dal posto di guida:
+      // avanti/indietro e destra/sinistra in metri
+      mira: (() => {
+        const out = [];
+        const fx = Math.cos(v.a), fz = -Math.sin(v.a);
+        const rx = Math.sin(v.a), rz = Math.cos(v.a);
+        for (let k = this.st.i; k < Math.min(this.st.i + 3, this.path.length); k++) {
+          const dx = this.path[k].x - v.x, dz = this.path[k].z - v.z;
+          out.push([+(dx * fx + dz * fz).toFixed(1), +(dx * rx + dz * rz).toFixed(1)]);
+        }
+        return out;
+      })(),
     };
 
     /*
@@ -450,6 +530,33 @@ export class TaxiService {
      *
      * Al semaforo rosso si aspetta e basta: quello non e' un blocco.
      */
+    /*
+     * Muso contro qualcosa.
+     *
+     * Il conteggio dello spostamento non bastava: un'auto premuta contro un
+     * muro viene respinta e ogni tanto striscia di due metri, quindi il
+     * conteggio si azzerava e la manovra di sblocco non partiva mai.
+     * Misurato: mezzo minuto di gas a tavoletta con la strada libera davanti
+     * e velocita' zero, il taxi appoggiato al marciapiede. Gas dato e
+     * velocita' nulla e' un incastro, e si vede in un secondo.
+     */
+    if (ctrl.throttle > 0.45 && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt;
+    else this.pinnedT = 0;
+
+    // fuori dalla carreggiata: un tocco di cordolo non conta, restarci si'
+    const fuori = roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.4;
+    this.fuoriT = fuori ? (this.fuoriT || 0) + dt : 0;
+    const rientro = (this.fuoriT > 1.2) ? this._rientro(v) : null;
+    if (!fuori && this._rientrando) {
+      // tornati in strada: si riprende il tracciato dal punto piu' vicino
+      this._rientrando = false;
+      let bd = Infinity;
+      for (let k = 0; k < this.path.length; k++) {
+        const d = (this.path[k].x - v.x) ** 2 + (this.path[k].z - v.z) ** 2;
+        if (d < bd) { bd = d; this.st.i = k; }
+      }
+    }
+
     const redLight = stopDist < 6;
     if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
     this._probe.t += dt;
@@ -484,18 +591,38 @@ export class TaxiService {
      * muso a un metro e mezzo dal paraurti di una vettura che non parte, il
      * taxi aspettava all'infinito perche' la manovra era vietata in coda.
      */
-    const incoda = lead.d < 8 && lead.speed > 0.4;
+    /*
+     * Non si indietreggia se davanti c'e' qualcuno, punto: in coda non
+     * serve, e con un'auto ferma davanti la manovra giusta e' aggirarla,
+     * non tornare indietro addosso a chi sta dietro. La retromarcia resta
+     * per quello per cui serve: il muso contro un muro, con la strada
+     * dietro libera.
+     */
+    const incoda = lead.d < 6;
+    /*
+     * Indietro sterzando dalla parte giusta.
+     *
+     * A marcia indietro il muso gira al contrario, quindi per riportarlo
+     * verso il proprio punto di mira bisogna girare il volante dall'altra
+     * parte. Prima si tornava indietro dritti: se il muso era incastrato
+     * contro un palo, si arretrava di due metri e ci si tornava dentro.
+     */
+    const mira = rientro ? rientro.target : this.path[Math.min(this.st.i, this.path.length - 1)];
+    const versoMira = mira
+      ? -clamp(angleDelta(v.a, Math.atan2(-(mira.z - v.z), mira.x - v.x)) * 2, -1, 1) : 0;
     if (this.reverseT > 0) {
       this.reverseT -= dt;
-      // indietro dritto: sterzando si striscia lungo il cordolo invece di
-      // staccarsene
-      v.update(dt, { throttle: -0.9, steer: 0, hand: false });
-    } else if (this.stuck > 6 && !incoda) {
+      v.update(dt, { throttle: -0.9, steer: versoMira, hand: false });
+    } else if ((this.stuck > 6 || (this.pinnedT || 0) > 1.2) && !incoda) {
       this.reverseT = 1.4;
       this.stuck = 0;
+      this.pinnedT = 0;
       this._nRetro = (this._nRetro || 0) + 1;
       this.recoveries = (this.recoveries || 0) + 1;
-      v.update(dt, { throttle: -0.9, steer: 0, hand: false });
+      v.update(dt, { throttle: -0.9, steer: versoMira, hand: false });
+    } else if (rientro) {
+      this._rientrando = true;
+      v.update(dt, rientro);
     } else {
       if (frena) { ctrl.throttle = Math.min(ctrl.throttle, -0.5); ctrl.hand = true; }
       v.update(dt, ctrl);
@@ -505,7 +632,11 @@ export class TaxiService {
     // fermo da mezzo minuto comunque, coda o non coda: e' un ingorgo vero
     if (this.stuck > 30) { this.stuck = 0; this.recoveries = (this.recoveries || 0) + 2; }
 
-    if ((this.recoveries || 0) >= 2) {
+    /*
+     * Con il cliente a bordo si insiste di piu' prima di arrendersi:
+     * scaricarlo a meta' strada e' peggio di qualche manovra in piu'.
+     */
+    if ((this.recoveries || 0) >= (this.state === 'riding' ? 5 : 2)) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === 'coming' && lontano && this.path.length > 3) {
@@ -569,6 +700,16 @@ export class TaxiService {
     const toStop = toStopNow;
     if (this.state === 'coming') {
       const near = Math.hypot(v.x - g.player.x, v.z - g.player.z);
+      /*
+       * Non si "arriva" da sopra un marciapiede.
+       *
+       * Bastava trovarsi a otto metri dal cliente per considerare finita la
+       * corsa, e un taxi spinto sul marciapiede col muso contro un muro
+       * risultava arrivato: si saliva su una vettura gia' incastrata e la
+       * corsa non partiva piu'. Era il modo piu' comune di rovinare il
+       * viaggio, e da fuori sembrava solo un taxi fermo in un posto assurdo.
+       */
+      if (roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.8) return;
       // sette metri dall'accosto vanno benissimo: sei comunque sul
       // marciapiede accanto, e pretendere il centimetro voleva dire non
       // fermarsi mai

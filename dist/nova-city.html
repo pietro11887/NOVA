@@ -18608,6 +18608,8 @@ var Player = class {
     this.camPitch = 0.22;
     this.camDist = 3.5;
     this.indoor = false;
+    this.inTaxi = false;
+    this.rideCar = null;
     this.camPos = new Ui(0, 5, 10);
     this.camLook = new Ui();
     this._lookTarget = new Ui();
@@ -18895,17 +18897,19 @@ var Player = class {
   }
   // ------------------------------------------------------------------ camera
   _camera(dt2, dead) {
-    const inCar = this.inCar;
+    const ride = this.inTaxi ? this.rideCar : null;
+    const car = this.car || ride;
+    const inCar = !!car;
     if (inCar) {
       if (this.lookHoldT > 0) this.lookHoldT -= dt2;
       else {
-        const sp2 = Math.abs(this.car.speed);
+        const sp2 = Math.abs(car.speed);
         const align = clamp((sp2 - 0.6) / 5, 0, 1);
-        this.camYaw += angleDelta(this.camYaw, this.car.a) * clamp(align * dt2 * 6.5, 0, 0.3);
+        this.camYaw += angleDelta(this.camYaw, car.a) * clamp(align * dt2 * (ride ? 2.4 : 6.5), 0, 0.3);
       }
     }
-    const bike = inCar && this.car.spec.bike;
-    const dist2 = this.indoor ? 3.4 : dead ? 5 : bike ? 4 + Math.abs(this.car.speed) * 0.06 : inCar ? 5.7 + Math.abs(this.car.speed) * 0.08 : this.camDist;
+    const bike = inCar && car.spec.bike;
+    const dist2 = this.indoor ? 3.4 : dead ? 5 : bike ? 4 + Math.abs(car.speed) * 0.06 : inCar ? 5.7 + Math.abs(car.speed) * 0.08 : this.camDist;
     const height = this.indoor ? 0.8 : dead ? 2.4 : bike ? 1.6 : inCar ? 1.95 : 1.5;
     const tx = this.x, tz = this.z;
     const ty = (inCar ? 1 : 1.25) + this.y;
@@ -18922,7 +18926,7 @@ var Player = class {
     V.y = clamp(V.y, 0.9, this.indoor ? 2.9 : 400);
     const k = clamp(dt2 * (inCar ? 7 : 11), 0, 1);
     this.camPos.lerp(V, k);
-    const ahead = inCar ? 3.5 + Math.abs(this.car.speed) * 0.25 : 0;
+    const ahead = inCar ? 3.5 + Math.abs(car.speed) * 0.25 : 0;
     this._lookTarget.set(
       tx + Math.cos(this.camYaw) * ahead,
       ty + (inCar ? 0.9 : 0.5),
@@ -19692,9 +19696,17 @@ function followPath(v, path, st, opt = {}) {
   }
   const target = path[st.i];
   const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
-  const want = Math.atan2(-(target.z - v.z), target.x - v.x);
+  let aimX = target.x, aimZ = target.z;
+  const off = opt.sideOffset || 0;
+  if (off) {
+    const dx0 = target.x - v.x, dz0 = target.z - v.z;
+    const l2 = Math.hypot(dx0, dz0) || 1;
+    aimX += dz0 / l2 * off;
+    aimZ += -dx0 / l2 * off;
+  }
+  const want = Math.atan2(-(aimZ - v.z), aimX - v.x);
   const alpha = angleDelta(v.a, want);
-  const ld = Math.max(2, dist(v.x, v.z, target.x, target.z));
+  const ld = Math.max(2, dist(v.x, v.z, aimX, aimZ));
   const curvature = 2 * Math.sin(alpha) / ld;
   const steer = clamp(Math.atan(curvature * WHEELBASE) / 0.46, -1, 1);
   let bend = 0;
@@ -19717,6 +19729,10 @@ function followPath(v, path, st, opt = {}) {
     const desired = 5.5 + speed * 1.1;
     const follow = lead.speed + (lead.d - desired) * 0.65;
     wanted = Math.min(wanted, Math.max(0, follow));
+  }
+  const risk = opt.risk;
+  if (risk && risk.t < Infinity) {
+    wanted = Math.min(wanted, speed * clamp(risk.t / 1.6, 0, 1));
   }
   if (opt.endStop !== false && st.i >= path.length - 1) {
     wanted = Math.min(wanted, Math.sqrt(Math.max(0, toEnd - 0.8) * 8));
@@ -19784,6 +19800,22 @@ function routeBetween(nodes, fromIdx, toIdx) {
   const out = [];
   for (let k = toIdx; k !== -1; k = prev.get(k)) out.push(nodes[k]);
   return out.reverse();
+}
+function roadDistance(nodes, x, z) {
+  let best = Infinity;
+  for (const n of nodes) {
+    for (const k of n.links) {
+      const m = nodes[k];
+      const dx = m.x - n.x, dz = m.z - n.z;
+      const len2 = dx * dx + dz * dz;
+      if (!len2) continue;
+      let t2 = ((x - n.x) * dx + (z - n.z) * dz) / len2;
+      t2 = clamp(t2, 0, 1);
+      const d2 = Math.hypot(n.x + dx * t2 - x, n.z + dz * t2 - z);
+      if (d2 < best) best = d2;
+    }
+  }
+  return best;
 }
 function kerbStop(nodes, x, z, lane = LANE + 0.6) {
   let best = null, bd2 = Infinity;
@@ -19986,6 +20018,7 @@ var TrafficCar = class {
       maxSpeed: 26,
       stopDist,
       lead,
+      risk: game2.crashRisk(v),
       endStop: false
     });
     const redLight = stopDist < 6;
@@ -22492,7 +22525,7 @@ var RandomEvents = class {
 // src/systems/taxi.js
 var FARE_BASE = 25;
 var FARE_PER_M = 0.35;
-var KERB_LANE = LANE + 1.1;
+var KERB_LANE = LANE + 0.7;
 var TaxiService = class {
   constructor(game2) {
     this.game = game2;
@@ -22624,6 +22657,8 @@ var TaxiService = class {
     this.reverseT = 0;
     this.recoveries = 0;
     this.replanT = 4;
+    this.bloccoT = 0;
+    this.sorpassoT = 0;
     return true;
   }
   /**
@@ -22762,10 +22797,13 @@ var TaxiService = class {
     this.age = 0;
     this.stuck = 0;
     this.replanT = 4;
+    this.bloccoT = 0;
+    this.sorpassoT = 0;
     this.dest = { x: dest.x, z: dest.z };
     this.fare = FARE_BASE;
     g.player.mesh.visible = false;
     g.player.inTaxi = true;
+    g.player.rideCar = this.taxi;
     g.toast("In viaggio\u2026", "good");
     return true;
   }
@@ -22782,6 +22820,7 @@ var TaxiService = class {
       g.player.a = this.taxi.a;
       g.player.mesh.visible = true;
       g.player.inTaxi = false;
+      g.player.rideCar = null;
       g.setWaypoint(null);
     }
     if (this.hired) {
@@ -22803,6 +22842,41 @@ var TaxiService = class {
     const heading = Math.abs(this.taxi.speed) > 1 ? this.taxi.a : null;
     const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, heading);
     if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
+  }
+  /**
+   * Rientro in carreggiata.
+   *
+   * Quando il taxi finisce sul marciapiede, inseguire il tracciato non
+   * serve a niente: il punto di mira sta quindici metri piu' avanti e in
+   * mezzo c'e' un palazzo. Ci va contro, rimbalza, ci riprova. Misurato:
+   * minuti interi di gas a tavoletta contro lo stesso muro, ed e' il modo
+   * in cui finivano quasi tutte le corse. Qui si punta il pezzo di corsia
+   * piu' vicino — di fianco, non davanti — e appena si e' di nuovo in
+   * strada si riprende il percorso da dove si e' rientrati.
+   */
+  _rientro(v) {
+    const p2 = kerbStop(this._nodes, v.x, v.z, LANE);
+    if (!p2) return null;
+    const ax = p2.x + Math.cos(p2.a) * 5, az = p2.z - Math.sin(p2.a) * 5;
+    const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
+    if (Math.abs(err) > 1.9) {
+      return {
+        throttle: -0.7,
+        steer: clamp(-err * 1.2, -1, 1),
+        hand: false,
+        done: false,
+        target: { x: ax, z: az },
+        rientro: true
+      };
+    }
+    return {
+      throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
+      steer: clamp(err * 1.8, -1, 1),
+      hand: false,
+      done: false,
+      target: { x: ax, z: az },
+      rientro: true
+    };
   }
   update(dt2) {
     const g = this.game, v = this.taxi;
@@ -22834,12 +22908,28 @@ var TaxiService = class {
     const lead = g.leaderAhead(v, 24, true);
     const toGoal = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
     if (toGoal < 15) stopDist = Math.min(stopDist, toGoal);
-    const frena = toGoal < 9 && this.state === "coming";
+    const frena = toGoal < 9;
+    const ostacoloFermo = lead.d < 10 && lead.speed < 0.6;
+    if (ostacoloFermo && stopDist > 14 && toGoal > 18 && Math.abs(v.speed) < 1.2) {
+      this.bloccoT = (this.bloccoT || 0) + dt2;
+    } else {
+      this.bloccoT = 0;
+    }
+    if ((this.bloccoT || 0) > 3.5) {
+      this.sorpassoT = 7;
+      this.bloccoT = 0;
+    }
+    if (this.sorpassoT > 0) {
+      this.sorpassoT -= dt2;
+      if (lead.d > 16) this.sorpassoT = 0;
+    }
     const ctrl = followPath(v, this.path, this.st, {
       cruise: 0.82,
       maxSpeed: 24,
       stopDist,
-      lead
+      lead,
+      risk: g.crashRisk(v),
+      sideOffset: this.sorpassoT > 0 ? 3 : 0
     });
     this.dbg = {
       stopDist: stopDist === Infinity ? null : +stopDist.toFixed(1),
@@ -22857,8 +22947,39 @@ var TaxiService = class {
       reverseT: +this.reverseT.toFixed(1),
       nRetro: this._nRetro || 0,
       nSalti: this._nSalti || 0,
-      nRicalcoli: this._nRicalcoli || 0
+      nRicalcoli: this._nRicalcoli || 0,
+      sorpasso: +(this.sorpassoT || 0).toFixed(1),
+      blocco: +(this.bloccoT || 0).toFixed(1),
+      fuori: +(this.fuoriT || 0).toFixed(1),
+      // dove sono i prossimi punti del tracciato, visti dal posto di guida:
+      // avanti/indietro e destra/sinistra in metri
+      mira: (() => {
+        const out = [];
+        const fx = Math.cos(v.a), fz = -Math.sin(v.a);
+        const rx = Math.sin(v.a), rz = Math.cos(v.a);
+        for (let k = this.st.i; k < Math.min(this.st.i + 3, this.path.length); k++) {
+          const dx = this.path[k].x - v.x, dz = this.path[k].z - v.z;
+          out.push([+(dx * fx + dz * fz).toFixed(1), +(dx * rx + dz * rz).toFixed(1)]);
+        }
+        return out;
+      })()
     };
+    if (ctrl.throttle > 0.45 && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt2;
+    else this.pinnedT = 0;
+    const fuori = roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.4;
+    this.fuoriT = fuori ? (this.fuoriT || 0) + dt2 : 0;
+    const rientro = this.fuoriT > 1.2 ? this._rientro(v) : null;
+    if (!fuori && this._rientrando) {
+      this._rientrando = false;
+      let bd2 = Infinity;
+      for (let k = 0; k < this.path.length; k++) {
+        const d2 = (this.path[k].x - v.x) ** 2 + (this.path[k].z - v.z) ** 2;
+        if (d2 < bd2) {
+          bd2 = d2;
+          this.st.i = k;
+        }
+      }
+    }
     const redLight = stopDist < 6;
     if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
     this._probe.t += dt2;
@@ -22868,16 +22989,22 @@ var TaxiService = class {
       else if (moved >= 2) this.stuck = 0;
       this._probe = { x: v.x, z: v.z, t: 0 };
     }
-    const incoda = lead.d < 8 && lead.speed > 0.4;
+    const incoda = lead.d < 6;
+    const mira = rientro ? rientro.target : this.path[Math.min(this.st.i, this.path.length - 1)];
+    const versoMira = mira ? -clamp(angleDelta(v.a, Math.atan2(-(mira.z - v.z), mira.x - v.x)) * 2, -1, 1) : 0;
     if (this.reverseT > 0) {
       this.reverseT -= dt2;
-      v.update(dt2, { throttle: -0.9, steer: 0, hand: false });
-    } else if (this.stuck > 6 && !incoda) {
+      v.update(dt2, { throttle: -0.9, steer: versoMira, hand: false });
+    } else if ((this.stuck > 6 || (this.pinnedT || 0) > 1.2) && !incoda) {
       this.reverseT = 1.4;
       this.stuck = 0;
+      this.pinnedT = 0;
       this._nRetro = (this._nRetro || 0) + 1;
       this.recoveries = (this.recoveries || 0) + 1;
-      v.update(dt2, { throttle: -0.9, steer: 0, hand: false });
+      v.update(dt2, { throttle: -0.9, steer: versoMira, hand: false });
+    } else if (rientro) {
+      this._rientrando = true;
+      v.update(dt2, rientro);
     } else {
       if (frena) {
         ctrl.throttle = Math.min(ctrl.throttle, -0.5);
@@ -22893,7 +23020,7 @@ var TaxiService = class {
       this.stuck = 0;
       this.recoveries = (this.recoveries || 0) + 2;
     }
-    if ((this.recoveries || 0) >= 2) {
+    if ((this.recoveries || 0) >= (this.state === "riding" ? 5 : 2)) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === "coming" && lontano && this.path.length > 3) {
@@ -22933,6 +23060,7 @@ var TaxiService = class {
     const toStop = toStopNow;
     if (this.state === "coming") {
       const near = Math.hypot(v.x - g.player.x, v.z - g.player.z);
+      if (roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.8) return;
       if ((ctrl.done || toStop < 9) && Math.abs(v.speed) < 2) {
         this.state = "waiting";
         this.waitT = 45;
@@ -23210,6 +23338,14 @@ var Game = class {
       invertY: false,
       btn: { action: false, attack: false, jump: false, run: false },
       pressed: () => false
+    };
+    const vero = this.input;
+    this.rideInput = {
+      ...this.frozenInput,
+      look: vero.look,
+      get invertY() {
+        return vero.invertY;
+      }
     };
     addEventListener("resize", () => this.resize());
     this.resize();
@@ -23821,7 +23957,7 @@ var Game = class {
     const busy = this.hud.shopOpen || this.casino.open || this.map.open || this.phone.open;
     if (this.input.attacking && !busy) p2.attack(this.input.pressed("attack"));
     if (this.input.punching && !busy) p2.punch();
-    p2.update(dt2, this.hud.shopOpen || this.casino.open || this.map.open || this.phone.open || this.taxi.state === "riding" ? this.frozenInput : this.input);
+    p2.update(dt2, busy ? this.frozenInput : this.taxi.state === "riding" ? this.rideInput : this.input);
     if (this.interiors.current) {
       this.interiors.update(dt2);
       this._interiorPrompt();
@@ -24348,7 +24484,7 @@ var Game = class {
           this.toast("Hai investito qualcuno!", "bad");
         }
       }
-      if (!p2.inCar && Math.hypot(px - p2.x, pz - p2.z) < 1.7) {
+      if (!p2.inCar && !p2.inTaxi && Math.hypot(px - p2.x, pz - p2.z) < 1.7) {
         p2.damage(Math.abs(v.speed) * 1.9, "investito");
         v.setVelocity(v.speed * 0.6, 0);
       }
@@ -24358,6 +24494,7 @@ var Game = class {
     if (p2.inCar) check(p2.car, true);
     const list = [...this.traffic.cars.map((t2) => t2.v)];
     if (p2.inCar) list.push(p2.car);
+    if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
         const rel = list[i].collideWith(list[j]);
@@ -24531,6 +24668,51 @@ var Game = class {
       if (this.player.car) test(this.player.car);
     } else if (!this.player.inTaxi) test(this.player);
     return { d: best, speed: best < Infinity ? lead : 0 };
+  }
+  /**
+   * Rischio di scontro nei prossimi secondi.
+   *
+   * L'accodamento guarda solo chi sta nella propria corsia e con lo stesso
+   * muso: al semaforo serve cosi', se no due file perpendicolari si
+   * bloccherebbero a vicenda. Ma quello che ti fa sbattere davvero e' chi
+   * arriva di traverso — chi svolta tagliandoti la strada, chi esce
+   * dall'incrocio in ritardo. Qui si guarda dove saranno tutti fra poco: se
+   * le due traiettorie si incontrano, si rallenta.
+   *
+   * @returns {{t:number, miss:number}} tempo al punto di minima distanza
+   */
+  crashRisk(v, horizon = 2.4) {
+    if (Math.abs(v.speed) < 1.5) return { t: Infinity, miss: Infinity };
+    const ax = v.fx * v.speed, az = v.fz * v.speed;
+    let bestT = Infinity, bestMiss = Infinity;
+    const test = (o) => {
+      if (o === v) return;
+      const px = o.x - v.x, pz = o.z - v.z;
+      const d0 = Math.hypot(px, pz);
+      if (d0 > 30) return;
+      if (px * v.fx + pz * v.fz < -1.5) return;
+      if (o.speed === void 0 || Math.abs(o.speed) < 2.2) return;
+      const ox = o.fx * o.speed, oz = o.fz * o.speed;
+      const wx = ox - ax, wz = oz - az;
+      const ww = wx * wx + wz * wz;
+      if (ww < 0.25) return;
+      let t2 = -(px * wx + pz * wz) / ww;
+      if (t2 < 0 || t2 > horizon) return;
+      const mx = px + wx * t2, mz = pz + wz * t2;
+      const miss = Math.hypot(mx, mz);
+      if (miss > 2.5) return;
+      if (t2 < bestT) {
+        bestT = t2;
+        bestMiss = miss;
+      }
+    };
+    for (const t2 of this.traffic.cars) test(t2.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c2 of this.police.cars) {
+      if (c2.active) test(c2);
+    }
+    if (this.player.car) test(this.player.car);
+    return { t: bestT, miss: bestMiss };
   }
   // ------------------------------------------------------------ salvataggio
   save() {

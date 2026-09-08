@@ -144,9 +144,24 @@ export function followPath(v, path, st, opt = {}) {
   const target = path[st.i];
   const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
 
-  const want = Math.atan2(-(target.z - v.z), target.x - v.x);
+  /*
+   * Scarto laterale, per aggirare chi e' fermo in mezzo alla strada. Si mira
+   * di lato rispetto alla propria corsia — a sinistra, come si sorpassa —
+   * invece che al punto della corsia, che e' proprio dove sta l'ostacolo.
+   */
+  let aimX = target.x, aimZ = target.z;
+  const off = opt.sideOffset || 0;
+  if (off) {
+    const dx0 = target.x - v.x, dz0 = target.z - v.z;
+    const l = Math.hypot(dx0, dz0) || 1;
+    // sinistra rispetto alla direzione di marcia
+    aimX += (dz0 / l) * off;
+    aimZ += (-dx0 / l) * off;
+  }
+
+  const want = Math.atan2(-(aimZ - v.z), aimX - v.x);
   const alpha = angleDelta(v.a, want);
-  const ld = Math.max(2, dist(v.x, v.z, target.x, target.z));
+  const ld = Math.max(2, dist(v.x, v.z, aimX, aimZ));
   // curvatura richiesta dall'inseguimento puro, normalizzata sullo sterzo
   const curvature = (2 * Math.sin(alpha)) / ld;
   const steer = clamp(Math.atan(curvature * WHEELBASE) / 0.46, -1, 1);
@@ -208,6 +223,17 @@ export function followPath(v, path, st, opt = {}) {
     const follow = lead.speed + (lead.d - desired) * 0.65;
     wanted = Math.min(wanted, Math.max(0, follow));
   }
+  /*
+   * Chi ti taglia la strada. L'accodamento non lo vede — non e' nella tua
+   * corsia e non ha il tuo muso — ma fra un secondo sara' dove sei tu. Piu'
+   * e' vicino nel tempo, piu' si frena: a un secondo e mezzo e' una lieve
+   * levata di piede, a mezzo secondo e' il pedale a fondo.
+   */
+  const risk = opt.risk;
+  if (risk && risk.t < Infinity) {
+    wanted = Math.min(wanted, speed * clamp(risk.t / 1.6, 0, 1));
+  }
+
   if (opt.endStop !== false && st.i >= path.length - 1) {
     wanted = Math.min(wanted, Math.sqrt(Math.max(0, toEnd - 0.8) * 8));
   }
@@ -302,6 +328,29 @@ export function routeBetween(nodes, fromIdx, toIdx) {
  * e si sposta in corsia. Il risultato porta anche la direzione di marcia,
  * cosi' il taxi resta orientato come il traffico.
  */
+/**
+ * Distanza dall'asse stradale piu' vicino.
+ *
+ * Serve a capire se un veicolo e' ancora in carreggiata o se e' finito sul
+ * marciapiede: oltre meta' strada, li' non ci si deve fermare.
+ */
+export function roadDistance(nodes, x, z) {
+  let best = Infinity;
+  for (const n of nodes) {
+    for (const k of n.links) {
+      const m = nodes[k];
+      const dx = m.x - n.x, dz = m.z - n.z;
+      const len2 = dx * dx + dz * dz;
+      if (!len2) continue;
+      let t = ((x - n.x) * dx + (z - n.z) * dz) / len2;
+      t = clamp(t, 0, 1);
+      const d = Math.hypot(n.x + dx * t - x, n.z + dz * t - z);
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
 export function kerbStop(nodes, x, z, lane = LANE + 0.6) {
   let best = null, bd = Infinity;
   for (const n of nodes) {
