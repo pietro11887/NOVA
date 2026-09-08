@@ -108,8 +108,20 @@ export function initCarPack(pack, tex, quality) {
       ground = Math.min(ground, parts[role].boundingBox.min.y);
     }
 
+    /*
+     * Mezzo giro attorno alla verticale.
+     *
+     * Nel pacchetto le auto guardano verso -X; il gioco fa avanzare i
+     * veicoli verso +X. Senza questa rotazione le carrozzerie viaggiavano
+     * di retromarcia: il muso puntava all'indietro, il cofano dava sul
+     * paraurti di chi seguiva e i fanali rossi guidavano la fila. I nomi
+     * delle ruote nel file (_fl, _fr) seguono l'orientamento originale e
+     * quindi qui non tornano piu': l'anteriore si riconosce dalla
+     * posizione, che e' l'unica cosa che non mente.
+     */
     const body = parts.body.clone();
     body.translate(0, -ground, 0);
+    body.rotateY(Math.PI);
     body.computeBoundingBox();
 
     const wheels = [];
@@ -120,12 +132,13 @@ export function initCarPack(pack, tex, quality) {
       const c = b.getCenter(new THREE.Vector3());
       // la geometria si centra sul mozzo, cosi' ruota attorno a se stessa
       g.translate(-c.x, -c.y, -c.z);
+      g.rotateY(Math.PI);            // stesso mezzo giro della carrozzeria
       g.computeBoundingBox();
       wheels.push({
         geo: g,
-        pos: new THREE.Vector3(c.x, c.y - ground, c.z),
-        front: role.includes('_f'),
-        left: role.endsWith('l'),
+        pos: new THREE.Vector3(-c.x, c.y - ground, -c.z),
+        front: -c.x > 0,             // davanti e' dove punta il muso: +X
+        left: -c.z > 0,
       });
       radius = Math.max(radius, (b.max.y - b.min.y) / 2);
     }
@@ -251,9 +264,10 @@ export function makePackCar(name, color = 0xffffff, kind = 'civil') {
   if (kind === 'police') {
     const barGeo = new THREE.BoxGeometry(0.5, 0.16, 0.36);
     const bar = new THREE.Mesh(barGeo, new THREE.MeshBasicMaterial({ color: 0xff2020, toneMapped: false }));
-    bar.position.set(-0.3, car.spec.top + 0.1, 0.18);
+    // sul tetto, verso il parabrezza: il muso e' a +X
+    bar.position.set(0.3, car.spec.top + 0.1, 0.18);
     const bar2 = new THREE.Mesh(barGeo, new THREE.MeshBasicMaterial({ color: 0x1030ff, toneMapped: false }));
-    bar2.position.set(-0.3, car.spec.top + 0.1, -0.18);
+    bar2.position.set(0.3, car.spec.top + 0.1, -0.18);
     group.add(bar, bar2);
     group.userData.bar = bar;
     group.userData.bar2 = bar2;

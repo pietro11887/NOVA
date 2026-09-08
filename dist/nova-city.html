@@ -15953,6 +15953,7 @@ function initCarPack(pack2, tex2, quality) {
     }
     const body = parts.body.clone();
     body.translate(0, -ground, 0);
+    body.rotateY(Math.PI);
     body.computeBoundingBox();
     const wheels = [];
     let radius = 0;
@@ -15961,12 +15962,14 @@ function initCarPack(pack2, tex2, quality) {
       const b = g.boundingBox;
       const c2 = b.getCenter(new Ui());
       g.translate(-c2.x, -c2.y, -c2.z);
+      g.rotateY(Math.PI);
       g.computeBoundingBox();
       wheels.push({
         geo: g,
-        pos: new Ui(c2.x, c2.y - ground, c2.z),
-        front: role.includes("_f"),
-        left: role.endsWith("l")
+        pos: new Ui(-c2.x, c2.y - ground, -c2.z),
+        front: -c2.x > 0,
+        // davanti e' dove punta il muso: +X
+        left: -c2.z > 0
       });
       radius = Math.max(radius, (b.max.y - b.min.y) / 2);
     }
@@ -16076,9 +16079,9 @@ function makePackCar(name, color = 16777215, kind = "civil") {
   if (kind === "police") {
     const barGeo = new qs(0.5, 0.16, 0.36);
     const bar = new Xs(barGeo, new es({ color: 16719904, toneMapped: false }));
-    bar.position.set(-0.3, car.spec.top + 0.1, 0.18);
+    bar.position.set(0.3, car.spec.top + 0.1, 0.18);
     const bar2 = new Xs(barGeo, new es({ color: 1061119, toneMapped: false }));
-    bar2.position.set(-0.3, car.spec.top + 0.1, -0.18);
+    bar2.position.set(0.3, car.spec.top + 0.1, -0.18);
     group.add(bar, bar2);
     group.userData.bar = bar;
     group.userData.bar2 = bar2;
