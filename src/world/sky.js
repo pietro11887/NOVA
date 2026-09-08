@@ -138,11 +138,17 @@ export class SkySystem {
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 3.15, day) * (1 - dusk * 0.3);
+    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.3);
     this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
     // l'ambiente arriva soprattutto dalla env map: l'emisferica e' solo di appoggio
     // di notte l'emisferica non scende quasi: senza, la citta' e' un muro nero
-    this.hemi.intensity = lerp(0.62, 0.55, day);
+    /*
+     * L'emisferica di giorno si tiene bassa: e' luce che arriva da tutte le
+     * direzioni e appiattisce tutto. Con l'occlusione ambientale accesa il
+     * volume lo danno il sole e la mappa d'ambiente, non questa. Di notte
+     * invece serve alta, se no la citta' e' un muro nero.
+     */
+    this.hemi.intensity = lerp(0.58, 0.3, day);
     this.hemi.color.setHex(day > 0.5 ? 0xbcd8ff : 0x4a5f8c);
     this.hemi.groundColor.setHex(day > 0.4 ? 0x8a7a5e : 0x2b3242);
 

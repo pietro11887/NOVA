@@ -64,6 +64,10 @@ class Game {
       shadowRange: IS_MOBILE ? 46 : 96,
       bloom: !IS_MOBILE,
       grade: true,
+      // occlusione ambientale: una seconda passata sulla geometria, solo
+      // dove c'e' margine
+      ssao: !IS_MOBILE,
+      ssaoScale: 0.5,
       // parallax sulle superfici stradali: costa, quindi solo sul massimo
       parallax: !IS_MOBILE,
     };
@@ -77,6 +81,7 @@ class Game {
         this.quality.shadows = this.quality.tier >= 1;
         this.quality.bloom = this.quality.tier >= 3;
         this.quality.parallax = this.quality.tier >= 3;
+        this.quality.ssao = this.quality.tier >= 3;
         if (this.quality.tier === 0) this.quality.pixelRatio = 1;
       }
     }
@@ -186,6 +191,11 @@ class Game {
     await step(92, 'Distribuisco i lavori…');
     this.missions = new Missions(this);
     this.post = new Post(this.renderer, this.scene, this.camera, this.quality);
+    // il cielo non partecipa all'occlusione ambientale: nella passata delle
+    // normali sarebbe una cupola solida davanti a tutto
+    if (this.post.ssao) {
+      this.post.ssao.skip = [this.sky.sky, this.sky.clouds, this.sky.stars, this.sky.moon];
+    }
     // preferenza salvata, oppure ?safe=1 nell'indirizzo
     const params = new URLSearchParams(location.search);
     let safe = false;
@@ -621,6 +631,18 @@ class Game {
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       this.post.setBloom(tier >= 3);
+      q.ssao = tier >= 3;
+      this.post.setSSAO(q.ssao ? 1 : 0);
+    }
+    // il parallax sull'asfalto segue lo stesso livello
+    q.parallax = tier >= 3;
+    if (this.city) {
+      for (const name of ['road', 'walk']) {
+        const m = this.city.mats[name];
+        if (m && m.userData.nova) {
+          m.userData.nova.novaPomScale.value = q.parallax ? (name === 'road' ? 0.028 : 0.018) : 0;
+        }
+      }
     }
     this.setPixelRatio(tier === 0 ? 1 : Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.6 : 2));
     this.renderer.shadowMap.needsUpdate = true;
@@ -659,7 +681,7 @@ class Game {
       this._autoQuality(dt);
     }
     this.player.applyCamera(this.camera);
-    if (this.post && this.post.enabled) this.post.render(dt);
+    if (this.post && this.post.enabled) this.post.render(dt, this.scene, this.camera);
     else this.renderer.render(this.scene, this.camera);
   }
 
@@ -750,7 +772,9 @@ class Game {
     this.city.setNight(night);
     this.city.animate(this.time);
     if (this.post) this.post.setNight(night);
-    this.renderer.toneMappingExposure = 0.98 - this.sky.day * 0.14;
+    // in pieno giorno si chiude il diaframma: le alte luci non devono
+    // bruciare e le ombre devono restare leggibili
+    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27;
 
     if (this.interiors.current) {   // dentro un locale l'illuminazione e' costante
       this.sky.sun.intensity = 0.5;

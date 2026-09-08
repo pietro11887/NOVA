@@ -4,6 +4,7 @@ import { RenderPass } from '../../vendor/examples/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../vendor/examples/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from '../../vendor/examples/postprocessing/ShaderPass.js';
 import { OutputPass } from '../../vendor/examples/postprocessing/OutputPass.js';
+import { SSAO } from './ssao.js';
 import { clamp } from '../core/utils.js';
 
 
@@ -38,7 +39,8 @@ const GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1.0 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.22 },
+    saturation: { value: 1.18 },
+    vibrance: { value: 0.45 },
     warmth: { value: 0.025 },
     contrast: { value: 1.08 },
     lift: { value: 0.0 },
@@ -49,7 +51,7 @@ const GradeShader = {
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float vignette, saturation, warmth, contrast, lift, time;
+    uniform float vignette, saturation, vibrance, warmth, contrast, lift, time;
     varying vec2 vUv;
 
     void main() {
@@ -70,7 +72,15 @@ const GradeShader = {
       // contrasto attorno al grigio medio lineare (0.18, non 0.5)
       c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);
 
-      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, saturation);
+      /*
+       * Vividezza selettiva: l'erba e il cielo prendono piu' colore della
+       * media, la pelle e l'asfalto restano dove sono. Si riconosce la
+       * parte "fredda" del pixel, cioe' quanto verde e blu ha in piu' del
+       * rosso, e si spinge solo quella.
+       */
+      float cool = clamp((c.g + c.b) * 0.5 - c.r, 0.0, 1.0);
+      float sat = saturation + cool * vibrance;
+      c.rgb = mix(vec3(dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))), c.rgb, sat);
       c.rgb *= vec3(1.0 + warmth, 1.0, 1.0 - warmth * 0.8);
 
       // vignettatura morbida, non un cerchio netto
@@ -108,6 +118,14 @@ export class Post {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
     this.composer.addPass(new RenderPass(scene, camera));
+    /*
+     * L'occlusione ambientale entra subito dopo la scena e prima di tutto il
+     * resto: e' un'ombra che appartiene all'illuminazione, non un ritocco
+     * fotografico, quindi deve stare sotto bloom e viraggio.
+     */
+    this.ssao = new SSAO(renderer, size.width * dpr, size.height * dpr, quality.ssaoScale || 0.5);
+    this.ssao.setIntensity(quality.ssao ? 1 : 0);
+    this.composer.addPass(this.ssao.applyPass);
     this.composer.addPass(new ShaderPass(SanitizeShader));
     /*
      * Il bloom c'e' sempre nella catena e non si disattiva mai: in questa
@@ -134,19 +152,27 @@ export class Post {
     const u = this.grade.uniforms;
     u.warmth.value = 0.03 - n * 0.055;
     // di notte piu' contrasto e meno colore: le luci risaltano sul buio
-    u.contrast.value = 1.08 + n * 0.1;
-    u.saturation.value = 1.24 - n * 0.2;
+    u.contrast.value = 1.17 + n * 0.09;
+    u.saturation.value = 1.2 - n * 0.18;
+    u.vibrance.value = 0.45 - n * 0.3;
     u.lift.value = n * 0.012;
   }
+
+  /** Occlusione ambientale: 0 la spegne, 1 e' piena. */
+  setSSAO(v) { if (this.ssao) this.ssao.setIntensity(v); }
 
   setSize(w, h, pixelRatio) {
     if (!this.composer) return;
     this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(w, h);
+    if (this.ssao) this.ssao.setSize(w * pixelRatio, h * pixelRatio);
   }
 
-  render(dt) {
+  render(dt, scene, camera) {
     if (this.grade) this.grade.uniforms.time.value += dt;
+    // la mappa di occlusione si prepara fuori dalla catena: serve una
+    // seconda passata sulla geometria, con le sole normali
+    if (this.ssao && scene) this.ssao.update(scene, camera);
     this.composer.render(dt);
   }
 }
