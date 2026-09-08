@@ -4,6 +4,7 @@ import { Vehicle } from './vehicle.js';
 import { CAR_TYPES, CAR_COLORS } from '../world/models.js';
 import {
   LANE, HALF_ROAD, legPoints, followPath, stopLineDistance, legAxis, nearestNode,
+  roadDistance, rientroInCorsia,
 } from './driving.js';
 
 /**
@@ -66,6 +67,9 @@ class TrafficCar {
     this.patience = 0;
     this.hornT = 0;
     this.blockedT = 0;      // fermo senza un motivo valido
+    this.attesaT = 0;       // da quanto aspetta dietro a un ostacolo fermo
+    this.sorpassoT = 0;     // quanto dura ancora il sorpasso in corso
+    this.fuoriT = 0;        // da quanto e' fuori dalla carreggiata
   }
 
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
@@ -174,9 +178,12 @@ class TrafficCar {
     let stopDist = Infinity;
     if (mark) {
       stopDist = Math.min(stopDist,
-        stopLineDistance(v, mark.node, mark.axis, game.trafficAxis, game.trafficAmber));
+        stopLineDistance(v, mark.node, mark.axis, game.trafficAxis, game.trafficAmber, game.trafficAllRed));
     }
-    const lead = game.leaderAhead(v, 26, true);
+    // si guarda piu' lontano di quanto si impieghi a fermarsi: a venti metri
+    // al secondo lo spazio di frenata e' venticinque metri, e ventisei erano
+    // troppo pochi per non tamponare chi inchioda al giallo
+    const lead = game.leaderAhead(v, 34, true);
     const gap = lead.d;
 
     /*
@@ -186,15 +193,89 @@ class TrafficCar {
      */
     if (mark) {
       const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
-      if (toLine > 0 && toLine < 12 && gap < 9) stopDist = Math.min(stopDist, toLine);
+      // "non entrare se non esci": la coda davanti deve avere spazio per
+      // tutta la vettura, non per mezza — se no la coda si appoggia dentro
+      // l'incrocio e chi ha il verde trasversale ci finisce addosso
+      if (toLine > 0 && toLine < 14 && gap < 10) stopDist = Math.min(stopDist, toLine);
+      // e non si entra finche' c'e' qualcuno di traverso la' dentro
+      if (toLine > 0.5 && toLine < 11 && game.intersectionBusy(v, mark.node)) {
+        stopDist = Math.min(stopDist, toLine);
+      }
     }
 
+    /*
+     * Sorpasso.
+     *
+     * Chi si trova davanti un ostacolo fermo o lentissimo non resta li' in
+     * eterno: esce nella corsia opposta, passa e rientra. Ma solo se
+     * dall'altra parte non arriva nessuno per settanta metri, e mai a
+     * ridosso di un incrocio. Se durante la manovra spunta qualcuno di
+     * fronte si rientra subito: e' l'unica regola che conta davvero.
+     */
+    const ostacolo = lead.d < 14 && lead.speed < 1
+      && stopDist > 25                      // non a ridosso di un semaforo
+      && game.carsAhead(v, 30) === 1;       // uno solo davanti: non e' una coda
+    if (ostacolo && Math.abs(v.speed) < 2) this.attesaT += dt;
+    else this.attesaT = 0;
+    if (this.attesaT > 4 && game.oncomingClear(v, 70)) {
+      this.sorpassoT = 6; this.attesaT = 0;
+      this.nSorpassi = (this.nSorpassi || 0) + 1;
+    }
+    if (this.sorpassoT > 0) {
+      this.sorpassoT -= dt;
+      // strada libera davanti, o qualcuno che arriva: in un caso e' finita,
+      // nell'altro si rientra e basta
+      if (lead.d > 16 || !game.oncomingClear(v, 45) || stopDist < 12) {
+        if (lead.d <= 16) this.nSorpassiAbortiti = (this.nSorpassiAbortiti || 0) + 1;
+        this.sorpassoT = 0;
+        this.dopoSorpasso = 4;    // quanto ci mette a rientrare davvero
+      }
+    }
+
+    /*
+     * Precedenza a chi arriva di fronte, prima di girare a sinistra.
+     *
+     * La svolta a sinistra taglia la corsia opposta: senza questa regola
+     * due auto che arrivano l'una contro l'altra si incontravano dentro
+     * l'incrocio. Misurato: trentacinque urti su quaranta avvenivano agli
+     * incroci, quattordici erano frontali. Chi e' fermo al proprio rosso non
+     * conta come "in arrivo", se no il primo della fila non girerebbe mai.
+     */
+    if (mark && mark.svolta === 'sinistra') {
+      const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
+      const daFermo = Math.abs(v.speed) < 1 ? dt : -dt;
+      this.attesaSvolta = Math.max(0, (this.attesaSvolta || 0) + daFermo);
+      const libero = game.oncomingClear(v, 34, 2);
+      if (toLine > 0.5 && toLine < 26 && !libero) {
+        stopDist = Math.min(stopDist, toLine);
+      } else if (toLine < 0.5) {
+        this.attesaSvolta = 0;
+      } else if (libero && this.attesaSvolta > 2 && toLine < 9
+                 && mark.axis === game.trafficAxis) {
+        /*
+         * Sgombero durante il rosso di entrambi.
+         *
+         * Chi aspetta di girare a sinistra trova la strada libera proprio
+         * quando l'altro senso si ferma al proprio giallo — cioe' quando il
+         * semaforo sta gia' chiudendo anche per lui. Se in quel momento lo
+         * fermasse la linea d'arresto, non girerebbe mai e si porterebbe
+         * dietro tutta la fila. E' il momento in cui l'incrocio e' vuoto:
+         * si passa, ed e' esattamente quello che fanno tutti.
+         */
+        stopDist = Infinity;
+      }
+    }
     const ctrl = followPath(v, this.path, this.st, {
       cruise: this.cruise,
-      maxSpeed: 26,
+      // in citta' non si va a novanta all'ora: con isolati da novanta metri
+      // e incroci ogni pochi secondi, meno velocita' vuol dire meno spazio
+      // di frenata da recuperare e urti molto piu' rari
+      maxSpeed: 21,
       stopDist,
       lead,
       risk: game.crashRisk(v),
+      sideOffset: this.sorpassoT > 0 ? 3 : 0,
+      maxSpeedNow: game.blockedCrosswise(v) ? 2.2 : undefined,
       endStop: false,
     });
 
@@ -240,7 +321,38 @@ class TrafficCar {
     } else this.patience = 0;
     this.hornT -= dt;
 
-    v.update(dt, ctrl);
+    /*
+     * Niente retromarce nel traffico di sfondo.
+     *
+     * Ci ho provato: chi si trova bloccato da chi attraversa l'incrocio
+     * risulta "muso contro un ostacolo" e fa manovra, ma indietreggiando
+     * blocca chi ha dietro e il guaio si moltiplica. Misurato: seicento
+     * retromarce in novanta secondi, velocita' media crollata da 5,6 a 3,5
+     * metri al secondo. Chi resta piantato davvero viene rimesso in
+     * circolazione altrove, e solo se il giocatore non lo sta guardando.
+     *
+     * Il rientro in carreggiata invece resta: quello non tocca nessuno.
+     */
+    if (this.dopoSorpasso > 0) this.dopoSorpasso -= dt;
+    const fuori = roadDistance(this.city.roadNodes, v.x, v.z) > HALF_ROAD + 0.4;
+    this.fuoriT = fuori ? this.fuoriT + dt : 0;
+
+    if (this.fuoriT > 1.2) {
+      const rientro = rientroInCorsia(v, this.city.roadNodes);
+      v.update(dt, rientro || ctrl);
+      if (rientro) this._rientrando = true;
+    } else {
+      if (this._rientrando) {
+        // tornati in strada: si riprende il tracciato dal punto piu' vicino
+        this._rientrando = false;
+        let bd = Infinity;
+        for (let k = 0; k < this.path.length; k++) {
+          const d = (this.path[k].x - v.x) ** 2 + (this.path[k].z - v.z) ** 2;
+          if (d < bd) { bd = d; this.st.i = k; }
+        }
+      }
+      v.update(dt, ctrl);
+    }
     if (v.health <= 0) { v.health = 100; this.respawn(game.player.x, game.player.z); }
   }
 }

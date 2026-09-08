@@ -94,7 +94,25 @@ export function buildLaneRoute(route, lane = LANE) {
   for (let k = 1; k < route.length; k++) {
     const pts = legPoints(route[k - 1], route[k], route[k + 1] || null, lane);
     const axis = legAxis(route[k - 1], route[k]);
-    for (const p of pts) { path.push(p); marks.push({ node: route[k], axis }); }
+    /*
+     * Che svolta e' quella che aspetta all'incrocio.
+     *
+     * Serve per la precedenza: la svolta a sinistra taglia la corsia di chi
+     * arriva di fronte, e va fatta solo quando quella e' libera. A destra
+     * invece si entra nella propria corsia e non si incrocia nessuno.
+     * Con l'imbardata positiva che gira verso sinistra, il segno dello
+     * scarto d'angolo basta a distinguerle.
+     */
+    let svolta = 'dritto';
+    const next = route[k + 1];
+    if (next) {
+      const a1 = Math.atan2(-(route[k].z - route[k - 1].z), route[k].x - route[k - 1].x);
+      const a2 = Math.atan2(-(next.z - route[k].z), next.x - route[k].x);
+      const d = angleDelta(a1, a2);
+      if (d > 0.6) svolta = 'sinistra';
+      else if (d < -0.6) svolta = 'destra';
+    }
+    for (const p of pts) { path.push(p); marks.push({ node: route[k], axis, svolta }); }
   }
   return { path, marks };
 }
@@ -229,9 +247,20 @@ export function followPath(v, path, st, opt = {}) {
    * e' vicino nel tempo, piu' si frena: a un secondo e mezzo e' una lieve
    * levata di piede, a mezzo secondo e' il pedale a fondo.
    */
+  // tetto momentaneo alla velocita': serve a passare al passo accanto a
+  // qualcosa di fermo invece di centrarlo
+  if (opt.maxSpeedNow !== undefined) wanted = Math.min(wanted, opt.maxSpeedNow);
+
   const risk = opt.risk;
   if (risk && risk.t < Infinity) {
-    wanted = Math.min(wanted, speed * clamp(risk.t / 1.6, 0, 1));
+    /*
+     * Chi ti taglia la strada: piu' e' vicino nel tempo, piu' si frena. Ma
+     * mai fino a fermarsi: sotto resta sempre il passo d'uomo. E' quello
+     * che evita lo stallo a due — io fermo perche' aspetto te, tu ferma
+     * perche' aspetti me — e allo stesso tempo fa si' che, se proprio ci si
+     * tocca, ci si tocchi a due metri al secondo invece che a otto.
+     */
+    wanted = Math.min(wanted, Math.max(1.6, speed * clamp(risk.t / 1.6, 0, 1)));
   }
 
   if (opt.endStop !== false && st.i >= path.length - 1) {
@@ -251,13 +280,20 @@ export function followPath(v, path, st, opt = {}) {
  * Distanza dalla linea d'arresto dell'incrocio verso cui si sta andando.
  * Restituisce Infinity se il semaforo e' verde o se l'incrocio e' lontano.
  */
-export function stopLineDistance(v, node, axis, greenAxis, amber) {
+export function stopLineDistance(v, node, axis, greenAxis, amber, allRed = false) {
   if (!node) return Infinity;
   const d = dist(v.x, v.z, node.x, node.z) - (HALF_ROAD + 1.6);
   if (d > 34 || d < -2) return Infinity;
   if (axis === greenAxis && !amber) return Infinity;
-  // col giallo ci si ferma solo se c'e' lo spazio per farlo
-  if (amber && axis === greenAxis) {
+  /*
+   * Col giallo ci si ferma solo se c'e' lo spazio per farlo. Ma quando
+   * scatta il rosso su entrambi gli assi l'eccezione finisce: prima
+   * restava valida anche li', e chi arrivava lanciato entrava nell'incrocio
+   * quattro secondi dopo la fine del verde — proprio mentre l'altro asse
+   * partiva. Dodici attraversamenti su centoventi avvenivano cosi'.
+   * Chi e' gia' oltre la linea non e' toccato: quello sgombera e basta.
+   */
+  if (amber && !allRed && axis === greenAxis) {
     const need = (v.speed * v.speed) / 8;
     if (d < need + 1.5) return Infinity;
   }
@@ -349,6 +385,63 @@ export function roadDistance(nodes, x, z) {
     }
   }
   return best;
+}
+
+/**
+ * Comandi per rientrare in carreggiata.
+ *
+ * Quando un veicolo finisce sul marciapiede, inseguire il tracciato non
+ * serve: il punto di mira sta molti metri piu' avanti e in mezzo c'e' un
+ * palazzo. Ci va contro, rimbalza, ci riprova — e resta li'. Qui si punta
+ * il pezzo di corsia piu' vicino, di fianco, e appena si e' di nuovo in
+ * strada si riprende il percorso.
+ *
+ * @returns {object|null} comandi da passare a Vehicle.update
+ */
+export function rientroInCorsia(v, nodes) {
+  /*
+   * La corsia giusta la decide il MUSO, non la posizione.
+   *
+   * Prima si prendeva la corsia dal lato in cui il veicolo si trovava: se
+   * un urto lo spingeva oltre la mezzeria, il rientro lo rimetteva in
+   * strada nella corsia opposta, e da li' andava incontro al traffico. I
+   * frontali in mezzo al rettilineo nascevano quasi tutti cosi'.
+   */
+  let seg = null, bd = Infinity;
+  for (const n of nodes) {
+    for (const k of n.links) {
+      const m = nodes[k];
+      const dx = m.x - n.x, dz = m.z - n.z;
+      const len2 = dx * dx + dz * dz;
+      if (!len2) continue;
+      let t = ((v.x - n.x) * dx + (v.z - n.z) * dz) / len2;
+      t = clamp(t, 0, 1);
+      const px = n.x + dx * t, pz = n.z + dz * t;
+      const d = (px - v.x) ** 2 + (pz - v.z) ** 2;
+      if (d < bd) { bd = d; seg = { n, m, t, len: Math.sqrt(len2), dx, dz }; }
+    }
+  }
+  if (!seg) return null;
+  const ux = seg.dx / seg.len, uz = seg.dz / seg.len;
+  // si torna nel senso in cui si sta gia' guardando
+  const avanti = (v.fx * ux + v.fz * uz) >= 0;
+  const from = avanti ? seg.n : seg.m;
+  const to = avanti ? seg.m : seg.n;
+  const t = avanti ? seg.t : 1 - seg.t;
+  const p = lanePoint(from, to, clamp(t, 0.02, 0.98), LANE);
+  p.a = Math.atan2(-(to.z - from.z), to.x - from.x);
+  // un filo avanti lungo la corsia: mirando al fianco si gira in tondo
+  const ax = p.x + Math.cos(p.a) * 5, az = p.z - Math.sin(p.a) * 5;
+  const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
+  // se la strada e' dietro le spalle si va indietro, e a marcia indietro il
+  // muso gira al contrario
+  if (Math.abs(err) > 1.9) {
+    return { throttle: -0.7, steer: clamp(-err * 1.2, -1, 1), hand: false, done: false,
+             target: { x: ax, z: az }, rientro: true };
+  }
+  return { throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
+           steer: clamp(err * 1.8, -1, 1), hand: false, done: false,
+           target: { x: ax, z: az }, rientro: true };
 }
 
 export function kerbStop(nodes, x, z, lane = LANE + 0.6) {

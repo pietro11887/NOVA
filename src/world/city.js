@@ -644,8 +644,10 @@ export class City {
     for (let x = b.x0 + 3; x < b.x1 - 2; x += 3) {
       B.paint.quadY(x - 0.08, b.z0 + 2, x + 0.08, b.z0 + 7.5, 0.05, 0xd8d2be);
       B.paint.quadY(x - 0.08, b.z1 - 7.5, x + 0.08, b.z1 - 2, 0.05, 0xd8d2be);
-      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z0 + 4.7, rot: -Math.PI / 2 });
-      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z1 - 4.7, rot: Math.PI / 2 });
+      // i parcheggi adesso sono l'unico posto dove trovare un'auto ferma:
+      // vale la pena riempirli
+      if (rng() < 0.9) this.parkSpots.push({ x: x + 1.5, z: b.z0 + 4.7, rot: -Math.PI / 2 });
+      if (rng() < 0.9) this.parkSpots.push({ x: x + 1.5, z: b.z1 - 4.7, rot: Math.PI / 2 });
     }
     for (const s of [-1, 1]) {
       B.props.streetlight(b.cx + s * (b.x1 - b.x0) * 0.3, b.cz, s > 0 ? Math.PI : 0, 7);
@@ -1036,13 +1038,16 @@ export class City {
       if (rng() < 0.22) { const q = at(0.28); P.dumpster(q.x, q.z, e.dir); this.grid.add({ x: q.x, z: q.z, hx: 1.0, hz: 0.6 }); }
     }
 
-    // posti auto lungo il bordo
-    const bays = [
-      { x: b.cx - 9, z: b.z0 - HALF + 1.6, rot: 0 }, { x: b.cx + 9, z: b.z0 - HALF + 1.6, rot: 0 },
-      { x: b.cx - 9, z: b.z1 + HALF - 1.6, rot: Math.PI }, { x: b.cx + 9, z: b.z1 + HALF - 1.6, rot: Math.PI },
-      { x: b.x0 - HALF + 1.6, z: b.cz - 9, rot: -Math.PI / 2 }, { x: b.x1 + HALF - 1.6, z: b.cz + 9, rot: Math.PI / 2 },
-    ];
-    for (const bay of bays) if (rng() < 0.5) this.parkSpots.push(bay);
+    /*
+     * Niente auto ferme in carreggiata.
+     *
+     * Qui c'erano dei posti auto "lungo il bordo" che finivano a un metro e
+     * mezzo dall'asse stradale, cioe' in mezzo alla corsia: novantaquattro
+     * vetture su centodieci stavano dentro la strada, e il traffico ci
+     * sbatteva o le scartava passando contromano. Le auto da rubare adesso
+     * stanno nei parcheggi e nei cortili, che e' anche dove stanno nella
+     * realta'.
+     */
   }
 
   _intersection(x, z, props) {

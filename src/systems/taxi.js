@@ -3,6 +3,7 @@ import { clamp, angleDelta } from '../core/utils.js';
 import {
   LANE, buildLaneRoute, followPath, stopLineDistance,
   nearestNode, nodeAheadOf, routeBetween, kerbStop, roadDistance, HALF_ROAD,
+  rientroInCorsia,
 } from '../entities/driving.js';
 
 const FARE_BASE = 25;        // scatto iniziale
@@ -370,34 +371,6 @@ export class TaxiService {
     if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
   }
 
-  /**
-   * Rientro in carreggiata.
-   *
-   * Quando il taxi finisce sul marciapiede, inseguire il tracciato non
-   * serve a niente: il punto di mira sta quindici metri piu' avanti e in
-   * mezzo c'e' un palazzo. Ci va contro, rimbalza, ci riprova. Misurato:
-   * minuti interi di gas a tavoletta contro lo stesso muro, ed e' il modo
-   * in cui finivano quasi tutte le corse. Qui si punta il pezzo di corsia
-   * piu' vicino — di fianco, non davanti — e appena si e' di nuovo in
-   * strada si riprende il percorso da dove si e' rientrati.
-   */
-  _rientro(v) {
-    const p = kerbStop(this._nodes, v.x, v.z, LANE);
-    if (!p) return null;
-    // un filo avanti lungo la corsia: mirando al fianco si gira in tondo
-    const ax = p.x + Math.cos(p.a) * 5, az = p.z - Math.sin(p.a) * 5;
-    const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
-    // se la strada e' dietro le spalle si va indietro, e a marcia indietro
-    // il muso gira al contrario
-    if (Math.abs(err) > 1.9) {
-      return { throttle: -0.7, steer: clamp(-err * 1.2, -1, 1), hand: false, done: false,
-               target: { x: ax, z: az }, rientro: true };
-    }
-    return { throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
-             steer: clamp(err * 1.8, -1, 1), hand: false, done: false,
-             target: { x: ax, z: az }, rientro: true };
-  }
-
   update(dt) {
     const g = this.game, v = this.taxi;
     if (!v) return;
@@ -421,7 +394,7 @@ export class TaxiService {
     let stopDist = Infinity;
     if (mark) {
       stopDist = Math.min(stopDist,
-        stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber));
+        stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber, g.trafficAllRed));
     }
     const lead = g.leaderAhead(v, 24, true);
 
@@ -469,13 +442,30 @@ export class TaxiService {
       if (lead.d > 16) this.sorpassoT = 0;      // passato: si rientra
     }
 
+
+    /*
+     * Precedenza a chi arriva di fronte, prima di girare a sinistra.
+     *
+     * La svolta a sinistra taglia la corsia opposta: senza questa regola
+     * due auto che arrivano l'una contro l'altra si incontravano dentro
+     * l'incrocio. Misurato: trentacinque urti su quaranta avvenivano agli
+     * incroci, quattordici erano frontali. Chi e' fermo al proprio rosso non
+     * conta come "in arrivo", se no il primo della fila non girerebbe mai.
+     */
+    if (mark && mark.svolta === 'sinistra') {
+      const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
+      if (toLine > 0.5 && toLine < 26 && !g.oncomingClear(v, 34, 2)) {
+        stopDist = Math.min(stopDist, toLine);
+      }
+    }
     const ctrl = followPath(v, this.path, this.st, {
       cruise: 0.82,
-      maxSpeed: 24,
+      maxSpeed: 21,
       stopDist,
       lead,
       risk: g.crashRisk(v),
       sideOffset: this.sorpassoT > 0 ? 3 : 0,
+      maxSpeedNow: g.blockedCrosswise(v) ? 2.2 : undefined,
     });
     // stato utile a capire perche' si e' fermato, letto dai collaudi
     this.dbg = {
@@ -546,7 +536,7 @@ export class TaxiService {
     // fuori dalla carreggiata: un tocco di cordolo non conta, restarci si'
     const fuori = roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.4;
     this.fuoriT = fuori ? (this.fuoriT || 0) + dt : 0;
-    const rientro = (this.fuoriT > 1.2) ? this._rientro(v) : null;
+    const rientro = (this.fuoriT > 1.2) ? rientroInCorsia(v, this._nodes) : null;
     if (!fuori && this._rientrando) {
       // tornati in strada: si riprende il tracciato dal punto piu' vicino
       this._rientrando = false;

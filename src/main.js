@@ -739,7 +739,10 @@ class Game {
      * entra col giallo si scontra con chi parte col verde.
      */
     this.trafficT += dt;
-    const GREEN = 10, AMBER = 2.4, ALL_RED = 1.2;
+    // il rosso su entrambi gli assi dura quanto serve a sgomberare
+    // l'incrocio a chi e' entrato col giallo: sedici metri di carreggiata a
+    // passo d'uomo sono due secondi buoni
+    const GREEN = 10, AMBER = 2.4, ALL_RED = 2.0;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;
@@ -1463,9 +1466,14 @@ class Game {
       const dx = o.x - v.x, dz = o.z - v.z;
       const t = dx * fx + dz * fz;
       if (t < 0.4 || t > dist || t >= best) return;
-      // corridoio piu' stretto lontano: cosi' non ci si ferma per un'auto
-      // che sta girando in un'altra corsia
-      const half = t < 8 ? 2.3 : 1.9;
+      /*
+       * Corridoio piu' stretto lontano, cosi' non ci si ferma per un'auto
+       * che sta girando in un'altra corsia. Ma chi e' fermo si guarda largo:
+       * dopo un urto una vettura resta un po' storta e usciva dal corridoio
+       * stretto, diventando invisibile fino al tamponamento.
+       */
+      const fermo = o.speed !== undefined && Math.abs(o.speed) < 0.6;
+      const half = fermo ? 2.9 : (t < 8 ? 2.3 : 1.9);
       if (Math.abs(-dx * fz + dz * fx) >= half) return;
       /*
        * Chi attraversa non conta come coda, se non e' proprio addosso: al
@@ -1505,12 +1513,11 @@ class Game {
    */
   crashRisk(v, horizon = 2.4) {
     /*
-     * Da fermi non si cede il passo a nessuno: si e' gia' fermi. Senza
-     * questo si creava lo stallo — io aspetto te, tu aspetti me — e la fila
-     * non ripartiva piu': misurato, il cinque per cento delle auto ferme
-     * con la strada libera davanti.
+     * Nessuna soglia di velocita' qui: chi rischia di prendersi addosso
+     * qualcuno rallenta e basta, anche se va piano. Lo stallo — io aspetto
+     * te, tu aspetti me — si evita altrove, tenendo un minimo di passo:
+     * la frenata di emergenza non porta mai a zero, porta a passo d'uomo.
      */
-    if (Math.abs(v.speed) < 1.5) return { t: Infinity, miss: Infinity };
     const ax = v.fx * v.speed, az = v.fz * v.speed;
     let bestT = Infinity, bestMiss = Infinity;
     const test = (o) => {
@@ -1520,13 +1527,7 @@ class Game {
       if (d0 > 30) return;
       // chi e' dietro non e' un problema nostro
       if (px * v.fx + pz * v.fz < -1.5) return;
-      /*
-       * Solo chi si muove davvero taglia la strada: un'auto ferma o che
-       * striscia e' un ostacolo, e di quello si occupa l'accodamento. Se
-       * si frenasse anche per loro, bastava una vettura piantata di
-       * traverso per bloccare mezzo quartiere.
-       */
-      if (o.speed === undefined || Math.abs(o.speed) < 2.2) return;
+      if (o.speed === undefined) return;
       const ox = o.fx * o.speed, oz = o.fz * o.speed;
       const wx = ox - ax, wz = oz - az;
       const ww = wx * wx + wz * wz;
@@ -1545,6 +1546,140 @@ class Game {
     if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
     if (this.player.car) test(this.player.car);
     return { t: bestT, miss: bestMiss };
+  }
+
+  /**
+   * Qualcosa di fermo messo di traverso sulla propria traiettoria.
+   *
+   * L'accodamento guarda solo chi ha il tuo stesso muso — al semaforo serve
+   * cosi', se no due file perpendicolari si bloccherebbero a vicenda — e
+   * quindi un'auto ferma di traverso appena fuori dall'incrocio risultava
+   * invisibile: ci si andava addosso a cinque metri al secondo. Era il caso
+   * piu' frequente di tutti. Qui non si pretende di fermarsi: si va a passo
+   * d'uomo, cosi' al massimo la si sposta con una spinta.
+   *
+   * @returns {boolean} vero se conviene procedere al passo
+   */
+  blockedCrosswise(v, dist = 14) {
+    const fx = v.fx, fz = v.fz;
+    let c = false;
+    const test = (o) => {
+      if (c || o === v || o.speed === undefined) return;
+      if (Math.abs(o.speed) > 1) return;              // se si muove, sta sgombrando
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const t = dx * fx + dz * fz;
+      if (t < 0.5 || t > dist) return;
+      if (Math.abs(-dx * fz + dz * fx) > 2.6) return;
+      const cos = o.fx * fx + o.fz * fz;
+      if (Math.abs(cos) > 0.7) return;                // in coda, non di traverso
+      c = true;
+    };
+    for (const t of this.traffic.cars) test(t.v);
+    for (const o of this.traffic.parked) test(o);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const p of this.police.cars) { if (p.active) test(p); }
+    if (this.player.car) test(this.player.car);
+    return c;
+  }
+
+  /**
+   * C'e' gia' qualcuno dentro l'incrocio, di traverso?
+   *
+   * Nel cambio di fase capita che uno stia ancora sgombrando mentre l'altro
+   * asse prende il verde: chi arriva deve aspettare che sia libero, come si
+   * fa davvero. Conta solo chi e' messo di traverso rispetto a noi: chi ci
+   * precede nella nostra direzione e' una coda, non un ostacolo.
+   */
+  intersectionBusy(v, node) {
+    let occupato = false;
+    const test = (o) => {
+      if (occupato || o === v) return;
+      if (Math.hypot(o.x - node.x, o.z - node.z) > 8.5) return;
+      const cos = o.fx * v.fx + o.fz * v.fz;
+      if (Math.abs(cos) > 0.7) return;       // stessa direzione o opposta
+      /*
+       * Chi e' fermo di traverso dentro l'incrocio va aspettato — se no gli
+       * si va addosso — ma aspettare e basta blocca tutto: io aspetto te, tu
+       * aspetti me. La precedenza la prende chi e' piu' vicino al centro:
+       * cosi' uno dei due parte sempre, ed e' anche quello che si fa
+       * davvero quando ci si guarda in faccia a un incrocio.
+       */
+      /*
+       * Solo chi si sta muovendo. Chi e' fermo di traverso lo si aggira al
+       * passo — se ne occupa blockedCrosswise — mentre aspettarlo qui vuol
+       * dire fermare mezza citta': misurato, l'otto per cento delle auto
+       * ferme con la strada libera davanti e la velocita' media giu' di un
+       * quarto.
+       */
+      if (Math.abs(o.speed) < 1) return;
+      occupato = true;
+    };
+    for (const t of this.traffic.cars) test(t.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
+    if (this.player.car) test(this.player.car);
+    return occupato;
+  }
+
+  /**
+   * Quante vetture ci sono in fila davanti, dentro il proprio corridoio.
+   *
+   * Serve a distinguere un ostacolo isolato — un'auto piantata, che si
+   * aggira — da una coda al semaforo, che si aspetta e basta. Sorpassare
+   * una coda e' esattamente il modo di trasformarla in un ingorgo.
+   */
+  carsAhead(v, dist = 30) {
+    const fx = v.fx, fz = v.fz;
+    let n = 0;
+    const test = (o) => {
+      if (o === v) return;
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const t = dx * fx + dz * fz;
+      if (t < 0.4 || t > dist) return;
+      if (Math.abs(-dx * fz + dz * fx) > 2.4) return;
+      if (o.a !== undefined) {
+        let d = Math.abs(o.a - v.a) % (Math.PI * 2);
+        if (d > Math.PI) d = Math.PI * 2 - d;
+        if (d > 1.1) return;      // chi attraversa non e' in coda con te
+      }
+      n++;
+    };
+    for (const t of this.traffic.cars) test(t.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.player.car) test(this.player.car);
+    return n;
+  }
+
+  /**
+   * La corsia opposta e' libera abbastanza per sorpassare?
+   *
+   * Un sorpasso vero si fa solo se dall'altra parte non arriva nessuno per
+   * un bel pezzo: a quindici metri al secondo per parte, sessanta metri se
+   * ne mangiano in due secondi. Si guarda in un corridoio stretto davanti a
+   * se', e basta una vettura che viene incontro per dire di no.
+   */
+  oncomingClear(v, dist = 70, minSpeed = 0) {
+    const fx = v.fx, fz = v.fz;
+    let libera = true;
+    const test = (o) => {
+      if (!libera || o === v || o.speed === undefined) return;
+      // chi e' fermo non arriva addosso a nessuno: se aspetta al suo rosso,
+      // la svolta si puo' fare. Senza questo il primo della fila non
+      // girerebbe mai a sinistra e bloccherebbe tutti quelli dietro.
+      if (Math.abs(o.speed) < minSpeed) return;
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const avanti = dx * fx + dz * fz;
+      if (avanti < -8 || avanti > dist) return;
+      // fuori dalla propria strada: non riguarda
+      if (Math.abs(-dx * fz + dz * fx) > 7) return;
+      // muso opposto al nostro: e' chi arriva in senso contrario
+      if (o.fx * fx + o.fz * fz < -0.4) libera = false;
+    };
+    for (const t of this.traffic.cars) test(t.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
+    if (this.player.car) test(this.player.car);
+    return libera;
   }
 
   // ------------------------------------------------------------ salvataggio

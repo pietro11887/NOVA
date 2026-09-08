@@ -13314,8 +13314,8 @@ var City = class {
     for (let x = b.x0 + 3; x < b.x1 - 2; x += 3) {
       B.paint.quadY(x - 0.08, b.z0 + 2, x + 0.08, b.z0 + 7.5, 0.05, 14209726);
       B.paint.quadY(x - 0.08, b.z1 - 7.5, x + 0.08, b.z1 - 2, 0.05, 14209726);
-      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z0 + 4.7, rot: -Math.PI / 2 });
-      if (rng() < 0.45) this.parkSpots.push({ x: x + 1.5, z: b.z1 - 4.7, rot: Math.PI / 2 });
+      if (rng() < 0.9) this.parkSpots.push({ x: x + 1.5, z: b.z0 + 4.7, rot: -Math.PI / 2 });
+      if (rng() < 0.9) this.parkSpots.push({ x: x + 1.5, z: b.z1 - 4.7, rot: Math.PI / 2 });
     }
     for (const s of [-1, 1]) {
       B.props.streetlight(b.cx + s * (b.x1 - b.x0) * 0.3, b.cz, s > 0 ? Math.PI : 0, 7);
@@ -13711,15 +13711,6 @@ var City = class {
         this.grid.add({ x: q.x, z: q.z, hx: 1, hz: 0.6 });
       }
     }
-    const bays = [
-      { x: b.cx - 9, z: b.z0 - HALF + 1.6, rot: 0 },
-      { x: b.cx + 9, z: b.z0 - HALF + 1.6, rot: 0 },
-      { x: b.cx - 9, z: b.z1 + HALF - 1.6, rot: Math.PI },
-      { x: b.cx + 9, z: b.z1 + HALF - 1.6, rot: Math.PI },
-      { x: b.x0 - HALF + 1.6, z: b.cz - 9, rot: -Math.PI / 2 },
-      { x: b.x1 + HALF - 1.6, z: b.cz + 9, rot: Math.PI / 2 }
-    ];
-    for (const bay of bays) if (rng() < 0.5) this.parkSpots.push(bay);
   }
   _intersection(x, z, props) {
     props.trafficLight(x - DRIVE - 1.3, z - DRIVE - 1.3, 0, 0);
@@ -19820,9 +19811,18 @@ function buildLaneRoute(route, lane = LANE) {
   for (let k = 1; k < route.length; k++) {
     const pts = legPoints(route[k - 1], route[k], route[k + 1] || null, lane);
     const axis = legAxis(route[k - 1], route[k]);
+    let svolta = "dritto";
+    const next = route[k + 1];
+    if (next) {
+      const a1 = Math.atan2(-(route[k].z - route[k - 1].z), route[k].x - route[k - 1].x);
+      const a2 = Math.atan2(-(next.z - route[k].z), next.x - route[k].x);
+      const d2 = angleDelta(a1, a2);
+      if (d2 > 0.6) svolta = "sinistra";
+      else if (d2 < -0.6) svolta = "destra";
+    }
     for (const p2 of pts) {
       path.push(p2);
-      marks.push({ node: route[k], axis });
+      marks.push({ node: route[k], axis, svolta });
     }
   }
   return { path, marks };
@@ -19875,9 +19875,10 @@ function followPath(v, path, st, opt = {}) {
     const follow = lead.speed + (lead.d - desired) * 0.65;
     wanted = Math.min(wanted, Math.max(0, follow));
   }
+  if (opt.maxSpeedNow !== void 0) wanted = Math.min(wanted, opt.maxSpeedNow);
   const risk = opt.risk;
   if (risk && risk.t < Infinity) {
-    wanted = Math.min(wanted, speed * clamp(risk.t / 1.6, 0, 1));
+    wanted = Math.min(wanted, Math.max(1.6, speed * clamp(risk.t / 1.6, 0, 1)));
   }
   if (opt.endStop !== false && st.i >= path.length - 1) {
     wanted = Math.min(wanted, Math.sqrt(Math.max(0, toEnd - 0.8) * 8));
@@ -19888,12 +19889,12 @@ function followPath(v, path, st, opt = {}) {
   const done = st.i >= path.length - 1 && toEnd < 3;
   return { throttle, steer, hand: false, done, target, wanted, toEnd };
 }
-function stopLineDistance(v, node, axis, greenAxis, amber) {
+function stopLineDistance(v, node, axis, greenAxis, amber, allRed = false) {
   if (!node) return Infinity;
   const d2 = dist(v.x, v.z, node.x, node.z) - (HALF_ROAD + 1.6);
   if (d2 > 34 || d2 < -2) return Infinity;
   if (axis === greenAxis && !amber) return Infinity;
-  if (amber && axis === greenAxis) {
+  if (amber && !allRed && axis === greenAxis) {
     const need = v.speed * v.speed / 8;
     if (d2 < need + 1.5) return Infinity;
   }
@@ -19961,6 +19962,53 @@ function roadDistance(nodes, x, z) {
     }
   }
   return best;
+}
+function rientroInCorsia(v, nodes) {
+  let seg = null, bd2 = Infinity;
+  for (const n of nodes) {
+    for (const k of n.links) {
+      const m = nodes[k];
+      const dx = m.x - n.x, dz = m.z - n.z;
+      const len2 = dx * dx + dz * dz;
+      if (!len2) continue;
+      let t3 = ((v.x - n.x) * dx + (v.z - n.z) * dz) / len2;
+      t3 = clamp(t3, 0, 1);
+      const px = n.x + dx * t3, pz = n.z + dz * t3;
+      const d2 = (px - v.x) ** 2 + (pz - v.z) ** 2;
+      if (d2 < bd2) {
+        bd2 = d2;
+        seg = { n, m, t: t3, len: Math.sqrt(len2), dx, dz };
+      }
+    }
+  }
+  if (!seg) return null;
+  const ux = seg.dx / seg.len, uz = seg.dz / seg.len;
+  const avanti = v.fx * ux + v.fz * uz >= 0;
+  const from = avanti ? seg.n : seg.m;
+  const to2 = avanti ? seg.m : seg.n;
+  const t2 = avanti ? seg.t : 1 - seg.t;
+  const p2 = lanePoint(from, to2, clamp(t2, 0.02, 0.98), LANE);
+  p2.a = Math.atan2(-(to2.z - from.z), to2.x - from.x);
+  const ax = p2.x + Math.cos(p2.a) * 5, az = p2.z - Math.sin(p2.a) * 5;
+  const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
+  if (Math.abs(err) > 1.9) {
+    return {
+      throttle: -0.7,
+      steer: clamp(-err * 1.2, -1, 1),
+      hand: false,
+      done: false,
+      target: { x: ax, z: az },
+      rientro: true
+    };
+  }
+  return {
+    throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
+    steer: clamp(err * 1.8, -1, 1),
+    hand: false,
+    done: false,
+    target: { x: ax, z: az },
+    rientro: true
+  };
 }
 function kerbStop(nodes, x, z, lane = LANE + 0.6) {
   let best = null, bd2 = Infinity;
@@ -20048,6 +20096,9 @@ var TrafficCar = class {
     this.patience = 0;
     this.hornT = 0;
     this.blockedT = 0;
+    this.attesaT = 0;
+    this.sorpassoT = 0;
+    this.fuoriT = 0;
   }
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
   respawn(px, pz, minD = 55, maxD = 175) {
@@ -20149,21 +20200,58 @@ var TrafficCar = class {
     if (mark) {
       stopDist = Math.min(
         stopDist,
-        stopLineDistance(v, mark.node, mark.axis, game2.trafficAxis, game2.trafficAmber)
+        stopLineDistance(v, mark.node, mark.axis, game2.trafficAxis, game2.trafficAmber, game2.trafficAllRed)
       );
     }
-    const lead = game2.leaderAhead(v, 26, true);
+    const lead = game2.leaderAhead(v, 34, true);
     const gap = lead.d;
     if (mark) {
       const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
-      if (toLine > 0 && toLine < 12 && gap < 9) stopDist = Math.min(stopDist, toLine);
+      if (toLine > 0 && toLine < 14 && gap < 10) stopDist = Math.min(stopDist, toLine);
+      if (toLine > 0.5 && toLine < 11 && game2.intersectionBusy(v, mark.node)) {
+        stopDist = Math.min(stopDist, toLine);
+      }
+    }
+    const ostacolo = lead.d < 14 && lead.speed < 1 && stopDist > 25 && game2.carsAhead(v, 30) === 1;
+    if (ostacolo && Math.abs(v.speed) < 2) this.attesaT += dt2;
+    else this.attesaT = 0;
+    if (this.attesaT > 4 && game2.oncomingClear(v, 70)) {
+      this.sorpassoT = 6;
+      this.attesaT = 0;
+      this.nSorpassi = (this.nSorpassi || 0) + 1;
+    }
+    if (this.sorpassoT > 0) {
+      this.sorpassoT -= dt2;
+      if (lead.d > 16 || !game2.oncomingClear(v, 45) || stopDist < 12) {
+        if (lead.d <= 16) this.nSorpassiAbortiti = (this.nSorpassiAbortiti || 0) + 1;
+        this.sorpassoT = 0;
+        this.dopoSorpasso = 4;
+      }
+    }
+    if (mark && mark.svolta === "sinistra") {
+      const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
+      const daFermo = Math.abs(v.speed) < 1 ? dt2 : -dt2;
+      this.attesaSvolta = Math.max(0, (this.attesaSvolta || 0) + daFermo);
+      const libero = game2.oncomingClear(v, 34, 2);
+      if (toLine > 0.5 && toLine < 26 && !libero) {
+        stopDist = Math.min(stopDist, toLine);
+      } else if (toLine < 0.5) {
+        this.attesaSvolta = 0;
+      } else if (libero && this.attesaSvolta > 2 && toLine < 9 && mark.axis === game2.trafficAxis) {
+        stopDist = Infinity;
+      }
     }
     const ctrl = followPath(v, this.path, this.st, {
       cruise: this.cruise,
-      maxSpeed: 26,
+      // in citta' non si va a novanta all'ora: con isolati da novanta metri
+      // e incroci ogni pochi secondi, meno velocita' vuol dire meno spazio
+      // di frenata da recuperare e urti molto piu' rari
+      maxSpeed: 21,
       stopDist,
       lead,
       risk: game2.crashRisk(v),
+      sideOffset: this.sorpassoT > 0 ? 3 : 0,
+      maxSpeedNow: game2.blockedCrosswise(v) ? 2.2 : void 0,
       endStop: false
     });
     const redLight = stopDist < 6;
@@ -20185,7 +20273,27 @@ var TrafficCar = class {
       }
     } else this.patience = 0;
     this.hornT -= dt2;
-    v.update(dt2, ctrl);
+    if (this.dopoSorpasso > 0) this.dopoSorpasso -= dt2;
+    const fuori = roadDistance(this.city.roadNodes, v.x, v.z) > HALF_ROAD + 0.4;
+    this.fuoriT = fuori ? this.fuoriT + dt2 : 0;
+    if (this.fuoriT > 1.2) {
+      const rientro = rientroInCorsia(v, this.city.roadNodes);
+      v.update(dt2, rientro || ctrl);
+      if (rientro) this._rientrando = true;
+    } else {
+      if (this._rientrando) {
+        this._rientrando = false;
+        let bd2 = Infinity;
+        for (let k = 0; k < this.path.length; k++) {
+          const d2 = (this.path[k].x - v.x) ** 2 + (this.path[k].z - v.z) ** 2;
+          if (d2 < bd2) {
+            bd2 = d2;
+            this.st.i = k;
+          }
+        }
+      }
+      v.update(dt2, ctrl);
+    }
     if (v.health <= 0) {
       v.health = 100;
       this.respawn(game2.player.x, game2.player.z);
@@ -22988,41 +23096,6 @@ var TaxiService = class {
     const built = this._pathTo(this.stop, this.taxi.x, this.taxi.z, heading);
     if (built && built.path.length >= 2) this._setRoute(built, this.taxi.x, this.taxi.z);
   }
-  /**
-   * Rientro in carreggiata.
-   *
-   * Quando il taxi finisce sul marciapiede, inseguire il tracciato non
-   * serve a niente: il punto di mira sta quindici metri piu' avanti e in
-   * mezzo c'e' un palazzo. Ci va contro, rimbalza, ci riprova. Misurato:
-   * minuti interi di gas a tavoletta contro lo stesso muro, ed e' il modo
-   * in cui finivano quasi tutte le corse. Qui si punta il pezzo di corsia
-   * piu' vicino — di fianco, non davanti — e appena si e' di nuovo in
-   * strada si riprende il percorso da dove si e' rientrati.
-   */
-  _rientro(v) {
-    const p2 = kerbStop(this._nodes, v.x, v.z, LANE);
-    if (!p2) return null;
-    const ax = p2.x + Math.cos(p2.a) * 5, az = p2.z - Math.sin(p2.a) * 5;
-    const err = angleDelta(v.a, Math.atan2(-(az - v.z), ax - v.x));
-    if (Math.abs(err) > 1.9) {
-      return {
-        throttle: -0.7,
-        steer: clamp(-err * 1.2, -1, 1),
-        hand: false,
-        done: false,
-        target: { x: ax, z: az },
-        rientro: true
-      };
-    }
-    return {
-      throttle: clamp((5.5 - Math.abs(v.speed)) * 0.4, -1, 1),
-      steer: clamp(err * 1.8, -1, 1),
-      hand: false,
-      done: false,
-      target: { x: ax, z: az },
-      rientro: true
-    };
-  }
   update(dt2) {
     const g = this.game, v = this.taxi;
     if (!v) return;
@@ -23047,7 +23120,7 @@ var TaxiService = class {
     if (mark) {
       stopDist = Math.min(
         stopDist,
-        stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber)
+        stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber, g.trafficAllRed)
       );
     }
     const lead = g.leaderAhead(v, 24, true);
@@ -23068,13 +23141,20 @@ var TaxiService = class {
       this.sorpassoT -= dt2;
       if (lead.d > 16) this.sorpassoT = 0;
     }
+    if (mark && mark.svolta === "sinistra") {
+      const toLine = Math.hypot(v.x - mark.node.x, v.z - mark.node.z) - (HALF_ROAD + 1.6);
+      if (toLine > 0.5 && toLine < 26 && !g.oncomingClear(v, 34, 2)) {
+        stopDist = Math.min(stopDist, toLine);
+      }
+    }
     const ctrl = followPath(v, this.path, this.st, {
       cruise: 0.82,
-      maxSpeed: 24,
+      maxSpeed: 21,
       stopDist,
       lead,
       risk: g.crashRisk(v),
-      sideOffset: this.sorpassoT > 0 ? 3 : 0
+      sideOffset: this.sorpassoT > 0 ? 3 : 0,
+      maxSpeedNow: g.blockedCrosswise(v) ? 2.2 : void 0
     });
     this.dbg = {
       stopDist: stopDist === Infinity ? null : +stopDist.toFixed(1),
@@ -23113,7 +23193,7 @@ var TaxiService = class {
     else this.pinnedT = 0;
     const fuori = roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.4;
     this.fuoriT = fuori ? (this.fuoriT || 0) + dt2 : 0;
-    const rientro = this.fuoriT > 1.2 ? this._rientro(v) : null;
+    const rientro = this.fuoriT > 1.2 ? rientroInCorsia(v, this._nodes) : null;
     if (!fuori && this._rientrando) {
       this._rientrando = false;
       let bd2 = Infinity;
@@ -24083,7 +24163,7 @@ var Game = class {
     if (this.heistCd > 0) this.heistCd -= dt2;
     if (this.invoiceCd > 0) this.invoiceCd -= dt2;
     this.trafficT += dt2;
-    const GREEN = 10, AMBER = 2.4, ALL_RED = 1.2;
+    const GREEN = 10, AMBER = 2.4, ALL_RED = 2;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;
@@ -24799,7 +24879,8 @@ var Game = class {
       const dx = o.x - v.x, dz = o.z - v.z;
       const t2 = dx * fx + dz * fz;
       if (t2 < 0.4 || t2 > dist2 || t2 >= best) return;
-      const half = t2 < 8 ? 2.3 : 1.9;
+      const fermo = o.speed !== void 0 && Math.abs(o.speed) < 0.6;
+      const half = fermo ? 2.9 : t2 < 8 ? 2.3 : 1.9;
       if (Math.abs(-dx * fz + dz * fx) >= half) return;
       if (o.a !== void 0 && t2 > 6) {
         let d2 = Math.abs(o.a - v.a) % (Math.PI * 2);
@@ -24833,7 +24914,6 @@ var Game = class {
    * @returns {{t:number, miss:number}} tempo al punto di minima distanza
    */
   crashRisk(v, horizon = 2.4) {
-    if (Math.abs(v.speed) < 1.5) return { t: Infinity, miss: Infinity };
     const ax = v.fx * v.speed, az = v.fz * v.speed;
     let bestT = Infinity, bestMiss = Infinity;
     const test = (o) => {
@@ -24842,7 +24922,7 @@ var Game = class {
       const d0 = Math.hypot(px, pz);
       if (d0 > 30) return;
       if (px * v.fx + pz * v.fz < -1.5) return;
-      if (o.speed === void 0 || Math.abs(o.speed) < 2.2) return;
+      if (o.speed === void 0) return;
       const ox = o.fx * o.speed, oz = o.fz * o.speed;
       const wx = ox - ax, wz = oz - az;
       const ww = wx * wx + wz * wz;
@@ -24864,6 +24944,123 @@ var Game = class {
     }
     if (this.player.car) test(this.player.car);
     return { t: bestT, miss: bestMiss };
+  }
+  /**
+   * Qualcosa di fermo messo di traverso sulla propria traiettoria.
+   *
+   * L'accodamento guarda solo chi ha il tuo stesso muso — al semaforo serve
+   * cosi', se no due file perpendicolari si bloccherebbero a vicenda — e
+   * quindi un'auto ferma di traverso appena fuori dall'incrocio risultava
+   * invisibile: ci si andava addosso a cinque metri al secondo. Era il caso
+   * piu' frequente di tutti. Qui non si pretende di fermarsi: si va a passo
+   * d'uomo, cosi' al massimo la si sposta con una spinta.
+   *
+   * @returns {boolean} vero se conviene procedere al passo
+   */
+  blockedCrosswise(v, dist2 = 14) {
+    const fx = v.fx, fz = v.fz;
+    let c2 = false;
+    const test = (o) => {
+      if (c2 || o === v || o.speed === void 0) return;
+      if (Math.abs(o.speed) > 1) return;
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const t2 = dx * fx + dz * fz;
+      if (t2 < 0.5 || t2 > dist2) return;
+      if (Math.abs(-dx * fz + dz * fx) > 2.6) return;
+      const cos = o.fx * fx + o.fz * fz;
+      if (Math.abs(cos) > 0.7) return;
+      c2 = true;
+    };
+    for (const t2 of this.traffic.cars) test(t2.v);
+    for (const o of this.traffic.parked) test(o);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const p2 of this.police.cars) {
+      if (p2.active) test(p2);
+    }
+    if (this.player.car) test(this.player.car);
+    return c2;
+  }
+  /**
+   * C'e' gia' qualcuno dentro l'incrocio, di traverso?
+   *
+   * Nel cambio di fase capita che uno stia ancora sgombrando mentre l'altro
+   * asse prende il verde: chi arriva deve aspettare che sia libero, come si
+   * fa davvero. Conta solo chi e' messo di traverso rispetto a noi: chi ci
+   * precede nella nostra direzione e' una coda, non un ostacolo.
+   */
+  intersectionBusy(v, node) {
+    let occupato = false;
+    const test = (o) => {
+      if (occupato || o === v) return;
+      if (Math.hypot(o.x - node.x, o.z - node.z) > 8.5) return;
+      const cos = o.fx * v.fx + o.fz * v.fz;
+      if (Math.abs(cos) > 0.7) return;
+      if (Math.abs(o.speed) < 1) return;
+      occupato = true;
+    };
+    for (const t2 of this.traffic.cars) test(t2.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c2 of this.police.cars) {
+      if (c2.active) test(c2);
+    }
+    if (this.player.car) test(this.player.car);
+    return occupato;
+  }
+  /**
+   * Quante vetture ci sono in fila davanti, dentro il proprio corridoio.
+   *
+   * Serve a distinguere un ostacolo isolato — un'auto piantata, che si
+   * aggira — da una coda al semaforo, che si aspetta e basta. Sorpassare
+   * una coda e' esattamente il modo di trasformarla in un ingorgo.
+   */
+  carsAhead(v, dist2 = 30) {
+    const fx = v.fx, fz = v.fz;
+    let n = 0;
+    const test = (o) => {
+      if (o === v) return;
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const t2 = dx * fx + dz * fz;
+      if (t2 < 0.4 || t2 > dist2) return;
+      if (Math.abs(-dx * fz + dz * fx) > 2.4) return;
+      if (o.a !== void 0) {
+        let d2 = Math.abs(o.a - v.a) % (Math.PI * 2);
+        if (d2 > Math.PI) d2 = Math.PI * 2 - d2;
+        if (d2 > 1.1) return;
+      }
+      n++;
+    };
+    for (const t2 of this.traffic.cars) test(t2.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.player.car) test(this.player.car);
+    return n;
+  }
+  /**
+   * La corsia opposta e' libera abbastanza per sorpassare?
+   *
+   * Un sorpasso vero si fa solo se dall'altra parte non arriva nessuno per
+   * un bel pezzo: a quindici metri al secondo per parte, sessanta metri se
+   * ne mangiano in due secondi. Si guarda in un corridoio stretto davanti a
+   * se', e basta una vettura che viene incontro per dire di no.
+   */
+  oncomingClear(v, dist2 = 70, minSpeed = 0) {
+    const fx = v.fx, fz = v.fz;
+    let libera = true;
+    const test = (o) => {
+      if (!libera || o === v || o.speed === void 0) return;
+      if (Math.abs(o.speed) < minSpeed) return;
+      const dx = o.x - v.x, dz = o.z - v.z;
+      const avanti = dx * fx + dz * fz;
+      if (avanti < -8 || avanti > dist2) return;
+      if (Math.abs(-dx * fz + dz * fx) > 7) return;
+      if (o.fx * fx + o.fz * fz < -0.4) libera = false;
+    };
+    for (const t2 of this.traffic.cars) test(t2.v);
+    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
+    if (this.police) for (const c2 of this.police.cars) {
+      if (c2.active) test(c2);
+    }
+    if (this.player.car) test(this.player.car);
+    return libera;
   }
   // ------------------------------------------------------------ salvataggio
   save() {
