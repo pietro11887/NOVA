@@ -653,6 +653,16 @@ class Game {
     }
     // il parallax sull'asfalto segue lo stesso livello
     q.parallax = tier >= 3;
+    /*
+     * Anche il traffico segue il livello: su un telefono che arranca meno
+     * auto in giro vuol dire meno da disegnare e meno da far guidare, ed e'
+     * la leva che si sente di piu'. Al massimo restano tutte.
+     */
+    if (this.traffic) {
+      const base = IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP;
+      const fattore = [0.4, 0.65, 0.85, 1][clamp(tier, 0, 3)];
+      this.traffic.setMax(Math.max(6, Math.round(base * fattore)));
+    }
     if (this.city) {
       for (const name of ['road', 'walk']) {
         const m = this.city.mats[name];
@@ -716,6 +726,10 @@ class Game {
   update(dt) {
     const p = this.player;
 
+    // chi guida si guarda intorno di continuo: l'elenco dei vicini si
+    // prepara una volta sola, prima che qualcuno lo consulti
+    this._rebuildVehicleIndex();
+
     this._dayNight(dt);
     // il meteo va dopo il ciclo giorno/notte: ne corregge sole, foschia e cielo
     this.weather.update(dt, this.camera);
@@ -742,7 +756,13 @@ class Game {
     // il rosso su entrambi gli assi dura quanto serve a sgomberare
     // l'incrocio a chi e' entrato col giallo: sedici metri di carreggiata a
     // passo d'uomo sono due secondi buoni
-    const GREEN = 10, AMBER = 2.4, ALL_RED = 2.0;
+    /*
+     * Verde piu' lungo. Con dieci secondi si smaltiva mezza coda e il resto
+     * ripartiva da fermo al giro dopo; con una citta' piu' trafficata il
+     * verde corto era il primo collo di bottiglia. Quattordici secondi sono
+     * ancora sotto quelli di un incrocio vero, ma il traffico scorre.
+     */
+    const GREEN = 14, AMBER = 2.4, ALL_RED = 2.0;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;
@@ -1312,21 +1332,33 @@ class Game {
     for (const v of this.police.cars) if (v.active) check(v, false);
     if (p.inCar) check(p.car, true);
 
-    // urti tra veicoli
+    /*
+     * Urti tra veicoli.
+     *
+     * Prima si provavano tutte le coppie possibili, comprese quelle a
+     * duecento metri di distanza: con cento auto e centotrenta parcheggiate
+     * facevano diciassettemila controlli per fotogramma, ed era il conto
+     * piu' salato di tutto il gioco. Ora ogni vettura guarda solo chi ha
+     * entro sei metri, e ogni coppia si esamina una volta sola grazie al
+     * numero d'ordine assegnato dall'indice.
+     */
     const list = [...this.traffic.cars.map((t) => t.v)];
     if (p.inCar) list.push(p.car);
     // il taxi immesso apposta non sta nel traffico: senza questo attraversava
     // le altre auto come un fantasma
     if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const rel = list[i].collideWith(list[j]);
-        if (rel > 8 && (list[i] === p.car || list[j] === p.car)) {
+    for (const a of list) {
+      for (const b of this.nearVehicles(a.x, a.z, 6.5)) {
+        if (b === a) continue;
+        // ogni coppia una volta sola; le parcheggiate non sono nell'elenco
+        // di chi cerca, quindi con loro il confronto si fa comunque
+        if (!b.parked && b._gid < a._gid) continue;
+        const rel = a.collideWith(b);
+        if (rel > 8 && (a === p.car || b === p.car)) {
           this.audio.crash(rel);
           if (rel > 14) p.damage(rel * 0.3, 'incidente');
         }
       }
-      for (const v of this.traffic.parked) list[i].collideWith(v);
     }
   }
 
@@ -1489,13 +1521,12 @@ class Game {
       best = t;
       lead = o.speed !== undefined ? Math.max(0, o.speed) : 0;
     };
-    for (const t of this.traffic.cars) test(t.v);
-    if (!skipParked) for (const o of this.traffic.parked) test(o);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    // le volanti sono veicoli veri, non incapsulati come quelle del traffico
-    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
-    if (this.player.inCar) { if (this.player.car) test(this.player.car); }
-    else if (!this.player.inTaxi) test(this.player);
+    for (const o of this.nearVehicles(v.x, v.z, dist + 4)) {
+      if (skipParked && o.parked) continue;
+      test(o);
+    }
+    // il giocatore a piedi non e' un veicolo e non sta nell'indice
+    if (!this.player.inCar && !this.player.inTaxi) test(this.player);
     return { d: best, speed: best < Infinity ? lead : 0 };
   }
 
@@ -1541,10 +1572,7 @@ class Game {
       if (miss > 2.5) return;
       if (t < bestT) { bestT = t; bestMiss = miss; }
     };
-    for (const t of this.traffic.cars) test(t.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, 32)) test(o);
     return { t: bestT, miss: bestMiss };
   }
 
@@ -1574,11 +1602,7 @@ class Game {
       if (Math.abs(cos) > 0.7) return;                // in coda, non di traverso
       c = true;
     };
-    for (const t of this.traffic.cars) test(t.v);
-    for (const o of this.traffic.parked) test(o);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const p of this.police.cars) { if (p.active) test(p); }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, dist + 4)) test(o);
     return c;
   }
 
@@ -1614,11 +1638,67 @@ class Game {
       if (Math.abs(o.speed) < 1) return;
       occupato = true;
     };
-    for (const t of this.traffic.cars) test(t.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(node.x, node.z, 10)) {
+      if (!o.parked) test(o);
+    }
     return occupato;
+  }
+
+  /**
+   * Indice dei veicoli per zona, rifatto una volta per fotogramma.
+   *
+   * Ogni auto, per guidare, si guarda intorno sei volte: chi ha davanti,
+   * chi le taglia la strada, chi arriva di fronte, chi occupa l'incrocio.
+   * Scorrere ogni volta tutte le vetture significa un costo che cresce col
+   * quadrato del traffico: raddoppiare le auto lo quadruplica. Con una
+   * griglia a caselle da venticinque metri si guardano solo le vicine, e il
+   * costo torna a crescere in proporzione — che e' quello che serve per
+   * riempire una citta' grande.
+   */
+  _rebuildVehicleIndex() {
+    const CELL = 25;
+    if (!this._vgrid) { this._vgrid = new Map(); this._vscratch = []; }
+    const grid = this._vgrid;
+    for (const a of grid.values()) a.length = 0;
+    let gid = 0;
+    const add = (o) => {
+      if (!o) return;
+      // numero d'ordine del fotogramma: serve a testare ogni coppia una
+      // volta sola quando si cercano gli urti
+      o._gid = gid++;
+      const k = ((o.x / CELL) | 0) * 10007 + ((o.z / CELL) | 0);
+      let a = grid.get(k);
+      if (!a) { a = []; grid.set(k, a); }
+      a.push(o);
+    };
+    for (const t of this.traffic.cars) add(t.v);
+    for (const o of this.traffic.parked) add(o);
+    if (this.taxi && this.taxi.taxi) add(this.taxi.taxi);
+    if (this.police) for (const c of this.police.cars) { if (c.active) add(c); }
+    if (this.player.car) add(this.player.car);
+    this._vcell = CELL;
+  }
+
+  /** I veicoli entro un raggio. L'elenco e' riusato: va consumato subito. */
+  nearVehicles(x, z, r) {
+    const out = this._vscratch;
+    out.length = 0;
+    if (!this._vgrid) return out;
+    const CELL = this._vcell;
+    const i0 = ((x - r) / CELL) | 0, i1 = ((x + r) / CELL) | 0;
+    const j0 = ((z - r) / CELL) | 0, j1 = ((z + r) / CELL) | 0;
+    const r2 = r * r;
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const a = this._vgrid.get(i * 10007 + j);
+        if (!a) continue;
+        for (const o of a) {
+          const dx = o.x - x, dz = o.z - z;
+          if (dx * dx + dz * dz <= r2) out.push(o);
+        }
+      }
+    }
+    return out;
   }
 
   /**
@@ -1644,9 +1724,9 @@ class Game {
       }
       n++;
     };
-    for (const t of this.traffic.cars) test(t.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, dist + 4)) {
+      if (!o.parked) test(o);
+    }
     return n;
   }
 
@@ -1675,10 +1755,9 @@ class Game {
       // muso opposto al nostro: e' chi arriva in senso contrario
       if (o.fx * fx + o.fz * fz < -0.4) libera = false;
     };
-    for (const t of this.traffic.cars) test(t.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c of this.police.cars) { if (c.active) test(c); }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, dist + 8)) {
+      if (!o.parked) test(o);
+    }
     return libera;
   }
 

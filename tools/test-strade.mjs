@@ -142,8 +142,11 @@ const out = await p.evaluate(async (SECONDI) => {
   const fermoDa = new Map(), liberoDa = new Map(), prevD = new Map();
 
   const frames = SECONDI * 60;
+  let msTotali = 0;
   for (let i = 0; i < frames; i++) {
+    const t0 = performance.now();
     g.update(1 / 60);
+    msTotali += performance.now() - t0;
     for (const t of g.traffic.cars) {
       const v = t.v;
       st.campioni++;
@@ -227,6 +230,7 @@ const out = await p.evaluate(async (SECONDI) => {
   }
   return {
     auto: g.traffic.cars.length,
+    millisecondiPerFotogramma: +(msTotali / frames).toFixed(2),
     sorpassiIniziati: sorpassi, sorpassiAbortiti: abortiti, retromarce: retro,
     fermePerSemaforo: pc(st.motivoSemaforo), fermeInCoda: pc(st.motivoCoda),
     fermeSenzaMotivo: pc(st.motivoNessuno),

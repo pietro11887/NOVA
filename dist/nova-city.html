@@ -10234,12 +10234,18 @@ var CFG = {
   // --- gameplay ---
   // Densita' della citta'. Le auto in circolazione seguono corsie e
   // semafori, quindi si possono tenere alte senza che si accavallino.
-  PED_MAX_DESKTOP: 130,
-  PED_MAX_MOBILE: 26,
-  CAR_MAX_DESKTOP: 58,
-  CAR_MAX_MOBILE: 14,
-  PARKED_DESKTOP: 90,
-  PARKED_MOBILE: 18,
+  /*
+   * Quanta vita c'e' in giro. Il telefono aveva quattordici auto in tutta
+   * l'area caricata: in una citta' di questa taglia sembrava deserta. Ora
+   * il numero e' quello di una metropoli e a diradarlo, se il telefono
+   * arranca, ci pensa la qualita' automatica.
+   */
+  PED_MAX_DESKTOP: 170,
+  PED_MAX_MOBILE: 70,
+  CAR_MAX_DESKTOP: 84,
+  CAR_MAX_MOBILE: 38,
+  PARKED_DESKTOP: 120,
+  PARKED_MOBILE: 45,
   STREAM_RADIUS: 210,
   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,
@@ -20101,7 +20107,12 @@ var TrafficCar = class {
     this.fuoriT = 0;
   }
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
-  respawn(px, pz, minD = 55, maxD = 175) {
+  /*
+   * Le auto vivono in un anello attorno al giocatore. Se l'anello e'
+   * stretto, aumentarne il numero non riempie la citta': la ingorga. Piu'
+   * largo vuol dire piu' strade occupate e stessa densita' sotto gli occhi.
+   */
+  respawn(px, pz, minD = 55, maxD = 205) {
     const nodes = this.city.roadNodes;
     let n = null;
     for (let k = 0; k < 80; k++) {
@@ -20313,6 +20324,37 @@ var TrafficManager = class {
     }
     this._spawnParked(game2.quality.parked);
     this._spawnBikes(game2.quality.parked < 20 ? 8 : 20);
+  }
+  /**
+   * Cambia quante auto circolano, senza ricostruire il mondo.
+   *
+   * Serve alla qualita' automatica: su un telefono che arranca il traffico
+   * si dirada, su una macchina che regge si riempie. Le nuove entrano
+   * lontano dal giocatore, quelle di troppo si tolgono da dietro le spalle.
+   */
+  setMax(n) {
+    const p2 = this.game.player;
+    while (this.cars.length < n) {
+      const t2 = new TrafficCar(this.game.city, Math.random() < 0.2 ? "taxi" : "civil");
+      t2.respawn(p2.x, p2.z, 90, 200);
+      this.game.worldGroup.add(t2.v.mesh);
+      this.cars.push(t2);
+    }
+    while (this.cars.length > n) {
+      let peggio = -1, pd2 = -1;
+      for (let i = 0; i < this.cars.length; i++) {
+        const c2 = this.cars[i];
+        if (c2.v.driver === "player" || c2.hired) continue;
+        const d2 = Math.hypot(c2.v.x - p2.x, c2.v.z - p2.z);
+        if (d2 > pd2) {
+          pd2 = d2;
+          peggio = i;
+        }
+      }
+      if (peggio < 0) break;
+      const via = this.cars.splice(peggio, 1)[0];
+      this.game.worldGroup.remove(via.v.mesh);
+    }
   }
   _spawnParked(n) {
     const spots = this.game.city.parkSpots.slice();
@@ -24088,6 +24130,11 @@ var Game = class {
       this.post.setSSAO(q.ssao ? 1 : 0);
     }
     q.parallax = tier >= 3;
+    if (this.traffic) {
+      const base = IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP;
+      const fattore = [0.4, 0.65, 0.85, 1][clamp(tier, 0, 3)];
+      this.traffic.setMax(Math.max(6, Math.round(base * fattore)));
+    }
     if (this.city) {
       for (const name of ["road", "walk"]) {
         const m = this.city.mats[name];
@@ -24147,6 +24194,7 @@ var Game = class {
   }
   update(dt2) {
     const p2 = this.player;
+    this._rebuildVehicleIndex();
     this._dayNight(dt2);
     this.weather.update(dt2, this.camera);
     this.hud.weather(this.weather.label);
@@ -24163,7 +24211,7 @@ var Game = class {
     if (this.heistCd > 0) this.heistCd -= dt2;
     if (this.invoiceCd > 0) this.invoiceCd -= dt2;
     this.trafficT += dt2;
-    const GREEN = 10, AMBER = 2.4, ALL_RED = 2;
+    const GREEN = 14, AMBER = 2.4, ALL_RED = 2;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;
@@ -24726,15 +24774,16 @@ var Game = class {
     const list = [...this.traffic.cars.map((t2) => t2.v)];
     if (p2.inCar) list.push(p2.car);
     if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const rel = list[i].collideWith(list[j]);
-        if (rel > 8 && (list[i] === p2.car || list[j] === p2.car)) {
+    for (const a of list) {
+      for (const b of this.nearVehicles(a.x, a.z, 6.5)) {
+        if (b === a) continue;
+        if (!b.parked && b._gid < a._gid) continue;
+        const rel = a.collideWith(b);
+        if (rel > 8 && (a === p2.car || b === p2.car)) {
           this.audio.crash(rel);
           if (rel > 14) p2.damage(rel * 0.3, "incidente");
         }
       }
-      for (const v of this.traffic.parked) list[i].collideWith(v);
     }
   }
   // -------------------------------------------------------------- ricercato
@@ -24890,15 +24939,11 @@ var Game = class {
       best = t2;
       lead = o.speed !== void 0 ? Math.max(0, o.speed) : 0;
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    if (!skipParked) for (const o of this.traffic.parked) test(o);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c2 of this.police.cars) {
-      if (c2.active) test(c2);
+    for (const o of this.nearVehicles(v.x, v.z, dist2 + 4)) {
+      if (skipParked && o.parked) continue;
+      test(o);
     }
-    if (this.player.inCar) {
-      if (this.player.car) test(this.player.car);
-    } else if (!this.player.inTaxi) test(this.player);
+    if (!this.player.inCar && !this.player.inTaxi) test(this.player);
     return { d: best, speed: best < Infinity ? lead : 0 };
   }
   /**
@@ -24937,12 +24982,7 @@ var Game = class {
         bestMiss = miss;
       }
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c2 of this.police.cars) {
-      if (c2.active) test(c2);
-    }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, 32)) test(o);
     return { t: bestT, miss: bestMiss };
   }
   /**
@@ -24971,13 +25011,7 @@ var Game = class {
       if (Math.abs(cos) > 0.7) return;
       c2 = true;
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    for (const o of this.traffic.parked) test(o);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const p2 of this.police.cars) {
-      if (p2.active) test(p2);
-    }
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, dist2 + 4)) test(o);
     return c2;
   }
   /**
@@ -24998,13 +25032,71 @@ var Game = class {
       if (Math.abs(o.speed) < 1) return;
       occupato = true;
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c2 of this.police.cars) {
-      if (c2.active) test(c2);
+    for (const o of this.nearVehicles(node.x, node.z, 10)) {
+      if (!o.parked) test(o);
     }
-    if (this.player.car) test(this.player.car);
     return occupato;
+  }
+  /**
+   * Indice dei veicoli per zona, rifatto una volta per fotogramma.
+   *
+   * Ogni auto, per guidare, si guarda intorno sei volte: chi ha davanti,
+   * chi le taglia la strada, chi arriva di fronte, chi occupa l'incrocio.
+   * Scorrere ogni volta tutte le vetture significa un costo che cresce col
+   * quadrato del traffico: raddoppiare le auto lo quadruplica. Con una
+   * griglia a caselle da venticinque metri si guardano solo le vicine, e il
+   * costo torna a crescere in proporzione — che e' quello che serve per
+   * riempire una citta' grande.
+   */
+  _rebuildVehicleIndex() {
+    const CELL = 25;
+    if (!this._vgrid) {
+      this._vgrid = /* @__PURE__ */ new Map();
+      this._vscratch = [];
+    }
+    const grid = this._vgrid;
+    for (const a of grid.values()) a.length = 0;
+    let gid = 0;
+    const add = (o) => {
+      if (!o) return;
+      o._gid = gid++;
+      const k = (o.x / CELL | 0) * 10007 + (o.z / CELL | 0);
+      let a = grid.get(k);
+      if (!a) {
+        a = [];
+        grid.set(k, a);
+      }
+      a.push(o);
+    };
+    for (const t2 of this.traffic.cars) add(t2.v);
+    for (const o of this.traffic.parked) add(o);
+    if (this.taxi && this.taxi.taxi) add(this.taxi.taxi);
+    if (this.police) for (const c2 of this.police.cars) {
+      if (c2.active) add(c2);
+    }
+    if (this.player.car) add(this.player.car);
+    this._vcell = CELL;
+  }
+  /** I veicoli entro un raggio. L'elenco e' riusato: va consumato subito. */
+  nearVehicles(x, z, r) {
+    const out = this._vscratch;
+    out.length = 0;
+    if (!this._vgrid) return out;
+    const CELL = this._vcell;
+    const i0 = (x - r) / CELL | 0, i1 = (x + r) / CELL | 0;
+    const j0 = (z - r) / CELL | 0, j1 = (z + r) / CELL | 0;
+    const r2 = r * r;
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const a = this._vgrid.get(i * 10007 + j);
+        if (!a) continue;
+        for (const o of a) {
+          const dx = o.x - x, dz = o.z - z;
+          if (dx * dx + dz * dz <= r2) out.push(o);
+        }
+      }
+    }
+    return out;
   }
   /**
    * Quante vetture ci sono in fila davanti, dentro il proprio corridoio.
@@ -25029,9 +25121,9 @@ var Game = class {
       }
       n++;
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.player.car) test(this.player.car);
+    for (const o of this.nearVehicles(v.x, v.z, dist2 + 4)) {
+      if (!o.parked) test(o);
+    }
     return n;
   }
   /**
@@ -25054,12 +25146,9 @@ var Game = class {
       if (Math.abs(-dx * fz + dz * fx) > 7) return;
       if (o.fx * fx + o.fz * fz < -0.4) libera = false;
     };
-    for (const t2 of this.traffic.cars) test(t2.v);
-    if (this.taxi && this.taxi.taxi) test(this.taxi.taxi);
-    if (this.police) for (const c2 of this.police.cars) {
-      if (c2.active) test(c2);
+    for (const o of this.nearVehicles(v.x, v.z, dist2 + 8)) {
+      if (!o.parked) test(o);
     }
-    if (this.player.car) test(this.player.car);
     return libera;
   }
   // ------------------------------------------------------------ salvataggio

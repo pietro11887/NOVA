@@ -10,12 +10,18 @@ export const CFG = {
   // --- gameplay ---
   // Densita' della citta'. Le auto in circolazione seguono corsie e
   // semafori, quindi si possono tenere alte senza che si accavallino.
-  PED_MAX_DESKTOP: 130,
-  PED_MAX_MOBILE: 26,
-  CAR_MAX_DESKTOP: 58,
-  CAR_MAX_MOBILE: 14,
-  PARKED_DESKTOP: 90,
-  PARKED_MOBILE: 18,
+  /*
+   * Quanta vita c'e' in giro. Il telefono aveva quattordici auto in tutta
+   * l'area caricata: in una citta' di questa taglia sembrava deserta. Ora
+   * il numero e' quello di una metropoli e a diradarlo, se il telefono
+   * arranca, ci pensa la qualita' automatica.
+   */
+  PED_MAX_DESKTOP: 170,
+  PED_MAX_MOBILE: 70,
+  CAR_MAX_DESKTOP: 84,
+  CAR_MAX_MOBILE: 38,
+  PARKED_DESKTOP: 120,
+  PARKED_MOBILE: 45,
   STREAM_RADIUS: 210,   // oltre questa distanza i bot vengono riciclati
   VIEW_FAR_DESKTOP: 420,
   VIEW_FAR_MOBILE: 260,

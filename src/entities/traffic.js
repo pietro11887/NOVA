@@ -73,7 +73,12 @@ class TrafficCar {
   }
 
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
-  respawn(px, pz, minD = 55, maxD = 175) {
+  /*
+   * Le auto vivono in un anello attorno al giocatore. Se l'anello e'
+   * stretto, aumentarne il numero non riempie la citta': la ingorga. Piu'
+   * largo vuol dire piu' strade occupate e stessa densita' sotto gli occhi.
+   */
+  respawn(px, pz, minD = 55, maxD = 205) {
     const nodes = this.city.roadNodes;
     let n = null;
     for (let k = 0; k < 80; k++) {
@@ -370,6 +375,36 @@ export class TrafficManager {
     }
     this._spawnParked(game.quality.parked);
     this._spawnBikes(game.quality.parked < 20 ? 8 : 20);
+  }
+
+  /**
+   * Cambia quante auto circolano, senza ricostruire il mondo.
+   *
+   * Serve alla qualita' automatica: su un telefono che arranca il traffico
+   * si dirada, su una macchina che regge si riempie. Le nuove entrano
+   * lontano dal giocatore, quelle di troppo si tolgono da dietro le spalle.
+   */
+  setMax(n) {
+    const p = this.game.player;
+    while (this.cars.length < n) {
+      const t = new TrafficCar(this.game.city, Math.random() < 0.2 ? 'taxi' : 'civil');
+      t.respawn(p.x, p.z, 90, 200);
+      this.game.worldGroup.add(t.v.mesh);
+      this.cars.push(t);
+    }
+    while (this.cars.length > n) {
+      // si toglie la piu' lontana, e mai quella che il giocatore sta usando
+      let peggio = -1, pd = -1;
+      for (let i = 0; i < this.cars.length; i++) {
+        const c = this.cars[i];
+        if (c.v.driver === 'player' || c.hired) continue;
+        const d = Math.hypot(c.v.x - p.x, c.v.z - p.z);
+        if (d > pd) { pd = d; peggio = i; }
+      }
+      if (peggio < 0) break;
+      const via = this.cars.splice(peggio, 1)[0];
+      this.game.worldGroup.remove(via.v.mesh);
+    }
   }
 
   _spawnParked(n) {
