@@ -106,15 +106,20 @@ export class TaxiService {
     const stop = kerbStop(this._nodes, g.player.x, g.player.z, KERB_LANE);
     if (!stop) { g.toast('Nessun taxi disponibile qui'); return false; }
 
-    // parte da un incrocio a media distanza: deve vedersi arrivare
+    /*
+     * Parte da vicino, non dall'altra parte della citta'. Deve vedersi
+     * arrivare, ma ogni incrocio in piu' e' un'occasione in piu' di
+     * restare imbottigliato: con partenze a duecento metri capitava che non
+     * arrivasse proprio.
+     */
     const nodes = this._nodes;
     let from = null, bd = -1;
     for (let k = 0; k < 80; k++) {
       const c = nodes[(Math.random() * nodes.length) | 0];
       const d = Math.hypot(c.x - g.player.x, c.z - g.player.z);
-      if (d > 70 && d < 200 && d > bd && c.links.length) { bd = d; from = c; }
+      if (d > 45 && d < 110 && d > bd && c.links.length) { bd = d; from = c; }
     }
-    if (!from) from = nodes[nearestNode(nodes, g.player.x + 90, g.player.z + 90)];
+    if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
 
     const built = this._pathTo(stop, from.x, from.z);
     if (!built || built.path.length < 3) { g.toast('Nessun taxi disponibile qui'); return false; }

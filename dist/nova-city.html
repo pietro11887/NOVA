@@ -22501,12 +22501,12 @@ var TaxiService = class {
     for (let k = 0; k < 80; k++) {
       const c2 = nodes[Math.random() * nodes.length | 0];
       const d2 = Math.hypot(c2.x - g.player.x, c2.z - g.player.z);
-      if (d2 > 70 && d2 < 200 && d2 > bd2 && c2.links.length) {
+      if (d2 > 45 && d2 < 110 && d2 > bd2 && c2.links.length) {
         bd2 = d2;
         from = c2;
       }
     }
-    if (!from) from = nodes[nearestNode(nodes, g.player.x + 90, g.player.z + 90)];
+    if (!from) from = nodes[nearestNode(nodes, g.player.x + 60, g.player.z + 60)];
     const built = this._pathTo(stop, from.x, from.z);
     if (!built || built.path.length < 3) {
       g.toast("Nessun taxi disponibile qui");
