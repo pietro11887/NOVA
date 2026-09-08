@@ -3,7 +3,7 @@ import { CFG } from '../core/config.js';
 import { Vehicle } from './vehicle.js';
 import { CAR_TYPES, CAR_COLORS } from '../world/models.js';
 import {
-  LANE, HALF_ROAD, legPoints, followPath, stopLineDistance, legAxis, nearestNode,
+  LANE, HALF_ROAD, legPoints, lanePoint, followPath, stopLineDistance, legAxis, nearestNode,
   roadDistance, rientroInCorsia,
 } from './driving.js';
 
@@ -66,6 +66,7 @@ class TrafficCar {
     this.cruise = rand(0.64, 0.96);
     this.patience = 0;
     this.hornT = 0;
+    this.v.brain = this;    // da un veicolo si risale a chi lo guida
     this.blockedT = 0;      // fermo senza un motivo valido
     this.attesaT = 0;       // da quanto aspetta dietro a un ostacolo fermo
     this.sorpassoT = 0;     // quanto dura ancora il sorpasso in corso
@@ -96,8 +97,19 @@ class TrafficCar {
     this._extend();
     this._extend();
 
+    /*
+     * Si nasce ESATTAMENTE sulla propria riga di corsia.
+     *
+     * Qui lo scostamento veniva calcolato col versore "destra" del veicolo,
+     * che e' l'opposto di quello con cui sono costruite le corsie: ogni auto
+     * nasceva cinque metri fuori dal proprio tracciato, dall'altra parte
+     * della strada, e la prima cosa che faceva era attraversare la
+     * carreggiata per rientrare. Con settanta vetture che si riciclano di
+     * continuo era una sorgente perenne di contromano e di urti.
+     */
     const a = Math.atan2(-(next.z - n.z), next.x - n.x);
-    this.v.place(n.x + Math.sin(a) * LANE, n.z + Math.cos(a) * LANE, a);
+    const p0 = lanePoint(n, next, 0, LANE);
+    this.v.place(p0.x, p0.z, a);
     this.v.speed = rand(5, 12);
     this.v.health = 100;
     return this;
@@ -188,7 +200,8 @@ class TrafficCar {
     // si guarda piu' lontano di quanto si impieghi a fermarsi: a venti metri
     // al secondo lo spazio di frenata e' venticinque metri, e ventisei erano
     // troppo pochi per non tamponare chi inchioda al giallo
-    const lead = game.leaderAhead(v, 34, true);
+    // chi ho davanti sul mio tracciato, curve comprese
+    const lead = game.leaderOnPath(v, this.path, this.st.i, 34);
     const gap = lead.d;
 
     /*
@@ -202,10 +215,6 @@ class TrafficCar {
       // tutta la vettura, non per mezza — se no la coda si appoggia dentro
       // l'incrocio e chi ha il verde trasversale ci finisce addosso
       if (toLine > 0 && toLine < 14 && gap < 10) stopDist = Math.min(stopDist, toLine);
-      // e non si entra finche' c'e' qualcuno di traverso la' dentro
-      if (toLine > 0.5 && toLine < 11 && game.intersectionBusy(v, mark.node)) {
-        stopDist = Math.min(stopDist, toLine);
-      }
     }
 
     /*
@@ -217,12 +226,21 @@ class TrafficCar {
      * ridosso di un incrocio. Se durante la manovra spunta qualcuno di
      * fronte si rientra subito: e' l'unica regola che conta davvero.
      */
-    const ostacolo = lead.d < 14 && lead.speed < 1
-      && stopDist > 25                      // non a ridosso di un semaforo
-      && game.carsAhead(v, 30) === 1;       // uno solo davanti: non e' una coda
-    if (ostacolo && Math.abs(v.speed) < 2) this.attesaT += dt;
+    /*
+     * Due casi diversi. Il primo e' l'ostacolo isolato in mezzo al
+     * rettilineo: si aspetta qualche secondo e si aggira. Il secondo e'
+     * l'ingorgo vero — un incidente in un incrocio con dieci auto ferme
+     * dietro — e li' la regola "mai vicino al semaforo" condannava tutti a
+     * restare fermi per sempre. Dopo dodici secondi di immobilita' con la
+     * strada opposta libera si passa lo stesso: e' quello che farebbe
+     * chiunque, ed e' l'unica cosa che scioglie il nodo.
+     */
+    const fermoDavanti = lead.d < 14 && lead.speed < 1;
+    const ostacolo = fermoDavanti && stopDist > 25 && game.carsAhead(v, 30) === 1;
+    if (fermoDavanti && Math.abs(v.speed) < 2) this.attesaT += dt;
     else this.attesaT = 0;
-    if (this.attesaT > 4 && game.oncomingClear(v, 70)) {
+    const ingorgo = this.attesaT > 12 && fermoDavanti;
+    if ((ostacolo && this.attesaT > 4 || ingorgo) && game.oncomingClear(v, 70)) {
       this.sorpassoT = 6; this.attesaT = 0;
       this.nSorpassi = (this.nSorpassi || 0) + 1;
     }
@@ -278,9 +296,10 @@ class TrafficCar {
       maxSpeed: 21,
       stopDist,
       lead,
-      risk: game.crashRisk(v),
       sideOffset: this.sorpassoT > 0 ? 3 : 0,
-      maxSpeedNow: game.blockedCrosswise(v) ? 2.2 : undefined,
+      // chi taglia la strada e chi sta fermo di traverso entrano nel
+      // modello come ostacoli, con la loro distanza: ci si ferma prima
+      obstacles: [game.conflictObstacle(v, this.path, this.st.i), game.crosswiseObstacle(v)],
       endStop: false,
     });
 
@@ -314,9 +333,17 @@ class TrafficCar {
     if (this.blockedT > 8) {
       this.blockedT = 0;
       const p = game.player;
-      // sotto gli occhi del giocatore non si fa sparire niente: li' l'auto
-      // resta dov'e' e ci pensa la fisica
-      if (Math.hypot(v.x - p.x, v.z - p.z) > 40) { this.respawn(p.x, p.z); return; }
+      const d = Math.hypot(v.x - p.x, v.z - p.z);
+      /*
+       * Sotto gli occhi del giocatore non si fa sparire niente. Ma "sotto
+       * gli occhi" vuol dire davanti alla camera: un'auto piantata a
+       * trenta metri dietro le spalle si puo' rimettere in circolazione
+       * senza che nessuno veda niente, ed e' cosi' che un ingorgo si
+       * scioglie da solo invece di restare li' tutta la partita.
+       */
+      const dx = v.x - game.camera.position.x, dz = v.z - game.camera.position.z;
+      const avanti = dx * game._camFx + dz * game._camFz > 0;
+      if (d > 40 || (d > 22 && !avanti)) { this.respawn(p.x, p.z); return; }
     }
 
     // se resta fermo dietro a qualcosa, prima o poi qualcuno suona

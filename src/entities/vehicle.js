@@ -83,7 +83,15 @@ export class Vehicle {
     else if (c.throttle < 0) vLong += c.throttle * (vLong > 0.5 ? this.brake : this.accel * 0.5) * dt;
     const rolling = 0.35 + (c.throttle === 0 ? 0.75 : 0) + (c.hand ? 1.5 : 0);
     vLong -= vLong * rolling * dt;
-    if (Math.abs(vLong) < 0.06) vLong = 0;
+    /*
+     * Zona morta: sotto i sei centimetri al secondo ci si ferma davvero,
+     * altrimenti le auto strisciano all'infinito. Ma vale solo a gas
+     * staccato: con un filo di gas l'incremento di un fotogramma e' piu'
+     * piccolo della soglia, e azzerarlo lo stesso vuol dire non partire
+     * mai. E' cosi' che un guidatore che accelera dolcemente restava
+     * inchiodato sul posto a motore acceso.
+     */
+    if (Math.abs(vLong) < 0.06 && c.throttle === 0) vLong = 0;
     vLong = clamp(vLong, -9, this.topSpeed);
 
     // --- imbardata dal modello a bicicletta: la rotazione dipende da

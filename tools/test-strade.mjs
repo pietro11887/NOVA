@@ -137,6 +137,9 @@ const out = await p.evaluate(async (SECONDI) => {
     motivoSemaforo: 0, motivoCoda: 0, motivoNessuno: 0,
     dentroIncrocio: 0, dentroColRosso: 0, passatiSulGiallo: 0, passatiSulTuttoRosso: 0,
     controsensoSorpasso: 0, controsensoDopoSorpasso: 0, controsensoRientro: 0, controsensoMistero: 0,
+    campioniIngorgo: 0, ingorgoMax: 0, ingorgo5: 0, ingorgo8: 0,
+    fermaPiuALungo: 0, oltre20s: 0, oltre40s: 0, campioniFermo: 0,
+    erroreTracciato: 0, campioniTracciato: 0, err05: 0, err15: 0, err4: 0, errTanto: 0,
   };
   const stopMotivo = true;
   const fermoDa = new Map(), liberoDa = new Map(), prevD = new Map();
@@ -151,6 +154,32 @@ const out = await p.evaluate(async (SECONDI) => {
       const v = t.v;
       st.campioni++;
       st.velocitaMedia += Math.abs(v.speed);
+      /*
+       * Errore vero di guida: quanto dista dalla riga che sta seguendo. Lo
+       * scarto dall'asse stradale non serve — dentro l'incrocio il
+       * tracciato e' un arco, e chi sorpassa sta di lato apposta.
+       */
+      if (t.path && t.path.length > 1) {
+        let bd = Infinity;
+        const da = Math.max(1, t.st.i - 8), a = Math.min(t.st.i + 2, t.path.length - 1);
+        for (let k = da; k <= a; k++) {
+          const A = t.path[k - 1], B = t.path[k];
+          const dx = B.x - A.x, dz = B.z - A.z;
+          const l2 = dx * dx + dz * dz;
+          if (l2 < 1e-6) continue;
+          let q = ((v.x - A.x) * dx + (v.z - A.z) * dz) / l2;
+          q = Math.max(0, Math.min(1, q));
+          bd = Math.min(bd, Math.hypot(A.x + dx * q - v.x, A.z + dz * q - v.z));
+        }
+        if (bd < Infinity) {
+          st.erroreTracciato += bd;
+          st.campioniTracciato++;
+          if (bd < 0.5) st.err05++;
+          else if (bd < 1.5) st.err15++;
+          else if (bd < 4) st.err4++;
+          else st.errTanto++;
+        }
+      }
       const s = suStrada(v);
       if (s) {
         if (s.dist > HALF + 1.5) st.fuoriStrada++;
@@ -218,10 +247,49 @@ const out = await p.evaluate(async (SECONDI) => {
         } else st.fermeAlRosso++;
       } else { fermoDa.set(t, 0); liberoDa.set(t, 0); st.inMoto++; }
     }
+    /*
+     * Ingorghi: gruppi di auto ferme vicine fra loro. E' la cosa che si
+     * vede giocando — dieci macchine bloccate a un incrocio — e non si
+     * legge da nessuna delle altre misure.
+     */
+    if (i % 30 === 0) {
+      const ferme = g.traffic.cars.map((t) => t.v).filter((v) => Math.abs(v.speed) < 0.5);
+      const visti = new Set();
+      let piuGrande = 0;
+      for (const a of ferme) {
+        if (visti.has(a)) continue;
+        const coda = [a]; visti.add(a);
+        for (let k = 0; k < coda.length; k++) {
+          for (const b of ferme) {
+            if (visti.has(b)) continue;
+            if (Math.hypot(b.x - coda[k].x, b.z - coda[k].z) < 22) { visti.add(b); coda.push(b); }
+          }
+        }
+        piuGrande = Math.max(piuGrande, coda.length);
+      }
+      st.campioniIngorgo++;
+      st.ingorgoMax = Math.max(st.ingorgoMax, piuGrande);
+      if (piuGrande >= 5) st.ingorgo5++;
+      if (piuGrande >= 8) st.ingorgo8++;
+      /*
+       * Un gruppo di auto ferme e' una coda al semaforo, non un ingorgo:
+       * lo diventa se resta fermo piu' a lungo di un ciclo intero. Qui si
+       * guarda da quanto TEMPO ognuna e' ferma, che e' la cosa che il
+       * giocatore percepisce come "bloccate".
+       */
+      for (const t of g.traffic.cars) {
+        const f = fermoDa.get(t) || 0;
+        st.fermaPiuALungo = Math.max(st.fermaPiuALungo, f);
+        if (f > 20) st.oltre20s++;
+        if (f > 40) st.oltre40s++;
+        st.campioniFermo++;
+      }
+    }
     if (i % 600 === 0) await new Promise((r) => setTimeout(r, 0));
   }
 
   const pc = (n) => +((n / Math.max(1, st.campioni)) * 100).toFixed(1);
+  const pc2 = (n) => +((n / Math.max(1, st.campioniTracciato)) * 100).toFixed(1);
   let sorpassi = 0, abortiti = 0, retro = 0;
   for (const t of g.traffic.cars) {
     sorpassi += t.nSorpassi || 0;
@@ -238,6 +306,12 @@ const out = await p.evaluate(async (SECONDI) => {
     parcheggiateInCarreggiata,
     urtiAlMinuto: +(urti / (SECONDI / 60)).toFixed(1),
     urtiPerTipo: tipi,
+    ingorgoPiuGrande: st.ingorgoMax,
+    tempoConIngorgoDa5: +((st.ingorgo5 / Math.max(1, st.campioniIngorgo)) * 100).toFixed(1),
+    tempoConIngorgoDa8: +((st.ingorgo8 / Math.max(1, st.campioniIngorgo)) * 100).toFixed(1),
+    fermaPiuALungoSecondi: +st.fermaPiuALungo.toFixed(0),
+    autoFermeOltre20sPercento: +((st.oltre20s / Math.max(1, st.campioniFermo)) * 100).toFixed(2),
+    autoFermeOltre40sPercento: +((st.oltre40s / Math.max(1, st.campioniFermo)) * 100).toFixed(2),
     schede,
     attraversamenti: st.dentroIncrocio,
     attraversamentiColRosso: st.dentroColRosso,
@@ -257,6 +331,10 @@ const out = await p.evaluate(async (SECONDI) => {
     inMotoPercento: pc(st.inMoto),
     ferme6sPercento: pc(st.ferme6s),
     ferme6sStradaLiberaPercento: pc(st.ferme6sConStradaLibera),
+    erroreDistribuzione: {
+      sottoMezzoMetro: pc2(st.err05), fino1m5: pc2(st.err15), fino4m: pc2(st.err4), oltre4m: pc2(st.errTanto),
+    },
+    erroreMedioDalTracciato: +(st.erroreTracciato / Math.max(1, st.campioniTracciato)).toFixed(2),
     scartoMedioDallaCorsia: +(st.scartoMedio / Math.max(1, st.campioni - st.fuoriStrada)).toFixed(2),
     velocitaMedia: +(st.velocitaMedia / Math.max(1, st.campioni)).toFixed(2),
   };

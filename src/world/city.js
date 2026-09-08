@@ -208,6 +208,10 @@ export class City {
       }),
       redA: new THREE.MeshBasicMaterial({ color: 0xff2a2a, toneMapped: false }),
       redB: new THREE.MeshBasicMaterial({ color: 0x3a0d0d, toneMapped: false }),
+      // il giallo ha la sua lente, in mezzo, come su una lanterna vera:
+      // prima lampeggiava al posto del verde e sembrava un guasto
+      amberA: new THREE.MeshBasicMaterial({ color: 0x3a2a08, toneMapped: false }),
+      amberB: new THREE.MeshBasicMaterial({ color: 0x3a2a08, toneMapped: false }),
       greenA: new THREE.MeshBasicMaterial({ color: 0x0d2a14, toneMapped: false }),
       greenB: new THREE.MeshBasicMaterial({ color: 0x24d05a, toneMapped: false }),
     };
@@ -450,7 +454,7 @@ export class City {
     const B = {};
     for (const k of ['office', 'stucco', 'brick', 'concrete', 'store', 'detail', 'paint',
                      'neon', 'lamp', 'glow', 'foliage', 'bark', 'grass', 'sand', 'water', 'roof',
-                     'redA', 'redB', 'greenA', 'greenB']) B[k] = new GeoBuilder();
+                     'redA', 'redB', 'amberA', 'amberB', 'greenA', 'greenB']) B[k] = new GeoBuilder();
     return B;
   }
 
@@ -468,7 +472,7 @@ export class City {
     this._mesh(B.grass, this.mats.grass, { cast: false });
     this._mesh(B.sand, this.mats.sand, { cast: false });
     this._mesh(B.water, this.mats.water, { cast: false });
-    for (const k of ['redA', 'redB', 'greenA', 'greenB']) {
+    for (const k of ['redA', 'redB', 'amberA', 'amberB', 'greenA', 'greenB']) {
       const m = this._mesh(B[k], this.mats[k], { cast: false, receive: false });
       if (m) m.frustumCulled = true;
     }
@@ -1192,14 +1196,21 @@ export class City {
     const m = this.mats;
     const RED = 0xff2a2a, RED_OFF = 0x3a0d0d;
     const GREEN = 0x24d05a, GREEN_OFF = 0x0d2a14;
-    const AMBER = 0xffb020;
-    // sull'asse con la precedenza: verde, poi giallo, poi rosso
-    const goA = axis === 0 && !allRed;
-    const goB = axis === 1 && !allRed;
-    m.redA.color.setHex(goA ? RED_OFF : RED);
-    m.redB.color.setHex(goB ? RED_OFF : RED);
-    m.greenA.color.setHex(goA ? (amber ? AMBER : GREEN) : GREEN_OFF);
-    m.greenB.color.setHex(goB ? (amber ? AMBER : GREEN) : GREEN_OFF);
+    const AMBER = 0xffb020, AMBER_OFF = 0x3a2a08;
+    /*
+     * Una lente sola accesa per volta, e ognuna al suo posto: rosso in
+     * alto, giallo in mezzo, verde in basso. Prima il giallo si accendeva
+     * nella lente verde — dal posto di guida sembrava un semaforo rotto.
+     * Col rosso su entrambi gli assi sono rossi tutti e due, che e'
+     * esattamente quello che succede.
+     */
+    const via = (asse) => axis === asse && !allRed;
+    for (const [suffisso, asse] of [['A', 0], ['B', 1]]) {
+      const passa = via(asse);
+      m['red' + suffisso].color.setHex(passa ? RED_OFF : RED);
+      m['amber' + suffisso].color.setHex(passa && amber ? AMBER : AMBER_OFF);
+      m['green' + suffisso].color.setHex(passa && !amber ? GREEN : GREEN_OFF);
+    }
   }
 
   setNight(k) {

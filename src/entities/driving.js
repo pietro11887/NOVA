@@ -126,6 +126,98 @@ export function buildLaneRoute(route, lane = LANE) {
  * @param {object} opt    { cruise, maxSpeed, stopDist, blockDist }
  * @returns {{throttle:number, steer:number, hand:boolean, done:boolean, target:object}}
  */
+/**
+ * Modello del guidatore intelligente (IDM).
+ *
+ * E' il modello che si usa nelle simulazioni di traffico vere. Invece di
+ * mettere una regola per ogni situazione — "se hai qualcuno davanti a meno
+ * di tot rallenta", "se e' fermo frena" — descrive come si comporta un
+ * guidatore: tiene una distanza di sicurezza proporzionale alla velocita',
+ * accelera verso la velocita' che vorrebbe tenere, e frena tanto piu'
+ * forte quanto piu' si avvicina a qualcosa. La proprieta' che ci interessa
+ * e' che con la distanza di sicurezza rispettata NON tampona: la frenata
+ * comincia da sola abbastanza presto.
+ *
+ * Ogni ostacolo — chi hai davanti, la linea d'arresto, chi ti taglia la
+ * strada — entra nella stessa formula come una coppia (distanza,
+ * velocita'), e si prende l'accelerazione piu' bassa: il guidatore obbedisce
+ * al vincolo piu' stringente.
+ *
+ * @param {number} speed  velocita' attuale
+ * @param {number} v0     velocita' che si vorrebbe tenere
+ * @param {Array} ostacoli  elenco di { d, speed }
+ */
+export function idmAccel(speed, v0, ostacoli, o = {}) {
+  const a = o.a ?? 2.4;          // accelerazione comoda
+  const b = o.b ?? 3.6;          // decelerazione comoda
+  const T = o.T ?? 0.95;         // distanza in secondi da chi hai davanti
+  const s0 = o.s0 ?? 2.2;        // spazio minimo da fermo, paraurti a paraurti
+  const libero = 1 - (speed / Math.max(v0, 0.5)) ** 4;
+  let acc = a * libero;
+  for (const ob of ostacoli) {
+    if (!ob || !(ob.d < Infinity)) continue;
+    const s = Math.max(0.35, ob.d);
+    const dv = speed - Math.max(0, ob.speed || 0);
+    // distanza che si vorrebbe avere: quella minima, piu' quella percorsa
+    // nel tempo di reazione, piu' quella che serve ad annullare il
+    // dislivello di velocita'
+    const sStar = s0 + Math.max(0, speed * T + (speed * dv) / (2 * Math.sqrt(a * b)));
+    acc = Math.min(acc, a * (libero - (sStar / s) ** 2));
+  }
+  return acc;
+}
+
+/**
+ * Scostamento dalla linea di corsia: positivo se il veicolo le sta a
+ * sinistra.
+ *
+ * Si misura sul tratto piu' vicino al veicolo, non su quello che finisce nel
+ * punto di mira: quello puo' essere quindici metri piu' avanti, e la
+ * distanza da li' non dice niente su dove ci si trova adesso.
+ */
+function crossTrack(v, path, i) {
+  let best = 0, bd = Infinity;
+  /*
+   * Finestra larga: il punto di mira puo' stare tre o quattro punti avanti
+   * al veicolo, e cercando solo li' attorno il tratto su cui ci si trova
+   * davvero restava fuori. La correzione allora tirava verso un pezzo di
+   * strada lontano invece che verso la propria riga.
+   */
+  const da = Math.max(1, i - 8), a = Math.min(i + 1, path.length - 1);
+  for (let k = da; k <= a; k++) {
+    const A = path[k - 1], B = path[k];
+    const dx = B.x - A.x, dz = B.z - A.z;
+    const len2 = dx * dx + dz * dz;
+    if (len2 < 1e-6) continue;
+    let t = ((v.x - A.x) * dx + (v.z - A.z) * dz) / len2;
+    t = clamp(t, 0, 1);
+    const px = A.x + dx * t, pz = A.z + dz * t;
+    const d = (px - v.x) ** 2 + (pz - v.z) ** 2;
+    if (d < bd) {
+      bd = d;
+      const len = Math.sqrt(len2);
+      // sinistra rispetto al senso di marcia e' (dz, -dx): la stessa
+      // convenzione con cui si costruiscono le corsie. Col segno invertito
+      // la correzione spingeva fuori strada invece che dentro la corsia.
+      best = (v.x - A.x) * (dz / len) + (v.z - A.z) * (-dx / len);
+    }
+  }
+  return best;
+}
+
+/**
+ * Guida lungo un tracciato.
+ *
+ * Sterzo: inseguimento puro verso un punto piu' avanti, piu' una correzione
+ * proporzionale a quanto si e' scostati dalla linea di corsia. L'inseguimento
+ * da solo taglia le curve e lascia l'auto a mezzo metro dal centro corsia;
+ * la correzione la riporta sulla riga e ce la tiene.
+ *
+ * Gas e freno: modello del guidatore intelligente su tutti gli ostacoli che
+ * il chiamante gli passa.
+ *
+ * @param {object} opt { cruise, maxSpeed, stopDist, lead, obstacles, sideOffset }
+ */
 export function followPath(v, path, st, opt = {}) {
   if (!path || path.length === 0) return { throttle: 0, steer: 0, hand: true, done: true };
 
@@ -139,23 +231,14 @@ export function followPath(v, path, st, opt = {}) {
    * della distanza di mira — bisogna scartare anche i punti che sono ormai
    * dietro: dopo un urto il veicolo puo' ritrovarsi oltre il proprio
    * bersaglio, e continuando a puntarlo resterebbe li' a girare su se stesso.
+   * Il secondo limite (dietro E vicino) evita che si mangi tutto il
+   * tracciato in un colpo quando ci si ritrova girati per il verso sbagliato.
    */
   const fx = Math.cos(v.a), fz = -Math.sin(v.a);
   while (st.i < path.length - 1) {
     const dx = path[st.i].x - v.x, dz = path[st.i].z - v.z;
     const d = Math.hypot(dx, dz);
     const ahead = dx * fx + dz * fz;
-    /*
-     * Un punto si consuma se e' piu' vicino della distanza di mira, oppure
-     * se e' ormai dietro — ma dietro E vicino.
-     *
-     * Senza quel secondo limite bastava trovarsi girati per il verso
-     * sbagliato (dopo un urto, o appena ricalcolato il percorso) perche'
-     * questo ciclo si mangiasse in un colpo solo tutto il tracciato: il
-     * veicolo si ritrovava "a fine percorso" con la meta' a duecento metri
-     * e ci puntava dritto in linea d'aria, attraversando gli isolati.
-     * E' il motivo per cui il taxi finiva lontanissimo e non arrivava mai.
-     */
     if (d < look || (ahead < 0.5 && d < look * 1.6)) st.i++;
     else break;
   }
@@ -163,16 +246,14 @@ export function followPath(v, path, st, opt = {}) {
   const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
 
   /*
-   * Scarto laterale, per aggirare chi e' fermo in mezzo alla strada. Si mira
-   * di lato rispetto alla propria corsia — a sinistra, come si sorpassa —
-   * invece che al punto della corsia, che e' proprio dove sta l'ostacolo.
+   * Scarto laterale, per aggirare chi e' fermo in mezzo alla strada: si mira
+   * di lato rispetto alla propria corsia, come si sorpassa.
    */
   let aimX = target.x, aimZ = target.z;
   const off = opt.sideOffset || 0;
   if (off) {
     const dx0 = target.x - v.x, dz0 = target.z - v.z;
     const l = Math.hypot(dx0, dz0) || 1;
-    // sinistra rispetto alla direzione di marcia
     aimX += (dz0 / l) * off;
     aimZ += (-dx0 / l) * off;
   }
@@ -180,100 +261,73 @@ export function followPath(v, path, st, opt = {}) {
   const want = Math.atan2(-(aimZ - v.z), aimX - v.x);
   const alpha = angleDelta(v.a, want);
   const ld = Math.max(2, dist(v.x, v.z, aimX, aimZ));
-  // curvatura richiesta dall'inseguimento puro, normalizzata sullo sterzo
-  const curvature = (2 * Math.sin(alpha)) / ld;
-  const steer = clamp(Math.atan(curvature * WHEELBASE) / 0.46, -1, 1);
+  const curvatura = (2 * Math.sin(alpha)) / ld;
+  // rientro in corsia: se si e' a sinistra della riga si sterza a destra, e
+  // la correzione si ammorbidisce con la velocita' per non ondeggiare
+  const scarto = crossTrack(v, path, st.i) - off;
+  const rientro = -Math.atan((opt.kCross ?? 0.85) * scarto / (speed + 2.5));
+  const steer = clamp((Math.atan(curvatura * WHEELBASE) + rientro) / 0.46, -1, 1);
 
   /*
-   * Velocita': si guarda quanto gira il tracciato nei prossimi punti e si
-   * arriva in curva gia' rallentati, invece di frenare dentro la curva.
+   * Quanto gira il tracciato nei prossimi quattordici METRI, non nei
+   * prossimi tot punti: sugli archi degli incroci i punti sono fitti e
+   * contarli faceva viaggiare tutti a passo d'uomo anche in rettilineo.
    */
-  /*
-   * Curvatura del tracciato davanti.
-   *
-   * Si somma quanto gira il percorso nei prossimi venti METRI, non nei
-   * prossimi sette punti. E' una differenza sostanziale: sugli archi degli
-   * incroci i punti sono fitti, due o tre metri l'uno dall'altro, quindi
-   * sette punti coprivano mezza svolta e la somma degli angoli sfondava il
-   * limite. Il fattore restava incollato al minimo e ogni veicolo
-   * viaggiava a tre metri al secondo — a passo d'uomo — anche sui
-   * rettilinei. E' per questo che il taxi non arrivava mai: non era
-   * bloccato, andava piano.
-   *
-   * Si guarda anche solo la forma del percorso, non dove si trova il
-   * veicolo: includendo l'angolo fra veicolo e primo punto, un'auto
-   * spostata di lato dopo un urto vedeva una curva enorme proprio quando le
-   * serviva spinta per rimettersi in carreggiata.
-   */
-  let bend = 0;
-  let span = 0;
+  let bend = 0, span = 0;
   for (let k = Math.max(1, st.i); k < path.length - 1 && span < 14; k++) {
     const a1 = Math.atan2(path[k].z - path[k - 1].z, path[k].x - path[k - 1].x);
     const a2 = Math.atan2(path[k + 1].z - path[k].z, path[k + 1].x - path[k].x);
     bend += Math.abs(angleDelta(a1, a2));
     span += dist(path[k].x, path[k].z, path[k + 1].x, path[k + 1].z);
   }
-  // una svolta d'incrocio vale mezzo pi greco: oltre non ha senso rallentare
-  // ancora, e sommando due archi si finiva a passo d'uomo su tutto il giro
   bend = Math.min(bend, 1.6);
 
   const cruise = opt.cruise ?? 0.7;
-  let wanted = (opt.maxSpeed ?? 22) * cruise * clamp(1 - bend * 0.42, 0.28, 1);
-
-  // fermata programmata: semaforo o fine corsa. Qui l'ostacolo e' fermo,
-  // quindi si punta ad arrivarci a velocita' zero
-  const stopDist = opt.stopDist;
-  if (stopDist !== undefined && stopDist < Infinity) {
-    // decelerazione dolce: v = sqrt(2 a s) con a ~ 4 m/s^2
-    wanted = Math.min(wanted, Math.sqrt(Math.max(0, stopDist - 1.2) * 8));
-  }
+  const v0 = (opt.maxSpeed ?? 21) * cruise * clamp(1 - bend * 0.42, 0.3, 1);
 
   /*
-   * Accodamento. Chi sta davanti di solito si muove: si tiene una distanza
-   * proporzionale alla velocita' e si copia la sua andatura, correggendo di
-   * quanto la distanza reale si discosta da quella voluta. E' il modello di
-   * inseguimento classico, e da' colonne che scorrono invece di auto che
-   * inchiodano appena ne vedono una davanti.
+   * Gli ostacoli, tutti nella stessa forma. La distanza di chi hai davanti
+   * arriva da centro a centro e va portata a paraurti contro paraurti, se
+   * no il modello crede di avere quattro metri in piu' di quelli che ha.
    */
+  const ostacoli = [];
   const lead = opt.lead;
-  if (lead && lead.d < Infinity) {
-    const desired = 5.5 + speed * 1.1;
-    const follow = lead.speed + (lead.d - desired) * 0.65;
-    wanted = Math.min(wanted, Math.max(0, follow));
-  }
+  if (lead && lead.d < Infinity) ostacoli.push({ d: Math.max(0.2, lead.d - 4.4), speed: lead.speed });
+  if (opt.stopDist !== undefined && opt.stopDist < Infinity) ostacoli.push({ d: opt.stopDist, speed: 0 });
+  if (opt.obstacles) for (const o of opt.obstacles) if (o) ostacoli.push(o);
+  if (opt.endStop !== false && st.i >= path.length - 1) ostacoli.push({ d: Math.max(0, toEnd - 0.8), speed: 0 });
+
+  let acc = idmAccel(speed, v0, ostacoli, opt.idm);
   /*
-   * Chi ti taglia la strada. L'accodamento non lo vede — non e' nella tua
-   * corsia e non ha il tuo muso — ma fra un secondo sara' dove sei tu. Piu'
-   * e' vicino nel tempo, piu' si frena: a un secondo e mezzo e' una lieve
-   * levata di piede, a mezzo secondo e' il pedale a fondo.
+   * Freno con un tetto.
+   *
+   * Un'inchiodata al massimo si propaga all'indietro: chi segue tiene la
+   * distanza calcolata su una frenata normale e non fa in tempo. Sotto i
+   * quattro metri si frena come si puo' — li' e' questione di toccarsi o no
+   * — ma sopra si resta entro una decelerazione che chi viene dietro puo'
+   * seguire. E' il modo in cui si spengono le onde di frenata.
    */
-  // tetto momentaneo alla velocita': serve a passare al passo accanto a
-  // qualcosa di fermo invece di centrarlo
-  if (opt.maxSpeedNow !== undefined) wanted = Math.min(wanted, opt.maxSpeedNow);
-
-  const risk = opt.risk;
-  if (risk && risk.t < Infinity) {
-    /*
-     * Chi ti taglia la strada: piu' e' vicino nel tempo, piu' si frena. Ma
-     * mai fino a fermarsi: sotto resta sempre il passo d'uomo. E' quello
-     * che evita lo stallo a due — io fermo perche' aspetto te, tu ferma
-     * perche' aspetti me — e allo stesso tempo fa si' che, se proprio ci si
-     * tocca, ci si tocchi a due metri al secondo invece che a otto.
-     */
-    wanted = Math.min(wanted, Math.max(1.6, speed * clamp(risk.t / 1.6, 0, 1)));
-  }
-
-  if (opt.endStop !== false && st.i >= path.length - 1) {
-    wanted = Math.min(wanted, Math.sqrt(Math.max(0, toEnd - 0.8) * 8));
-  }
-
-  const diff = wanted - speed;
-  let throttle = clamp(diff * 0.5, -1, 1);
-  // in curva stretta non si accelera comunque
-  if (Math.abs(steer) > 0.55 && throttle > 0.5) throttle = 0.5;
+  let piuVicino = Infinity;
+  for (const ob of ostacoli) if (ob.d < piuVicino) piuVicino = ob.d;
+  if (piuVicino > 4) acc = Math.max(acc, -6.5);
+  /*
+   * Dall'accelerazione voluta al pedale.
+   *
+   * Non basta dividere per la potenza del motore: la vettura ha un attrito
+   * proporzionale alla velocita' che a dieci metri al secondo vale tre
+   * metri al secondo quadrato, piu' di tutta l'accelerazione che il modello
+   * chiede. Senza aggiungerlo, il gas richiesto veniva mangiato
+   * dall'attrito e le auto non superavano il passo d'uomo — misurato: mezzo
+   * metro al secondo di media, citta' ferma.
+   */
+  const attrito = 0.35 * speed;
+  const richiesta = acc + attrito;
+  const throttle = richiesta >= 0
+    ? clamp(richiesta / (v.accel || 8), 0.02, 1)
+    : clamp(richiesta / (v.brake || 16), -1, 0);
 
   const done = st.i >= path.length - 1 && toEnd < 3;
-  return { throttle, steer, hand: false, done, target, wanted, toEnd };
+  return { throttle, steer, hand: false, done, target, wanted: v0, toEnd, acc };
 }
 
 /**

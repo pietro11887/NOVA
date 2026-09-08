@@ -729,6 +729,10 @@ class Game {
     // chi guida si guarda intorno di continuo: l'elenco dei vicini si
     // prepara una volta sola, prima che qualcuno lo consulti
     this._rebuildVehicleIndex();
+    // dove guarda la camera: serve a sapere cosa il giocatore vede davvero
+    const dirCam = this._camDir || (this._camDir = new THREE.Vector3());
+    this.camera.getWorldDirection(dirCam);
+    this._camFx = dirCam.x; this._camFz = dirCam.z;
 
     this._dayNight(dt);
     // il meteo va dopo il ciclo giorno/notte: ne corregge sole, foschia e cielo
@@ -1531,49 +1535,127 @@ class Game {
   }
 
   /**
-   * Rischio di scontro nei prossimi secondi.
+   * Chi ho davanti, cercato lungo il MIO tracciato.
    *
-   * L'accodamento guarda solo chi sta nella propria corsia e con lo stesso
-   * muso: al semaforo serve cosi', se no due file perpendicolari si
-   * bloccherebbero a vicenda. Ma quello che ti fa sbattere davvero e' chi
-   * arriva di traverso — chi svolta tagliandoti la strada, chi esce
-   * dall'incrocio in ritardo. Qui si guarda dove saranno tutti fra poco: se
-   * le due traiettorie si incontrano, si rallenta.
+   * Il corridoio dritto davanti al muso funziona in rettilineo e sbaglia in
+   * curva: dentro un arco d'incrocio l'auto che precede sta di lato rispetto
+   * al muso, esce dal corridoio e diventa invisibile — e li' si tampona.
+   * Qui si misura, per me e per ogni vettura vicina, a che punto della
+   * stessa riga ci si trova: chi e' piu' avanti di me sulla riga, e vicino
+   * a essa, e' chi ho davanti. Vale in curva come in rettilineo.
    *
-   * @returns {{t:number, miss:number}} tempo al punto di minima distanza
+   * @returns {{d:number, speed:number}} distanza lungo il tracciato
    */
-  crashRisk(v, horizon = 2.4) {
-    /*
-     * Nessuna soglia di velocita' qui: chi rischia di prendersi addosso
-     * qualcuno rallenta e basta, anche se va piano. Lo stallo — io aspetto
-     * te, tu aspetti me — si evita altrove, tenendo un minimo di passo:
-     * la frenata di emergenza non porta mai a zero, porta a passo d'uomo.
-     */
-    const ax = v.fx * v.speed, az = v.fz * v.speed;
-    let bestT = Infinity, bestMiss = Infinity;
-    const test = (o) => {
-      if (o === v) return;
-      const px = o.x - v.x, pz = o.z - v.z;
-      const d0 = Math.hypot(px, pz);
-      if (d0 > 30) return;
-      // chi e' dietro non e' un problema nostro
-      if (px * v.fx + pz * v.fz < -1.5) return;
-      if (o.speed === undefined) return;
-      const ox = o.fx * o.speed, oz = o.fz * o.speed;
-      const wx = ox - ax, wz = oz - az;
-      const ww = wx * wx + wz * wz;
-      // si allontanano o vanno alla stessa andatura: ci pensa l'accodamento
-      if (ww < 0.25) return;
-      let t = -(px * wx + pz * wz) / ww;
-      if (t < 0 || t > horizon) return;
-      const mx = px + wx * t, mz = pz + wz * t;
-      const miss = Math.hypot(mx, mz);
-      // due auto larghe 1,8: sotto i due metri e mezzo si toccano
-      if (miss > 2.5) return;
-      if (t < bestT) { bestT = t; bestMiss = miss; }
+  leaderOnPath(v, path, idx, maxDist = 34) {
+    const best = { d: Infinity, speed: 0 };
+    if (!path || path.length < 2) return best;
+    // finestra di tracciato attorno al veicolo, con le distanze cumulate
+    const da = Math.max(1, idx - 6);
+    const seg = this._segScratch || (this._segScratch = []);
+    seg.length = 0;
+    let acc = 0;
+    for (let k = da; k < path.length; k++) {
+      const A = path[k - 1], B = path[k];
+      const dx = B.x - A.x, dz = B.z - A.z;
+      const l = Math.hypot(dx, dz);
+      if (l < 1e-4) continue;
+      seg.push({ ax: A.x, az: A.z, dx, dz, l, s0: acc });
+      acc += l;
+      if (acc > maxDist + 30) break;
+    }
+    if (!seg.length) return best;
+
+    // posizione lungo la riga: si proietta sul tratto piu' vicino
+    const posizione = (x, z) => {
+      let bd = Infinity, s = 0, lato = Infinity;
+      for (const g of seg) {
+        let t = ((x - g.ax) * g.dx + (z - g.az) * g.dz) / (g.l * g.l);
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const qx = g.ax + g.dx * t, qz = g.az + g.dz * t;
+        const d = Math.hypot(qx - x, qz - z);
+        if (d < bd) { bd = d; s = g.s0 + g.l * t; lato = d; }
+      }
+      return { s, lato: bd };
     };
-    for (const o of this.nearVehicles(v.x, v.z, 32)) test(o);
-    return { t: bestT, miss: bestMiss };
+
+    const mio = posizione(v.x, v.z);
+    for (const o of this.nearVehicles(v.x, v.z, maxDist + 6)) {
+      if (o === v) continue;
+      const suo = posizione(o.x, o.z);
+      const avanti = suo.s - mio.s;
+      // dentro la larghezza di una corsia, e piu' avanti di me sulla riga
+      if (suo.lato < 2.3 && avanti > 0.5 && avanti < maxDist && avanti < best.d) {
+        best.d = avanti;
+        best.speed = Math.max(0, o.speed || 0);
+      }
+    }
+    return best;
+  }
+
+  /** Punto sul tracciato a una certa distanza davanti al veicolo. */
+  _avanti(path, i, x, z, dist) {
+    let px = x, pz = z, rimasto = dist;
+    for (let k = Math.min(i, path.length - 1); k < path.length; k++) {
+      const dx = path[k].x - px, dz = path[k].z - pz;
+      const l = Math.hypot(dx, dz);
+      if (l < 0.001) continue;
+      if (l >= rimasto) return { x: px + (dx / l) * rimasto, z: pz + (dz / l) * rimasto, s: dist };
+      rimasto -= l;
+      px = path[k].x; pz = path[k].z;
+    }
+    return { x: px, z: pz, s: dist - rimasto };
+  }
+
+  /**
+   * Conflitto di traiettoria.
+   *
+   * Non si guarda la retta del muso — che in un incrocio e' sbagliata,
+   * perche' chi svolta segue un arco — ma dove saranno davvero le due
+   * vetture seguendo i rispettivi tracciati. Si campionano i prossimi due
+   * secondi e mezzo: se in un qualsiasi istante si trovano piu' vicine di
+   * tre metri e mezzo, quella che arriverebbe dopo cede, e cede fermandosi
+   * prima del punto d'incontro. La regola e' asimmetrica — cede sempre e
+   * solo una delle due — quindi non puo' succedere che si aspettino a
+   * vicenda.
+   *
+   * @returns {{d:number, speed:number}|null}
+   */
+  conflictObstacle(v, path, idx) {
+    if (!path || path.length < 2) return null;
+    const mia = Math.abs(v.speed);
+    const passi = [0.5, 1.0, 1.5, 2.0, 2.5];
+    const miei = passi.map((t) => this._avanti(path, idx, v.x, v.z, Math.max(mia, 2.2) * t));
+    let best = null;
+    for (const o of this.nearVehicles(v.x, v.z, 30)) {
+      if (o === v || o.parked) continue;
+      const b = o.brain;
+      if (!b || !b.path || b.path.length < 2) continue;
+      const sua = Math.abs(o.speed);
+      if (sua < 0.6 && mia < 0.6) continue;
+      /*
+       * Chi va nella mia stessa direzione non e' un conflitto: davanti e'
+       * una coda — e la distanza la tiene gia' l'accodamento — dietro sono
+       * fatti suoi. Cedere il passo a chi ti segue significa inchiodargli
+       * davanti: misurato, cinquantaquattro tamponamenti in tre minuti.
+       */
+      const cos = o.fx * v.fx + o.fz * v.fz;
+      if (cos > 0.75) continue;
+      for (let k = 0; k < passi.length; k++) {
+        const suo = this._avanti(b.path, b.st.i, o.x, o.z, Math.max(sua, 1.5) * passi[k]);
+        if (Math.hypot(miei[k].x - suo.x, miei[k].z - suo.z) > 3.4) continue;
+        if (miei[k].s < 2) break;            // l'incontro e' gia' addosso: frenare non aiuta
+        const mioT = miei[k].s / Math.max(mia, 0.8);
+        const suoT = suo.s / Math.max(sua, 0.8);
+        const cedo = suoT < mioT - 0.2
+          || (Math.abs(suoT - mioT) <= 0.2 && (o._gid || 0) < (v._gid || 0));
+        if (cedo) {
+          const d = Math.max(0.3, miei[k].s - 4.5);
+          if (!best || d < best.d) best = { d, speed: 0 };
+        }
+        break;
+      }
+    }
+    return best;
   }
 
   /**
@@ -1582,66 +1664,28 @@ class Game {
    * L'accodamento guarda solo chi ha il tuo stesso muso — al semaforo serve
    * cosi', se no due file perpendicolari si bloccherebbero a vicenda — e
    * quindi un'auto ferma di traverso appena fuori dall'incrocio risultava
-   * invisibile: ci si andava addosso a cinque metri al secondo. Era il caso
-   * piu' frequente di tutti. Qui non si pretende di fermarsi: si va a passo
-   * d'uomo, cosi' al massimo la si sposta con una spinta.
+   * invisibile: ci si andava addosso a cinque metri al secondo. Restituita
+   * come ostacolo, il modello di guida ci si ferma davanti come farebbe con
+   * chiunque altro.
    *
-   * @returns {boolean} vero se conviene procedere al passo
+   * @returns {{d:number, speed:number}|null}
    */
-  blockedCrosswise(v, dist = 14) {
+  crosswiseObstacle(v, dist = 20) {
     const fx = v.fx, fz = v.fz;
-    let c = false;
-    const test = (o) => {
-      if (c || o === v || o.speed === undefined) return;
-      if (Math.abs(o.speed) > 1) return;              // se si muove, sta sgombrando
+    let best = null;
+    for (const o of this.nearVehicles(v.x, v.z, dist + 4)) {
+      if (o === v || o.speed === undefined) continue;
+      if (Math.abs(o.speed) > 1) continue;             // se si muove sta sgombrando
       const dx = o.x - v.x, dz = o.z - v.z;
       const t = dx * fx + dz * fz;
-      if (t < 0.5 || t > dist) return;
-      if (Math.abs(-dx * fz + dz * fx) > 2.6) return;
+      if (t < 0.5 || t > dist) continue;
+      if (Math.abs(-dx * fz + dz * fx) > 2.6) continue;
       const cos = o.fx * fx + o.fz * fz;
-      if (Math.abs(cos) > 0.7) return;                // in coda, non di traverso
-      c = true;
-    };
-    for (const o of this.nearVehicles(v.x, v.z, dist + 4)) test(o);
-    return c;
-  }
-
-  /**
-   * C'e' gia' qualcuno dentro l'incrocio, di traverso?
-   *
-   * Nel cambio di fase capita che uno stia ancora sgombrando mentre l'altro
-   * asse prende il verde: chi arriva deve aspettare che sia libero, come si
-   * fa davvero. Conta solo chi e' messo di traverso rispetto a noi: chi ci
-   * precede nella nostra direzione e' una coda, non un ostacolo.
-   */
-  intersectionBusy(v, node) {
-    let occupato = false;
-    const test = (o) => {
-      if (occupato || o === v) return;
-      if (Math.hypot(o.x - node.x, o.z - node.z) > 8.5) return;
-      const cos = o.fx * v.fx + o.fz * v.fz;
-      if (Math.abs(cos) > 0.7) return;       // stessa direzione o opposta
-      /*
-       * Chi e' fermo di traverso dentro l'incrocio va aspettato — se no gli
-       * si va addosso — ma aspettare e basta blocca tutto: io aspetto te, tu
-       * aspetti me. La precedenza la prende chi e' piu' vicino al centro:
-       * cosi' uno dei due parte sempre, ed e' anche quello che si fa
-       * davvero quando ci si guarda in faccia a un incrocio.
-       */
-      /*
-       * Solo chi si sta muovendo. Chi e' fermo di traverso lo si aggira al
-       * passo — se ne occupa blockedCrosswise — mentre aspettarlo qui vuol
-       * dire fermare mezza citta': misurato, l'otto per cento delle auto
-       * ferme con la strada libera davanti e la velocita' media giu' di un
-       * quarto.
-       */
-      if (Math.abs(o.speed) < 1) return;
-      occupato = true;
-    };
-    for (const o of this.nearVehicles(node.x, node.z, 10)) {
-      if (!o.parked) test(o);
+      if (Math.abs(cos) > 0.7) continue;               // in coda, non di traverso
+      const d = Math.max(0.3, t - 4.2);
+      if (!best || d < best.d) best = { d, speed: 0 };
     }
-    return occupato;
+    return best;
   }
 
   /**

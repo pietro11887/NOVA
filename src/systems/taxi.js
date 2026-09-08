@@ -172,6 +172,7 @@ export class TaxiService {
     }
     this.stop = stop;
     this.state = 'coming';
+    v.brain = this;              // cosi' gli altri vedono dove sta andando
     this.fare = 0;
     this.age = 0;
     this._scartati = new Set();
@@ -396,7 +397,7 @@ export class TaxiService {
       stopDist = Math.min(stopDist,
         stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber, g.trafficAllRed));
     }
-    const lead = g.leaderAhead(v, 24, true);
+    const lead = g.leaderOnPath(v, this.path, this.st.i, 30);
 
     /*
      * Avvicinamento finale. La frenata di fine percorso da sola e' troppo
@@ -463,9 +464,10 @@ export class TaxiService {
       maxSpeed: 21,
       stopDist,
       lead,
-      risk: g.crashRisk(v),
       sideOffset: this.sorpassoT > 0 ? 3 : 0,
-      maxSpeedNow: g.blockedCrosswise(v) ? 2.2 : undefined,
+      // chi taglia la strada e chi sta fermo di traverso entrano nel
+      // modello come ostacoli, con la loro distanza: ci si ferma prima
+      obstacles: [g.conflictObstacle(v, this.path, this.st.i), g.crosswiseObstacle(v)],
     });
     // stato utile a capire perche' si e' fermato, letto dai collaudi
     this.dbg = {

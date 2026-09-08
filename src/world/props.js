@@ -223,23 +223,37 @@ export class Props {
   trafficLight(x, z, dir, axis) {
     const det = this.B.detail;
     const nx = Math.cos(dir), nz = Math.sin(dir);
-    tube(det, [[x, 0.2, z], [x, 4.4, z], [x, 6.2, z]], [0.17, 0.15, 0.13], 0x50565c, 8, 1);
+    tube(det, [[x, 0.2, z], [x, 4.4, z], [x, 6.4, z]], [0.17, 0.15, 0.13], 0x50565c, 8, 1);
     cyl(det, x, z, 0, 0.24, 0.26, 0.22, 0x50565c, 10);
-    const arm = 5.2;
-    det.box(x + nx * arm / 2, 6.1, z + nz * arm / 2, nx !== 0 ? arm : 0.16, 0.16, nx !== 0 ? 0.16 : arm, 0x50565c);
-    for (const t of [0.55, 0.95]) {
+
+    // braccio sopra la carreggiata, con la mensola diagonale che lo regge
+    const arm = 6.2;
+    det.box(x + nx * arm / 2, 6.3, z + nz * arm / 2, nx !== 0 ? arm : 0.16, 0.16, nx !== 0 ? 0.16 : arm, 0x50565c);
+    det.box(x + nx * 0.7, 5.75, z + nz * 0.7, nx !== 0 ? 1.5 : 0.1, 0.1, nx !== 0 ? 0.1 : 1.5, 0x50565c, 0, 0);
+
+    /*
+     * Le lanterne guardano chi arriva, cioe' dalla parte opposta al braccio.
+     * Tre lenti in colonna, ognuna al suo posto: rosso in alto, giallo in
+     * mezzo, verde in basso. Prima le lenti erano due e il giallo si
+     * accendeva in quella del verde — da lontano sembrava un semaforo
+     * rotto, e la visierina sporgeva di sbieco come una bandierina.
+     */
+    const gruppo = axis === 0 ? 'A' : 'B';
+    const face = dir + Math.PI;
+    const fx = Math.cos(face), fz = Math.sin(face);
+    for (const t of [0.45, 0.85]) {
       const hx = x + nx * arm * t, hz = z + nz * arm * t;
-      det.box(hx, 5.55, hz, 0.4, 1.3, 0.42, 0x2f353b, 0, dir);
-      det.box(hx, 6.24, hz, 0.46, 0.1, 0.48, 0x22272c, 0, dir);
-      const face = dir + Math.PI;
-      const fx = Math.cos(face), fz = Math.sin(face);
-      // lenti con visierina
-      for (const [y, key] of [[5.95, axis === 0 ? 'redA' : 'redB'], [5.15, axis === 0 ? 'greenA' : 'greenB']]) {
-        this.B[key].box(hx + fx * 0.22, y, hz + fz * 0.22, 0.1, 0.24, 0.24, 0xffffff, 0, dir);
-        det.box(hx + fx * 0.3, y + 0.16, hz + fz * 0.3, 0.16, 0.06, 0.3, 0x22272c, 0, dir);
+      // aggancio al braccio
+      det.box(hx, 6.12, hz, 0.12, 0.24, 0.12, 0x50565c, 0, dir);
+      // corpo della lanterna e cappello
+      det.box(hx, 5.34, hz, 0.44, 1.34, 0.46, 0x2f353b, 0, dir);
+      det.box(hx, 6.03, hz, 0.52, 0.1, 0.54, 0x22272c, 0, dir);
+      const lenti = [[5.74, 'red' + gruppo], [5.34, 'amber' + gruppo], [4.94, 'green' + gruppo]];
+      for (const [y, key] of lenti) {
+        this.B[key].box(hx + fx * 0.24, y, hz + fz * 0.24, 0.05, 0.26, 0.26, 0xffffff, 0, dir);
+        // visiera: sta sopra la lente e sporge quanto basta a fare ombra
+        det.box(hx + fx * 0.28, y + 0.17, hz + fz * 0.28, 0.14, 0.04, 0.34, 0x22272c, 0, dir);
       }
-      det.box(hx + fx * 0.22, 5.55, hz + fz * 0.22, 0.09, 0.24, 0.24, 0x4a3a12, 0, dir);
-      det.box(hx + fx * 0.3, 5.71, hz + fz * 0.3, 0.16, 0.06, 0.3, 0x22272c, 0, dir);
     }
     return { x, z, r: 0.28 };
   }
