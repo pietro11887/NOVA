@@ -71,6 +71,10 @@ class TrafficCar {
     this.attesaT = 0;       // da quanto aspetta dietro a un ostacolo fermo
     this.sorpassoT = 0;     // quanto dura ancora il sorpasso in corso
     this.fuoriT = 0;        // da quanto e' fuori dalla carreggiata
+    this.incastroT = 0;     // da quanto vuole andare e non ci riesce
+    this.manovraT = 0;      // districamento in corso
+    this.manovraSteer = 0;
+    this.sbloccoT = 0;      // pausa fra un districamento e il successivo
   }
 
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
@@ -79,7 +83,7 @@ class TrafficCar {
    * stretto, aumentarne il numero non riempie la citta': la ingorga. Piu'
    * largo vuol dire piu' strade occupate e stessa densita' sotto gli occhi.
    */
-  respawn(px, pz, minD = 55, maxD = 205) {
+  respawn(px, pz, minD = 55, maxD = 235) {
     const nodes = this.city.roadNodes;
     let n = null;
     for (let k = 0; k < 80; k++) {
@@ -368,6 +372,54 @@ class TrafficCar {
     if (this.dopoSorpasso > 0) this.dopoSorpasso -= dt;
     const fuori = roadDistance(this.city.roadNodes, v.x, v.z) > HALF_ROAD + 0.4;
     this.fuoriT = fuori ? this.fuoriT + dt : 0;
+
+    /*
+     * Districarsi.
+     *
+     * Due vetture che si toccano dopo un contatto restano incastrate: si
+     * spingono a vicenda e nessuna delle due vede l'altra come "chi ho
+     * davanti", perche' e' di fianco o storta. Misurato: un quarto delle
+     * auto ferme senza motivo era appoggiata a un'altra — e sono proprio
+     * quelle che da fuori sembrano messe li' a caso.
+     *
+     * Se ne esce con un mezzo metro di retromarcia sterzando dalla parte
+     * opposta a chi tocca. Solo con la strada dietro libera e non piu' di
+     * una volta ogni otto secondi: la retromarcia nel traffico, se lasciata
+     * libera, fa piu' danni di quanti ne ripari.
+     */
+    this.sbloccoT = Math.max(0, (this.sbloccoT || 0) - dt);
+    const vuoleAndare = (ctrl.wanted || 0) > 3 && Math.abs(v.speed) < 0.4;
+    if (vuoleAndare && lead.d > 12 && stopDist > 12) this.incastroT = (this.incastroT || 0) + dt;
+    else this.incastroT = 0;
+
+    if (this.manovraT > 0) {
+      this.manovraT -= dt;
+      v.update(dt, { throttle: -0.5, steer: this.manovraSteer, hand: false });
+      return;
+    }
+    if (this.incastroT > 2.5 && this.sbloccoT <= 0) {
+      let tocca = null, dietro = false;
+      for (const o of game.nearVehicles(v.x, v.z, 7)) {
+        if (o === v) continue;
+        const dx = o.x - v.x, dz = o.z - v.z;
+        const avanti = dx * v.fx + dz * v.fz;
+        if (avanti < -1 && Math.hypot(dx, dz) < 5) dietro = true;
+        if (Math.hypot(dx, dz) < 4.8 && (!tocca || Math.hypot(dx, dz) < tocca.d)) {
+          tocca = { d: Math.hypot(dx, dz), lato: dx * Math.sin(v.a) + dz * Math.cos(v.a) };
+        }
+      }
+      if (tocca && !dietro) {
+        this.incastroT = 0;
+        this.sbloccoT = 8;
+        this.manovraT = 0.7;
+        // indietro girando dalla parte opposta a chi tocca: a marcia
+        // indietro il muso va dove non punta il volante
+        this.manovraSteer = tocca.lato > 0 ? -0.6 : 0.6;
+        this.nManovre = (this.nManovre || 0) + 1;
+        v.update(dt, { throttle: -0.5, steer: this.manovraSteer, hand: false });
+        return;
+      }
+    }
 
     if (this.fuoriT > 1.2) {
       const rientro = rientroInCorsia(v, this.city.roadNodes);

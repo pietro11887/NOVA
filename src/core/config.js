@@ -18,8 +18,8 @@ export const CFG = {
    */
   PED_MAX_DESKTOP: 170,
   PED_MAX_MOBILE: 70,
-  CAR_MAX_DESKTOP: 84,
-  CAR_MAX_MOBILE: 38,
+  CAR_MAX_DESKTOP: 104,
+  CAR_MAX_MOBILE: 50,
   PARKED_DESKTOP: 120,
   PARKED_MOBILE: 45,
   STREAM_RADIUS: 210,   // oltre questa distanza i bot vengono riciclati

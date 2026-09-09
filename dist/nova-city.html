@@ -10242,8 +10242,8 @@ var CFG = {
    */
   PED_MAX_DESKTOP: 170,
   PED_MAX_MOBILE: 70,
-  CAR_MAX_DESKTOP: 84,
-  CAR_MAX_MOBILE: 38,
+  CAR_MAX_DESKTOP: 104,
+  CAR_MAX_MOBILE: 50,
   PARKED_DESKTOP: 120,
   PARKED_MOBILE: 45,
   STREAM_RADIUS: 210,
@@ -19844,8 +19844,8 @@ function buildLaneRoute(route, lane = LANE) {
 }
 function idmAccel(speed, v0, ostacoli, o = {}) {
   const a = o.a ?? 2.4;
-  const b = o.b ?? 3.6;
-  const T = o.T ?? 0.95;
+  const b = o.b ?? 4.5;
+  const T = o.T ?? 1.15;
   const s0 = o.s0 ?? 2.2;
   const libero = 1 - (speed / Math.max(v0, 0.5)) ** 4;
   let acc = a * libero;
@@ -19928,7 +19928,7 @@ function followPath(v, path, st, opt = {}) {
   let acc = idmAccel(speed, v0, ostacoli, opt.idm);
   let piuVicino = Infinity;
   for (const ob of ostacoli) if (ob.d < piuVicino) piuVicino = ob.d;
-  if (piuVicino > 4) acc = Math.max(acc, -6.5);
+  if (piuVicino > 4) acc = Math.max(acc, -5);
   const attrito = 0.35 * speed;
   const richiesta = acc + attrito;
   const throttle = richiesta >= 0 ? clamp(richiesta / (v.accel || 8), 0.02, 1) : clamp(richiesta / (v.brake || 16), -1, 0);
@@ -20146,6 +20146,10 @@ var TrafficCar = class {
     this.attesaT = 0;
     this.sorpassoT = 0;
     this.fuoriT = 0;
+    this.incastroT = 0;
+    this.manovraT = 0;
+    this.manovraSteer = 0;
+    this.sbloccoT = 0;
   }
   /** Rimette l'auto in circolazione a distanza giusta dal giocatore. */
   /*
@@ -20153,7 +20157,7 @@ var TrafficCar = class {
    * stretto, aumentarne il numero non riempie la citta': la ingorga. Piu'
    * largo vuol dire piu' strade occupate e stessa densita' sotto gli occhi.
    */
-  respawn(px, pz, minD = 55, maxD = 205) {
+  respawn(px, pz, minD = 55, maxD = 235) {
     const nodes = this.city.roadNodes;
     let n = null;
     for (let k = 0; k < 80; k++) {
@@ -20332,6 +20336,36 @@ var TrafficCar = class {
     if (this.dopoSorpasso > 0) this.dopoSorpasso -= dt2;
     const fuori = roadDistance(this.city.roadNodes, v.x, v.z) > HALF_ROAD + 0.4;
     this.fuoriT = fuori ? this.fuoriT + dt2 : 0;
+    this.sbloccoT = Math.max(0, (this.sbloccoT || 0) - dt2);
+    const vuoleAndare = (ctrl.wanted || 0) > 3 && Math.abs(v.speed) < 0.4;
+    if (vuoleAndare && lead.d > 12 && stopDist > 12) this.incastroT = (this.incastroT || 0) + dt2;
+    else this.incastroT = 0;
+    if (this.manovraT > 0) {
+      this.manovraT -= dt2;
+      v.update(dt2, { throttle: -0.5, steer: this.manovraSteer, hand: false });
+      return;
+    }
+    if (this.incastroT > 2.5 && this.sbloccoT <= 0) {
+      let tocca = null, dietro = false;
+      for (const o of game2.nearVehicles(v.x, v.z, 7)) {
+        if (o === v) continue;
+        const dx = o.x - v.x, dz = o.z - v.z;
+        const avanti = dx * v.fx + dz * v.fz;
+        if (avanti < -1 && Math.hypot(dx, dz) < 5) dietro = true;
+        if (Math.hypot(dx, dz) < 4.8 && (!tocca || Math.hypot(dx, dz) < tocca.d)) {
+          tocca = { d: Math.hypot(dx, dz), lato: dx * Math.sin(v.a) + dz * Math.cos(v.a) };
+        }
+      }
+      if (tocca && !dietro) {
+        this.incastroT = 0;
+        this.sbloccoT = 8;
+        this.manovraT = 0.7;
+        this.manovraSteer = tocca.lato > 0 ? -0.6 : 0.6;
+        this.nManovre = (this.nManovre || 0) + 1;
+        v.update(dt2, { throttle: -0.5, steer: this.manovraSteer, hand: false });
+        return;
+      }
+    }
     if (this.fuoriT > 1.2) {
       const rientro = rientroInCorsia(v, this.city.roadNodes);
       v.update(dt2, rientro || ctrl);
@@ -24826,7 +24860,7 @@ var Game = class {
     if (p2.inCar) list.push(p2.car);
     if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
     for (const a of list) {
-      for (const b of this.nearVehicles(a.x, a.z, 6.5)) {
+      for (const b of this.nearVehicles(a.x, a.z, 9)) {
         if (b === a) continue;
         if (!b.parked && b._gid < a._gid) continue;
         const rel = a.collideWith(b);
@@ -25046,7 +25080,7 @@ var Game = class {
       if (o === v) continue;
       const suo = posizione(o.x, o.z);
       const avanti = suo.s - mio.s;
-      if (suo.lato < 2.3 && avanti > 0.5 && avanti < maxDist && avanti < best.d) {
+      if (suo.lato < 2.6 && avanti > 0.5 && avanti < maxDist && avanti < best.d) {
         best.d = avanti;
         best.speed = Math.max(0, o.speed || 0);
       }

@@ -21,7 +21,8 @@ const p = await b.newPage({ viewport: { width: 480, height: 270 } });
 p.on('pageerror', (e) => console.log('PAGEERROR', String(e).slice(0, 300)));
 await p.goto(URL);
 await p.waitForFunction(() => window.game && window.game.phone, null, { timeout: 300000 });
-await p.evaluate(() => {
+await p.evaluate(async () => {
+  window.__drv = await import('/src/entities/driving.js');
   window.game.start();
   // la qualita' automatica cambia il numero di auto a meta' misura e rende
   // i confronti privi di senso: qui resta ferma
@@ -100,7 +101,7 @@ const out = await p.evaluate(async (SECONDI) => {
       if (rosso(this) && Math.abs(this.speed) > 3) tipi.colRosso = (tipi.colRosso || 0) + 1;
       if (rosso(o) && Math.abs(o.speed) > 3) tipi.colRosso = (tipi.colRosso || 0) + 1;
       // scheda del singolo urto: com'erano messe le due vetture
-      if (schede.length < 14) {
+      if (r > 8 && schede.length < 14) {
         const dati = (u) => {
           const t2 = g.traffic.cars.find((c) => c.v === u);
           const mk = t2 && t2.marks && t2.marks[Math.min(t2.st.i, t2.marks.length - 1)];
@@ -140,6 +141,9 @@ const out = await p.evaluate(async (SECONDI) => {
     campioniIngorgo: 0, ingorgoMax: 0, ingorgo5: 0, ingorgo8: 0,
     fermaPiuALungo: 0, oltre20s: 0, oltre40s: 0, campioniFermo: 0,
     erroreTracciato: 0, campioniTracciato: 0, err05: 0, err15: 0, err4: 0, errTanto: 0,
+    fermoPerCoda: 0, fermoPerSemaforo2: 0, fermoPerPrecedenza: 0, fermoPerTraverso: 0,
+    fermoPerNiente: 0, fermiTot: 0,
+    incastrataCitta: 0, appoggiataAuto: 0, misteroVero: 0,
   };
   const stopMotivo = true;
   const fermoDa = new Map(), liberoDa = new Map(), prevD = new Map();
@@ -228,6 +232,48 @@ const out = await p.evaluate(async (SECONDI) => {
         // perche' e' fermo: semaforo, coda, o niente di niente
         const lead0 = g.leaderAhead(v, 26, true);
         if (t.dbgStop === undefined) t.dbgStop = 0;
+        /*
+         * Chi e' fermo, perche' e' fermo davvero: si richiedono al gioco
+         * gli stessi vincoli che usa il guidatore e si guarda quale morde.
+         * "Nessuno" vuol dire auto ferma in mezzo alla strada senza motivo,
+         * ed e' quella che da fuori sembra messa li' a caso.
+         */
+        {
+          const drv = window.__drv;
+          const mark = t.marks && t.marks[Math.min(t.st.i, t.marks.length - 1)];
+          const semaforo = mark
+            ? drv.stopLineDistance(v, mark.node, mark.axis, g.trafficAxis, g.trafficAmber, g.trafficAllRed)
+            : Infinity;
+          const capo = g.leaderOnPath(v, t.path, t.st.i, 34);
+          const conflitto = g.conflictObstacle(v, t.path, t.st.i);
+          const traverso = g.crosswiseObstacle(v);
+          if (capo.d < 12) st.fermoPerCoda++;
+          else if (semaforo < 14) st.fermoPerSemaforo2++;
+          else if (conflitto && conflitto.d < 14) st.fermoPerPrecedenza++;
+          else if (traverso && traverso.d < 14) st.fermoPerTraverso++;
+          else {
+            st.fermoPerNiente++;
+            /*
+             * Ferma senza motivo: o e' incastrata contro qualcosa della
+             * citta' (un palo, un cordolo, un muro), o e' appoggiata a
+             * un'altra vettura, oppure non si spiega proprio.
+             */
+            const r = v.spec.W * 0.5;
+            let controCitta = false;
+            for (const off of [v.spec.L * 0.34, -v.spec.L * 0.34]) {
+              const px = v.x + v.fx * off, pz = v.z + v.fz * off;
+              if (g.city.resolve(px, pz, r, { x: 0, z: 0 })) controCitta = true;
+            }
+            let controAuto = false;
+            for (const o of g.nearVehicles(v.x, v.z, 6)) {
+              if (o !== v && Math.hypot(o.x - v.x, o.z - v.z) < 4.6) controAuto = true;
+            }
+            if (controCitta) st.incastrataCitta++;
+            else if (controAuto) st.appoggiataAuto++;
+            else st.misteroVero++;
+          }
+          st.fermiTot++;
+        }
         if (stopMotivo) {
           const mark = t.marks && t.marks[Math.min(t.st.i, t.marks.length - 1)];
           const rosso = mark && g.trafficAxis !== undefined
@@ -290,16 +336,19 @@ const out = await p.evaluate(async (SECONDI) => {
 
   const pc = (n) => +((n / Math.max(1, st.campioni)) * 100).toFixed(1);
   const pc2 = (n) => +((n / Math.max(1, st.campioniTracciato)) * 100).toFixed(1);
-  let sorpassi = 0, abortiti = 0, retro = 0;
+  const pcF = (n) => +((n / Math.max(1, st.fermiTot)) * 100).toFixed(1);
+  let sorpassi = 0, abortiti = 0, retro = 0, manovre = 0;
   for (const t of g.traffic.cars) {
     sorpassi += t.nSorpassi || 0;
     abortiti += t.nSorpassiAbortiti || 0;
     retro += t.nRetro || 0;
+    manovre += t.nManovre || 0;
   }
   return {
     auto: g.traffic.cars.length,
     millisecondiPerFotogramma: +(msTotali / frames).toFixed(2),
     sorpassiIniziati: sorpassi, sorpassiAbortiti: abortiti, retromarce: retro,
+    manovreDiDistricamento: manovre,
     fermePerSemaforo: pc(st.motivoSemaforo), fermeInCoda: pc(st.motivoCoda),
     fermeSenzaMotivo: pc(st.motivoNessuno),
     parcheggiate: g.traffic.parked.length,
@@ -331,6 +380,14 @@ const out = await p.evaluate(async (SECONDI) => {
     inMotoPercento: pc(st.inMoto),
     ferme6sPercento: pc(st.ferme6s),
     ferme6sStradaLiberaPercento: pc(st.ferme6sConStradaLibera),
+    percheFermi: {
+      coda: pcF(st.fermoPerCoda), semaforo: pcF(st.fermoPerSemaforo2),
+      precedenza: pcF(st.fermoPerPrecedenza), traverso: pcF(st.fermoPerTraverso),
+      nessunMotivo: pcF(st.fermoPerNiente),
+      diCuiControUnPalo: pcF(st.incastrataCitta),
+      diCuiControUnAuto: pcF(st.appoggiataAuto),
+      diCuiInspiegabili: pcF(st.misteroVero),
+    },
     erroreDistribuzione: {
       sottoMezzoMetro: pc2(st.err05), fino1m5: pc2(st.err15), fino4m: pc2(st.err4), oltre4m: pc2(st.errTanto),
     },

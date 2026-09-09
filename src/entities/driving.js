@@ -149,8 +149,8 @@ export function buildLaneRoute(route, lane = LANE) {
  */
 export function idmAccel(speed, v0, ostacoli, o = {}) {
   const a = o.a ?? 2.4;          // accelerazione comoda
-  const b = o.b ?? 3.6;          // decelerazione comoda
-  const T = o.T ?? 0.95;         // distanza in secondi da chi hai davanti
+  const b = o.b ?? 4.5;          // decelerazione comoda
+  const T = o.T ?? 1.15;         // distanza in secondi da chi hai davanti
   const s0 = o.s0 ?? 2.2;        // spazio minimo da fermo, paraurti a paraurti
   const libero = 1 - (speed / Math.max(v0, 0.5)) ** 4;
   let acc = a * libero;
@@ -309,7 +309,13 @@ export function followPath(v, path, st, opt = {}) {
    */
   let piuVicino = Infinity;
   for (const ob of ostacoli) if (ob.d < piuVicino) piuVicino = ob.d;
-  if (piuVicino > 4) acc = Math.max(acc, -6.5);
+  /*
+   * Il tetto della frenata deve essere quello che il modello si aspetta da
+   * chi lo precede: se io freno piu' forte di quanto tu prevedi, tu mi
+   * tamponi. Quattro metri e mezzo al secondo quadrato, gli stessi con cui
+   * si calcola la distanza di sicurezza.
+   */
+  if (piuVicino > 4) acc = Math.max(acc, -5);
   /*
    * Dall'accelerazione voluta al pedale.
    *

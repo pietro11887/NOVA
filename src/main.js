@@ -1352,7 +1352,9 @@ class Game {
     // le altre auto come un fantasma
     if (this.taxi && this.taxi.taxi && this.taxi.spawned) list.push(this.taxi.taxi);
     for (const a of list) {
-      for (const b of this.nearVehicles(a.x, a.z, 6.5)) {
+      // raggio abbondante: un autobus e' lungo undici metri e con sei
+      // metri e mezzo due mezzi lunghi si attraversavano senza toccarsi
+      for (const b of this.nearVehicles(a.x, a.z, 9)) {
         if (b === a) continue;
         // ogni coppia una volta sola; le parcheggiate non sono nell'elenco
         // di chi cerca, quindi con loro il confronto si fa comunque
@@ -1583,8 +1585,13 @@ class Game {
       if (o === v) continue;
       const suo = posizione(o.x, o.z);
       const avanti = suo.s - mio.s;
-      // dentro la larghezza di una corsia, e piu' avanti di me sulla riga
-      if (suo.lato < 2.3 && avanti > 0.5 && avanti < maxDist && avanti < best.d) {
+      /*
+       * Larghezza di ricerca generosa: una vettura che dopo un contatto sta
+       * mezzo metro fuori riga non smette di essere quella che ho davanti.
+       * Con la soglia stretta spariva dallo sguardo, chi seguiva
+       * riaccelerava e la tamponava — e da li' restavano incastrate.
+       */
+      if (suo.lato < 2.6 && avanti > 0.5 && avanti < maxDist && avanti < best.d) {
         best.d = avanti;
         best.speed = Math.max(0, o.speed || 0);
       }
