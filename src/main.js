@@ -766,7 +766,23 @@ class Game {
      * verde corto era il primo collo di bottiglia. Quattordici secondi sono
      * ancora sotto quelli di un incrocio vero, ma il traffico scorre.
      */
-    const GREEN = 14, AMBER = 2.4, ALL_RED = 2.0;
+    /*
+     * Ciclo semaforico corto.
+     *
+     * Con quattordici secondi di verde per parte il ciclo intero durava
+     * trentasette secondi, e chi arrivava col rosso appena scattato ne
+     * aspettava diciotto. Su una corsa che attraversa sei incroci era piu'
+     * di un minuto fermi: il taxi non "ci metteva tanto", stava fermo ai
+     * semafori per meta' del viaggio. In un gioco la fila al rosso non e'
+     * realismo, e' tempo perso a guardare. Il ciclo intero scende a
+     * ventiquattro secondi.
+     *
+     * Il tutto-rosso invece resta di due secondi: e' il tempo che serve a
+     * chi e' entrato sul giallo per sgombrare l'incrocio prima che parta
+     * l'altro senso. Accorciarlo per guadagnare un altro secondo vuol dire
+     * comprarselo con gli incidenti in mezzo all'incrocio.
+     */
+    const GREEN = 8, AMBER = 2.0, ALL_RED = 2.0;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;

@@ -63,7 +63,7 @@ export class TaxiService {
       : nodeAheadOf(nodes, fromX, fromZ, heading);
     const endIdx = nodes.indexOf(stop.from);
     if (endIdx < 0) return null;
-    const route = routeBetween(nodes, startIdx, endIdx);
+    const route = routeBetween(nodes, startIdx, endIdx, this._evita);
     if (!route) return null;
     // si prosegue oltre l'incrocio finale: cosi' l'arco della svolta c'e'
     if (route[route.length - 1] !== stop.to) route.push(stop.to);
@@ -176,6 +176,8 @@ export class TaxiService {
     this.fare = 0;
     this.age = 0;
     this._scartati = new Set();
+    this._evita = new Set();
+    this._scordaT = 0;
     this._swaps = 0;
     this._probe = null;
     this.partenza = Math.hypot(v.x - g.player.x, v.z - g.player.z);
@@ -408,6 +410,19 @@ export class TaxiService {
      */
     const toGoal = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
     if (toGoal < 15) stopDist = Math.min(stopDist, toGoal);
+    /*
+     * "Piu' vicino di cosi' non ci arrivo".
+     *
+     * L'ultimo pezzo non sempre e' percorribile: il punto d'accosto puo'
+     * cadere dall'altra parte della carreggiata, oltre la fine del
+     * tracciato, dietro a un'auto in sosta. Il taxi ci arrivava a dieci o
+     * venti metri e li' restava, a girarci intorno, perche' la discesa
+     * pretendeva otto metri: misurato, corse arrivate a dieci metri dalla
+     * meta' e mai concluse in due minuti e mezzo. Se per dieci secondi non
+     * riesce ad avvicinarsi di piu', accosta e ti lascia li' — che e'
+     * esattamente quello che fa un tassista.
+     */
+    if (toGoal < 25) this.vicinoT = (this.vicinoT || 0) + dt; else this.vicinoT = 0;
     // negli ultimi metri si tira il freno: arrivare e non riuscire a
     // fermarsi e' il modo piu' stupido di fallire una corsa
     // il freno a mano si tira proprio sotto: fermarsi a otto metri e
@@ -418,7 +433,7 @@ export class TaxiService {
     // sempre a un metro dal traguardo
     // vale anche a fine corsa: senza, arrivato a destinazione continuava a
     // girarci attorno senza mai scendere sotto i due metri al secondo
-    const frena = toGoal < 9;
+    const frena = toGoal < 9 || this.vicinoT > 10;
 
     /*
      * Aggirare chi non riparte.
@@ -431,13 +446,23 @@ export class TaxiService {
      * dell'accosto, e comunque chi arriva di fronte fa scattare la frenata
      * d'emergenza.
      */
-    const ostacoloFermo = lead.d < 10 && lead.speed < 0.6;
-    if (ostacoloFermo && stopDist > 14 && toGoal > 18 && Math.abs(v.speed) < 1.2) {
-      this.bloccoT = (this.bloccoT || 0) + dt;
-    } else {
+    /*
+     * Due tempi. Un ostacolo isolato in mezzo alla strada si aggira dopo
+     * tre secondi e mezzo. Una fila che non si muove — un incidente
+     * all'incrocio, dieci auto ferme — non si aggira mai, con la regola
+     * "mai vicino al semaforo", e il cliente resta a bordo a guardare.
+     * Dopo dodici secondi di immobilita' si passa lo stesso, se dall'altra
+     * parte non arriva nessuno.
+     */
+    const fermoDavanti = lead.d < 12 && lead.speed < 0.8 && Math.abs(v.speed) < 1.2;
+    if (fermoDavanti && toGoal > 18) this.bloccoT = (this.bloccoT || 0) + dt;
+    else this.bloccoT = 0;
+    const pulito = stopDist > 14;
+    if (((this.bloccoT > 3.5 && pulito) || this.bloccoT > 12)
+        && g.oncomingClear(v, 60, 1)) {
+      this.sorpassoT = 7;
       this.bloccoT = 0;
     }
-    if ((this.bloccoT || 0) > 3.5) { this.sorpassoT = 7; this.bloccoT = 0; }
     if (this.sorpassoT > 0) {
       this.sorpassoT -= dt;
       if (lead.d > 16) this.sorpassoT = 0;      // passato: si rientra
@@ -459,15 +484,26 @@ export class TaxiService {
         stopDist = Math.min(stopDist, toLine);
       }
     }
+    const sbloccarsi = this.stuck > 8;
     const ctrl = followPath(v, this.path, this.st, {
-      cruise: 0.82,
+      cruise: sbloccarsi ? 0.16 : 0.82,
       maxSpeed: 21,
       stopDist,
       lead,
       sideOffset: this.sorpassoT > 0 ? 3 : 0,
       // chi taglia la strada e chi sta fermo di traverso entrano nel
       // modello come ostacoli, con la loro distanza: ci si ferma prima
-      obstacles: [g.conflictObstacle(v, this.path, this.st.i), g.crosswiseObstacle(v)],
+      /*
+       * Disimpegno.
+       *
+       * Chi taglia la strada e chi sta di traverso sono ostacoli veri, e di
+       * norma ci si ferma. Ma se anche l'altro e' bloccato — succede
+       * all'incrocio, due musi che si guardano — aspettare non finisce mai:
+       * nessuno dei due passera' mai per primo. Dopo otto secondi senza
+       * fare un metro di strada si passa lo stesso, a passo d'uomo. Con un
+       * urto che ora spinge di lato invece di inchiodare, ci si sfila.
+       */
+      obstacles: sbloccarsi ? [] : [g.conflictObstacle(v, this.path, this.st.i), g.crosswiseObstacle(v)],
     });
     // stato utile a capire perche' si e' fermato, letto dai collaudi
     this.dbg = {
@@ -479,6 +515,7 @@ export class TaxiService {
       throttle: +ctrl.throttle.toFixed(2),
       steer: +ctrl.steer.toFixed(2),
       wanted: +(ctrl.wanted || 0).toFixed(1),
+      acc: +(ctrl.acc || 0).toFixed(2),
       i: this.st.i,
       n: this.path.length,
       stuck: +this.stuck.toFixed(1),
@@ -489,6 +526,7 @@ export class TaxiService {
       nRicalcoli: this._nRicalcoli || 0,
       sorpasso: +(this.sorpassoT || 0).toFixed(1),
       blocco: +(this.bloccoT || 0).toFixed(1),
+      sblocco: sbloccarsi ? 1 : 0,
       fuori: +(this.fuoriT || 0).toFixed(1),
       // dove sono i prossimi punti del tracciato, visti dal posto di guida:
       // avanti/indietro e destra/sinistra in metri
@@ -532,7 +570,28 @@ export class TaxiService {
      * e velocita' zero, il taxi appoggiato al marciapiede. Gas dato e
      * velocita' nulla e' un incastro, e si vede in un secondo.
      */
-    if (ctrl.throttle > 0.45 && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt;
+    /*
+     * Vuole andare e non ci riesce. Prima lo si capiva dal pedale a fondo,
+     * ma il modello di guida accelera dolce — un quarto di pedale — e la
+     * soglia non scattava piu': il taxi restava incastrato senza che
+     * nessuno se ne accorgesse. Adesso conta quello che vuole fare (la
+     * velocita' a cui punta) contro quello che riesce a fare.
+     */
+    /*
+     * "Libero" lo dice il modello di guida, non un elenco di scuse.
+     *
+     * Qui si controllavano a mano solo la coda e la linea d'arresto: ogni
+     * volta che il taxi dava la precedenza a chi tagliava l'incrocio — un
+     * ostacolo che il modello conosce e questo controllo no — risultava
+     * incastrato dopo un secondo e mezzo e partiva la retromarcia. Misurato:
+     * sessanta manovre indietro in una corsa sola, cioe' un taxi che
+     * arretrava a ogni incrocio invece di aspettare il suo turno. L'unica
+     * domanda giusta e': il modello sta chiedendo gas? Se chiede gas e la
+     * vettura non si muove, allora e' incastrata davvero.
+     */
+    const libero = (ctrl.acc || 0) > 0.3;
+    this._liberoT = libero ? (this._liberoT || 0) + dt : 0;
+    if (libero && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt;
     else this.pinnedT = 0;
 
     // fuori dalla carreggiata: un tocco di cordolo non conta, restarci si'
@@ -549,16 +608,38 @@ export class TaxiService {
       }
     }
 
-    const redLight = stopDist < 6;
-    if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
+    /*
+     * Bloccato = non fa STRADA, non "non si muove".
+     *
+     * Si guardava lo spostamento nel piano: una vettura appoggiata a un
+     * palo o incastrata contro un'altra si dimena, striscia avanti e
+     * indietro di un metro al secondo e cosi' azzerava il conteggio a ogni
+     * finestra. Restava piantata nello stesso punto per due minuti senza
+     * che nessuno la dichiarasse mai bloccata. Quello che conta e' se ha
+     * fatto strada davvero: se non ha guadagnato un punto sul tracciato e
+     * non si e' avvicinata alla meta', non sta andando da nessuna parte,
+     * per quanto si agiti.
+     *
+     * Fermo per un motivo non e' fermo per niente: si accumula solo se per
+     * buona parte della finestra il modello chiedeva gas. Al rosso, in coda
+     * o mentre si da' la precedenza si aspetta, e basta.
+     */
+    if (!this._probe) this._probe = { i: this.st.i, meta: toGoal, t: 0 };
     this._probe.t += dt;
-    if (this._probe.t > 2.5) {
-      const moved = Math.hypot(v.x - this._probe.x, v.z - this._probe.z);
-      // al rosso non si accumula, ma non si azzera nemmeno: se prima del
-      // semaforo era gia' incastrato, quel conteggio serve ancora
-      if (moved < 2 && !redLight) this.stuck += this._probe.t;
-      else if (moved >= 2) this.stuck = 0;
-      this._probe = { x: v.x, z: v.z, t: 0 };
+    if (this._probe.t > 3) {
+      const avanzato = this.st.i > this._probe.i || toGoal < this._probe.meta - 4;
+      /*
+       * L'unica attesa lecita e' la linea d'arresto: quella si sblocca da
+       * sola. Tutto il resto — la fila dietro a chi non riparte, l'auto
+       * piantata di traverso davanti al muso — e' un ingorgo, anche se il
+       * modello di guida lo vede come un ostacolo regolare e sta buono ad
+       * aspettare. Prima si chiedeva proprio a lui il permesso di dichiarare
+       * il blocco, e all'incastro rispondeva sempre di no: il taxi restava
+       * fermo contro il paraurti di un'altra vettura per tutta la corsa.
+       */
+      if (!avanzato && stopDist === Infinity) this.stuck += this._probe.t;
+      else if (avanzato) this.stuck = 0;
+      this._probe = { i: this.st.i, meta: toGoal, t: 0 };
     }
 
     /*
@@ -605,7 +686,14 @@ export class TaxiService {
     if (this.reverseT > 0) {
       this.reverseT -= dt;
       v.update(dt, { throttle: -0.9, steer: versoMira, hand: false });
-    } else if ((this.stuck > 6 || (this.pinnedT || 0) > 1.2) && !incoda) {
+    /*
+     * Si torna indietro solo per un incastro vero: strada libera davanti,
+     * gas dato, vettura ferma. Prima bastava non fare strada da sei
+     * secondi, e in coda — dove non fare strada e' la normalita' — il taxi
+     * si metteva a indietreggiare addosso a chi lo seguiva: quindici, venti
+     * manovre per corsa. La fila si aspetta; contro un palo si arretra.
+     */
+    } else if ((this.pinnedT || 0) > 2.5 && !incoda) {
       this.reverseT = 1.4;
       this.stuck = 0;
       this.pinnedT = 0;
@@ -616,7 +704,22 @@ export class TaxiService {
       this._rientrando = true;
       v.update(dt, rientro);
     } else {
-      if (frena) { ctrl.throttle = Math.min(ctrl.throttle, -0.5); ctrl.hand = true; }
+      /*
+       * Freno, non retromarcia.
+       *
+       * Negli ultimi metri si inchiodava con mezzo pedale negativo. Ma
+       * sotto il mezzo metro al secondo la vettura legge un comando
+       * negativo come marcia indietro: arrivato a destinazione, il taxi
+       * frenava, si fermava, ripartiva ALL'INDIETRO allontanandosi dal
+       * punto d'accosto, tornava avanti e ricominciava. Misurato: corse con
+       * il cliente a quattro metri dalla meta' e mai scese, perche' la
+       * discesa vuole fermo entro otto metri e li' non ci restava mai.
+       * Da fermi si tiene il freno a mano e basta.
+       */
+      if (frena) {
+        ctrl.throttle = v.speed > 0.6 ? Math.min(ctrl.throttle, -0.5) : 0;
+        ctrl.hand = true;
+      }
       v.update(dt, ctrl);
       if (Math.abs(v.speed) > 3) { this.recoveries = 0; this.stuck = 0; }
     }
@@ -628,7 +731,7 @@ export class TaxiService {
      * Con il cliente a bordo si insiste di piu' prima di arrendersi:
      * scaricarlo a meta' strada e' peggio di qualche manovra in piu'.
      */
-    if ((this.recoveries || 0) >= (this.state === 'riding' ? 5 : 2)) {
+    if ((this.recoveries || 0) >= (this.state === 'riding' ? 12 : 2)) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === 'coming' && lontano && this.path.length > 3) {
@@ -667,7 +770,35 @@ export class TaxiService {
       this.replanT = 12;
       this.stuck = 0;
       this._nRicalcoli = (this._nRicalcoli || 0) + 1;
+      /*
+       * Non basta rifare lo stesso percorso: se la strada e' bloccata la
+       * ritrova bloccata. L'incrocio verso cui si stava andando finisce
+       * nella lista di quelli da schivare, e il percorso nuovo gira
+       * intorno — che e' quello che fa un tassista quando vede la fila.
+       */
+      if (mark && mark.node) {
+        if (!this._evita) this._evita = new Set();
+        const idx = this._nodes.indexOf(mark.node);
+        /*
+         * Al massimo tre incroci da schivare. Con la lista che cresceva a
+         * ogni ricalcolo, il percorso alternativo diventava sempre piu'
+         * largo: misurato, un taxi che macinava settecento metri e finiva
+         * piu' lontano dalla meta' di quando era partito, girando intorno a
+         * mezza citta' per evitare incroci che nel frattempo si erano gia'
+         * liberati.
+         */
+        if (idx >= 0) {
+          if (this._evita.size >= 3) this._evita.delete(this._evita.values().next().value);
+          this._evita.add(idx);
+        }
+        // la memoria non e' eterna: dopo un po' quella strada si riprova
+        this._scordaT = 45;
+      }
       this._replan();
+    }
+    if (this._scordaT > 0) {
+      this._scordaT -= dt;
+      if (this._scordaT <= 0 && this._evita) this._evita.clear();
     }
 
     // rinuncia: meglio dirlo che restare in giro all'infinito
@@ -705,7 +836,7 @@ export class TaxiService {
       // sette metri dall'accosto vanno benissimo: sei comunque sul
       // marciapiede accanto, e pretendere il centimetro voleva dire non
       // fermarsi mai
-      if ((ctrl.done || toStop < 9) && Math.abs(v.speed) < 2) {
+      if ((ctrl.done || toStop < 9 || this.vicinoT > 10) && Math.abs(v.speed) < 2) {
         this.state = 'waiting';
         this.waitT = 45;
         g.audio.horn();
@@ -720,7 +851,8 @@ export class TaxiService {
       return;
     }
 
-    if (this.state === 'riding' && (ctrl.done || toStop < 8) && Math.abs(v.speed) < 2) {
+    if (this.state === 'riding' && (ctrl.done || toStop < 8 || this.vicinoT > 10)
+        && Math.abs(v.speed) < 2) {
       this.drop('arrivato');
     }
   }

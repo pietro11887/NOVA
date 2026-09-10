@@ -222,27 +222,60 @@ export function followPath(v, path, st, opt = {}) {
   if (!path || path.length === 0) return { throttle: 0, steer: 0, hand: true, done: true };
 
   const speed = Math.abs(v.speed);
-  // il punto di mira si allontana con la velocita': da fermi si guarda
-  // vicino per girare stretto, in corsa lontano per non ondeggiare
-  const look = clamp(4.5 + speed * 0.75, 4.5, 18);
 
   /*
-   * Avanza il punto di mira. Oltre al caso normale — il punto e' piu' vicino
-   * della distanza di mira — bisogna scartare anche i punti che sono ormai
-   * dietro: dopo un urto il veicolo puo' ritrovarsi oltre il proprio
-   * bersaglio, e continuando a puntarlo resterebbe li' a girare su se stesso.
-   * Il secondo limite (dietro E vicino) evita che si mangi tutto il
-   * tracciato in un colpo quando ci si ritrova girati per il verso sbagliato.
+   * Aggancio al tracciato.
+   *
+   * L'indice si riaggancia ogni giro al punto piu' vicino, cercato in
+   * avanti da dove eravamo. Prima poteva solo avanzare, e solo se il
+   * bersaglio era vicino o appena dietro: un veicolo spinto via dalla sua
+   * traiettoria — un urto, una manovra, una partenza storta — restava
+   * agganciato a un punto ormai trenta metri dietro, dove nessuna delle due
+   * condizioni scattava piu'. Da li' inseguiva a vita un bersaglio
+   * irraggiungibile girando su se stesso: misurato, un taxi fermo allo
+   * stesso indice per tutta la corsa, sterzo a fondo corsa, quattro quinti
+   * del tempo fuori strada. Riagganciandosi, il bersaglio si muove sempre
+   * con la vettura e la vettura torna sempre sulla strada.
+   *
+   * All'indietro si guarda di pochi punti — non si annulla il progresso
+   * fatto — e in avanti quanto basta a recuperare un salto, senza arrivare
+   * a un tratto di strada che il percorso ripercorre piu' tardi.
    */
-  const fx = Math.cos(v.a), fz = -Math.sin(v.a);
-  while (st.i < path.length - 1) {
-    const dx = path[st.i].x - v.x, dz = path[st.i].z - v.z;
-    const d = Math.hypot(dx, dz);
-    const ahead = dx * fx + dz * fz;
-    if (d < look || (ahead < 0.5 && d < look * 1.6)) st.i++;
-    else break;
+  const lo = Math.max(0, st.i - 4);
+  const hi = Math.min(path.length - 1, st.i + 60);
+  let bd = Infinity;
+  for (let k = lo; k <= hi; k++) {
+    const d = (path[k].x - v.x) ** 2 + (path[k].z - v.z) ** 2;
+    if (d < bd) { bd = d; st.i = k; }
   }
-  const target = path[st.i];
+
+  /*
+   * Distanza di mira: si allontana con la velocita' — da fermi si guarda
+   * vicino per girare stretto, in corsa lontano per non ondeggiare — e non
+   * scende mai sotto quanto si e' lontani dal tracciato. Un bersaglio piu'
+   * vicino del proprio raggio di sterzata non si raggiunge: gli si gira
+   * attorno, ed e' l'altro modo in cui un'auto finiva a fare tondi.
+   */
+  const look = Math.min(30,
+    Math.max(clamp(4.5 + speed * 0.75, 4.5, 18), Math.sqrt(bd) * 1.3));
+
+  /*
+   * Il punto di mira sta `look` metri piu' avanti LUNGO il tracciato, non
+   * in linea d'aria: cosi' la mira segue la strada anche in curva.
+   */
+  let ai = st.i, resto = look;
+  while (ai < path.length - 1) {
+    const d = dist(path[ai].x, path[ai].z, path[ai + 1].x, path[ai + 1].z);
+    if (resto <= d || d <= 0) break;
+    resto -= d; ai++;
+  }
+  let target = path[ai];
+  if (ai < path.length - 1) {
+    const d = dist(path[ai].x, path[ai].z, path[ai + 1].x, path[ai + 1].z);
+    const t = d > 0 ? Math.min(1, resto / d) : 0;
+    target = { x: path[ai].x + (path[ai + 1].x - path[ai].x) * t,
+               z: path[ai].z + (path[ai + 1].z - path[ai].z) * t };
+  }
   const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
 
   /*
@@ -264,8 +297,20 @@ export function followPath(v, path, st, opt = {}) {
   const curvatura = (2 * Math.sin(alpha)) / ld;
   // rientro in corsia: se si e' a sinistra della riga si sterza a destra, e
   // la correzione si ammorbidisce con la velocita' per non ondeggiare
+  /*
+   * Correzione di corsia: un ritocco, non una sterzata.
+   *
+   * Senza limite, da fermi bastava un metro e mezzo fuori riga per mandare
+   * il volante a fondo corsa: la vettura attraversava la strada, sbandava
+   * dall'altra parte e ricominciava. E' l'oscillazione che si vedeva agli
+   * incroci, con l'auto che rimbalzava da un marciapiede all'altro finche'
+   * non restava incastrata contro un palo. A tenere la traiettoria e'
+   * l'inseguimento del punto di mira; questa correzione serve solo a
+   * togliere l'errore che resta, quindi vale al massimo un terzo di sterzo.
+   */
   const scarto = crossTrack(v, path, st.i) - off;
-  const rientro = -Math.atan((opt.kCross ?? 0.85) * scarto / (speed + 2.5));
+  const rientro = clamp(-Math.atan((opt.kCross ?? 0.85) * scarto / (speed + 2.5)),
+    -0.16, 0.16);
   const steer = clamp((Math.atan(curvatura * WHEELBASE) + rientro) / 0.46, -1, 1);
 
   /*
@@ -273,8 +318,20 @@ export function followPath(v, path, st, opt = {}) {
    * prossimi tot punti: sugli archi degli incroci i punti sono fitti e
    * contarli faceva viaggiare tutti a passo d'uomo anche in rettilineo.
    */
+  /*
+   * ...e quanto lontano si guarda dipende da quanto si va forte.
+   *
+   * Quattordici metri fissi sono un secondo scarso a diciassette metri al
+   * secondo: la curva si vedeva quando c'era gia' dentro, e la frenata
+   * arrivava troppo tardi. Il taxi, che viaggia piu' svelto del traffico,
+   * finiva regolarmente lungo sul marciapiede — misurato: fino a un sesto
+   * del tempo fuori strada e sette strisciate contro i muri per corsa,
+   * mentre le auto normali stanno fuori strada per lo 0,7 per cento del
+   * tempo. Si guarda avanti almeno un secondo e mezzo di strada.
+   */
+  const vista = Math.max(14, speed * 1.6);
   let bend = 0, span = 0;
-  for (let k = Math.max(1, st.i); k < path.length - 1 && span < 14; k++) {
+  for (let k = Math.max(1, st.i); k < path.length - 1 && span < vista; k++) {
     const a1 = Math.atan2(path[k].z - path[k - 1].z, path[k].x - path[k - 1].x);
     const a2 = Math.atan2(path[k + 1].z - path[k].z, path[k + 1].x - path[k].x);
     bend += Math.abs(angleDelta(a1, a2));
@@ -292,10 +349,24 @@ export function followPath(v, path, st, opt = {}) {
    */
   const ostacoli = [];
   const lead = opt.lead;
-  if (lead && lead.d < Infinity) ostacoli.push({ d: Math.max(0.2, lead.d - 4.4), speed: lead.speed });
+  if (lead && lead.d < Infinity) {
+    /*
+     * Chi si sta superando non e' piu' "davanti".
+     *
+     * Finche' restava nel modello come veicolo da seguire, la distanza di
+     * sicurezza lo teneva fermo dietro: il sorpasso si scartava di tre
+     * metri e poi si piantava li' di fianco, senza mai passare. Misurato:
+     * un taxi in coda dietro un'auto immobile per tutta la corsa, con il
+     * sorpasso che scattava e riscattava a vuoto. Durante lo scarto non
+     * conta piu': a proteggere restano chi taglia la strada, chi sta fermo
+     * di traverso e, all'ultimo, l'urto stesso — che ora spinge di lato
+     * invece di inchiodare tutti e due sul posto.
+     */
+    if (!off) ostacoli.push({ d: Math.max(0.2, lead.d - 4.4), speed: lead.speed });
+  }
   if (opt.stopDist !== undefined && opt.stopDist < Infinity) ostacoli.push({ d: opt.stopDist, speed: 0 });
   if (opt.obstacles) for (const o of opt.obstacles) if (o) ostacoli.push(o);
-  if (opt.endStop !== false && st.i >= path.length - 1) ostacoli.push({ d: Math.max(0, toEnd - 0.8), speed: 0 });
+  if (opt.endStop !== false && ai >= path.length - 1) ostacoli.push({ d: Math.max(0, toEnd - 0.8), speed: 0 });
 
   let acc = idmAccel(speed, v0, ostacoli, opt.idm);
   /*
@@ -328,9 +399,19 @@ export function followPath(v, path, st, opt = {}) {
    */
   const attrito = 0.35 * speed;
   const richiesta = acc + attrito;
-  const throttle = richiesta >= 0
+  let throttle = richiesta >= 0
     ? clamp(richiesta / (v.accel || 8), 0.02, 1)
     : clamp(richiesta / (v.brake || 16), -1, 0);
+  /*
+   * Freno si', retromarcia no.
+   *
+   * Sotto il mezzo metro al secondo il veicolo interpreta un comando
+   * negativo come marcia indietro, non come freno. Il modello di guida
+   * chiede una decelerazione anche solo per stare fermo alla linea
+   * d'arresto, e il risultato era che al semaforo le auto ARRETRAVANO —
+   * addosso a chi stava dietro. Da fermi si sta fermi: pedale a zero.
+   */
+  if (throttle < 0 && v.speed < 0.6) throttle = 0;
 
   const done = st.i >= path.length - 1 && toEnd < 3;
   return { throttle, steer, hand: false, done, target, wanted: v0, toEnd, acc };
@@ -342,6 +423,18 @@ export function followPath(v, path, st, opt = {}) {
  */
 export function stopLineDistance(v, node, axis, greenAxis, amber, allRed = false) {
   if (!node) return Infinity;
+  /*
+   * L'incrocio deve stare DAVANTI.
+   *
+   * Qui si misurava la distanza secca, senza segno: un incrocio gia'
+   * superato risultava identico a uno che deve ancora arrivare, e il
+   * veicolo si fermava ad aspettare il verde di un semaforo che aveva
+   * dietro le spalle. Ripartiva al cambio di fase, faceva pochi metri e si
+   * rifermava al successivo fantasma: e' cosi' che il taxi non arrivava
+   * mai a destinazione, avanzando dieci metri al minuto.
+   */
+  const avanti = (node.x - v.x) * v.fx + (node.z - v.z) * v.fz;
+  if (avanti < -3) return Infinity;
   const d = dist(v.x, v.z, node.x, node.z) - (HALF_ROAD + 1.6);
   if (d > 34 || d < -2) return Infinity;
   if (axis === greenAxis && !amber) return Infinity;
@@ -397,20 +490,30 @@ export function nodeAheadOf(nodes, x, z, heading) {
 }
 
 /** Percorso minimo fra due incroci (ricerca in ampiezza sul grafo). */
-export function routeBetween(nodes, fromIdx, toIdx) {
+export function routeBetween(nodes, fromIdx, toIdx, evita = null) {
   if (fromIdx === toIdx) return [nodes[toIdx]];
-  const prev = new Map([[fromIdx, -1]]);
-  const queue = [fromIdx];
-  for (let head = 0; head < queue.length; head++) {
-    const cur = queue[head];
-    if (cur === toIdx) break;
-    for (const nx of nodes[cur].links) {
-      if (prev.has(nx)) continue;
-      prev.set(nx, cur);
-      queue.push(nx);
+  /*
+   * `evita` sono gli incroci dove ci si e' gia' impantanati: si cerca prima
+   * una strada che non ci passi. Se non esiste, si riprova senza vincoli —
+   * meglio la strada bloccata che nessuna strada.
+   */
+  const cerca = (schiva) => {
+    const prev = new Map([[fromIdx, -1]]);
+    const queue = [fromIdx];
+    for (let head = 0; head < queue.length; head++) {
+      const cur = queue[head];
+      if (cur === toIdx) break;
+      for (const nx of nodes[cur].links) {
+        if (prev.has(nx)) continue;
+        if (schiva && schiva.has(nx) && nx !== toIdx) continue;
+        prev.set(nx, cur);
+        queue.push(nx);
+      }
     }
-  }
-  if (!prev.has(toIdx)) return null;
+    return prev.has(toIdx) ? prev : null;
+  };
+  const prev = (evita && evita.size ? cerca(evita) : null) || cerca(null);
+  if (!prev) return null;
   const out = [];
   for (let k = toIdx; k !== -1; k = prev.get(k)) out.push(nodes[k]);
   return out.reverse();

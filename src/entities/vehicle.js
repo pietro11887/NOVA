@@ -136,7 +136,33 @@ export class Vehicle {
         this.dentAt(this.x + fx * hitOff - (hitNx / nl) * 0.4,
                     this.z + fz * hitOff - (hitNz / nl) * 0.4, impact);
       }
-      this.setVelocity(-vLong * 0.18, vLat * 0.3);
+      /*
+       * Si toglie solo la velocita' che ENTRA nel muro.
+       *
+       * Prima si ribaltava tutta la velocita' longitudinale, qualunque
+       * verso avesse. Una vettura col muso appoggiato a un muro non poteva
+       * quindi piu' uscirne: ingranava la retromarcia, il muso toccava
+       * ancora, e quella marcia indietro veniva rigirata in avanti contro
+       * il muro. Restava li' per sempre a spingere, con il motore che
+       * chiedeva gas e la vettura ferma — ed e' cosi' che un taxi non
+       * arrivava mai a destinazione. Adesso la componente lungo la normale
+       * si annulla (con un rimbalzo modesto) e quella parallela resta:
+       * strisciare via e tornare indietro tornano possibili.
+       */
+      const nl = Math.hypot(hitNx, hitNz);
+      if (nl > 1e-6) {
+        const nx = hitNx / nl, nz = hitNz / nl;   // punta fuori dal muro
+        const vn = this.vx * nx + this.vz * nz;   // negativa = ci sto entrando
+        if (vn < 0) {
+          this.vx -= vn * nx * 1.18;
+          this.vz -= vn * nz * 1.18;
+        }
+        // attrito radente contro la parete
+        this.vx *= 0.86; this.vz *= 0.86;
+        this.speed = this.vx * fx + this.vz * fz;
+      } else {
+        this.setVelocity(-vLong * 0.18, vLat * 0.3);
+      }
     }
     if (!this.city.inBounds(this.x, this.z)) {
       this.setVelocity(-Math.abs(vLong) * 0.4, 0);
@@ -212,9 +238,30 @@ export class Vehicle {
 
     // conta come botta solo l'urto frontale: strisciare di fianco non e' un
     // tamponamento, e prima anche una carezza toglieva vita a entrambi
-    const closing = Math.abs((this.vx - o.vx) * nx + (this.vz - o.vz) * nz);
-    this.setVelocity(this.speed * 0.5, 0);
-    o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
+    /*
+     * Impulso lungo la normale, e nient'altro.
+     *
+     * Prima l'urto dimezzava la velocita' di tutti e due e azzerava quella
+     * laterale, a ogni fotogramma di contatto e in qualunque verso stessero
+     * andando. Due vetture che si toccavano restavano quindi appiccicate:
+     * pochi fotogrammi e la velocita' era zero per entrambe, e nessuna delle
+     * due poteva piu' staccarsi, perche' anche la manovra per uscirne
+     * veniva dimezzata via. E' cosi' che nascevano i grovigli agli incroci
+     * e la coda dietro un'auto che non ripartiva piu'.
+     *
+     * Adesso si toglie solo la velocita' con cui si stanno AVVICINANDO,
+     * divisa fra i due come in un urto quasi anelastico. Chi si sta gia'
+     * allontanando non viene toccato: ci si stacca da soli.
+     */
+    const rel = (this.vx - o.vx) * nx + (this.vz - o.vz) * nz;
+    const closing = Math.abs(rel);
+    if (rel > 0) {
+      const j = rel * 0.58;                       // 0.5 = anelastico, +rimbalzo
+      this.vx -= nx * j; this.vz -= nz * j;
+      o.vx += nx * j; o.vz += nz * j;
+      this.speed = this.vx * this.fx + this.vz * this.fz;
+      o.speed = o.vx * o.fx + o.vz * o.fz;
+    }
     if (closing > 6) {
       this.health -= closing * 0.5; o.health -= closing * 0.5;
       this.dentAt(best.cx, best.cz, closing * 0.8);

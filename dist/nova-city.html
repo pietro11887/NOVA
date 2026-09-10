@@ -19237,14 +19237,27 @@ var Vehicle = class {
       if (impact > 4) {
         this.health -= impact * 0.9;
         this.lastCrash = impact;
-        const nl2 = Math.hypot(hitNx, hitNz) || 1;
+        const nl3 = Math.hypot(hitNx, hitNz) || 1;
         this.dentAt(
-          this.x + fx * hitOff - hitNx / nl2 * 0.4,
-          this.z + fz * hitOff - hitNz / nl2 * 0.4,
+          this.x + fx * hitOff - hitNx / nl3 * 0.4,
+          this.z + fz * hitOff - hitNz / nl3 * 0.4,
           impact
         );
       }
-      this.setVelocity(-vLong * 0.18, vLat * 0.3);
+      const nl2 = Math.hypot(hitNx, hitNz);
+      if (nl2 > 1e-6) {
+        const nx = hitNx / nl2, nz = hitNz / nl2;
+        const vn = this.vx * nx + this.vz * nz;
+        if (vn < 0) {
+          this.vx -= vn * nx * 1.18;
+          this.vz -= vn * nz * 1.18;
+        }
+        this.vx *= 0.86;
+        this.vz *= 0.86;
+        this.speed = this.vx * fx + this.vz * fz;
+      } else {
+        this.setVelocity(-vLong * 0.18, vLat * 0.3);
+      }
     }
     if (!this.city.inBounds(this.x, this.z)) {
       this.setVelocity(-Math.abs(vLong) * 0.4, 0);
@@ -19317,9 +19330,17 @@ var Vehicle = class {
     this.z -= nz * push;
     o.x += nx * push;
     o.z += nz * push;
-    const closing = Math.abs((this.vx - o.vx) * nx + (this.vz - o.vz) * nz);
-    this.setVelocity(this.speed * 0.5, 0);
-    o.setVelocity(o.speed * 0.5 + this.speed * 0.25, 0);
+    const rel = (this.vx - o.vx) * nx + (this.vz - o.vz) * nz;
+    const closing = Math.abs(rel);
+    if (rel > 0) {
+      const j = rel * 0.58;
+      this.vx -= nx * j;
+      this.vz -= nz * j;
+      o.vx += nx * j;
+      o.vz += nz * j;
+      this.speed = this.vx * this.fx + this.vz * this.fz;
+      o.speed = o.vx * o.fx + o.vz * o.fz;
+    }
     if (closing > 6) {
       this.health -= closing * 0.5;
       o.health -= closing * 0.5;
@@ -19881,16 +19902,36 @@ function crossTrack(v, path, i) {
 function followPath(v, path, st, opt = {}) {
   if (!path || path.length === 0) return { throttle: 0, steer: 0, hand: true, done: true };
   const speed = Math.abs(v.speed);
-  const look = clamp(4.5 + speed * 0.75, 4.5, 18);
-  const fx = Math.cos(v.a), fz = -Math.sin(v.a);
-  while (st.i < path.length - 1) {
-    const dx = path[st.i].x - v.x, dz = path[st.i].z - v.z;
-    const d2 = Math.hypot(dx, dz);
-    const ahead = dx * fx + dz * fz;
-    if (d2 < look || ahead < 0.5 && d2 < look * 1.6) st.i++;
-    else break;
+  const lo2 = Math.max(0, st.i - 4);
+  const hi2 = Math.min(path.length - 1, st.i + 60);
+  let bd2 = Infinity;
+  for (let k = lo2; k <= hi2; k++) {
+    const d2 = (path[k].x - v.x) ** 2 + (path[k].z - v.z) ** 2;
+    if (d2 < bd2) {
+      bd2 = d2;
+      st.i = k;
+    }
   }
-  const target = path[st.i];
+  const look = Math.min(
+    30,
+    Math.max(clamp(4.5 + speed * 0.75, 4.5, 18), Math.sqrt(bd2) * 1.3)
+  );
+  let ai2 = st.i, resto = look;
+  while (ai2 < path.length - 1) {
+    const d2 = dist(path[ai2].x, path[ai2].z, path[ai2 + 1].x, path[ai2 + 1].z);
+    if (resto <= d2 || d2 <= 0) break;
+    resto -= d2;
+    ai2++;
+  }
+  let target = path[ai2];
+  if (ai2 < path.length - 1) {
+    const d2 = dist(path[ai2].x, path[ai2].z, path[ai2 + 1].x, path[ai2 + 1].z);
+    const t2 = d2 > 0 ? Math.min(1, resto / d2) : 0;
+    target = {
+      x: path[ai2].x + (path[ai2 + 1].x - path[ai2].x) * t2,
+      z: path[ai2].z + (path[ai2 + 1].z - path[ai2].z) * t2
+    };
+  }
   const toEnd = dist(v.x, v.z, path[path.length - 1].x, path[path.length - 1].z);
   let aimX = target.x, aimZ = target.z;
   const off = opt.sideOffset || 0;
@@ -19905,10 +19946,15 @@ function followPath(v, path, st, opt = {}) {
   const ld = Math.max(2, dist(v.x, v.z, aimX, aimZ));
   const curvatura = 2 * Math.sin(alpha) / ld;
   const scarto = crossTrack(v, path, st.i) - off;
-  const rientro = -Math.atan((opt.kCross ?? 0.85) * scarto / (speed + 2.5));
+  const rientro = clamp(
+    -Math.atan((opt.kCross ?? 0.85) * scarto / (speed + 2.5)),
+    -0.16,
+    0.16
+  );
   const steer = clamp((Math.atan(curvatura * WHEELBASE) + rientro) / 0.46, -1, 1);
+  const vista = Math.max(14, speed * 1.6);
   let bend = 0, span = 0;
-  for (let k = Math.max(1, st.i); k < path.length - 1 && span < 14; k++) {
+  for (let k = Math.max(1, st.i); k < path.length - 1 && span < vista; k++) {
     const a1 = Math.atan2(path[k].z - path[k - 1].z, path[k].x - path[k - 1].x);
     const a2 = Math.atan2(path[k + 1].z - path[k].z, path[k + 1].x - path[k].x);
     bend += Math.abs(angleDelta(a1, a2));
@@ -19919,24 +19965,29 @@ function followPath(v, path, st, opt = {}) {
   const v0 = (opt.maxSpeed ?? 21) * cruise * clamp(1 - bend * 0.42, 0.3, 1);
   const ostacoli = [];
   const lead = opt.lead;
-  if (lead && lead.d < Infinity) ostacoli.push({ d: Math.max(0.2, lead.d - 4.4), speed: lead.speed });
+  if (lead && lead.d < Infinity) {
+    if (!off) ostacoli.push({ d: Math.max(0.2, lead.d - 4.4), speed: lead.speed });
+  }
   if (opt.stopDist !== void 0 && opt.stopDist < Infinity) ostacoli.push({ d: opt.stopDist, speed: 0 });
   if (opt.obstacles) {
     for (const o of opt.obstacles) if (o) ostacoli.push(o);
   }
-  if (opt.endStop !== false && st.i >= path.length - 1) ostacoli.push({ d: Math.max(0, toEnd - 0.8), speed: 0 });
+  if (opt.endStop !== false && ai2 >= path.length - 1) ostacoli.push({ d: Math.max(0, toEnd - 0.8), speed: 0 });
   let acc = idmAccel(speed, v0, ostacoli, opt.idm);
   let piuVicino = Infinity;
   for (const ob of ostacoli) if (ob.d < piuVicino) piuVicino = ob.d;
   if (piuVicino > 4) acc = Math.max(acc, -5);
   const attrito = 0.35 * speed;
   const richiesta = acc + attrito;
-  const throttle = richiesta >= 0 ? clamp(richiesta / (v.accel || 8), 0.02, 1) : clamp(richiesta / (v.brake || 16), -1, 0);
+  let throttle = richiesta >= 0 ? clamp(richiesta / (v.accel || 8), 0.02, 1) : clamp(richiesta / (v.brake || 16), -1, 0);
+  if (throttle < 0 && v.speed < 0.6) throttle = 0;
   const done = st.i >= path.length - 1 && toEnd < 3;
   return { throttle, steer, hand: false, done, target, wanted: v0, toEnd, acc };
 }
 function stopLineDistance(v, node, axis, greenAxis, amber, allRed = false) {
   if (!node) return Infinity;
+  const avanti = (node.x - v.x) * v.fx + (node.z - v.z) * v.fz;
+  if (avanti < -3) return Infinity;
   const d2 = dist(v.x, v.z, node.x, node.z) - (HALF_ROAD + 1.6);
   if (d2 > 34 || d2 < -2) return Infinity;
   if (axis === greenAxis && !amber) return Infinity;
@@ -19975,20 +20026,25 @@ function nodeAheadOf(nodes, x, z, heading) {
   }
   return best >= 0 ? best : nearestNode(nodes, x, z);
 }
-function routeBetween(nodes, fromIdx, toIdx) {
+function routeBetween(nodes, fromIdx, toIdx, evita = null) {
   if (fromIdx === toIdx) return [nodes[toIdx]];
-  const prev = /* @__PURE__ */ new Map([[fromIdx, -1]]);
-  const queue = [fromIdx];
-  for (let head = 0; head < queue.length; head++) {
-    const cur = queue[head];
-    if (cur === toIdx) break;
-    for (const nx of nodes[cur].links) {
-      if (prev.has(nx)) continue;
-      prev.set(nx, cur);
-      queue.push(nx);
+  const cerca = (schiva) => {
+    const prev2 = /* @__PURE__ */ new Map([[fromIdx, -1]]);
+    const queue = [fromIdx];
+    for (let head = 0; head < queue.length; head++) {
+      const cur = queue[head];
+      if (cur === toIdx) break;
+      for (const nx of nodes[cur].links) {
+        if (prev2.has(nx)) continue;
+        if (schiva && schiva.has(nx) && nx !== toIdx) continue;
+        prev2.set(nx, cur);
+        queue.push(nx);
+      }
     }
-  }
-  if (!prev.has(toIdx)) return null;
+    return prev2.has(toIdx) ? prev2 : null;
+  };
+  const prev = (evita && evita.size ? cerca(evita) : null) || cerca(null);
+  if (!prev) return null;
   const out = [];
   for (let k = toIdx; k !== -1; k = prev.get(k)) out.push(nodes[k]);
   return out.reverse();
@@ -22936,7 +22992,7 @@ var TaxiService = class {
     const startIdx = heading === null ? nearestNode(nodes, fromX, fromZ) : nodeAheadOf(nodes, fromX, fromZ, heading);
     const endIdx = nodes.indexOf(stop.from);
     if (endIdx < 0) return null;
-    const route = routeBetween(nodes, startIdx, endIdx);
+    const route = routeBetween(nodes, startIdx, endIdx, this._evita);
     if (!route) return null;
     if (route[route.length - 1] !== stop.to) route.push(stop.to);
     if (heading !== null && route.length) {
@@ -23025,6 +23081,8 @@ var TaxiService = class {
     this.fare = 0;
     this.age = 0;
     this._scartati = /* @__PURE__ */ new Set();
+    this._evita = /* @__PURE__ */ new Set();
+    this._scordaT = 0;
     this._swaps = 0;
     this._probe = null;
     this.partenza = Math.hypot(v.x - g.player.x, v.z - g.player.z);
@@ -23248,14 +23306,14 @@ var TaxiService = class {
     const lead = g.leaderOnPath(v, this.path, this.st.i, 30);
     const toGoal = Math.hypot(v.x - this.stop.x, v.z - this.stop.z);
     if (toGoal < 15) stopDist = Math.min(stopDist, toGoal);
-    const frena = toGoal < 9;
-    const ostacoloFermo = lead.d < 10 && lead.speed < 0.6;
-    if (ostacoloFermo && stopDist > 14 && toGoal > 18 && Math.abs(v.speed) < 1.2) {
-      this.bloccoT = (this.bloccoT || 0) + dt2;
-    } else {
-      this.bloccoT = 0;
-    }
-    if ((this.bloccoT || 0) > 3.5) {
+    if (toGoal < 25) this.vicinoT = (this.vicinoT || 0) + dt2;
+    else this.vicinoT = 0;
+    const frena = toGoal < 9 || this.vicinoT > 10;
+    const fermoDavanti = lead.d < 12 && lead.speed < 0.8 && Math.abs(v.speed) < 1.2;
+    if (fermoDavanti && toGoal > 18) this.bloccoT = (this.bloccoT || 0) + dt2;
+    else this.bloccoT = 0;
+    const pulito = stopDist > 14;
+    if ((this.bloccoT > 3.5 && pulito || this.bloccoT > 12) && g.oncomingClear(v, 60, 1)) {
       this.sorpassoT = 7;
       this.bloccoT = 0;
     }
@@ -23269,15 +23327,26 @@ var TaxiService = class {
         stopDist = Math.min(stopDist, toLine);
       }
     }
+    const sbloccarsi = this.stuck > 8;
     const ctrl = followPath(v, this.path, this.st, {
-      cruise: 0.82,
+      cruise: sbloccarsi ? 0.16 : 0.82,
       maxSpeed: 21,
       stopDist,
       lead,
       sideOffset: this.sorpassoT > 0 ? 3 : 0,
       // chi taglia la strada e chi sta fermo di traverso entrano nel
       // modello come ostacoli, con la loro distanza: ci si ferma prima
-      obstacles: [g.conflictObstacle(v, this.path, this.st.i), g.crosswiseObstacle(v)]
+      /*
+       * Disimpegno.
+       *
+       * Chi taglia la strada e chi sta di traverso sono ostacoli veri, e di
+       * norma ci si ferma. Ma se anche l'altro e' bloccato — succede
+       * all'incrocio, due musi che si guardano — aspettare non finisce mai:
+       * nessuno dei due passera' mai per primo. Dopo otto secondi senza
+       * fare un metro di strada si passa lo stesso, a passo d'uomo. Con un
+       * urto che ora spinge di lato invece di inchiodare, ci si sfila.
+       */
+      obstacles: sbloccarsi ? [] : [g.conflictObstacle(v, this.path, this.st.i), g.crosswiseObstacle(v)]
     });
     this.dbg = {
       stopDist: stopDist === Infinity ? null : +stopDist.toFixed(1),
@@ -23288,6 +23357,7 @@ var TaxiService = class {
       throttle: +ctrl.throttle.toFixed(2),
       steer: +ctrl.steer.toFixed(2),
       wanted: +(ctrl.wanted || 0).toFixed(1),
+      acc: +(ctrl.acc || 0).toFixed(2),
       i: this.st.i,
       n: this.path.length,
       stuck: +this.stuck.toFixed(1),
@@ -23298,6 +23368,7 @@ var TaxiService = class {
       nRicalcoli: this._nRicalcoli || 0,
       sorpasso: +(this.sorpassoT || 0).toFixed(1),
       blocco: +(this.bloccoT || 0).toFixed(1),
+      sblocco: sbloccarsi ? 1 : 0,
       fuori: +(this.fuoriT || 0).toFixed(1),
       // dove sono i prossimi punti del tracciato, visti dal posto di guida:
       // avanti/indietro e destra/sinistra in metri
@@ -23312,7 +23383,9 @@ var TaxiService = class {
         return out;
       })()
     };
-    if (ctrl.throttle > 0.45 && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt2;
+    const libero = (ctrl.acc || 0) > 0.3;
+    this._liberoT = libero ? (this._liberoT || 0) + dt2 : 0;
+    if (libero && Math.abs(v.speed) < 0.5) this.pinnedT = (this.pinnedT || 0) + dt2;
     else this.pinnedT = 0;
     const fuori = roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.4;
     this.fuoriT = fuori ? (this.fuoriT || 0) + dt2 : 0;
@@ -23328,14 +23401,13 @@ var TaxiService = class {
         }
       }
     }
-    const redLight = stopDist < 6;
-    if (!this._probe) this._probe = { x: v.x, z: v.z, t: 0 };
+    if (!this._probe) this._probe = { i: this.st.i, meta: toGoal, t: 0 };
     this._probe.t += dt2;
-    if (this._probe.t > 2.5) {
-      const moved = Math.hypot(v.x - this._probe.x, v.z - this._probe.z);
-      if (moved < 2 && !redLight) this.stuck += this._probe.t;
-      else if (moved >= 2) this.stuck = 0;
-      this._probe = { x: v.x, z: v.z, t: 0 };
+    if (this._probe.t > 3) {
+      const avanzato = this.st.i > this._probe.i || toGoal < this._probe.meta - 4;
+      if (!avanzato && stopDist === Infinity) this.stuck += this._probe.t;
+      else if (avanzato) this.stuck = 0;
+      this._probe = { i: this.st.i, meta: toGoal, t: 0 };
     }
     const incoda = lead.d < 6;
     const mira = rientro ? rientro.target : this.path[Math.min(this.st.i, this.path.length - 1)];
@@ -23343,7 +23415,7 @@ var TaxiService = class {
     if (this.reverseT > 0) {
       this.reverseT -= dt2;
       v.update(dt2, { throttle: -0.9, steer: versoMira, hand: false });
-    } else if ((this.stuck > 6 || (this.pinnedT || 0) > 1.2) && !incoda) {
+    } else if ((this.pinnedT || 0) > 2.5 && !incoda) {
       this.reverseT = 1.4;
       this.stuck = 0;
       this.pinnedT = 0;
@@ -23355,7 +23427,7 @@ var TaxiService = class {
       v.update(dt2, rientro);
     } else {
       if (frena) {
-        ctrl.throttle = Math.min(ctrl.throttle, -0.5);
+        ctrl.throttle = v.speed > 0.6 ? Math.min(ctrl.throttle, -0.5) : 0;
         ctrl.hand = true;
       }
       v.update(dt2, ctrl);
@@ -23368,7 +23440,7 @@ var TaxiService = class {
       this.stuck = 0;
       this.recoveries = (this.recoveries || 0) + 2;
     }
-    if ((this.recoveries || 0) >= (this.state === "riding" ? 5 : 2)) {
+    if ((this.recoveries || 0) >= (this.state === "riding" ? 12 : 2)) {
       this.recoveries = 0;
       const lontano = Math.hypot(v.x - g.player.x, v.z - g.player.z) > 60;
       if (this.state === "coming" && lontano && this.path.length > 3) {
@@ -23389,7 +23461,20 @@ var TaxiService = class {
       this.replanT = 12;
       this.stuck = 0;
       this._nRicalcoli = (this._nRicalcoli || 0) + 1;
+      if (mark && mark.node) {
+        if (!this._evita) this._evita = /* @__PURE__ */ new Set();
+        const idx = this._nodes.indexOf(mark.node);
+        if (idx >= 0) {
+          if (this._evita.size >= 3) this._evita.delete(this._evita.values().next().value);
+          this._evita.add(idx);
+        }
+        this._scordaT = 45;
+      }
       this._replan();
+    }
+    if (this._scordaT > 0) {
+      this._scordaT -= dt2;
+      if (this._scordaT <= 0 && this._evita) this._evita.clear();
     }
     if (this.state === "coming" && this.age > 32) {
       const fatto = this.partenza - Math.hypot(v.x - g.player.x, v.z - g.player.z);
@@ -23409,7 +23494,7 @@ var TaxiService = class {
     if (this.state === "coming") {
       const near = Math.hypot(v.x - g.player.x, v.z - g.player.z);
       if (roadDistance(this._nodes, v.x, v.z) > HALF_ROAD + 0.8) return;
-      if ((ctrl.done || toStop < 9) && Math.abs(v.speed) < 2) {
+      if ((ctrl.done || toStop < 9 || this.vicinoT > 10) && Math.abs(v.speed) < 2) {
         this.state = "waiting";
         this.waitT = 45;
         g.audio.horn();
@@ -23422,7 +23507,7 @@ var TaxiService = class {
       }
       return;
     }
-    if (this.state === "riding" && (ctrl.done || toStop < 8) && Math.abs(v.speed) < 2) {
+    if (this.state === "riding" && (ctrl.done || toStop < 8 || this.vicinoT > 10) && Math.abs(v.speed) < 2) {
       this.drop("arrivato");
     }
   }
@@ -24296,7 +24381,7 @@ var Game = class {
     if (this.heistCd > 0) this.heistCd -= dt2;
     if (this.invoiceCd > 0) this.invoiceCd -= dt2;
     this.trafficT += dt2;
-    const GREEN = 14, AMBER = 2.4, ALL_RED = 2;
+    const GREEN = 8, AMBER = 2, ALL_RED = 2;
     const wasAmber = this.trafficAmber;
     this.trafficAmber = this.trafficT > GREEN;
     this.trafficAllRed = this.trafficT > GREEN + AMBER;
