@@ -863,71 +863,95 @@ function buildBody(c) {
   const gb = new GeoBuilder();
   const skin = c.skin, shirt = c.shirt, hair = c.hair;
 
-  // --- bacino e busto: fianchi, vita stretta, torace, spalle spioventi
+  /*
+   * Bacino e busto.
+   *
+   * `rx` e' la PROFONDITA' (avanti-indietro), `rz' la LARGHEZZA: il
+   * personaggio guarda verso +X. Qui i due erano scambiati, e ne usciva
+   * una persona larga ventitre centimetri e profonda trentanove — di
+   * fronte uno stecco, di profilo un armadio. Per rimediare alla larghezza
+   * mancante le spalle erano state buttate fuori a venti centimetri dal
+   * centro con due sfere, ed e' da li' che venivano le braccia a
+   * salsicciotto: non erano le braccia, era il torace sbagliato.
+   *
+   * Le misure sono quelle di un adulto: torace largo trentasei centimetri
+   * e profondo ventidue, fianchi trentatre, vita stretta in mezzo.
+   */
+  /*
+   * Gli scostamenti `cx` danno il profilo: glutei indietro, torace in
+   * avanti, vita rientrata. Senza, un corpo con le misure giuste resta
+   * comunque una scatola — di lato sembra un cartonato.
+   */
   loft(gb, [
-    { y: 0.80, rx: 0.155, rz: 0.105, color: c.pants },
-    { y: 0.88, rx: 0.175, rz: 0.115, color: c.pants },
-    { y: 0.97, rx: 0.165, rz: 0.108, color: c.pants },
-    { y: 1.02, rx: 0.150, rz: 0.100, color: shirt },
-    { y: 1.14, rx: 0.152, rz: 0.100, color: shirt },
-    { y: 1.30, rx: 0.180, rz: 0.115, color: shirt },
-    { y: 1.42, rx: 0.196, rz: 0.118, color: shirt },
-    { y: 1.485, rx: 0.185, rz: 0.110, color: shirt },
-    { y: 1.51, rx: 0.120, rz: 0.085, color: shirt },
+    { y: 0.80, rx: 0.104, rz: 0.145, cx: -0.010, color: c.pants },
+    { y: 0.88, rx: 0.116, rz: 0.165, cx: -0.014, color: c.pants },
+    { y: 0.97, rx: 0.098, rz: 0.142, cx: -0.004, color: c.pants },
+    { y: 1.02, rx: 0.094, rz: 0.138, cx: 0.000, color: shirt },
+    { y: 1.14, rx: 0.101, rz: 0.150, cx: 0.005, color: shirt },
+    { y: 1.30, rx: 0.112, rz: 0.172, cx: 0.011, color: shirt },
+    { y: 1.42, rx: 0.113, rz: 0.188, cx: 0.008, color: shirt },
+    { y: 1.485, rx: 0.101, rz: 0.176, cx: 0.002, color: shirt },
+    { y: 1.51, rx: 0.082, rz: 0.104, cx: 0.004, color: shirt },
   ], shirt, 12);
 
-  // --- spalle: nel colore del capo, se no la giacca lascia due palle chiare
+  /*
+   * Spalle: un deltoide schiacciato che continua il torace, non una palla
+   * appiccicata di fianco. Largo quanto basta a chiudere la spalla —
+   * quarantasei centimetri in tutto — e piu' alto che largo, come e'.
+   */
   const shoulderCol = c.outfit === 'tee' ? shirt : c.jacket;
-  const shoulderZ = c.outfit === 'tee' ? 0.175 : 0.196;
-  for (const s of [-1, 1]) blob(gb, 0, 1.462, s * shoulderZ, 0.092, 0.092, 0.098, shoulderCol, 10, 6);
+  const shoulderZ = c.outfit === 'tee' ? 0.166 : 0.174;
+  // la profondita' del deltoide non puo' superare quella del petto, se no
+  // spunta davanti alla giacca come una gobba
+  for (const s of [-1, 1]) blob(gb, 0.004, 1.446, s * shoulderZ, 0.072, 0.086, 0.062, shoulderCol, 10, 6);
 
   // --- capo d'abbigliamento: giacca aperta, felpa col cappuccio o maglietta
   if (c.outfit === 'jacket') {
     const j = c.jacket;
     // guscio leggermente piu' largo del busto, aperto sul davanti
     loft(gb, [
-      { y: 1.06, rx: 0.162, rz: 0.112, color: j },
-      { y: 1.20, rx: 0.166, rz: 0.114, color: j },
-      { y: 1.34, rx: 0.192, rz: 0.126, color: j },
-      { y: 1.45, rx: 0.198, rz: 0.126, color: j },
-      { y: 1.49, rx: 0.190, rz: 0.118, color: j },
+      { y: 1.06, rx: 0.104, rz: 0.148, color: j },
+      { y: 1.20, rx: 0.108, rz: 0.156, color: j },
+      { y: 1.34, rx: 0.117, rz: 0.180, color: j },
+      { y: 1.45, rx: 0.119, rz: 0.190, color: j },
+      { y: 1.49, rx: 0.110, rz: 0.180, color: j },
     ], j, 12, false);
     // risvolti del bavero
     for (const s of [-1, 1]) {
-      gb.box(0.098, 1.40, s * 0.055, 0.05, 0.24, 0.07, j);
-      gb.box(0.086, 1.47, s * 0.085, 0.05, 0.1, 0.09, j);
+      gb.box(0.062, 1.40, s * 0.048, 0.05, 0.24, 0.07, j);
+      gb.box(0.052, 1.47, s * 0.078, 0.05, 0.1, 0.09, j);
     }
     // cerniera e tasche
-    gb.box(0.108, 1.26, 0, 0.02, 0.34, 0.026, 0x8d949c);
-    for (const s of [-1, 1]) gb.box(0.096, 1.13, s * 0.09, 0.03, 0.07, 0.09, j);
+    gb.box(0.070, 1.26, 0, 0.02, 0.34, 0.026, 0x8d949c);
+    for (const s of [-1, 1]) gb.box(0.062, 1.13, s * 0.10, 0.03, 0.07, 0.09, j);
   } else if (c.outfit === 'hoodie') {
     const j = c.jacket;
     loft(gb, [
-      { y: 1.04, rx: 0.168, rz: 0.116, color: j },
-      { y: 1.22, rx: 0.172, rz: 0.118, color: j },
-      { y: 1.36, rx: 0.198, rz: 0.130, color: j },
-      { y: 1.47, rx: 0.200, rz: 0.128, color: j },
-      { y: 1.50, rx: 0.188, rz: 0.116, color: j },
+      { y: 1.04, rx: 0.108, rz: 0.152, color: j },
+      { y: 1.22, rx: 0.112, rz: 0.160, color: j },
+      { y: 1.36, rx: 0.121, rz: 0.184, color: j },
+      { y: 1.47, rx: 0.122, rz: 0.192, color: j },
+      { y: 1.50, rx: 0.112, rz: 0.180, color: j },
     ], j, 12, false);
     // cappuccio appoggiato sulle spalle
-    blob(gb, -0.075, 1.52, 0, 0.105, 0.075, 0.125, j, 10, 6);
-    blob(gb, -0.055, 1.46, 0, 0.115, 0.06, 0.135, j, 10, 6);
+    blob(gb, -0.072, 1.52, 0, 0.070, 0.075, 0.118, j, 10, 6);
+    blob(gb, -0.056, 1.46, 0, 0.078, 0.06, 0.132, j, 10, 6);
     // tasca a marsupio e cordoncino
-    gb.box(0.098, 1.12, 0, 0.035, 0.13, 0.22, j);
-    for (const s of [-1, 1]) gb.box(0.104, 1.33, s * 0.03, 0.014, 0.16, 0.014, 0xe8e4dc);
+    gb.box(0.064, 1.12, 0, 0.035, 0.13, 0.22, j);
+    for (const s of [-1, 1]) gb.box(0.070, 1.33, s * 0.03, 0.014, 0.16, 0.014, 0xe8e4dc);
   }
 
   // --- cintura: separa il busto dai pantaloni
   loft(gb, [
-    { y: 0.99, rx: 0.158, rz: 0.106, color: c.belt },
-    { y: 1.04, rx: 0.156, rz: 0.104, color: c.belt },
+    { y: 0.99, rx: 0.100, rz: 0.147, color: c.belt },
+    { y: 1.04, rx: 0.097, rz: 0.143, color: c.belt },
   ], c.belt, 12, false);
-  gb.box(0.108, 1.015, 0, 0.03, 0.05, 0.06, 0xc9a24a);        // fibbia
+  gb.box(0.098, 1.015, 0, 0.03, 0.05, 0.06, 0xc9a24a);        // fibbia
 
   // --- colletto
   loft(gb, [
-    { y: 1.487, rx: 0.088, rz: 0.072, color: c.outfit === 'tee' ? shirt : c.jacket },
-    { y: 1.535, rx: 0.080, rz: 0.066, color: c.outfit === 'tee' ? shirt : c.jacket },
+    { y: 1.487, rx: 0.080, rz: 0.098, color: c.outfit === 'tee' ? shirt : c.jacket },
+    { y: 1.535, rx: 0.073, rz: 0.088, color: c.outfit === 'tee' ? shirt : c.jacket },
   ], shirt, 10, false);
 
   // --- collo e testa
@@ -935,9 +959,10 @@ function buildBody(c) {
     { y: 1.50, rx: 0.062, rz: 0.058, color: skin },
     { y: 1.575, rx: 0.058, rz: 0.055, color: skin },
   ], skin, 10, false);
-  blob(gb, 0.004, 1.665, 0, 0.098, 0.115, 0.093, skin, 14, 10);
-  blob(gb, 0.028, 1.615, 0, 0.086, 0.072, 0.082, skin, 12, 8);      // mascella
-  for (const s of [-1, 1]) blob(gb, -0.01, 1.665, s * 0.092, 0.022, 0.036, 0.016, skin, 8, 5);   // orecchie
+  // testa: piu' profonda che larga, come una testa vera
+  blob(gb, 0.004, 1.665, 0, 0.096, 0.113, 0.079, skin, 14, 10);
+  blob(gb, 0.026, 1.617, 0, 0.084, 0.070, 0.071, skin, 12, 8);      // mascella
+  for (const s of [-1, 1]) blob(gb, -0.01, 1.663, s * 0.078, 0.022, 0.036, 0.014, skin, 8, 5);   // orecchie
   // naso, occhi, sopracciglia, bocca
   blob(gb, 0.092, 1.657, 0, 0.028, 0.026, 0.022, skin, 8, 6);
   for (const s of [-1, 1]) {
@@ -949,18 +974,18 @@ function buildBody(c) {
 
   // --- capelli: tre tagli diversi
   if (c.hairStyle === 0) {                       // corti
-    blob(gb, -0.004, 1.678, 0, 0.104, 0.118, 0.099, hair, 12, 8);
-    gb.box(-0.06, 1.60, 0, 0.06, 0.12, 0.17, hair);
+    blob(gb, -0.004, 1.678, 0, 0.102, 0.116, 0.085, hair, 12, 8);
+    gb.box(-0.058, 1.60, 0, 0.06, 0.12, 0.145, hair);
   } else if (c.hairStyle === 1) {                // lunghi
-    blob(gb, -0.006, 1.676, 0, 0.106, 0.12, 0.101, hair, 12, 8);
+    blob(gb, -0.006, 1.676, 0, 0.104, 0.118, 0.087, hair, 12, 8);
     loft(gb, [
-      { y: 1.70, rx: 0.105, rz: 0.10, cx: -0.02 },
-      { y: 1.55, rx: 0.098, rz: 0.095, cx: -0.03 },
-      { y: 1.42, rx: 0.082, rz: 0.078, cx: -0.035 },
+      { y: 1.70, rx: 0.102, rz: 0.086, cx: -0.02 },
+      { y: 1.55, rx: 0.094, rz: 0.082, cx: -0.03 },
+      { y: 1.42, rx: 0.078, rz: 0.068, cx: -0.035 },
     ], hair, 10, false);
   } else {                                       // cappellino
-    blob(gb, -0.004, 1.676, 0, 0.104, 0.112, 0.1, c.cap, 12, 6);
-    gb.box(0.105, 1.688, 0, 0.11, 0.022, 0.16, c.cap);
+    blob(gb, -0.004, 1.676, 0, 0.102, 0.110, 0.086, c.cap, 12, 6);
+    gb.box(0.100, 1.688, 0, 0.11, 0.022, 0.14, c.cap);
   }
   const geo = smoothNormals(gb.build(), 1.15);
   geo.translate(0, -WAIST, 0);   // pivot in vita: busto e testa ruotano da li'
@@ -971,14 +996,20 @@ function buildBody(c) {
 function buildArm(c) {
   const gb = new GeoBuilder();
   const sleeve = c.sleeve;
-  const bulk = c.outfit === 'tee' ? 1 : 1.16;    // la giacca ingrossa la manica
+  const bulk = c.outfit === 'tee' ? 1 : 1.14;    // la giacca ingrossa la manica
+  /*
+   * Un braccio adulto e' largo nove centimetri alla spalla e sette al
+   * gomito. Qui era dodici e nove: da fuori non sembrava un braccio ma un
+   * salsicciotto, e la colpa se la prendeva l'animazione.
+   */
   loft(gb, [
-    { y: 0.02, rx: 0.062 * bulk, rz: 0.062 * bulk, color: sleeve },
-    { y: -0.10, rx: 0.058 * bulk, rz: 0.058 * bulk, color: sleeve },
-    { y: -0.19, rx: 0.052 * bulk, rz: 0.052 * bulk, color: c.shortSleeve ? c.skin : sleeve },
-    { y: -0.30, rx: 0.047 * bulk, rz: 0.047 * bulk, color: c.shortSleeve ? c.skin : sleeve },
+    { y: 0.02, rx: 0.048 * bulk, rz: 0.046 * bulk, color: sleeve },
+    { y: -0.10, rx: 0.045 * bulk, rz: 0.043 * bulk, color: sleeve },
+    { y: -0.19, rx: 0.041 * bulk, rz: 0.039 * bulk, color: c.shortSleeve ? c.skin : sleeve },
+    { y: -0.30, rx: 0.038 * bulk, rz: 0.036 * bulk, color: c.shortSleeve ? c.skin : sleeve },
   ], c.skin, 9);
-  blob(gb, 0, -0.30, 0, 0.048 * bulk, 0.048 * bulk, 0.048 * bulk, c.shortSleeve ? c.skin : sleeve, 8, 6);  // gomito
+  // gomito: appena accennato, se no sporge come una pallina
+  blob(gb, 0, -0.30, 0, 0.039 * bulk, 0.034 * bulk, 0.037 * bulk, c.shortSleeve ? c.skin : sleeve, 8, 6);
   return smoothNormals(gb.build(), 1.15);
 }
 
@@ -986,12 +1017,17 @@ function buildArm(c) {
 function buildForearm(c) {
   const gb = new GeoBuilder();
   loft(gb, [
-    { y: 0.01, rx: 0.046, rz: 0.046, color: c.skin },
-    { y: -0.12, rx: 0.041, rz: 0.041, color: c.skin },
-    { y: -0.24, rx: 0.037, rz: 0.038, color: c.skin },
-    { y: -0.31, rx: 0.035, rz: 0.036, color: c.skin },
+    { y: 0.01, rx: 0.041, rz: 0.039, color: c.skin },
+    { y: -0.12, rx: 0.036, rz: 0.034, color: c.skin },
+    { y: -0.24, rx: 0.030, rz: 0.028, color: c.skin },
+    { y: -0.31, rx: 0.027, rz: 0.025, color: c.skin },
   ], c.skin, 9);
-  blob(gb, 0.012, -0.355, 0, 0.045, 0.055, 0.032, c.skin, 8, 6);     // mano
+  /*
+   * Mano: piatta, non una pallina. A braccio disteso il palmo guarda la
+   * coscia, quindi e' larga avanti-indietro e sottile di fianco.
+   */
+  blob(gb, 0.008, -0.352, 0, 0.042, 0.052, 0.021, c.skin, 8, 6);
+  blob(gb, 0.020, -0.392, 0, 0.030, 0.030, 0.019, c.skin, 6, 5);     // dita chiuse
   return smoothNormals(gb.build(), 1.15);
 }
 
@@ -999,12 +1035,13 @@ function buildLeg(c) {
   const gb = new GeoBuilder();
   const short = c.shorts;
   loft(gb, [
-    { y: 0.02, rx: 0.088, rz: 0.088, color: c.pants },
-    { y: -0.16, rx: 0.081, rz: 0.083, color: c.pants },
-    { y: -0.30, rx: 0.072, rz: 0.074, color: short ? c.skin : c.pants },
-    { y: -0.42, rx: 0.066, rz: 0.068, color: short ? c.skin : c.pants },
+    { y: 0.02, rx: 0.092, rz: 0.084, cx: -0.008, color: c.pants },
+    { y: -0.16, rx: 0.082, rz: 0.076, cx: -0.005, color: c.pants },
+    { y: -0.30, rx: 0.070, rz: 0.066, cx: -0.002, color: short ? c.skin : c.pants },
+    { y: -0.42, rx: 0.058, rz: 0.057, cx: 0.000, color: short ? c.skin : c.pants },
   ], c.pants, 9);
-  blob(gb, 0, -0.42, 0, 0.068, 0.062, 0.068, short ? c.skin : c.pants, 8, 6);   // ginocchio
+  // ginocchio: schiacciato ai lati, non una biglia
+  blob(gb, 0.004, -0.42, 0, 0.060, 0.052, 0.056, short ? c.skin : c.pants, 8, 6);
   return smoothNormals(gb.build(), 1.15);
 }
 
@@ -1012,11 +1049,13 @@ function buildLeg(c) {
 function buildShin(c) {
   const gb = new GeoBuilder();
   const short = c.shorts;
+  // il polpaccio gonfia all'indietro e la caviglia rientra: di profilo e'
+  // la differenza fra una gamba e un bastone
   loft(gb, [
-    { y: 0.01, rx: 0.062, rz: 0.064, color: short ? c.skin : c.pants },
-    { y: -0.12, rx: 0.056, rz: 0.058, color: short ? c.skin : c.pants },
-    { y: -0.26, rx: 0.047, rz: 0.049, color: short ? c.skin : c.pants },
-    { y: -0.36, rx: 0.044, rz: 0.046, color: short ? c.skin : c.pants },
+    { y: 0.01, rx: 0.058, rz: 0.055, cx: -0.004, color: short ? c.skin : c.pants },
+    { y: -0.12, rx: 0.060, rz: 0.052, cx: -0.011, color: short ? c.skin : c.pants },
+    { y: -0.26, rx: 0.043, rz: 0.040, cx: -0.006, color: short ? c.skin : c.pants },
+    { y: -0.36, rx: 0.036, rz: 0.036, cx: 0.000, color: short ? c.skin : c.pants },
   ], c.pants, 9);
   // scarpa: suola, tomaia e punta arrotondata
   gb.box(0.03, -0.395, 0, 0.235, 0.055, 0.105, c.shoes);
@@ -1095,7 +1134,8 @@ export function makeCharacter(opts = {}) {
   const torso = new THREE.Mesh(bodyGeo, shared.bodyMat);
   torso.position.y = WAIST;
   // le braccia sono figlie del busto: seguono torsioni e inclinazioni
-  const armZ = c.outfit === 'tee' ? 0.175 : 0.196;
+  // le braccia pendono dal deltoide, non dal fianco di una sfera
+  const armZ = c.outfit === 'tee' ? 0.166 : 0.174;
   const larm = new THREE.Mesh(armGeo, shared.bodyMat); larm.position.set(0, SHOULDER - WAIST, armZ);
   const rarm = new THREE.Mesh(armGeo, shared.bodyMat); rarm.position.set(0, SHOULDER - WAIST, -armZ);
   const lleg = new THREE.Mesh(legGeo, shared.bodyMat); lleg.position.set(0, HIP, 0.085);
