@@ -663,6 +663,15 @@ class Game {
       const fattore = [0.4, 0.65, 0.85, 1][clamp(tier, 0, 3)];
       this.traffic.setMax(Math.max(6, Math.round(base * fattore)));
     }
+    /*
+     * Quanti passanti si guardano in faccia. Al livello piu' basso nessuno:
+     * li' ogni triangolo conta e comunque non si arriva mai abbastanza
+     * vicino da vedere la differenza.
+     */
+    if (this.peds) {
+      const base = IS_MOBILE ? CFG.PED_HD_MOBILE : CFG.PED_HD_DESKTOP;
+      this.peds.vicini = Math.round(base * [0, 0.4, 0.7, 1][clamp(tier, 0, 3)]);
+    }
     if (this.city) {
       for (const name of ['road', 'walk']) {
         const m = this.city.mats[name];

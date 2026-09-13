@@ -809,11 +809,61 @@ function ring(y, rx, rz, sides, cx = 0, cz = 0) {
   return out;
 }
 
+/*
+ * Livello di dettaglio dei personaggi.
+ *
+ * Lo leggono `loft` e `blob`, che sono gli unici due mattoni con cui e'
+ * costruito un corpo: alzarlo moltiplica i lati di ogni sezione e infittisce
+ * le sezioni lungo l'asse. Cosi' lo stesso codice descrive sia il passante
+ * a cinquanta metri sia quello che hai a due, senza tenere allineati due
+ * modelli diversi — e i tondi smettono di essere poligoni.
+ */
+const DETTAGLI = {
+  normale: { lati: 1, anelli: 1, sub: 1 },
+  alto: { lati: 2.1, anelli: 1.8, sub: 4 },
+};
+let det = DETTAGLI.normale;
+
+/**
+ * Infittisce le sezioni di un loft interpolandole con una spline: la
+ * silhouette smette di essere una pila di tronchi di cono. Il colore non si
+ * interpola, se no i bordi dei vestiti sfumano invece di restare netti.
+ */
+function refineLoft(sections, sub) {
+  if (sections.length < 2 || sub < 2) return sections;
+  const at = (i) => sections[clampIdx(i, sections.length)];
+  const spl = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const v = (s, k) => s[k] || 0;
+  const out = [];
+  for (let i = 0; i < sections.length - 1; i++) {
+    const a = at(i - 1), b = at(i), c = at(i + 1), d2 = at(i + 2);
+    for (let k = 0; k < sub; k++) {
+      const t = k / sub;
+      out.push({
+        y: spl(a.y, b.y, c.y, d2.y, t),
+        rx: Math.max(0.004, spl(a.rx, b.rx, c.rx, d2.rx, t)),
+        rz: Math.max(0.004, spl(a.rz, b.rz, c.rz, d2.rz, t)),
+        cx: spl(v(a, 'cx'), v(b, 'cx'), v(c, 'cx'), v(d2, 'cx'), t),
+        cz: spl(v(a, 'cz'), v(b, 'cz'), v(c, 'cz'), v(d2, 'cz'), t),
+        color: b.color,
+      });
+    }
+  }
+  out.push(sections[sections.length - 1]);
+  return out;
+}
+
 /**
  * Collega una serie di sezioni ellittiche: e' il modo piu' economico per
  * ottenere braccia, gambe e busti tondi invece che spigolosi.
  */
 function loft(gb, sections, color, sides = 10, cap = true) {
+  sections = refineLoft(sections, det.sub);
+  sides = Math.max(6, Math.round(sides * det.lati));
   let prev = ring(sections[0].y, sections[0].rx, sections[0].rz, sides, sections[0].cx || 0, sections[0].cz || 0);
   if (cap) {
     for (let i = 1; i < sides - 1; i++) gb.quad(prev[0], prev[i + 1], prev[i], prev[i], color, 1, 1);
@@ -835,8 +885,51 @@ function loft(gb, sections, color, sides = 10, cap = true) {
   }
 }
 
+/**
+ * Calotta: la fetta alta di un ellissoide, con la fronte scoperta.
+ *
+ * Serve ai capelli. Con una sfera intera coprivano tutto il cranio e la
+ * faccia restava fuori come un muso: da vicino sembrava una cuffia da nuoto
+ * con un muso attaccato davanti. Qui si salta il settore rivolto in avanti
+ * nei giri piu' bassi, e viene fuori un'attaccatura.
+ *
+ * @param dal  da che altezza dell'ellissoide comincia (0 = equatore basso)
+ * @param scollo quanto scende sulla nuca rispetto alla fronte
+ */
+function calotta(gb, x, y, z, rx, ry, rz, color, dal = 0.40, scollo = 0.34, sides = 14, rings = 7) {
+  sides = Math.max(8, Math.round(sides * det.lati));
+  rings = Math.max(3, Math.round(rings * det.anelli));
+  /*
+   * Ogni colonna parte da una sua altezza, calcolata sull'angolo: piu' in
+   * basso sulla nuca, piu' in alto sulla fronte. Buttare via i quadri sotto
+   * una soglia sarebbe piu' semplice ma lascia un'attaccatura a scalini —
+   * e si vede benissimo. Cosi' invece il bordo e' una curva continua.
+   */
+  const col = [];
+  for (let i = 0; i <= sides; i++) {
+    const a = ((i % sides) / sides) * TAU;
+    const avanti = Math.max(0, Math.cos(a));            // 1 = fronte, 0 = nuca
+    const dalQui = dal + (1 - dal) * scollo * avanti * avanti;
+    const punti = [];
+    for (let r = 0; r <= rings; r++) {
+      const f = dalQui + (r / rings) * (1 - dalQui);
+      const t = -Math.PI / 2 + f * Math.PI;
+      punti.push([x + Math.cos(a) * rx * Math.cos(t), y + Math.sin(t) * ry,
+                  z + Math.sin(a) * rz * Math.cos(t)]);
+    }
+    col.push(punti);
+  }
+  for (let i = 0; i < sides; i++) {
+    for (let r = 0; r < rings; r++) {
+      gb.quad(col[i][r], col[i][r + 1], col[i + 1][r + 1], col[i + 1][r], color, 1, 1);
+    }
+  }
+}
+
 /** Sfera schiacciabile: teste, spalle, mani, orecchie. */
 function blob(gb, x, y, z, rx, ry, rz, color, sides = 12, rings = 8) {
+  sides = Math.max(6, Math.round(sides * det.lati));
+  rings = Math.max(4, Math.round(rings * det.anelli));
   for (let r = 0; r < rings; r++) {
     const t0 = -Math.PI / 2 + (r / rings) * Math.PI;
     const t1 = -Math.PI / 2 + ((r + 1) / rings) * Math.PI;
@@ -954,38 +1047,75 @@ function buildBody(c) {
     { y: 1.535, rx: 0.073, rz: 0.088, color: c.outfit === 'tee' ? shirt : c.jacket },
   ], shirt, 10, false);
 
-  // --- collo e testa
+  // --- collo: corto e inclinato in avanti, non una colonna
   loft(gb, [
-    { y: 1.50, rx: 0.062, rz: 0.058, color: skin },
-    { y: 1.575, rx: 0.058, rz: 0.055, color: skin },
+    { y: 1.495, rx: 0.064, rz: 0.062, cx: -0.004, color: skin },
+    { y: 1.545, rx: 0.060, rz: 0.058, cx: 0.000, color: skin },
+    { y: 1.585, rx: 0.057, rz: 0.055, cx: 0.004, color: skin },
   ], skin, 10, false);
-  // testa: piu' profonda che larga, come una testa vera
-  blob(gb, 0.004, 1.665, 0, 0.096, 0.113, 0.079, skin, 14, 10);
-  blob(gb, 0.026, 1.617, 0, 0.084, 0.070, 0.071, skin, 12, 8);      // mascella
-  for (const s of [-1, 1]) blob(gb, -0.01, 1.663, s * 0.078, 0.022, 0.036, 0.014, skin, 8, 5);   // orecchie
-  // naso, occhi, sopracciglia, bocca
-  blob(gb, 0.092, 1.657, 0, 0.028, 0.026, 0.022, skin, 8, 6);
+  /*
+   * Testa in un pezzo solo.
+   *
+   * Prima erano due sfere: cranio e mascella. La seconda sporgeva davanti
+   * alla prima e da vicino era un muso — con i capelli che coprivano tutto
+   * il resto, il risultato sembrava un animale, non una persona. Adesso e'
+   * un profilo continuo dal collo alla nuca: mento, mascella, zigomo,
+   * fronte. Il mento viene dallo scostamento in avanti, non da una palla.
+   */
+  loft(gb, [
+    { y: 1.580, rx: 0.058, rz: 0.056, cx: 0.000, color: skin },
+    { y: 1.610, rx: 0.074, rz: 0.066, cx: 0.015, color: skin },
+    { y: 1.634, rx: 0.086, rz: 0.077, cx: 0.016, color: skin },
+    { y: 1.662, rx: 0.094, rz: 0.083, cx: 0.008, color: skin },
+    { y: 1.694, rx: 0.096, rz: 0.085, cx: 0.001, color: skin },
+    { y: 1.722, rx: 0.093, rz: 0.084, cx: -0.004, color: skin },
+    { y: 1.748, rx: 0.084, rz: 0.076, cx: -0.009, color: skin },
+    { y: 1.766, rx: 0.062, rz: 0.057, cx: -0.011, color: skin },
+    { y: 1.776, rx: 0.030, rz: 0.028, cx: -0.011, color: skin },
+  ], skin, 14);
+
+  // orecchie: schiacciate contro il cranio, non due linguette squadrate
+  for (const s of [-1, 1]) blob(gb, -0.014, 1.684, s * 0.081, 0.028, 0.034, 0.011, skin, 8, 6);
+
+  /*
+   * Naso: un cuneo, non una biglia. Tre sezioni dalla radice alla punta,
+   * appoggiate sulla faccia invece che appiccicate sopra.
+   */
+  loft(gb, [
+    { y: 1.722, rx: 0.012, rz: 0.010, cx: 0.088, color: skin },
+    { y: 1.694, rx: 0.018, rz: 0.014, cx: 0.096, color: skin },
+    { y: 1.670, rx: 0.022, rz: 0.019, cx: 0.100, color: skin },
+    { y: 1.658, rx: 0.016, rz: 0.017, cx: 0.095, color: skin },
+  ], skin, 8, false);
+
   for (const s of [-1, 1]) {
-    blob(gb, 0.072, 1.695, s * 0.038, 0.022, 0.017, 0.02, 0xf4f2ee, 8, 6);
-    blob(gb, 0.083, 1.694, s * 0.041, 0.011, 0.011, 0.011, c.eyes, 6, 5);
-    gb.box(0.078, 1.723, s * 0.04, 0.02, 0.012, 0.048, hair);
+    // occhio: incassato nell'orbita. Prima era una palla bianca che
+    // sporgeva dalla faccia, e da vicino erano due uova sode
+    blob(gb, 0.080, 1.704, s * 0.038, 0.014, 0.013, 0.016, 0xf1efe9, 8, 6);
+    blob(gb, 0.088, 1.703, s * 0.040, 0.008, 0.009, 0.009, c.eyes, 6, 5);
+    // palpebra superiore: nasconde la calotta bianca di sopra
+    blob(gb, 0.081, 1.715, s * 0.038, 0.017, 0.009, 0.019, skin, 8, 5);
+    // sopracciglio: segue l'arcata, appoggiato
+    blob(gb, 0.082, 1.728, s * 0.039, 0.012, 0.006, 0.024, hair, 8, 5);
   }
-  gb.box(0.086, 1.596, 0, 0.016, 0.011, 0.042, 0xb9705f);
+  // bocca: una fessura, appena incisa
+  blob(gb, 0.091, 1.630, 0, 0.010, 0.005, 0.023, 0xa4655a, 8, 5);
 
   // --- capelli: tre tagli diversi
   if (c.hairStyle === 0) {                       // corti
-    blob(gb, -0.004, 1.678, 0, 0.102, 0.116, 0.085, hair, 12, 8);
-    gb.box(-0.058, 1.60, 0, 0.06, 0.12, 0.145, hair);
+    calotta(gb, -0.008, 1.702, 0, 0.106, 0.099, 0.092, hair, 0.30, 0.40);
   } else if (c.hairStyle === 1) {                // lunghi
-    blob(gb, -0.006, 1.676, 0, 0.104, 0.118, 0.087, hair, 12, 8);
+    calotta(gb, -0.008, 1.702, 0, 0.108, 0.101, 0.094, hair, 0.26, 0.44);
+    // la massa che scende sulle spalle: si ferma dietro le orecchie
     loft(gb, [
-      { y: 1.70, rx: 0.102, rz: 0.086, cx: -0.02 },
-      { y: 1.55, rx: 0.094, rz: 0.082, cx: -0.03 },
-      { y: 1.42, rx: 0.078, rz: 0.068, cx: -0.035 },
+      { y: 1.700, rx: 0.092, rz: 0.084, cx: -0.022, color: hair },
+      { y: 1.600, rx: 0.086, rz: 0.080, cx: -0.030, color: hair },
+      { y: 1.500, rx: 0.072, rz: 0.070, cx: -0.036, color: hair },
+      { y: 1.432, rx: 0.050, rz: 0.052, cx: -0.040, color: hair },
     ], hair, 10, false);
   } else {                                       // cappellino
-    blob(gb, -0.004, 1.676, 0, 0.102, 0.110, 0.086, c.cap, 12, 6);
-    gb.box(0.100, 1.688, 0, 0.11, 0.022, 0.14, c.cap);
+    calotta(gb, -0.006, 1.704, 0, 0.108, 0.098, 0.094, c.cap, 0.32, 0.20);
+    gb.box(0.086, 1.722, 0, 0.11, 0.018, 0.140, c.cap);      // visiera
   }
   const geo = smoothNormals(gb.build(), 1.15);
   geo.translate(0, -WAIST, 0);   // pivot in vita: busto e testa ruotano da li'
@@ -1124,12 +1254,16 @@ export function makeCharacter(opts = {}) {
   };
   if (c.outfit !== 'tee') { c.shortSleeve = false; c.sleeve = c.jacket; }
 
+  const livello = opts.detail || 'normale';
+  const prec = det;
+  det = DETTAGLI[livello] || DETTAGLI.normale;
   const group = new THREE.Group();
   const bodyGeo = buildBody(c);
   const armGeo = buildArm(c);
   const foreGeo = buildForearm(c);
   const legGeo = buildLeg(c);
   const shinGeo = buildShin(c);
+  det = prec;
 
   const torso = new THREE.Mesh(bodyGeo, shared.bodyMat);
   torso.position.y = WAIST;
@@ -1165,8 +1299,42 @@ export function makeCharacter(opts = {}) {
   group.userData.parts = { torso, larm, rarm, lleg, rleg, lfore, rfore, lshin, rshin };
   group.userData.colors = c;
   group.userData.geo = { bodyGeo, armGeo, foreGeo, legGeo, shinGeo };
+  group.userData.detail = livello;
   group.userData.phase = Math.random() * 6.28;
   return group;
+}
+
+/**
+ * Ricostruisce un personaggio gia' in scena a un altro livello di dettaglio,
+ * tenendo gli stessi vestiti, la stessa faccia e la stessa posa.
+ *
+ * Serve al LOD: quello che ti passa accanto vale i triangoli, quello a
+ * cinquanta metri no. Costa una costruzione di geometria, quindi chi chiama
+ * deve cambiarne pochi per fotogramma.
+ *
+ * @returns {boolean} vero se ha davvero ricostruito qualcosa
+ */
+export function setCharacterDetail(group, livello) {
+  const u = group.userData;
+  if (!u.parts || u.detail === livello) return false;
+  const prec = det;
+  det = DETTAGLI[livello] || DETTAGLI.normale;
+  const c = u.colors;
+  const nuovo = {
+    bodyGeo: buildBody(c), armGeo: buildArm(c), foreGeo: buildForearm(c),
+    legGeo: buildLeg(c), shinGeo: buildShin(c),
+  };
+  det = prec;
+  const p = u.parts;
+  p.torso.geometry = nuovo.bodyGeo;
+  p.larm.geometry = p.rarm.geometry = nuovo.armGeo;
+  p.lfore.geometry = p.rfore.geometry = nuovo.foreGeo;
+  p.lleg.geometry = p.rleg.geometry = nuovo.legGeo;
+  p.lshin.geometry = p.rshin.geometry = nuovo.shinGeo;
+  for (const g of Object.values(u.geo)) g.dispose();
+  u.geo = nuovo;
+  u.detail = livello;
+  return true;
 }
 
 /** Cambia i vestiti ricostruendo le geometrie con i nuovi colori. */

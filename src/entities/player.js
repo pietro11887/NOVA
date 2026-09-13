@@ -13,7 +13,8 @@ export class Player {
   constructor(game) {
     this.game = game;
     this.city = game.city;
-    this.mesh = makeCharacter({ shirt: 0x1d2b3a, pants: 0x2b2f38, skin: 0xe8bf98 });
+    // te stesso ce l'hai sempre davanti: vale i triangoli, e' uno solo
+    this.mesh = makeCharacter({ shirt: 0x1d2b3a, pants: 0x2b2f38, skin: 0xe8bf98, detail: 'alto' });
     this.mesh.userData.player = true;
     game.scene.add(this.mesh);
 

@@ -18,6 +18,14 @@ export const CFG = {
    */
   PED_MAX_DESKTOP: 170,
   PED_MAX_MOBILE: 70,
+  /*
+   * Quanti passanti vengono costruiti fitti. Uno ad alta definizione costa
+   * cinque volte uno normale, quindi non possono esserlo tutti: sono quelli
+   * che ti passano accanto, gli unici a cui guardi in faccia.
+   */
+  PED_HD_DESKTOP: 10,
+  PED_HD_MOBILE: 3,
+  PED_HD_RAGGIO: 22,
   CAR_MAX_DESKTOP: 104,
   CAR_MAX_MOBILE: 50,
   PARKED_DESKTOP: 120,

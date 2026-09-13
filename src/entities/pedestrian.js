@@ -1,5 +1,5 @@
 import { clamp, rand, randInt, pick, turnToward } from '../core/utils.js';
-import { makeCharacter, animateCharacter, randomPedColors } from '../world/models.js';
+import { makeCharacter, animateCharacter, randomPedColors, setCharacterDetail } from '../world/models.js';
 import { CFG } from '../core/config.js';
 
 const TMP = { x: 0, z: 0 };
@@ -337,6 +337,47 @@ export class PedManager {
       game.worldGroup.add(ped.mesh);
       this.peds.push(ped);
     }
+    this.vicini = 0;      // quanti tenere ad alta definizione: lo decide il livello grafico
+    this.lodT = 0;
+    this.coda = [];
+    this._ord = this.peds.slice();
+  }
+
+  /**
+   * Livello di dettaglio dei passanti.
+   *
+   * Uno fitto costa cinque volte uno normale: tutti cosi' farebbero tre
+   * milioni di triangoli, piu' di tutto il resto della citta' messo insieme.
+   * Ma in faccia guardi solo i pochi che ti passano accanto, quindi solo
+   * quelli vengono ricostruiti. La lista si rifa' due volte al secondo e si
+   * cambia un passante per fotogramma: ricostruire una geometria costa, e
+   * farne dieci insieme si sentirebbe come uno scatto.
+   */
+  _lod(dt) {
+    if (!this.vicini) return;
+    const p = this.game.player;
+    this.lodT -= dt;
+    if (this.lodT <= 0) {
+      this.lodT = 0.5;
+      const dd = (q) => (q.x - p.x) ** 2 + (q.z - p.z) ** 2;
+      this._ord.length = 0;
+      for (const q of this.peds) this._ord.push(q);
+      this._ord.sort((a, b) => dd(a) - dd(b));
+      const raggio = CFG.PED_HD_RAGGIO * CFG.PED_HD_RAGGIO;
+      const voluti = new Set();
+      for (let i = 0; i < this.vicini && i < this._ord.length; i++) {
+        if (dd(this._ord[i]) < raggio) voluti.add(this._ord[i]);
+      }
+      this.coda.length = 0;
+      for (const q of this.peds) {
+        const liv = voluti.has(q) ? 'alto' : 'normale';
+        if (q.mesh.userData.detail !== liv) this.coda.push(q, liv);
+      }
+    }
+    if (this.coda.length) {
+      const liv = this.coda.pop(), ped = this.coda.pop();
+      setCharacterDetail(ped.mesh, liv);
+    }
   }
 
   /** Ricolloca un bot: a volte lo fa nascere seduto su una panchina libera. */
@@ -354,6 +395,7 @@ export class PedManager {
 
   update(dt) {
     const p = this.game.player;
+    this._lod(dt);
     for (const ped of this.peds) {
       const d = Math.hypot(ped.x - p.x, ped.z - p.z);
       const spent = ped.state === 'down' && ped.timer <= 0 && ped.health <= -12;
