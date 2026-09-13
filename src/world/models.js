@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GeoBuilder, pick, rand, TAU, smoothNormals } from '../core/utils.js';
+import { GeoBuilder, clamp, pick, rand, TAU, smoothNormals } from '../core/utils.js';
 import {
   initCarPack, carPackReady, carPackSpec, carPackNames, carPackBody,
   makePackCar, paintPackCar, tintPackRims,
@@ -602,7 +602,43 @@ export function initModels(quality) {
     shared.geo[k + ':police'] = buildCarGeo(CAR_TYPES[k], 'police');
     shared.geo[k + ':taxi'] = buildCarGeo(CAR_TYPES[k], 'taxi');
   }
-  shared.bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+  /*
+   * Pelle e vestiti. Il colore continua ad arrivare dai vertici — un solo
+   * materiale per tutti i passanti, nessuna chiamata di disegno in piu' —
+   * ma adesso sopra c'e' la trama del tessuto, generata su tela all'avvio.
+   * E' quello che toglie ai personaggi l'aria di plastica colorata: senza,
+   * ogni superficie riflette in modo perfettamente uniforme, che e' una
+   * cosa che nella realta' non fa niente.
+   */
+  const tess = tessutoTexture();
+  shared.bodyMat = new THREE.MeshStandardMaterial({
+    vertexColors: true, metalness: 0,
+    roughness: 1,
+    roughnessMap: tess.rugosita,
+    normalMap: tess.normale,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+  });
+  /*
+   * La pelle non e' stoffa: niente intreccio e molto meno ruvida. L'attributo
+   * `tessuto` viaggia col vertice e qui spegne le due cose dove serve, senza
+   * bisogno di un secondo materiale — che vorrebbe dire un'altra chiamata di
+   * disegno per ognuno dei centosettanta passanti.
+   */
+  shared.bodyMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'attribute float tessuto;\nvarying float vTess;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvTess = tessuto;');
+    /*
+     * Sulla pelle la normale perturbata si riporta verso quella geometrica
+     * invece di riscrivere il pezzo di shader che la calcola: cosi' non si
+     * dipende da come three costruisce la matrice tangente, che cambia fra
+     * una versione e l'altra.
+     */
+    sh.fragmentShader = 'varying float vTess;\n' + sh.fragmentShader
+      .replace('#include <normal_fragment_maps>',
+        '#include <normal_fragment_maps>\n\tnormal = normalize( mix( nonPerturbedNormal, normal, mix( 0.15, 1.0, vTess ) ) );')
+      .replace('#include <roughnessmap_fragment>',
+        '#include <roughnessmap_fragment>\n\troughnessFactor = mix( 0.58, roughnessFactor, vTess );');
+  };
   shared.shadowGeo = new THREE.CircleGeometry(0.5, 12);
   shared.shadowGeo.rotateX(-Math.PI / 2);
   shared.shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false });
@@ -926,6 +962,142 @@ function calotta(gb, x, y, z, rx, ry, rz, color, dal = 0.40, scollo = 0.34, side
   }
 }
 
+/**
+ * UV in metri veri per un corpo.
+ *
+ * `GeoBuilder.quad` da' a ogni quadro le sue UV da zero a uno: una texture
+ * ci si ripeterebbe dentro una volta sola, e siccome i quadri vanno dal
+ * torace all'occhio la trama del tessuto avrebbe densita' diversa su ogni
+ * pezzo di vestito. Qui si riproietta tutto in cilindrica usando la
+ * lunghezza dell'arco, che e' una misura vera: la trama viene della stessa
+ * finezza ovunque.
+ *
+ * I vertici arrivano a gruppi di quattro, uno per quadro (smoothNormals
+ * media le normali ma non li fonde), quindi la cucitura a meta' giro si
+ * chiude srotolando l'angolo dentro ciascun gruppo. Senza, il quadro a
+ * cavallo del taglio si mangiava l'intera texture.
+ */
+function uvCorpo(geo, scala = 14) {
+  const p = geo.attributes.position;
+  const uv = new Float32Array(p.count * 2);
+  for (let q = 0; q < p.count; q += 4) {
+    const n = Math.min(4, p.count - q);
+    let rif = 0;
+    for (let k = 0; k < n; k++) {
+      const i = q + k;
+      const x = p.getX(i), z = p.getZ(i);
+      let a = Math.atan2(z, x);
+      if (k === 0) rif = a;
+      else {
+        while (a - rif > Math.PI) a -= TAU;
+        while (a - rif < -Math.PI) a += TAU;
+      }
+      const r = Math.max(0.02, Math.hypot(x, z));
+      uv[i * 2] = a * r * scala;
+      uv[i * 2 + 1] = p.getY(i) * scala;
+    }
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+/**
+ * Chiude una geometria di personaggio: normali morbide, UV in metri e
+ * l'etichetta che separa la pelle dal tessuto.
+ *
+ * Un solo materiale deve vestire tutti e due, ma non si comportano allo
+ * stesso modo: la trama dell'intreccio sulla faccia la fa sembrare un
+ * cesto di vimini, e i capelli lana. L'etichetta si ricava dal colore gia'
+ * cotto nei vertici — dove combacia con l'incarnato e' pelle — e in fondo
+ * allo shader spegne la trama e abbassa la rugosita' proprio li'.
+ */
+function finisci(gb, pelle, capelli) {
+  const geo = uvCorpo(smoothNormals(gb.build(), 1.15));
+  const p = new THREE.Color(pelle), h = new THREE.Color(capelli);
+  const c = geo.attributes.color;
+  const t = new Float32Array(c.count);
+  const vicino = (i, col) => Math.abs(c.getX(i) - col.r) + Math.abs(c.getY(i) - col.g)
+    + Math.abs(c.getZ(i) - col.b) < 0.03;
+  for (let i = 0; i < c.count; i++) {
+    // 0 = pelle, 0,3 = capelli (ruvidi ma non intrecciati), 1 = tessuto
+    t[i] = vicino(i, p) ? 0 : vicino(i, h) ? 0.3 : 1;
+  }
+  geo.setAttribute('tessuto', new THREE.BufferAttribute(t, 1));
+  return geo;
+}
+
+/**
+ * Trama del tessuto, disegnata su tela invece che caricata da un file: in
+ * un gioco che deve stare in un HTML solo, una mappa vale il suo peso solo
+ * se non pesa. Ne escono due, la normale e la rugosita'.
+ *
+ * L'intreccio e' quello vero di un tessuto piano: dove passa sopra il filo
+ * di trama, quello di ordito passa sotto, e a scacchiera. Sopra ci va un
+ * po' di disordine, se no sembra una zanzariera.
+ */
+function tessutoTexture() {
+  const S = 128, FILI = 14;
+  const h = new Float32Array(S * S);
+  // rumore a valori, interpolato: le fibre non sono tutte uguali
+  const seme = new Float32Array(32 * 32);
+  for (let i = 0; i < seme.length; i++) seme[i] = Math.random();
+  const rumore = (x, y) => {
+    const fx = (x / S) * 32, fy = (y / S) * 32;
+    const x0 = Math.floor(fx) & 31, y0 = Math.floor(fy) & 31;
+    const x1 = (x0 + 1) & 31, y1 = (y0 + 1) & 31;
+    const tx = fx - Math.floor(fx), ty = fy - Math.floor(fy);
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const a = seme[y0 * 32 + x0] + (seme[y0 * 32 + x1] - seme[y0 * 32 + x0]) * sx;
+    const b = seme[y1 * 32 + x0] + (seme[y1 * 32 + x1] - seme[y1 * 32 + x0]) * sx;
+    return a + (b - a) * sy;
+  };
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const u = x / S, v = y / S;
+      const ordito = Math.sin(u * TAU * FILI);
+      const trama = Math.sin(v * TAU * FILI);
+      const sopra = ((Math.floor(u * FILI) + Math.floor(v * FILI)) & 1) === 0;
+      h[y * S + x] = 0.5 + 0.22 * (sopra ? ordito : trama) + 0.10 * (rumore(x, y) - 0.5);
+    }
+  }
+
+  const tela = (dati) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    c.getContext('2d').putImageData(dati, 0, 0);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+    return t;
+  };
+
+  // normali dal gradiente dell'altezza, con i bordi che si richiudono
+  const nrm = new ImageData(S, S);
+  const rug = new ImageData(S, S);
+  const at = (x, y) => h[((y + S) % S) * S + ((x + S) % S)];
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * 2.6;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * 2.6;
+      const len = Math.hypot(dx, dy, 1);
+      const k = (y * S + x) * 4;
+      nrm.data[k] = ((-dx / len) * 0.5 + 0.5) * 255;
+      nrm.data[k + 1] = ((-dy / len) * 0.5 + 0.5) * 255;
+      nrm.data[k + 2] = (1 / len) * 255;
+      nrm.data[k + 3] = 255;
+      /*
+       * La rugosita' segue l'intreccio: i fili in rilievo prendono la luce,
+       * gli incavi no. E' quello che toglie alla maglietta bianca l'aria di
+       * lenzuolo lucido — prima era tutta uniformemente riflettente.
+       */
+      const r = clamp(0.94 - (at(x, y) - 0.5) * 0.55, 0.55, 1) * 255;
+      rug.data[k] = rug.data[k + 1] = rug.data[k + 2] = r;
+      rug.data[k + 3] = 255;
+    }
+  }
+  return { normale: tela(nrm), rugosita: tela(rug) };
+}
+
 /** Sfera schiacciabile: teste, spalle, mani, orecchie. */
 function blob(gb, x, y, z, rx, ry, rz, color, sides = 12, rings = 8) {
   sides = Math.max(6, Math.round(sides * det.lati));
@@ -1117,7 +1289,7 @@ function buildBody(c) {
     calotta(gb, -0.006, 1.704, 0, 0.108, 0.098, 0.094, c.cap, 0.32, 0.20);
     gb.box(0.086, 1.722, 0, 0.11, 0.018, 0.140, c.cap);      // visiera
   }
-  const geo = smoothNormals(gb.build(), 1.15);
+  const geo = finisci(gb, c.skin, c.hair);
   geo.translate(0, -WAIST, 0);   // pivot in vita: busto e testa ruotano da li'
   return geo;
 }
@@ -1140,7 +1312,7 @@ function buildArm(c) {
   ], c.skin, 9);
   // gomito: appena accennato, se no sporge come una pallina
   blob(gb, 0, -0.30, 0, 0.039 * bulk, 0.034 * bulk, 0.037 * bulk, c.shortSleeve ? c.skin : sleeve, 8, 6);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c.skin, c.hair);
 }
 
 /** Avambraccio: parte dal gomito, e' figlio del braccio e si piega. */
@@ -1158,7 +1330,7 @@ function buildForearm(c) {
    */
   blob(gb, 0.008, -0.352, 0, 0.042, 0.052, 0.021, c.skin, 8, 6);
   blob(gb, 0.020, -0.392, 0, 0.030, 0.030, 0.019, c.skin, 6, 5);     // dita chiuse
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c.skin, c.hair);
 }
 
 function buildLeg(c) {
@@ -1172,7 +1344,7 @@ function buildLeg(c) {
   ], c.pants, 9);
   // ginocchio: schiacciato ai lati, non una biglia
   blob(gb, 0.004, -0.42, 0, 0.060, 0.052, 0.056, short ? c.skin : c.pants, 8, 6);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c.skin, c.hair);
 }
 
 /** Polpaccio + scarpa: parte dal ginocchio ed e' figlio della coscia. */
@@ -1194,7 +1366,7 @@ function buildShin(c) {
     { y: -0.37, rx: 0.05, rz: 0.052, color: c.shoes },
     { y: -0.28, rx: 0.048, rz: 0.05, color: c.shoes },
   ], c.shoes, 8, false);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c.skin, c.hair);
 }
 
 /** Ragnatela di crepe su canvas, per il parabrezza rotto. */

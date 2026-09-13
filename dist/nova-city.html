@@ -16752,7 +16752,25 @@ function initModels(quality) {
     shared2.geo[k + ":police"] = buildCarGeo(CAR_TYPES[k], "police");
     shared2.geo[k + ":taxi"] = buildCarGeo(CAR_TYPES[k], "taxi");
   }
-  shared2.bodyMat = new sd({ vertexColors: true, roughness: 0.85, metalness: 0 });
+  const tess = tessutoTexture();
+  shared2.bodyMat = new sd({
+    vertexColors: true,
+    metalness: 0,
+    roughness: 1,
+    roughnessMap: tess.rugosita,
+    normalMap: tess.normale,
+    normalScale: new ti(0.6, 0.6)
+  });
+  shared2.bodyMat.onBeforeCompile = (sh2) => {
+    sh2.vertexShader = "attribute float tessuto;\nvarying float vTess;\n" + sh2.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n	vTess = tessuto;");
+    sh2.fragmentShader = "varying float vTess;\n" + sh2.fragmentShader.replace(
+      "#include <normal_fragment_maps>",
+      "#include <normal_fragment_maps>\n	normal = normalize( mix( nonPerturbedNormal, normal, mix( 0.15, 1.0, vTess ) ) );"
+    ).replace(
+      "#include <roughnessmap_fragment>",
+      "#include <roughnessmap_fragment>\n	roughnessFactor = mix( 0.58, roughnessFactor, vTess );"
+    );
+  };
   shared2.shadowGeo = new ru(0.5, 12);
   shared2.shadowGeo.rotateX(-Math.PI / 2);
   shared2.shadowMat = new es({ color: 0, transparent: true, opacity: 0.3, depthWrite: false });
@@ -17036,6 +17054,94 @@ function calotta(gb, x, y, z, rx, ry, rz, color, dal = 0.4, scollo = 0.34, sides
     }
   }
 }
+function uvCorpo(geo, scala = 14) {
+  const p2 = geo.attributes.position;
+  const uv = new Float32Array(p2.count * 2);
+  for (let q = 0; q < p2.count; q += 4) {
+    const n = Math.min(4, p2.count - q);
+    let rif = 0;
+    for (let k = 0; k < n; k++) {
+      const i = q + k;
+      const x = p2.getX(i), z = p2.getZ(i);
+      let a = Math.atan2(z, x);
+      if (k === 0) rif = a;
+      else {
+        while (a - rif > Math.PI) a -= TAU;
+        while (a - rif < -Math.PI) a += TAU;
+      }
+      const r = Math.max(0.02, Math.hypot(x, z));
+      uv[i * 2] = a * r * scala;
+      uv[i * 2 + 1] = p2.getY(i) * scala;
+    }
+  }
+  geo.setAttribute("uv", new cs(uv, 2));
+  return geo;
+}
+function finisci(gb, pelle, capelli) {
+  const geo = uvCorpo(smoothNormals(gb.build(), 1.15));
+  const p2 = new Kr(pelle), h2 = new Kr(capelli);
+  const c2 = geo.attributes.color;
+  const t2 = new Float32Array(c2.count);
+  const vicino = (i, col) => Math.abs(c2.getX(i) - col.r) + Math.abs(c2.getY(i) - col.g) + Math.abs(c2.getZ(i) - col.b) < 0.03;
+  for (let i = 0; i < c2.count; i++) {
+    t2[i] = vicino(i, p2) ? 0 : vicino(i, h2) ? 0.3 : 1;
+  }
+  geo.setAttribute("tessuto", new cs(t2, 1));
+  return geo;
+}
+function tessutoTexture() {
+  const S = 128, FILI = 14;
+  const h2 = new Float32Array(S * S);
+  const seme = new Float32Array(32 * 32);
+  for (let i = 0; i < seme.length; i++) seme[i] = Math.random();
+  const rumore = (x, y) => {
+    const fx = x / S * 32, fy = y / S * 32;
+    const x0 = Math.floor(fx) & 31, y0 = Math.floor(fy) & 31;
+    const x1 = x0 + 1 & 31, y1 = y0 + 1 & 31;
+    const tx = fx - Math.floor(fx), ty = fy - Math.floor(fy);
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const a = seme[y0 * 32 + x0] + (seme[y0 * 32 + x1] - seme[y0 * 32 + x0]) * sx;
+    const b = seme[y1 * 32 + x0] + (seme[y1 * 32 + x1] - seme[y1 * 32 + x0]) * sx;
+    return a + (b - a) * sy;
+  };
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const u2 = x / S, v = y / S;
+      const ordito = Math.sin(u2 * TAU * FILI);
+      const trama = Math.sin(v * TAU * FILI);
+      const sopra = (Math.floor(u2 * FILI) + Math.floor(v * FILI) & 1) === 0;
+      h2[y * S + x] = 0.5 + 0.22 * (sopra ? ordito : trama) + 0.1 * (rumore(x, y) - 0.5);
+    }
+  }
+  const tela = (dati) => {
+    const c2 = document.createElement("canvas");
+    c2.width = c2.height = S;
+    c2.getContext("2d").putImageData(dati, 0, 0);
+    const t2 = new Uh(c2);
+    t2.wrapS = t2.wrapT = pt;
+    t2.anisotropy = 4;
+    return t2;
+  };
+  const nrm = new ImageData(S, S);
+  const rug = new ImageData(S, S);
+  const at = (x, y) => h2[(y + S) % S * S + (x + S) % S];
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * 2.6;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * 2.6;
+      const len = Math.hypot(dx, dy, 1);
+      const k = (y * S + x) * 4;
+      nrm.data[k] = (-dx / len * 0.5 + 0.5) * 255;
+      nrm.data[k + 1] = (-dy / len * 0.5 + 0.5) * 255;
+      nrm.data[k + 2] = 1 / len * 255;
+      nrm.data[k + 3] = 255;
+      const r = clamp(0.94 - (at(x, y) - 0.5) * 0.55, 0.55, 1) * 255;
+      rug.data[k] = rug.data[k + 1] = rug.data[k + 2] = r;
+      rug.data[k + 3] = 255;
+    }
+  }
+  return { normale: tela(nrm), rugosita: tela(rug) };
+}
 function blob(gb, x, y, z, rx, ry, rz, color, sides = 12, rings = 8) {
   sides = Math.max(6, Math.round(sides * det.lati));
   rings = Math.max(4, Math.round(rings * det.anelli));
@@ -17157,7 +17263,7 @@ function buildBody(c2) {
     calotta(gb, -6e-3, 1.704, 0, 0.108, 0.098, 0.094, c2.cap, 0.32, 0.2);
     gb.box(0.086, 1.722, 0, 0.11, 0.018, 0.14, c2.cap);
   }
-  const geo = smoothNormals(gb.build(), 1.15);
+  const geo = finisci(gb, c2.skin, c2.hair);
   geo.translate(0, -WAIST, 0);
   return geo;
 }
@@ -17172,7 +17278,7 @@ function buildArm(c2) {
     { y: -0.3, rx: 0.038 * bulk, rz: 0.036 * bulk, color: c2.shortSleeve ? c2.skin : sleeve }
   ], c2.skin, 9);
   blob(gb, 0, -0.3, 0, 0.039 * bulk, 0.034 * bulk, 0.037 * bulk, c2.shortSleeve ? c2.skin : sleeve, 8, 6);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c2.skin, c2.hair);
 }
 function buildForearm(c2) {
   const gb = new GeoBuilder();
@@ -17184,7 +17290,7 @@ function buildForearm(c2) {
   ], c2.skin, 9);
   blob(gb, 8e-3, -0.352, 0, 0.042, 0.052, 0.021, c2.skin, 8, 6);
   blob(gb, 0.02, -0.392, 0, 0.03, 0.03, 0.019, c2.skin, 6, 5);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c2.skin, c2.hair);
 }
 function buildLeg(c2) {
   const gb = new GeoBuilder();
@@ -17196,7 +17302,7 @@ function buildLeg(c2) {
     { y: -0.42, rx: 0.058, rz: 0.057, cx: 0, color: short ? c2.skin : c2.pants }
   ], c2.pants, 9);
   blob(gb, 4e-3, -0.42, 0, 0.06, 0.052, 0.056, short ? c2.skin : c2.pants, 8, 6);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c2.skin, c2.hair);
 }
 function buildShin(c2) {
   const gb = new GeoBuilder();
@@ -17213,7 +17319,7 @@ function buildShin(c2) {
     { y: -0.37, rx: 0.05, rz: 0.052, color: c2.shoes },
     { y: -0.28, rx: 0.048, rz: 0.05, color: c2.shoes }
   ], c2.shoes, 8, false);
-  return smoothNormals(gb.build(), 1.15);
+  return finisci(gb, c2.skin, c2.hair);
 }
 function crackedGlassTexture() {
   const S = 256;
