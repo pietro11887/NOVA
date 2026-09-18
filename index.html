@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NOVA — Agente IA per Windows</title>
+<meta name="description" content="NOVA è un agente IA per Windows. Prova la beta gratuita, manda il tuo feedback e ottieni uno sconto sulla versione Pro." />
+<meta name="theme-color" content="#0b0f17" />
+
+<!-- Anteprima quando il link viene condiviso su WhatsApp, Telegram, X... -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="NOVA" />
+<meta property="og:title" content="NOVA — Agente IA per Windows" />
+<meta property="og:description" content="Prova la beta gratuita, manda il tuo feedback, ottieni lo sconto sulla versione Pro." />
+<meta property="og:url" content="https://pietro11887.github.io/NOVA/" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0f17'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='%237cc4ff' font-family='Arial' font-weight='bold'%3EN%3C/text%3E%3C/svg%3E" />
+
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f17;
+    --bg-soft: #121826;
+    --card: #151d2c;
+    --line: #243047;
+    --text: #eef2f8;
+    --muted: #9fb0c9;
+    --accent: #7cc4ff;
+    --accent-strong: #2f8fe0;
+    --ok: #57d9a3;
+    --warn: #ffcf6b;
+    --radius: 14px;
+    --maxw: 1080px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  a { color: var(--accent); }
+
+  /* ---------------------------------------------------------- header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(11, 15, 23, .85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 62px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .logo i {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+    display: inline-block;
+  }
+  .nav nav {
+    display: flex;
+    gap: 20px;
+    font-size: .95rem;
+  }
+  .nav nav a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .nav nav a:hover { color: var(--text); }
+  @media (max-width: 720px) { .nav nav { display: none; } }
+
+  /* ----------------------------------------------------------- avviso */
+  #avviso {
+    display: none;
+    border-bottom: 1px solid var(--line);
+    background: #1d2536;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: .95rem;
+    color: var(--warn);
+  }
+
+  /* ------------------------------------------------------------- hero */
+  .hero {
+    padding: 72px 0 56px;
+    text-align: center;
+    background:
+      radial-gradient(900px 420px at 50% -120px, rgba(124, 196, 255, .18), transparent 70%),
+      var(--bg);
+  }
+  .badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg-soft);
+    color: var(--muted);
+    font-size: .82rem;
+    letter-spacing: .05em;
+  }
+  .hero h1 {
+    font-size: clamp(2.1rem, 6vw, 3.4rem);
+    line-height: 1.15;
+    margin: 20px 0 14px;
+    letter-spacing: -.02em;
+  }
+  .hero p.sub {
+    max-width: 640px;
+    margin: 0 auto 30px;
+    color: var(--muted);
+    font-size: clamp(1rem, 2.4vw, 1.18rem);
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-block;
+    padding: 14px 26px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .btn-primary {
+    background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+    color: #04121f;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost {
+    border-color: var(--line);
+    background: var(--bg-soft);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .hint {
+    margin-top: 16px;
+    font-size: .88rem;
+    color: var(--muted);
+  }
+
+  /* --------------------------------------------------------- sezioni */
+  section { padding: 60px 0; border-top: 1px solid var(--line); }
+  h2 {
+    font-size: clamp(1.5rem, 3.6vw, 2.1rem);
+    margin: 0 0 10px;
+    letter-spacing: -.01em;
+  }
+  .lead { color: var(--muted); margin: 0 0 32px; max-width: 620px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 1.08rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .96rem; }
+  .card .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    margin-bottom: 12px;
+    border-radius: 9px;
+    background: rgba(124, 196, 255, .14);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: .95rem;
+  }
+
+  /* ---------------------------------------------------------- prezzo */
+  .pricing {
+    max-width: 460px;
+    margin: 0 auto;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 34px 26px;
+  }
+  .pricing .price {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin: 10px 0 4px;
+  }
+  .pricing ul {
+    list-style: none;
+    padding: 0;
+    margin: 22px 0 26px;
+    text-align: left;
+    color: var(--muted);
+  }
+  .pricing li {
+    padding: 7px 0 7px 26px;
+    position: relative;
+  }
+  .pricing li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--ok);
+    font-weight: 700;
+  }
+
+  /* ------------------------------------------------------------- faq */
+  details {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 10px;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: " +"; color: var(--accent); }
+  details[open] summary::after { content: " −"; }
+  details p { color: var(--muted); margin: 12px 0 0; }
+
+  /* ---------------------------------------------------------- footer */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 34px 0 48px;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+  .foot-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .foot-row a { color: var(--muted); }
+</style>
+</head>
+
+<body>
+
+<!-- Mostrato solo se status.json contiene un messaggio o se la beta è chiusa. -->
+<div id="avviso"></div>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#top"><i></i> NOVA</a>
+    <nav>
+      <a href="#cosa-fa">Cosa fa</a>
+      <a href="#beta">Beta &amp; sconto</a>
+      <a href="#pro">Pro</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-ghost" style="padding:9px 18px;font-size:.92rem" href="#beta">Prova la beta</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <div class="hero">
+    <div class="wrap">
+      <span class="badge">BETA APERTA · WINDOWS 10 / 11</span>
+      <h1>Il tuo agente IA<br />che lavora dentro Windows.</h1>
+      <p class="sub">
+        NOVA capisce cosa gli chiedi e lo esegue sul tuo PC, senza che tu debba
+        imparare comandi o menu. La beta è gratuita: provala, dicci com'è
+        andata e ti riserviamo uno sconto sulla versione Pro.
+      </p>
+      <div class="cta-row">
+        <!-- ✏️ MODIFICA: metti qui il link di download della beta (release GitHub, Drive, sito tuo...) -->
+        <a class="btn btn-primary" id="cta-beta" href="https://github.com/pietro11887/NOVA/releases">
+          Scarica la beta gratis
+        </a>
+        <a class="btn btn-ghost" id="cta-pro-hero" href="#pro">Vedi la versione Pro</a>
+      </div>
+      <p class="hint">Nessun abbonamento per la beta · Feedback = sconto sulla Pro</p>
+    </div>
+  </div>
+
+  <section id="cosa-fa">
+    <div class="wrap">
+      <h2>Cosa fa NOVA</h2>
+      <p class="lead">
+        <!-- ✏️ MODIFICA: sostituisci queste tre schede con le funzioni reali della tua beta.
+             Più sono concrete, più la gente compra. -->
+        Tre cose che puoi fargli fare dal primo minuto.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>Gli parli come a una persona</h3>
+          <p>Scrivi in italiano quello che ti serve. NOVA traduce la richiesta in azioni sul computer.</p>
+        </div>
+        <div class="card">
+          <h3>Fa da solo le cose ripetitive</h3>
+          <p>Le operazioni che rifai ogni giorno diventano una richiesta sola, da ripetere quando vuoi.</p>
+        </div>
+        <div class="card">
+          <h3>Resta sul tuo PC</h3>
+          <p>Gira in locale su Windows 10 e 11. Installi, apri, usi: niente configurazioni complicate.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="beta">
+    <div class="wrap">
+      <h2>Beta gratuita, e in cambio uno sconto</h2>
+      <p class="lead">
+        La beta serve a me per capire cosa sistemare, e a te per avere la Pro
+        a meno. Funziona così:
+      </p>
+      <div class="grid">
+        <div class="card">
+          <span class="num">1</span>
+          <h3>Scarica e prova</h3>
+          <p>Installa NOVA e usalo per qualche giorno sulle cose che fai davvero.</p>
+        </div>
+        <div class="card">
+          <span class="num">2</span>
+          <h3>Mandami il feedback</h3>
+          <p>Cosa ha funzionato, cosa no, cosa ti è mancato. Bastano tre righe.</p>
+        </div>
+        <div class="card">
+          <span class="num">3</span>
+          <h3>Ricevi il tuo sconto</h3>
+          <p>Chi manda feedback nella beta ottiene un prezzo riservato sulla versione definitiva.</p>
+        </div>
+      </div>
+      <div class="cta-row" style="margin-top:28px; justify-content:flex-start">
+        <a class="btn btn-primary" id="cta-beta-2" href="https://github.com/pietro11887/NOVA/releases">Scarica la beta</a>
+        <!-- Il feedback arriva nelle Issues del repo: è già attivo, non serve configurare nulla. -->
+        <a class="btn btn-ghost" href="https://github.com/pietro11887/NOVA/issues/new">Invia il feedback</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="pro">
+    <div class="wrap">
+      <h2 style="text-align:center">NOVA Pro</h2>
+      <p class="lead" style="margin:0 auto 32px; text-align:center">
+        La versione completa, senza limiti della beta.
+      </p>
+      <div class="pricing">
+        <span class="badge">VERSIONE DEFINITIVA</span>
+        <!-- ✏️ MODIFICA: prezzo reale della tua Pro. -->
+        <div class="price" id="prezzo">€ —</div>
+        <p style="color:var(--muted); margin:0">Licenza singola, pagamento una tantum</p>
+        <ul>
+          <!-- ✏️ MODIFICA: cosa include davvero la Pro rispetto alla beta. -->
+          <li>Tutte le funzioni della beta, senza limiti</li>
+          <li>Aggiornamenti inclusi</li>
+          <li>Supporto diretto via email</li>
+          <li>Sconto riservato a chi ha mandato feedback</li>
+        </ul>
+        <!-- L'indirizzo di questo bottone arriva da status.json (campo url_acquisto). -->
+        <a class="btn btn-primary" id="cta-acquisto" href="#beta" style="width:100%">
+          Acquista NOVA Pro
+        </a>
+        <p class="hint" id="nota-acquisto">Caricamento del link di acquisto…</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <h2>Domande frequenti</h2>
+      <p class="lead">Se manca qualcosa, scrivimi: rispondo io.</p>
+
+      <details>
+        <summary>Su quali computer funziona?</summary>
+        <p>NOVA gira su Windows 10 e Windows 11. Non c'è ancora una versione per Mac o Linux.</p>
+      </details>
+
+      <details>
+        <summary>La beta è davvero gratuita?</summary>
+        <p>Sì. Non ti viene chiesta nessuna carta. L'unica cosa che ti chiedo in cambio è il feedback.</p>
+      </details>
+
+      <details>
+        <summary>Come ottengo lo sconto sulla Pro?</summary>
+        <p>Provi la beta e mi mandi il tuo feedback. Chi partecipa alla beta riceve un prezzo riservato sulla versione definitiva.</p>
+      </details>
+
+      <details>
+        <summary>Quando esce la versione Pro?</summary>
+        <p><!-- ✏️ MODIFICA: metti una data o un periodo. Una data credibile vende più di un "presto". -->Sto lavorando alla versione definitiva. Chi è nella beta viene avvisato per primo.</p>
+      </details>
+
+      <details>
+        <summary>I miei dati dove finiscono?</summary>
+        <p><!-- ✏️ MODIFICA: descrivi esattamente cosa fa NOVA con i dati. Sii preciso: è la domanda che blocca gli acquisti. -->NOVA è un'applicazione che installi sul tuo computer. Scrivi qui, in modo chiaro, quali dati vengono trattati e dove.</p>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot-row">
+    <span>© <span id="anno">2026</span> NOVA</span>
+    <span>
+      <a href="https://github.com/pietro11887/NOVA">GitHub</a> ·
+      <a href="https://github.com/pietro11887/NOVA/issues/new">Feedback</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // Indirizzi che NON sono un checkout valido: finché url_acquisto vale uno
+  // di questi, il bottone "Acquista" non porta da nessuna parte e la pagina
+  // propone la beta invece di mandare via un cliente.
+  // (gumroad.com/l/nova-pro non è un prodotto di NOVA: appartiene a un altro
+  // venditore. Va sostituito con il link reale del tuo prodotto.)
+  var CHECKOUT_NON_VALIDI = [
+    "",
+    "https://gumroad.com/l/nova-pro",
+    "http://gumroad.com/l/nova-pro"
+  ];
+
+  var elAvviso  = document.getElementById("avviso");
+  var elBottone = document.getElementById("cta-acquisto");
+  var elNota    = document.getElementById("nota-acquisto");
+
+  document.getElementById("anno").textContent = new Date().getFullYear();
+
+  function mostraAvviso(testo) {
+    elAvviso.textContent = testo;
+    elAvviso.style.display = "block";
+  }
+
+  // Stato di ripiego: nessun link d'acquisto utilizzabile.
+  function acquistoNonDisponibile() {
+    elBottone.textContent = "Avvisami quando esce la Pro";
+    elBottone.setAttribute("href", "https://github.com/pietro11887/NOVA/issues/new");
+    elNota.textContent = "La Pro non è ancora in vendita: intanto prova la beta.";
+  }
+
+  fetch("./status.json", { cache: "no-store" })
+    .then(function (r) {
+      if (!r.ok) { throw new Error("status.json: " + r.status); }
+      return r.json();
+    })
+    .then(function (cfg) {
+      if (cfg.messaggio) {
+        mostraAvviso(cfg.messaggio);
+      } else if (cfg.beta_attiva === false) {
+        mostraAvviso("Le iscrizioni alla beta sono chiuse in questo momento.");
+      }
+
+      var url = (cfg.url_acquisto || "").trim();
+
+      if (CHECKOUT_NON_VALIDI.indexOf(url) !== -1 || !/^https:\/\//i.test(url)) {
+        acquistoNonDisponibile();
+        return;
+      }
+
+      elBottone.setAttribute("href", url);
+      elBottone.setAttribute("rel", "noopener");
+      elNota.textContent = "Pagamento sicuro · Licenza valida da subito";
+    })
+    .catch(function () {
+      // Se status.json non è raggiungibile la pagina resta usabile:
+      // niente bottone d'acquisto rotto, si spinge la beta.
+      acquistoNonDisponibile();
+    });
+})();
+</script>
+
+</body>
+</html>
