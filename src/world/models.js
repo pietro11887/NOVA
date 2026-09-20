@@ -624,16 +624,31 @@ export function initModels(quality) {
    * bisogno di un secondo materiale — che vorrebbe dire un'altra chiamata di
    * disegno per ognuno dei centosettanta passanti.
    */
+  const conf = confezioneTexture();
+  // l'atlante resta raggiungibile: tools/preview-confezione.html lo mostra
+  shared.bodyMat.userData.confezione = conf;
   shared.bodyMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = 'attribute float tessuto;\nvarying float vTess;\n' + sh.vertexShader
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvTess = tessuto;');
+    sh.uniforms.confezione = { value: conf };
+    sh.vertexShader = 'attribute float tessuto;\nattribute vec2 uvg;\n'
+      + 'varying float vTess;\nvarying vec2 vUvg;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvTess = tessuto;\n\tvUvg = uvg;');
     /*
      * Sulla pelle la normale perturbata si riporta verso quella geometrica
      * invece di riscrivere il pezzo di shader che la calcola: cosi' non si
      * dipende da come three costruisce la matrice tangente, che cambia fra
      * una versione e l'altra.
      */
-    sh.fragmentShader = 'varying float vTess;\n' + sh.fragmentShader
+    sh.fragmentShader = 'varying float vTess;\nvarying vec2 vUvg;\nuniform sampler2D confezione;\n'
+      + sh.fragmentShader
+      /*
+       * Cuciture, orli e tasche entrano subito dopo il colore dei vertici:
+       * tirano il colore del capo verso il nero o verso il chiaro invece di
+       * sostituirlo, cosi' lo stesso disegno vale su una maglietta bianca e
+       * su una nera. Sulla pelle non entra niente.
+       */
+      .replace('#include <color_fragment>',
+        '#include <color_fragment>\n\tvec4 cfz = texture2D( confezione, vUvg );'
+        + '\n\tdiffuseColor.rgb = mix( diffuseColor.rgb, cfz.rgb, cfz.a * vTess );')
       .replace('#include <normal_fragment_maps>',
         '#include <normal_fragment_maps>\n\tnormal = normalize( mix( nonPerturbedNormal, normal, mix( 0.15, 1.0, vTess ) ) );')
       .replace('#include <roughnessmap_fragment>',
@@ -1001,28 +1016,90 @@ function uvCorpo(geo, scala = 14) {
   return geo;
 }
 
-/**
- * Chiude una geometria di personaggio: normali morbide, UV in metri e
- * l'etichetta che separa la pelle dal tessuto.
- *
- * Un solo materiale deve vestire tutti e due, ma non si comportano allo
- * stesso modo: la trama dell'intreccio sulla faccia la fa sembrare un
- * cesto di vimini, e i capelli lana. L'etichetta si ricava dal colore gia'
- * cotto nei vertici — dove combacia con l'incarnato e' pelle — e in fondo
- * allo shader spegne la trama e abbassa la rugosita' proprio li'.
+/*
+ * I capi di vestiario, ognuno col suo riquadro nell'atlante dei dettagli.
+ * L'indice finisce dentro la coordinata verticale, cosi' una sola coppia di
+ * UV dice sia dove sei sul capo sia di che capo si tratta.
  */
-function finisci(gb, pelle, capelli) {
+const CAPI = ['nessuno', 'maglia', 'giacca', 'bacino', 'gamba', 'polpaccio', 'manica', 'stampata'];
+const NCAPI = CAPI.length;
+
+/**
+ * Chiude una geometria di personaggio.
+ *
+ * Tre cose: normali morbide, le UV in metri per la trama del tessuto, e —
+ * la parte nuova — un secondo set di UV NORMALIZZATE per capo. La
+ * proiezione in metri va bene per una trama che si ripete, ma non sa dire
+ * "qui c'e' il fondo della maglietta" o "qui va la tasca": e' una misura
+ * senza un sopra e un sotto. Qui invece ogni capo ha il suo quadrato: u
+ * gira attorno al corpo con lo zero e mezzo sul davanti, v va dall'orlo al
+ * colletto di QUEL capo, misurata sul capo stesso.
+ *
+ * Il capo si riconosce dal colore gia' cotto nei vertici, come si fa per la
+ * pelle: e' il colore che dice se quel quadro e' maglietta, giacca o
+ * pantaloni. Dove il colore non basta — una manica e' del colore del capo
+ * che veste — decide il pezzo di corpo a cui la geometria appartiene.
+ */
+function finisci(gb, c, parte = 'corpo') {
   const geo = uvCorpo(smoothNormals(gb.build(), 1.15));
-  const p = new THREE.Color(pelle), h = new THREE.Color(capelli);
-  const c = geo.attributes.color;
-  const t = new Float32Array(c.count);
-  const vicino = (i, col) => Math.abs(c.getX(i) - col.r) + Math.abs(c.getY(i) - col.g)
-    + Math.abs(c.getZ(i) - col.b) < 0.03;
-  for (let i = 0; i < c.count; i++) {
+  const pos = geo.attributes.position;
+  const col = geo.attributes.color;
+  const n = col.count;
+
+  const tinta = (v) => new THREE.Color(v);
+  const pelle = tinta(c.skin), capelli = tinta(c.hair);
+  const pant = tinta(c.pants), magl = tinta(c.shirt), giac = tinta(c.jacket);
+  const vicino = (i, t) => Math.abs(col.getX(i) - t.r) + Math.abs(col.getY(i) - t.g)
+    + Math.abs(col.getZ(i) - t.b) < 0.03;
+
+  const tess = new Float32Array(n);
+  const capo = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
     // 0 = pelle, 0,3 = capelli (ruvidi ma non intrecciati), 1 = tessuto
-    t[i] = vicino(i, p) ? 0 : vicino(i, h) ? 0.3 : 1;
+    if (vicino(i, pelle)) { tess[i] = 0; capo[i] = 0; continue; }
+    if (vicino(i, capelli)) { tess[i] = 0.3; capo[i] = 0; continue; }
+    tess[i] = 1;
+    if (parte === 'manica') capo[i] = 6;
+    else if (parte === 'gamba') capo[i] = vicino(i, pant) ? 4 : 0;
+    else if (parte === 'polpaccio') capo[i] = vicino(i, pant) ? 5 : 0;
+    else if (vicino(i, giac)) capo[i] = 2;
+    else if (vicino(i, magl)) capo[i] = c.stampa ? 7 : 1;
+    else if (vicino(i, pant)) capo[i] = 3;
+    else capo[i] = 0;
   }
-  geo.setAttribute('tessuto', new THREE.BufferAttribute(t, 1));
+
+  // ogni capo si misura su se stesso: l'orlo della giacca sta dove finisce
+  // la giacca, non dove finisce la geometria che la contiene
+  const lo = new Float32Array(NCAPI).fill(Infinity);
+  const hi = new Float32Array(NCAPI).fill(-Infinity);
+  for (let i = 0; i < n; i++) {
+    const y = pos.getY(i), k = capo[i];
+    if (y < lo[k]) lo[k] = y;
+    if (y > hi[k]) hi[k] = y;
+  }
+
+  const uvg = new Float32Array(n * 2);
+  for (let q = 0; q < n; q += 4) {
+    const m = Math.min(4, n - q);
+    let rif = 0;
+    for (let k = 0; k < m; k++) {
+      const i = q + k;
+      let a = Math.atan2(pos.getZ(i), pos.getX(i));
+      if (k === 0) rif = a;
+      else {
+        while (a - rif > Math.PI) a -= TAU;
+        while (a - rif < -Math.PI) a += TAU;
+      }
+      const g = capo[i];
+      const h = hi[g] - lo[g];
+      const v = h > 1e-4 ? (pos.getY(i) - lo[g]) / h : 0.5;
+      uvg[i * 2] = 0.5 + a / TAU;                       // 0,5 = davanti
+      uvg[i * 2 + 1] = (g + clamp(v, 0.02, 0.98)) / NCAPI;
+    }
+  }
+
+  geo.setAttribute('tessuto', new THREE.BufferAttribute(tess, 1));
+  geo.setAttribute('uvg', new THREE.BufferAttribute(uvg, 2));
   return geo;
 }
 
@@ -1096,6 +1173,96 @@ function tessutoTexture() {
     }
   }
   return { normale: tela(nrm), rugosita: tela(rug) };
+}
+
+/**
+ * Atlante dei dettagli di confezione: cuciture, orli, tasche, cerniere.
+ *
+ * Una riga per capo, nell'ordine di CAPI, e dentro ogni riga il quadrato
+ * normalizzato del capo: orizzontale il giro del corpo con lo 0,5 sul
+ * davanti, verticale dall'orlo al colletto. E' questo che distingue un
+ * vestito da un cilindro colorato — una maglietta si riconosce dall'orlo e
+ * dalle cuciture laterali prima che dal colore.
+ *
+ * Nel canale alfa c'e' quanto il dettaglio copre, nei tre colori verso cosa
+ * tira: le cuciture verso il nero, le impunture verso il chiaro. Cosi' lo
+ * stesso disegno funziona su una maglietta bianca e su una nera.
+ */
+function confezioneTexture() {
+  const W = 256, RIGA = 64, H = RIGA * NCAPI;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, W, H);
+
+  // dal quadrato del capo ai pixel: v = 0 e' l'orlo, in basso nella riga
+  const py = (capo, v) => H - (capo + v) * RIGA;
+  const px = (u) => u * W;
+
+  const scuro = (a) => `rgba(20,18,16,${a})`;
+  const chiaro = (a) => `rgba(236,232,224,${a})`;
+
+  /** Riga verticale lungo il corpo, ripetuta ai due lati se serve. */
+  const cucitura = (capo, u, v0, v1, colore, sp = 1.6) => {
+    g.strokeStyle = colore; g.lineWidth = sp;
+    g.beginPath(); g.moveTo(px(u), py(capo, v0)); g.lineTo(px(u), py(capo, v1)); g.stroke();
+  };
+  /** Fascia orizzontale: orli, cinture, polsini, colletti. */
+  const fascia = (capo, v0, v1, colore) => {
+    g.fillStyle = colore;
+    g.fillRect(0, py(capo, v1), W, py(capo, v0) - py(capo, v1));
+  };
+  const riquadro = (capo, u0, v0, u1, v1, colore, sp = 1.4) => {
+    g.strokeStyle = colore; g.lineWidth = sp;
+    g.strokeRect(px(u0), py(capo, v1), px(u1) - px(u0), py(capo, v0) - py(capo, v1));
+  };
+
+  /*
+   * 1 maglietta liscia e 7 maglietta stampata: stesso capo, due righe.
+   * La stampa addosso a tutti faceva una divisa, e per giunta larga come un
+   * cartello; qui ce l'ha solo chi la sorteggia, e non e' piu' un lenzuolo.
+   */
+  for (const capo of [1, 7]) {
+    fascia(capo, 0.03, 0.06, scuro(0.30));
+    fascia(capo, 0.06, 0.075, chiaro(0.12));
+    fascia(capo, 0.94, 0.98, scuro(0.26));
+    for (const u of [0.25, 0.75]) cucitura(capo, u, 0.05, 0.95, scuro(0.22));
+  }
+  g.fillStyle = 'rgba(126,122,118,0.55)';
+  g.fillRect(px(0.455), py(7, 0.70), px(0.545) - px(0.455), py(7, 0.60) - py(7, 0.70));
+  g.fillStyle = 'rgba(214,208,198,0.5)';
+  g.fillRect(px(0.468), py(7, 0.665), px(0.532) - px(0.468), py(7, 0.635) - py(7, 0.665));
+
+  // --- 2 giacca: cerniera in mezzo al petto, due tasche, orlo
+  fascia(2, 0.03, 0.07, scuro(0.34));
+  for (const u of [0.25, 0.75]) cucitura(2, u, 0.05, 0.95, scuro(0.22));
+  cucitura(2, 0.5, 0.05, 0.93, scuro(0.55), 3);
+  cucitura(2, 0.492, 0.05, 0.93, chiaro(0.20), 1.2);
+  cucitura(2, 0.508, 0.05, 0.93, chiaro(0.20), 1.2);
+  for (const u of [0.38, 0.62]) cucitura(2, u, 0.22, 0.34, scuro(0.4), 2.4);
+
+  // --- 3 bacino: cintura in vita, patta davanti, due tasche dietro
+  fascia(3, 0.86, 1.0, scuro(0.26));
+  cucitura(3, 0.5, 0.5, 0.86, scuro(0.34), 2);
+  for (const u of [0.07, 0.93]) riquadro(3, u - 0.06, 0.5, u + 0.06, 0.74, scuro(0.34), 2);
+
+  // --- 4 coscia e 5 polpaccio: cuciture laterali e risvolto
+  for (const capo of [4, 5]) for (const u of [0.25, 0.75]) cucitura(capo, u, 0, 1, scuro(0.24));
+  fascia(5, 0.1, 0.14, scuro(0.28));
+
+  // --- 6 manica: giro spalla in alto, cucitura sotto, polsino in fondo
+  fascia(6, 0.93, 0.99, scuro(0.24));
+  cucitura(6, 0.25, 0, 0.93, scuro(0.22));
+  fascia(6, 0.04, 0.09, scuro(0.26));
+
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;         // u fa il giro del corpo
+  t.wrapT = THREE.ClampToEdgeWrapping;    // v no: ogni capo sta nella sua riga
+  // senza mipmap le righe non si contaminano fra loro sfumando
+  t.generateMipmaps = false;
+  t.minFilter = t.magFilter = THREE.LinearFilter;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** Sfera schiacciabile: teste, spalle, mani, orecchie. */
@@ -1289,7 +1456,7 @@ function buildBody(c) {
     calotta(gb, -0.006, 1.704, 0, 0.108, 0.098, 0.094, c.cap, 0.32, 0.20);
     gb.box(0.086, 1.722, 0, 0.11, 0.018, 0.140, c.cap);      // visiera
   }
-  const geo = finisci(gb, c.skin, c.hair);
+  const geo = finisci(gb, c, 'corpo');
   geo.translate(0, -WAIST, 0);   // pivot in vita: busto e testa ruotano da li'
   return geo;
 }
@@ -1312,7 +1479,7 @@ function buildArm(c) {
   ], c.skin, 9);
   // gomito: appena accennato, se no sporge come una pallina
   blob(gb, 0, -0.30, 0, 0.039 * bulk, 0.034 * bulk, 0.037 * bulk, c.shortSleeve ? c.skin : sleeve, 8, 6);
-  return finisci(gb, c.skin, c.hair);
+  return finisci(gb, c, 'manica');
 }
 
 /** Avambraccio: parte dal gomito, e' figlio del braccio e si piega. */
@@ -1330,7 +1497,7 @@ function buildForearm(c) {
    */
   blob(gb, 0.008, -0.352, 0, 0.042, 0.052, 0.021, c.skin, 8, 6);
   blob(gb, 0.020, -0.392, 0, 0.030, 0.030, 0.019, c.skin, 6, 5);     // dita chiuse
-  return finisci(gb, c.skin, c.hair);
+  return finisci(gb, c, 'avambraccio');
 }
 
 function buildLeg(c) {
@@ -1344,7 +1511,7 @@ function buildLeg(c) {
   ], c.pants, 9);
   // ginocchio: schiacciato ai lati, non una biglia
   blob(gb, 0.004, -0.42, 0, 0.060, 0.052, 0.056, short ? c.skin : c.pants, 8, 6);
-  return finisci(gb, c.skin, c.hair);
+  return finisci(gb, c, 'gamba');
 }
 
 /** Polpaccio + scarpa: parte dal ginocchio ed e' figlio della coscia. */
@@ -1366,7 +1533,7 @@ function buildShin(c) {
     { y: -0.37, rx: 0.05, rz: 0.052, color: c.shoes },
     { y: -0.28, rx: 0.048, rz: 0.05, color: c.shoes },
   ], c.shoes, 8, false);
-  return finisci(gb, c.skin, c.hair);
+  return finisci(gb, c, 'polpaccio');
 }
 
 /** Ragnatela di crepe su canvas, per il parabrezza rotto. */
@@ -1414,6 +1581,7 @@ export function makeCharacter(opts = {}) {
     cap: pick(SHIRTS),
     hairStyle: opts.hairStyle ?? (Math.random() < 0.55 ? 0 : Math.random() < 0.6 ? 1 : 2),
     shortSleeve: Math.random() < 0.6,
+    stampa: opts.stampa ?? (Math.random() < 0.32),
     shorts: Math.random() < 0.25,
     sleeve: shirt,
     // sopra la maglietta: niente, giacca o felpa

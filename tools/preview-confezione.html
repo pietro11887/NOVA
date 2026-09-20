@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Atlante dei dettagli di confezione</title>
+<!--
+  Mostra la texture con cui vengono disegnati cuciture, orli, tasche e
+  cerniere sui vestiti dei personaggi. Una riga per capo: dentro la riga,
+  orizzontale e' il giro del corpo (0,5 al centro e' il davanti) e verticale
+  si va dall'orlo al colletto di quel capo.
+
+  Serve a controllare dove finisce un dettaglio prima di andarlo a cercare
+  addosso a un personaggio, dove si vede un quarto per volta.
+-->
+<style>
+  body { margin: 0; background: #7a8a99; font: 13px system-ui, sans-serif; color: #10161c; }
+  #wrap { display: flex; gap: 16px; padding: 16px; align-items: flex-start; }
+  canvas { image-rendering: pixelated; box-shadow: 0 6px 24px #0006; }
+  p { max-width: 280px; line-height: 1.5; }
+</style>
+<div id="wrap">
+  <canvas id="out" width="512" height="1024"></canvas>
+  <p id="nota">Caricamento…</p>
+</div>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three.module.min.js" } }
+</script>
+<script type="module">
+import { initModels } from '../src/world/models.js';
+
+const shared = initModels({ shadows: false });
+const src = shared.bodyMat.userData.confezione.image;
+const g = document.getElementById('out').getContext('2d');
+g.imageSmoothingEnabled = false;
+g.drawImage(src, 0, 0, 512, 1024);
+
+const CAPI = ['nessuno', 'maglia', 'giacca', 'bacino', 'gamba', 'polpaccio', 'manica', 'stampata'];
+g.font = '15px monospace';
+for (let i = 0; i < CAPI.length; i++) {
+  const y = 1024 - i * 128;
+  g.strokeStyle = '#d0342c';
+  g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke();
+  g.fillStyle = '#d0342c';
+  g.fillText(CAPI[i], 6, y - 110);
+}
+// il davanti del corpo: la riga su cui cadono cerniere e patte
+g.strokeStyle = '#1f6feb';
+g.setLineDash([6, 6]);
+g.beginPath(); g.moveTo(256, 0); g.lineTo(256, 1024); g.stroke();
+
+document.getElementById('nota').textContent =
+  'Righe rosse: i confini fra un capo e l’altro. Riga blu: il centro del '
+  + 'davanti, dove cadono cerniere e patte. I bordi sinistro e destro sono '
+  + 'la schiena, ed e’ li’ che stanno le tasche posteriori dei pantaloni.';
+</script>
