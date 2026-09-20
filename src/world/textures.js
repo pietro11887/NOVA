@@ -273,13 +273,26 @@ export function facadeSet(style) {
  * che e' quello che li rende credibili.
  */
 export const NEGOZI = 8;
+export const LARGHEZZA_NEGOZIO = 6.5;
 
 export function storefrontAtlas() {
   const CELLA = 192, H = 192, W = CELLA * NEGOZI;
   const [c, ctx] = canvas(W, H);
   const [ce, ectx] = canvas(W, H);
+  /*
+   * La terza tela e' il rilievo, nello stesso formato che usa gia' l'asfalto:
+   * rosso = occlusione, verde = rugosita', blu = altezza. E' quella che fa
+   * rientrare le vetrine dentro il muro invece di lasciarle dipinte sopra —
+   * senza, camminandoci accanto di sbieco si vede che il negozio e' una
+   * figura su una scatola.
+   */
+  const [cp, pctx] = canvas(W, H);
   const rng = mulberry32(90210);
   ectx.fillStyle = '#000'; ectx.fillRect(0, 0, W, H);
+  const MURO = 'rgb(205,190,190)', PROFONDO = 'rgb(120,45,55)';
+  const SPORGE = 'rgb(235,200,255)', PORTA = 'rgb(130,110,90)';
+  const ZOCCOLO = 'rgb(215,205,225)', SERRANDA = 'rgb(175,165,165)';
+  pctx.fillStyle = MURO; pctx.fillRect(0, 0, W, H);
 
   const FASCIA = H * 0.20, VETRO0 = H * 0.25, VETRO1 = H * 0.82, ZOCC = H * 0.87;
 
@@ -287,6 +300,7 @@ export function storefrontAtlas() {
   const insegna = (x0, fondo, testo, luce) => {
     ctx.fillStyle = fondo;
     ctx.fillRect(x0, 0, CELLA, FASCIA);
+    pctx.fillStyle = SPORGE; pctx.fillRect(x0, 0, CELLA, FASCIA);
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.fillRect(x0, FASCIA - 3, CELLA, 3);
     ctx.fillStyle = testo;
@@ -316,6 +330,7 @@ export function storefrontAtlas() {
     const g = ctx.createLinearGradient(x0, VETRO0, x0, VETRO1);
     g.addColorStop(0, '#8296a4'); g.addColorStop(0.35, '#2c3843'); g.addColorStop(1, '#151c23');
     ctx.fillStyle = g; ctx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
+    pctx.fillStyle = PROFONDO; pctx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
     if (dentro) { ctx.fillStyle = dentro; ctx.fillRect(x0 + 6, VETRO0 + 8, x1 - x0 - 12, VETRO1 - VETRO0 - 16); }
     ctx.save();
     ctx.globalAlpha = 0.15; ctx.fillStyle = '#fff';
@@ -337,6 +352,7 @@ export function storefrontAtlas() {
   const porta = (x, w, colore = '#26313b') => {
     ctx.fillStyle = colore;
     ctx.fillRect(x, VETRO0, w, ZOCC - VETRO0);
+    pctx.fillStyle = PORTA; pctx.fillRect(x, VETRO0, w, ZOCC - VETRO0);
     ctx.strokeStyle = '#8d959c'; ctx.lineWidth = 4;
     ctx.strokeRect(x, VETRO0, w, ZOCC - VETRO0);
     ctx.fillStyle = '#c9ced3';
@@ -350,6 +366,7 @@ export function storefrontAtlas() {
     ctx.fillRect(x0, 0, CELLA, H);
     ctx.fillStyle = '#6d6257';
     ctx.fillRect(x0, ZOCC, CELLA, H - ZOCC);
+    pctx.fillStyle = ZOCCOLO; pctx.fillRect(x0, ZOCC, CELLA, H - ZOCC);
     for (let x = x0; x < x0 + CELLA; x += 26) {
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(x, ZOCC, 2, H - ZOCC);
@@ -397,6 +414,8 @@ export function storefrontAtlas() {
     } else if (k === 4) {                            // serranda chiusa, al buio
       ctx.fillStyle = '#7d8189';
       ctx.fillRect(x0 + 8, FASCIA * 0.5, CELLA - 16, ZOCC - FASCIA * 0.5);
+      pctx.fillStyle = SERRANDA;
+      pctx.fillRect(x0 + 8, FASCIA * 0.5, CELLA - 16, ZOCC - FASCIA * 0.5);
       for (let y = FASCIA * 0.5; y < ZOCC; y += 7) {
         ctx.fillStyle = 'rgba(0,0,0,0.22)';
         ctx.fillRect(x0 + 8, y, CELLA - 16, 3);
@@ -454,6 +473,9 @@ export function storefrontAtlas() {
 
   return {
     map: tex(c), emissive: tex(ce), normal: normalFrom(c, 1.1),
+    pack: tex(cp, { srgb: false }),
+    // quanti metri copre un'unita' di UV sui due assi: serve al parallasse
+    metriUV: [LARGHEZZA_NEGOZIO * NEGOZI, 1],
   };
 }
 

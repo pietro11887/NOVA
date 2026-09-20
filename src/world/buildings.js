@@ -1,5 +1,5 @@
 import { rand, randInt, pick } from '../core/utils.js';
-import { NEGOZI } from './textures.js';
+import { NEGOZI, LARGHEZZA_NEGOZIO } from './textures.js';
 
 /*
  * Piano terra: quanto e' largo un negozio e quanta texture occupa.
@@ -11,7 +11,6 @@ import { NEGOZI } from './textures.js';
  * isolato intero ripeteva bar-lavanderia-elettronica sempre nello stesso
  * ordine, che e' un altro modo di sembrare tutti uguali.
  */
-const LARGHEZZA_NEGOZIO = 6.5;
 const SCALA_NEGOZI = 1 / (LARGHEZZA_NEGOZIO * NEGOZI);
 
 function pianoTerra(B, rng, x, y, z, w, h, d) {

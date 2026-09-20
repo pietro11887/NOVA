@@ -108,6 +108,9 @@ export class City {
 
   // ------------------------------------------------------------- materiali
   _materials() {
+    // la fascia dei negozi e' alta cinque metri e mezzo: serve a pesare i due
+    // assi del parallasse, che nelle UV valgono distanze molto diverse
+    const ALTEZZA_VETRINA = 5.4;
     const std = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, ...o });
     const facade = (style) => {
       const s = TX.facadeSet(style);
@@ -157,9 +160,24 @@ export class City {
       stucco: facade('stucco'),
       brick: facade('brick'),
       concrete: facade('concrete'),
-      store: std({
+      /*
+       * Piano terra in rilievo: le vetrine rientrano davvero nel muro.
+       *
+       * Lo stesso parallasse dell'asfalto, con una differenza: qui le UV non
+       * sono isotrope — un'unita' copre cinquantadue metri in orizzontale e
+       * poco piu' di cinque in verticale — quindi va detto al materiale
+       * quanto pesano i due assi, se no la profondita' esce schiacciata.
+       */
+      store: enableParallax(std({
         map: store.map, normalMap: store.normal, emissiveMap: store.emissive, emissive: 0x000000,
-        roughness: 0.6, metalness: 0.15, envMapIntensity: 0.5,
+        roughnessMap: store.pack, aoMap: store.pack, aoMapIntensity: 0.8,
+        roughness: 1, metalness: 0.15, envMapIntensity: 0.5,
+        normalScale: new THREE.Vector2(0.8, 0.8),
+      }), {
+        packMap: store.pack,
+        scale: this.quality.parallax ? 0.09 : 0,
+        aspect: [ALTEZZA_VETRINA / store.metriUV[0], 1],
+        fade: [14, 44],
       }),
       detail: std({ roughness: 0.84, metalness: 0.06, envMapIntensity: 0.35 }),
       roof: std({ map: roof.map, normalMap: roof.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),

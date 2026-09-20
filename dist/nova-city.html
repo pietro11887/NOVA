@@ -11264,17 +11264,26 @@ function facadeSet(style) {
   };
 }
 var NEGOZI = 8;
+var LARGHEZZA_NEGOZIO = 6.5;
 function storefrontAtlas() {
   const CELLA = 192, H2 = 192, W2 = CELLA * NEGOZI;
   const [c2, ctx] = canvas(W2, H2);
   const [ce2, ectx] = canvas(W2, H2);
+  const [cp, pctx] = canvas(W2, H2);
   const rng = mulberry32(90210);
   ectx.fillStyle = "#000";
   ectx.fillRect(0, 0, W2, H2);
+  const MURO = "rgb(205,190,190)", PROFONDO = "rgb(120,45,55)";
+  const SPORGE = "rgb(235,200,255)", PORTA = "rgb(130,110,90)";
+  const ZOCCOLO = "rgb(215,205,225)", SERRANDA = "rgb(175,165,165)";
+  pctx.fillStyle = MURO;
+  pctx.fillRect(0, 0, W2, H2);
   const FASCIA = H2 * 0.2, VETRO0 = H2 * 0.25, VETRO1 = H2 * 0.82, ZOCC = H2 * 0.87;
   const insegna = (x0, fondo, testo, luce) => {
     ctx.fillStyle = fondo;
     ctx.fillRect(x0, 0, CELLA, FASCIA);
+    pctx.fillStyle = SPORGE;
+    pctx.fillRect(x0, 0, CELLA, FASCIA);
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.fillRect(x0, FASCIA - 3, CELLA, 3);
     ctx.fillStyle = testo;
@@ -11298,6 +11307,8 @@ function storefrontAtlas() {
     g.addColorStop(1, "#151c23");
     ctx.fillStyle = g;
     ctx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
+    pctx.fillStyle = PROFONDO;
+    pctx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
     if (dentro) {
       ctx.fillStyle = dentro;
       ctx.fillRect(x0 + 6, VETRO0 + 8, x1 - x0 - 12, VETRO1 - VETRO0 - 16);
@@ -11327,6 +11338,8 @@ function storefrontAtlas() {
   const porta = (x, w, colore = "#26313b") => {
     ctx.fillStyle = colore;
     ctx.fillRect(x, VETRO0, w, ZOCC - VETRO0);
+    pctx.fillStyle = PORTA;
+    pctx.fillRect(x, VETRO0, w, ZOCC - VETRO0);
     ctx.strokeStyle = "#8d959c";
     ctx.lineWidth = 4;
     ctx.strokeRect(x, VETRO0, w, ZOCC - VETRO0);
@@ -11339,6 +11352,8 @@ function storefrontAtlas() {
     ctx.fillRect(x0, 0, CELLA, H2);
     ctx.fillStyle = "#6d6257";
     ctx.fillRect(x0, ZOCC, CELLA, H2 - ZOCC);
+    pctx.fillStyle = ZOCCOLO;
+    pctx.fillRect(x0, ZOCC, CELLA, H2 - ZOCC);
     for (let x = x0; x < x0 + CELLA; x += 26) {
       ctx.fillStyle = "rgba(0,0,0,0.18)";
       ctx.fillRect(x, ZOCC, 2, H2 - ZOCC);
@@ -11383,6 +11398,8 @@ function storefrontAtlas() {
     } else if (k === 4) {
       ctx.fillStyle = "#7d8189";
       ctx.fillRect(x0 + 8, FASCIA * 0.5, CELLA - 16, ZOCC - FASCIA * 0.5);
+      pctx.fillStyle = SERRANDA;
+      pctx.fillRect(x0 + 8, FASCIA * 0.5, CELLA - 16, ZOCC - FASCIA * 0.5);
       for (let y = FASCIA * 0.5; y < ZOCC; y += 7) {
         ctx.fillStyle = "rgba(0,0,0,0.22)";
         ctx.fillRect(x0 + 8, y, CELLA - 16, 3);
@@ -11434,7 +11451,10 @@ function storefrontAtlas() {
   return {
     map: tex(c2),
     emissive: tex(ce2),
-    normal: normalFrom(c2, 1.1)
+    normal: normalFrom(c2, 1.1),
+    pack: tex(cp, { srgb: false }),
+    // quanti metri copre un'unita' di UV sui due assi: serve al parallasse
+    metriUV: [LARGHEZZA_NEGOZIO * NEGOZI, 1]
   };
 }
 function asphaltSet() {
@@ -11914,6 +11934,7 @@ uniform float novaPomScale;
 uniform vec2 novaPomFade;      // x = distanza piena, y = distanza nulla
 uniform float novaMacroScale;
 uniform float novaMacroAmount;
+uniform vec2 novaPomAspect;
 
 // Base tangente ricavata dalle derivate: non servono tangenti nella geometria.
 // Attenzione: dFdx/dFdy vanno chiamate SEMPRE, mai dentro un if. Dentro un
@@ -11948,7 +11969,7 @@ vec2 novaParallax(vec2 uv, vec3 viewPos) {
   // di sbieco il passo si allunga: piu' campioni dove serve, meno di fronte
   float steps = mix(8.0, 26.0, near * (1.0 - abs(Vt.z)) + near * 0.35);
   float layer = 1.0 / steps;
-  vec2 maxOffset = (Vt.xy / max(0.30, abs(Vt.z))) * (novaPomScale * near);
+  vec2 maxOffset = (Vt.xy / max(0.30, abs(Vt.z))) * (novaPomScale * near) * novaPomAspect;
   vec2 delta = maxOffset * layer;
 
   vec2 cur = uv;
@@ -11995,7 +12016,19 @@ function enableParallax(mat, o = {}) {
     novaPomScale: { value: o.scale ?? 0 },
     novaPomFade: { value: new ti(o.fade?.[0] ?? 14, o.fade?.[1] ?? 42) },
     novaMacroScale: { value: o.macroScale ?? 0 },
-    novaMacroAmount: { value: o.macroAmount ?? 0 }
+    novaMacroAmount: { value: o.macroAmount ?? 0 },
+    /*
+     * Quanto vale un'unita' di UV in metri sui due assi.
+     *
+     * Lo scostamento del parallasse si calcola nello spazio delle UV, e
+     * finche' la texture e' quadrata e si ripete uguale — asfalto,
+     * marciapiede — le due direzioni si equivalgono. L'atlante dei negozi
+     * no: in orizzontale un'unita' copre cinquantadue metri, in verticale
+     * cinque e mezzo. Senza correzione la profondita' verrebbe dieci volte
+     * piu' marcata in alto e in basso che ai lati, e le vetrine
+     * sembrerebbero schiacciate.
+     */
+    novaPomAspect: { value: new ti(o.aspect?.[0] ?? 1, o.aspect?.[1] ?? 1) }
   };
   mat.userData.nova = u2;
   mat.onBeforeCompile = (shader) => {
@@ -12015,6 +12048,10 @@ void main() {
       C.roughnessmap_fragment.replace(/vRoughnessMapUv/g, "novaUv") + (u2.novaMacroAmount.value > 0 ? MACRO_ROUGH : "")
     );
     f2 = f2.replace("#include <aomap_fragment>", C.aomap_fragment.replace(/vAoMapUv/g, "novaUv"));
+    f2 = f2.replace(
+      "#include <emissivemap_fragment>",
+      C.emissivemap_fragment.replace(/vEmissiveMapUv/g, "novaUv")
+    );
     shader.fragmentShader = f2;
   };
   mat.customProgramCacheKey = () => `nova-pom-${u2.novaMacroAmount.value > 0 ? 1 : 0}`;
@@ -12525,7 +12562,6 @@ var Props = class {
 };
 
 // src/world/buildings.js
-var LARGHEZZA_NEGOZIO = 6.5;
 var SCALA_NEGOZI = 1 / (LARGHEZZA_NEGOZIO * NEGOZI);
 function pianoTerra(B, rng, x, y, z, w, h2, d2) {
   B.store.uvOff = Math.floor(rng() * NEGOZI) / NEGOZI;
@@ -12846,6 +12882,7 @@ var City = class {
   }
   // ------------------------------------------------------------- materiali
   _materials() {
+    const ALTEZZA_VETRINA = 5.4;
     const std = (o) => new sd({ vertexColors: true, ...o });
     const facade = (style) => {
       const s = facadeSet(style);
@@ -12894,14 +12931,31 @@ var City = class {
       stucco: facade("stucco"),
       brick: facade("brick"),
       concrete: facade("concrete"),
-      store: std({
+      /*
+       * Piano terra in rilievo: le vetrine rientrano davvero nel muro.
+       *
+       * Lo stesso parallasse dell'asfalto, con una differenza: qui le UV non
+       * sono isotrope — un'unita' copre cinquantadue metri in orizzontale e
+       * poco piu' di cinque in verticale — quindi va detto al materiale
+       * quanto pesano i due assi, se no la profondita' esce schiacciata.
+       */
+      store: enableParallax(std({
         map: store.map,
         normalMap: store.normal,
         emissiveMap: store.emissive,
         emissive: 0,
-        roughness: 0.6,
+        roughnessMap: store.pack,
+        aoMap: store.pack,
+        aoMapIntensity: 0.8,
+        roughness: 1,
         metalness: 0.15,
-        envMapIntensity: 0.5
+        envMapIntensity: 0.5,
+        normalScale: new ti(0.8, 0.8)
+      }), {
+        packMap: store.pack,
+        scale: this.quality.parallax ? 0.09 : 0,
+        aspect: [ALTEZZA_VETRINA / store.metriUV[0], 1],
+        fade: [14, 44]
       }),
       detail: std({ roughness: 0.84, metalness: 0.06, envMapIntensity: 0.35 }),
       roof: std({ map: roof.map, normalMap: roof.normal, roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),

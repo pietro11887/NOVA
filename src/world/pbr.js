@@ -30,6 +30,7 @@ uniform float novaPomScale;
 uniform vec2 novaPomFade;      // x = distanza piena, y = distanza nulla
 uniform float novaMacroScale;
 uniform float novaMacroAmount;
+uniform vec2 novaPomAspect;
 
 // Base tangente ricavata dalle derivate: non servono tangenti nella geometria.
 // Attenzione: dFdx/dFdy vanno chiamate SEMPRE, mai dentro un if. Dentro un
@@ -64,7 +65,7 @@ vec2 novaParallax(vec2 uv, vec3 viewPos) {
   // di sbieco il passo si allunga: piu' campioni dove serve, meno di fronte
   float steps = mix(8.0, 26.0, near * (1.0 - abs(Vt.z)) + near * 0.35);
   float layer = 1.0 / steps;
-  vec2 maxOffset = (Vt.xy / max(0.30, abs(Vt.z))) * (novaPomScale * near);
+  vec2 maxOffset = (Vt.xy / max(0.30, abs(Vt.z))) * (novaPomScale * near) * novaPomAspect;
   vec2 delta = maxOffset * layer;
 
   vec2 cur = uv;
@@ -129,6 +130,18 @@ export function enableParallax(mat, o = {}) {
     novaPomFade: { value: new THREE.Vector2(o.fade?.[0] ?? 14, o.fade?.[1] ?? 42) },
     novaMacroScale: { value: o.macroScale ?? 0.0 },
     novaMacroAmount: { value: o.macroAmount ?? 0.0 },
+    /*
+     * Quanto vale un'unita' di UV in metri sui due assi.
+     *
+     * Lo scostamento del parallasse si calcola nello spazio delle UV, e
+     * finche' la texture e' quadrata e si ripete uguale — asfalto,
+     * marciapiede — le due direzioni si equivalgono. L'atlante dei negozi
+     * no: in orizzontale un'unita' copre cinquantadue metri, in verticale
+     * cinque e mezzo. Senza correzione la profondita' verrebbe dieci volte
+     * piu' marcata in alto e in basso che ai lati, e le vetrine
+     * sembrerebbero schiacciate.
+     */
+    novaPomAspect: { value: new THREE.Vector2(o.aspect?.[0] ?? 1, o.aspect?.[1] ?? 1) },
   };
   mat.userData.nova = u;
   mat.onBeforeCompile = (shader) => {
@@ -144,6 +157,10 @@ export function enableParallax(mat, o = {}) {
     f = f.replace('#include <roughnessmap_fragment>',
       C.roughnessmap_fragment.replace(/vRoughnessMapUv/g, 'novaUv') + (u.novaMacroAmount.value > 0 ? MACRO_ROUGH : ''));
     f = f.replace('#include <aomap_fragment>', C.aomap_fragment.replace(/vAoMapUv/g, 'novaUv'));
+    // se l'emissiva non segue, di notte la luce della vetrina resta appiccicata
+    // al piano del muro mentre il vetro si e' spostato dentro
+    f = f.replace('#include <emissivemap_fragment>',
+      C.emissivemap_fragment.replace(/vEmissiveMapUv/g, 'novaUv'));
     shader.fragmentShader = f;
   };
   mat.customProgramCacheKey = () => `nova-pom-${u.novaMacroAmount.value > 0 ? 1 : 0}`;
