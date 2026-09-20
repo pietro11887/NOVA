@@ -4,7 +4,7 @@ import { GeoBuilder, mulberry32, clamp, rand, randInt, pick } from '../core/util
 import * as TX from './textures.js';
 import { enableParallax } from './pbr.js';
 import { Props } from './props.js';
-import { tower, midrise, house, strip, awning, entrance } from './buildings.js';
+import { tower, midrise, house, strip, awning, entrance, pianoTerra } from './buildings.js';
 
 const HALF = CFG.ROAD / 2;          // 8   bordo isolato dal centro strada
 const DRIVE = HALF - CFG.WALK;      // 5   mezza carreggiata
@@ -732,7 +732,7 @@ export class City {
     this.grid.add({ x: px + w / 2, z: (z0 + z1) / 2, hx: 0.3, hz: (z1 - z0) / 2 });
     // chiosco in fondo al molo
     const kz = z1 - 8;
-    B.store.box(px, 2.2, kz, 7, 4.4, 6, 0xffffff, 1 / 9, 0, null, 1 / 4.4);
+    pianoTerra(B, rng, px, 2.2, kz, 7, 4.4, 6);
     B.detail.gableRoof(px, 4.4, kz, 7, 6, 1.5, 0xc0392b, 'x', 0.6);
     this.grid.add({ x: px, z: kz, hx: 3.5, hz: 3 });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.3),
@@ -762,7 +762,7 @@ export class City {
     // negozio sul fondo
     const sw = Math.min(b.x1 - b.x0 - 8, 22), sd = 10;
     const sx = b.cx, sz = b.z0 + sd / 2 + 1;
-    B.store.box(sx, 2.2, sz, sw, 4.4, sd, 0xffffff, 1 / 9, 0, null, 1 / 4.4);
+    pianoTerra(B, rng, sx, 2.2, sz, sw, 4.4, sd);
     B.detail.box(sx, 4.75, sz, sw + 1, 1.1, sd + 1, 0xe8e2d4);
     B.roof.quadY(sx - sw / 2, sz - sd / 2, sx + sw / 2, sz + sd / 2, 4.6, 0xffffff, sw / 6, sd / 6);
     this.grid.add({ x: sx, z: sz, hx: sw / 2, hz: sd / 2 });

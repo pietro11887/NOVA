@@ -12563,10 +12563,88 @@ var Props = class {
 
 // src/world/buildings.js
 var SCALA_NEGOZI = 1 / (LARGHEZZA_NEGOZIO * NEGOZI);
+var TENDA = { 0: 13124911, 3: 3107634 };
+var BANDIERA = { 1: 10474495, 2: 4179711, 6: 7139488 };
+var PENSILINA = 5;
+function sporgenze(B, offCella, x, y0, z, w, h2, d2) {
+  const facce = [
+    { nx: 0, nz: 1, lung: w, base: x - w / 2, fissa: z + d2 / 2, asse: "x" },
+    { nx: 0, nz: -1, lung: w, base: x - w / 2, fissa: z - d2 / 2, asse: "x" },
+    { nx: 1, nz: 0, lung: d2, base: z - d2 / 2, fissa: x + w / 2, asse: "z" },
+    { nx: -1, nz: 0, lung: d2, base: z - d2 / 2, fissa: x - w / 2, asse: "z" }
+  ];
+  for (const f2 of facce) {
+    const campate = Math.max(1, Math.round(f2.lung / LARGHEZZA_NEGOZIO));
+    const passo = f2.lung / campate;
+    for (let t2 = 0; t2 < campate; t2++) {
+      const lungo = (t2 + 0.5) * passo;
+      const cella = (offCella + Math.floor(lungo / LARGHEZZA_NEGOZIO)) % NEGOZI;
+      const px = f2.asse === "x" ? f2.base + lungo : f2.fissa;
+      const pz = f2.asse === "x" ? f2.fissa : f2.base + lungo;
+      const lungoMuro = (v, fuori) => f2.asse === "x" ? v : fuori;
+      const fuoriMuro = (v, fuori) => f2.asse === "x" ? fuori : v;
+      const larg = passo * 0.78;
+      if (TENDA[cella] !== void 0) {
+        const sp2 = 1.35;
+        const cy = y0 + h2 * 0.735;
+        const ox = px + f2.nx * sp2 / 2, oz = pz + f2.nz * sp2 / 2;
+        B.detail.box(ox, cy, oz, lungoMuro(larg, sp2), 0.16, fuoriMuro(larg, sp2), TENDA[cella]);
+        const bx = px + f2.nx * sp2, bz = pz + f2.nz * sp2;
+        B.detail.box(
+          bx,
+          cy - 0.2,
+          bz,
+          lungoMuro(larg, 0.12),
+          0.36,
+          fuoriMuro(larg, 0.12),
+          TENDA[cella]
+        );
+      } else if (BANDIERA[cella] !== void 0) {
+        const sp2 = 1.05;
+        const cy = y0 + h2 * 0.8;
+        const ox = px + f2.nx * (sp2 / 2 + 0.05), oz = pz + f2.nz * (sp2 / 2 + 0.05);
+        B.detail.box(ox, cy, oz, lungoMuro(0.14, sp2), 0.86, fuoriMuro(0.14, sp2), BANDIERA[cella]);
+        B.detail.box(
+          px + f2.nx * 0.16,
+          cy,
+          pz + f2.nz * 0.16,
+          lungoMuro(0.08, 0.32),
+          0.1,
+          fuoriMuro(0.08, 0.32),
+          4870490
+        );
+        B.lamp.box(
+          ox,
+          cy,
+          oz,
+          lungoMuro(0.17, sp2 * 0.9),
+          0.66,
+          fuoriMuro(0.17, sp2 * 0.9),
+          BANDIERA[cella]
+        );
+      } else if (cella === PENSILINA) {
+        const sp2 = 1;
+        const cy = y0 + h2 * 0.68;
+        const ox = px + f2.nx * sp2 / 2, oz = pz + f2.nz * sp2 / 2;
+        B.detail.box(
+          ox,
+          cy,
+          oz,
+          lungoMuro(passo * 0.5, sp2),
+          0.14,
+          fuoriMuro(passo * 0.5, sp2),
+          9409948
+        );
+      }
+    }
+  }
+}
 function pianoTerra(B, rng, x, y, z, w, h2, d2) {
-  B.store.uvOff = Math.floor(rng() * NEGOZI) / NEGOZI;
+  const offCella = Math.floor(rng() * NEGOZI);
+  B.store.uvOff = offCella / NEGOZI;
   B.store.box(x, y, z, w, h2, d2, 16777215, SCALA_NEGOZI, 0, null, 1 / h2);
   B.store.uvOff = 0;
+  sporgenze(B, offCella, x, y - h2 / 2, z, w, h2, d2);
 }
 var STUCCO_TINT = [16767400, 16239008, 12574927, 16763316, 15917744, 12769514, 15251908, 14213288];
 var BRICK_TINT = [16777215, 15257536, 14204846, 15784136];
@@ -13586,7 +13664,7 @@ var City = class {
     this.grid.add({ x: px - w / 2, z: (z0 + z1) / 2, hx: 0.3, hz: (z1 - z0) / 2 });
     this.grid.add({ x: px + w / 2, z: (z0 + z1) / 2, hx: 0.3, hz: (z1 - z0) / 2 });
     const kz = z1 - 8;
-    B.store.box(px, 2.2, kz, 7, 4.4, 6, 16777215, 1 / 9, 0, null, 1 / 4.4);
+    pianoTerra(B, rng, px, 2.2, kz, 7, 4.4, 6);
     B.detail.gableRoof(px, 4.4, kz, 7, 6, 1.5, 12597547, "x", 0.6);
     this.grid.add({ x: px, z: kz, hx: 3.5, hz: 3 });
     const sign = new Xs(
@@ -13614,7 +13692,7 @@ var City = class {
     B.road.quadY(b.x0, b.z0, b.x1, b.z1, 0.02, 16777215, (b.x1 - b.x0) / 8, (b.z1 - b.z0) / 8);
     const sw = Math.min(b.x1 - b.x0 - 8, 22), sd2 = 10;
     const sx = b.cx, sz = b.z0 + sd2 / 2 + 1;
-    B.store.box(sx, 2.2, sz, sw, 4.4, sd2, 16777215, 1 / 9, 0, null, 1 / 4.4);
+    pianoTerra(B, rng, sx, 2.2, sz, sw, 4.4, sd2);
     B.detail.box(sx, 4.75, sz, sw + 1, 1.1, sd2 + 1, 15262420);
     B.roof.quadY(sx - sw / 2, sz - sd2 / 2, sx + sw / 2, sz + sd2 / 2, 4.6, 16777215, sw / 6, sd2 / 6);
     this.grid.add({ x: sx, z: sz, hx: sw / 2, hz: sd2 / 2 });

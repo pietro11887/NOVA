@@ -13,10 +13,106 @@ import { NEGOZI, LARGHEZZA_NEGOZIO } from './textures.js';
  */
 const SCALA_NEGOZI = 1 / (LARGHEZZA_NEGOZIO * NEGOZI);
 
-function pianoTerra(B, rng, x, y, z, w, h, d) {
-  B.store.uvOff = Math.floor(rng() * NEGOZI) / NEGOZI;
+/*
+ * Quello che sporge dal muro: tende, insegne a bandiera, pensiline.
+ *
+ * Il parallasse scava DENTRO la parete, e una vetrina incassata la fa bene,
+ * ma non rompe mai la sagoma: il profilo dell'edificio resta una scatola.
+ * Queste escono davvero — fanno ombra sul marciapiede e si vedono in
+ * prospettiva lungo tutta la via, che e' quello che da' spessore a una
+ * strada.
+ *
+ * E non sono messe a caso. Si sa quale negozio cade in quale campata:
+ * l'atlante scorre di una cella ogni LARGHEZZA_NEGOZIO metri a partire dallo
+ * scostamento di questo edificio, e sulle facce perpendicolari a Z le UV
+ * corrono lungo +X, su quelle perpendicolari a X lungo +Z. Cosi' la tenda
+ * finisce sopra il bar e l'alimentari, la pensilina sopra il portone, e
+ * sulla serranda chiusa non c'e' niente — che e' il punto: una tenda sopra
+ * una saracinesca abbassata si nota piu' di una tenda che manca.
+ */
+const TENDA = { 0: 0xc8452f, 3: 0x2f6b32 };                 // bar, alimentari
+const BANDIERA = { 1: 0x9fd3ff, 2: 0x3fc6ff, 6: 0x6cf0a0 }; // lavanderia, elettronica, farmacia
+const PENSILINA = 5;                                        // portone di casa
+
+function sporgenze(B, offCella, x, y0, z, w, h, d) {
+  const facce = [
+    { nx: 0, nz: 1, lung: w, base: x - w / 2, fissa: z + d / 2, asse: 'x' },
+    { nx: 0, nz: -1, lung: w, base: x - w / 2, fissa: z - d / 2, asse: 'x' },
+    { nx: 1, nz: 0, lung: d, base: z - d / 2, fissa: x + w / 2, asse: 'z' },
+    { nx: -1, nz: 0, lung: d, base: z - d / 2, fissa: x - w / 2, asse: 'z' },
+  ];
+  for (const f of facce) {
+    const campate = Math.max(1, Math.round(f.lung / LARGHEZZA_NEGOZIO));
+    const passo = f.lung / campate;
+    for (let t = 0; t < campate; t++) {
+      const lungo = (t + 0.5) * passo;                      // centro della campata
+      const cella = (offCella + Math.floor(lungo / LARGHEZZA_NEGOZIO)) % NEGOZI;
+      const px = f.asse === 'x' ? f.base + lungo : f.fissa;
+      const pz = f.asse === 'x' ? f.fissa : f.base + lungo;
+      // lungo il muro e fuori dal muro, secondo come e' girata la facciata
+      const lungoMuro = (v, fuori) => (f.asse === 'x' ? v : fuori);
+      const fuoriMuro = (v, fuori) => (f.asse === 'x' ? fuori : v);
+      const larg = passo * 0.78;
+
+      if (TENDA[cella] !== undefined) {
+        /*
+         * La tenda va appena sotto la fascia dell'insegna, non a meta'
+         * vetrina: piu' in basso copriva il negozio invece di ripararlo, e
+         * da lontano spariva contro il muro. E deve uscire abbastanza da
+         * fare ombra sul marciapiede — l'ombra si vede da molto piu'
+         * lontano della tenda.
+         */
+        const sp = 1.35;                                    // quanto esce dal muro
+        const cy = y0 + h * 0.735;
+        const ox = px + f.nx * sp / 2, oz = pz + f.nz * sp / 2;
+        B.detail.box(ox, cy, oz, lungoMuro(larg, sp), 0.16, fuoriMuro(larg, sp), TENDA[cella]);
+        // il bordo che pende davanti: e' quello che la fa leggere come tenda
+        const bx = px + f.nx * sp, bz = pz + f.nz * sp;
+        B.detail.box(bx, cy - 0.20, bz, lungoMuro(larg, 0.12), 0.36,
+          fuoriMuro(larg, 0.12), TENDA[cella]);
+      } else if (BANDIERA[cella] !== undefined) {
+        /*
+         * Insegna a bandiera. Di giorno la faccia accesa e' spenta insieme
+         * ai lampioni, quindi il pannello deve reggersi da solo: colorato e
+         * grande abbastanza da leggersi. Prima era un rettangolino grigio
+         * di dieci centimetri, e di fronte non lo vedevi proprio.
+         */
+        const sp = 1.05;
+        const cy = y0 + h * 0.80;
+        const ox = px + f.nx * (sp / 2 + 0.05), oz = pz + f.nz * (sp / 2 + 0.05);
+        B.detail.box(ox, cy, oz, lungoMuro(0.14, sp), 0.86, fuoriMuro(0.14, sp), BANDIERA[cella]);
+        // il braccio che la tiene attaccata al muro
+        B.detail.box(px + f.nx * 0.16, cy, pz + f.nz * 0.16,
+          lungoMuro(0.08, 0.32), 0.1, fuoriMuro(0.08, 0.32), 0x4a515a);
+        // la faccia accesa compare solo di notte, insieme ai lampioni
+        B.lamp.box(ox, cy, oz, lungoMuro(0.17, sp * 0.9), 0.66,
+          fuoriMuro(0.17, sp * 0.9), BANDIERA[cella]);
+      } else if (cella === PENSILINA) {
+        const sp = 1.0;
+        const cy = y0 + h * 0.68;
+        const ox = px + f.nx * sp / 2, oz = pz + f.nz * sp / 2;
+        B.detail.box(ox, cy, oz, lungoMuro(passo * 0.5, sp), 0.14,
+          fuoriMuro(passo * 0.5, sp), 0x8f959c);
+      }
+    }
+  }
+}
+
+/**
+ * Piano terra di un edificio: la fila di negozi piu' quello che sporge.
+ *
+ * Esportata perche' un paio di costruzioni non passano dai generatori qui
+ * dentro — il chiosco del molo e il negozio del distributore sono disegnati
+ * a mano in city.js — e prima si tiravano dietro la scala vecchia: con
+ * l'atlante nuovo quel 1/9 schiacciava tutti e otto i negozi dentro nove
+ * metri, e ne usciva una fila di fessure.
+ */
+export function pianoTerra(B, rng, x, y, z, w, h, d) {
+  const offCella = Math.floor(rng() * NEGOZI);
+  B.store.uvOff = offCella / NEGOZI;
   B.store.box(x, y, z, w, h, d, 0xffffff, SCALA_NEGOZI, 0, null, 1 / h);
   B.store.uvOff = 0;
+  sporgenze(B, offCella, x, y - h / 2, z, w, h, d);
 }
 
 /**
