@@ -118,7 +118,7 @@ export class City {
         normalScale: new THREE.Vector2(0.6, 0.6),
       });
     };
-    const store = TX.storefrontTexture();
+    const store = TX.storefrontAtlas();
     const asphalt = TX.asphaltSet();
     const walk = TX.sidewalkSet();
 

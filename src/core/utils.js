@@ -47,7 +47,19 @@ const FACES = [
  * gioco fluido anche su telefono.
  */
 export class GeoBuilder {
-  constructor() { this.p = []; this.n = []; this.uv = []; this.c = []; this.i = []; }
+  constructor() {
+    this.p = []; this.n = []; this.uv = []; this.c = []; this.i = [];
+    /*
+     * Scorrimento orizzontale delle UV, in unita' di texture.
+     *
+     * Serve a far partire due edifici vicini da un punto diverso dello
+     * stesso atlante: senza, ogni palazzo comincia la texture dallo stesso
+     * spigolo e il piano terra di un isolato intero mostra la stessa fila
+     * di negozi nello stesso ordine. Chi disegna lo imposta prima della
+     * scatola e lo rimette a zero dopo.
+     */
+    this.uvOff = 0;
+  }
 
   get empty() { return this.p.length === 0; }
 
@@ -80,7 +92,7 @@ export class GeoBuilder {
         this.p.push(x + lx * cos + lz * sin, y + ly, z - lx * sin + lz * cos);
         this.n.push(f.n[0] * cos + f.n[2] * sin, f.n[1], -f.n[0] * sin + f.n[2] * cos);
         if (su > 0) {
-          this.uv.push(((vert[f.u] + 1) / 2) * s[f.u] * su, ((vert[f.w] + 1) / 2) * s[f.w] * sv);
+          this.uv.push(this.uvOff + ((vert[f.u] + 1) / 2) * s[f.u] * su, ((vert[f.w] + 1) / 2) * s[f.w] * sv);
         } else {
           this.uv.push((vert[f.u] + 1) / 2, (vert[f.w] + 1) / 2);
         }

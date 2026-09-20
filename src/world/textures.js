@@ -40,13 +40,13 @@ function fbm(noise, x, y, oct = 4, gain = 0.5, lac = 2) {
 }
 
 /** Sporco/graffi sovrapposti a una texture gia' disegnata. */
-function grime(ctx, S, seed, strength = 0.18, scale = 6) {
+function grime(ctx, S, seed, strength = 0.18, scale = 6, H = S) {
   const n = valueNoise(seed);
-  const img = ctx.getImageData(0, 0, S, S);
+  const img = ctx.getImageData(0, 0, S, H);
   const d = img.data;
-  for (let y = 0; y < S; y++) {
+  for (let y = 0; y < H; y++) {
     for (let x = 0; x < S; x++) {
-      const v = fbm(n, (x / S) * scale, (y / S) * scale, 4);
+      const v = fbm(n, (x / S) * scale, (y / H) * scale, 4);
       const k = 1 - (v - 0.5) * strength * 2;
       const i = (y * S + x) * 4;
       d[i] *= k; d[i + 1] *= k; d[i + 2] *= k;
@@ -56,12 +56,12 @@ function grime(ctx, S, seed, strength = 0.18, scale = 6) {
 }
 
 /** Colature verticali sotto i davanzali: dettaglio che "invecchia" tutto. */
-function streaks(ctx, S, seed, count = 60, alpha = 0.06) {
+function streaks(ctx, S, seed, count = 60, alpha = 0.06, H = S) {
   const rng = mulberry32(seed);
   for (let i = 0; i < count; i++) {
     const x = rng() * S;
-    const y = rng() * S;
-    const h = 20 + rng() * (S * 0.5);
+    const y = rng() * H;
+    const h = 20 + rng() * (H * 0.5);
     const w = 1 + rng() * 4;
     const g = ctx.createLinearGradient(0, y, 0, y + h);
     g.addColorStop(0, `rgba(30,26,20,${alpha * 2})`);
@@ -73,16 +73,17 @@ function streaks(ctx, S, seed, count = 60, alpha = 0.06) {
 
 /** Mappa normali derivata dalla luminanza di un canvas (Sobel). */
 export function normalFrom(srcCanvas, strength = 2.2) {
-  const S = srcCanvas.width;
+  // il canvas non e' per forza quadrato: l'atlante dei negozi e' una striscia
+  const S = srcCanvas.width, H = srcCanvas.height;
   const sctx = srcCanvas.getContext('2d');
-  const src = sctx.getImageData(0, 0, S, S).data;
-  const [c, ctx] = canvas(S);
-  const out = ctx.createImageData(S, S);
+  const src = sctx.getImageData(0, 0, S, H).data;
+  const [c, ctx] = canvas(S, H);
+  const out = ctx.createImageData(S, H);
   const lum = (x, y) => {
-    const i = (((y + S) % S) * S + ((x + S) % S)) * 4;
+    const i = (((y + H) % H) * S + ((x + S) % S)) * 4;
     return (src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114) / 255;
   };
-  for (let y = 0; y < S; y++) {
+  for (let y = 0; y < H; y++) {
     for (let x = 0; x < S; x++) {
       const dx = (lum(x + 1, y) - lum(x - 1, y)) * strength;
       const dy = (lum(x, y + 1) - lum(x, y - 1)) * strength;
@@ -257,6 +258,205 @@ export function facadeSet(style) {
 }
 
 /** Piano terra commerciale: vetrine, porta, insegna, zoccolo. */
+/**
+ * Il piano terra della citta': otto negozi diversi, in fila in un atlante.
+ *
+ * Prima ce n'era uno solo, ripetuto ogni nove metri: da lontano la fascia a
+ * terra diventava una striscia grigia uniforme, e da vicino era lo stesso
+ * negozio su tutti i palazzi. Eppure quei cinque metri in basso sono l'unica
+ * parte di edificio che uno vede davvero, perche' ci cammina e ci guida
+ * accanto. Adesso lungo una facciata si succedono un bar, una lavanderia,
+ * una serranda chiusa, un portone.
+ *
+ * Ogni cella porta anche la sua luce notturna: le vetrine accese, le insegne,
+ * la lampada sopra il portone. La serranda e il fondo sfitto restano al buio,
+ * che e' quello che li rende credibili.
+ */
+export const NEGOZI = 8;
+
+export function storefrontAtlas() {
+  const CELLA = 192, H = 192, W = CELLA * NEGOZI;
+  const [c, ctx] = canvas(W, H);
+  const [ce, ectx] = canvas(W, H);
+  const rng = mulberry32(90210);
+  ectx.fillStyle = '#000'; ectx.fillRect(0, 0, W, H);
+
+  const FASCIA = H * 0.20, VETRO0 = H * 0.25, VETRO1 = H * 0.82, ZOCC = H * 0.87;
+
+  /** Insegna: fondo colorato e qualche blocco che da' lontano legge come scritta. */
+  const insegna = (x0, fondo, testo, luce) => {
+    ctx.fillStyle = fondo;
+    ctx.fillRect(x0, 0, CELLA, FASCIA);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(x0, FASCIA - 3, CELLA, 3);
+    ctx.fillStyle = testo;
+    let x = x0 + 18;
+    while (x < x0 + CELLA - 26) {
+      const w = 7 + Math.floor(rng() * 13);
+      ctx.fillRect(x, FASCIA * 0.32, w, FASCIA * 0.34);
+      x += w + 6;
+    }
+    if (luce) {
+      ectx.fillStyle = luce;
+      ectx.globalAlpha = 0.5;
+      ectx.fillRect(x0, 0, CELLA, FASCIA);
+      ectx.globalAlpha = 1;
+    }
+  };
+
+  /*
+   * Vetrina: vetro scuro con riflesso diagonale, piu' la luce di dentro.
+   *
+   * L'emissiva sta bassa apposta. Alla prima prova le vetrine erano piu'
+   * luminose dei lampioni e col bagliore andavano in saturazione: di notte
+   * un negozio diventava una macchia bianca in mezzo alla strada. Una
+   * vetrina illumina il marciapiede, non acceca.
+   */
+  const vetrina = (x0, x1, dentro, luce, alfa = 0.36) => {
+    const g = ctx.createLinearGradient(x0, VETRO0, x0, VETRO1);
+    g.addColorStop(0, '#8296a4'); g.addColorStop(0.35, '#2c3843'); g.addColorStop(1, '#151c23');
+    ctx.fillStyle = g; ctx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
+    if (dentro) { ctx.fillStyle = dentro; ctx.fillRect(x0 + 6, VETRO0 + 8, x1 - x0 - 12, VETRO1 - VETRO0 - 16); }
+    ctx.save();
+    ctx.globalAlpha = 0.15; ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(x0, VETRO1); ctx.lineTo(x0 + (x1 - x0) * 0.6, VETRO0);
+    ctx.lineTo(x1, VETRO0); ctx.lineTo(x1, VETRO0 + (VETRO1 - VETRO0) * 0.25);
+    ctx.lineTo(x0, VETRO1); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = '#9aa3ab'; ctx.lineWidth = 5;
+    ctx.strokeRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
+    if (luce) {
+      ectx.fillStyle = luce; ectx.globalAlpha = alfa;
+      ectx.fillRect(x0, VETRO0, x1 - x0, VETRO1 - VETRO0);
+      ectx.globalAlpha = 1;
+    }
+  };
+
+  /** Porta a vetri con maniglione. */
+  const porta = (x, w, colore = '#26313b') => {
+    ctx.fillStyle = colore;
+    ctx.fillRect(x, VETRO0, w, ZOCC - VETRO0);
+    ctx.strokeStyle = '#8d959c'; ctx.lineWidth = 4;
+    ctx.strokeRect(x, VETRO0, w, ZOCC - VETRO0);
+    ctx.fillStyle = '#c9ced3';
+    ctx.fillRect(x + w - 12, VETRO0 + (ZOCC - VETRO0) * 0.42, 4, (ZOCC - VETRO0) * 0.2);
+  };
+
+  for (let k = 0; k < NEGOZI; k++) {
+    const x0 = k * CELLA;
+    // muro e zoccolo, uguali per tutti: e' la stessa citta'
+    ctx.fillStyle = ['#d9d2c4', '#cfc6b6', '#ddd6c9'][k % 3];
+    ctx.fillRect(x0, 0, CELLA, H);
+    ctx.fillStyle = '#6d6257';
+    ctx.fillRect(x0, ZOCC, CELLA, H - ZOCC);
+    for (let x = x0; x < x0 + CELLA; x += 26) {
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(x, ZOCC, 2, H - ZOCC);
+    }
+
+    if (k === 0) {                                   // bar
+      insegna(x0, '#6d2323', '#f0d9a8', '#ffb347');
+      vetrina(x0 + 10, x0 + CELLA * 0.62, null, '#ffd79a', 0.42);
+      porta(x0 + CELLA * 0.66, CELLA * 0.26);
+      // tendina a righe sopra la vetrina
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = i % 2 ? '#c8452f' : '#efe6d6';
+        ctx.fillRect(x0 + 10 + i * ((CELLA * 0.62 - 10) / 7), FASCIA, (CELLA * 0.62 - 10) / 7, 12);
+      }
+    } else if (k === 1) {                            // lavanderia
+      insegna(x0, '#1e4f76', '#dbeaf5', '#9fd3ff');
+      vetrina(x0 + 10, x0 + CELLA - 10, '#e8eef2', '#dff0ff', 0.4);
+      // oblo' delle lavatrici
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = '#8c9aa4';
+        ctx.beginPath();
+        ctx.arc(x0 + 30 + i * 36, VETRO1 - 34, 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (k === 2) {                            // elettronica
+      insegna(x0, '#16202c', '#5ad2ff', '#3fc6ff');
+      vetrina(x0 + 10, x0 + CELLA - 10, '#101820', null);
+      // schermi accesi
+      for (let i = 0; i < 6; i++) {
+        const sx = x0 + 22 + (i % 3) * 52, sy = VETRO0 + 20 + Math.floor(i / 3) * 46;
+        ctx.fillStyle = '#9fd8ff'; ctx.fillRect(sx, sy, 40, 30);
+        ectx.fillStyle = '#8fc4e8'; ectx.fillRect(sx, sy, 40, 30);
+      }
+    } else if (k === 3) {                            // alimentari
+      insegna(x0, '#2f6b32', '#f2f0d8', '#b9f2a0');
+      vetrina(x0 + 10, x0 + CELLA * 0.68, '#f3ecd8', '#fff0c8', 0.38);
+      porta(x0 + CELLA * 0.72, CELLA * 0.2);
+      // cassette della frutta sul marciapiede
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = ['#b8742c', '#a8632a', '#c08340'][i];
+        ctx.fillRect(x0 + 16 + i * 34, VETRO1 - 26, 28, 26);
+        ctx.fillStyle = ['#c4442f', '#d8a32c', '#4f8c3a'][i];
+        ctx.fillRect(x0 + 20 + i * 34, VETRO1 - 32, 20, 8);
+      }
+    } else if (k === 4) {                            // serranda chiusa, al buio
+      ctx.fillStyle = '#7d8189';
+      ctx.fillRect(x0 + 8, FASCIA * 0.5, CELLA - 16, ZOCC - FASCIA * 0.5);
+      for (let y = FASCIA * 0.5; y < ZOCC; y += 7) {
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.fillRect(x0 + 8, y, CELLA - 16, 3);
+      }
+      // una bomboletta ci e' passata sopra
+      ctx.strokeStyle = 'rgba(180,60,140,0.55)'; ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(x0 + 30, ZOCC - 40);
+      ctx.bezierCurveTo(x0 + 70, ZOCC - 90, x0 + 110, ZOCC - 20, x0 + 155, ZOCC - 70);
+      ctx.stroke();
+    } else if (k === 5) {                            // portone di casa
+      ctx.fillStyle = '#b9b2a4';
+      ctx.fillRect(x0, 0, CELLA, H);
+      ctx.fillStyle = '#6d6257';
+      ctx.fillRect(x0, ZOCC, CELLA, H - ZOCC);
+      porta(x0 + CELLA * 0.34, CELLA * 0.32, '#4a3a2c');
+      // pensilina e lampada sopra
+      ctx.fillStyle = '#8f959c';
+      ctx.fillRect(x0 + CELLA * 0.28, VETRO0 - 14, CELLA * 0.44, 10);
+      ctx.fillStyle = '#ffe9b8';
+      ctx.fillRect(x0 + CELLA * 0.47, VETRO0 - 4, 14, 8);
+      ectx.fillStyle = '#ffd98a';
+      ectx.fillRect(x0 + CELLA * 0.44, VETRO0 - 8, 20, 14);
+      // pulsantiera dei campanelli
+      ctx.fillStyle = '#39414a';
+      ctx.fillRect(x0 + CELLA * 0.70, VETRO0 + 18, 16, 46);
+    } else if (k === 6) {                            // farmacia
+      insegna(x0, '#f2f4f2', '#2f7d4f', null);
+      vetrina(x0 + 10, x0 + CELLA - 10, '#eef3f0', '#e6fff0', 0.34);
+      // croce verde, l'insegna che si riconosce da sola
+      ctx.fillStyle = '#3aa564';
+      ctx.fillRect(x0 + CELLA * 0.44, FASCIA * 0.18, CELLA * 0.12, FASCIA * 0.64);
+      ctx.fillRect(x0 + CELLA * 0.32, FASCIA * 0.4, CELLA * 0.36, FASCIA * 0.2);
+      ectx.fillStyle = '#6cf0a0';
+      ectx.fillRect(x0 + CELLA * 0.44, FASCIA * 0.18, CELLA * 0.12, FASCIA * 0.64);
+      ectx.fillRect(x0 + CELLA * 0.32, FASCIA * 0.4, CELLA * 0.36, FASCIA * 0.2);
+    } else {                                         // fondo sfitto, carta ai vetri
+      insegna(x0, '#9a958b', '#c9c4ba', null);
+      ctx.fillStyle = '#cfc7b6';
+      ctx.fillRect(x0 + 10, VETRO0, CELLA - 20, VETRO1 - VETRO0);
+      ctx.strokeStyle = '#9aa3ab'; ctx.lineWidth = 5;
+      ctx.strokeRect(x0 + 10, VETRO0, CELLA - 20, VETRO1 - VETRO0);
+      ctx.fillStyle = '#e8e2d4';
+      ctx.fillRect(x0 + CELLA * 0.3, VETRO0 + 30, CELLA * 0.4, 34);
+      ctx.fillStyle = '#8a8378';
+      ctx.fillRect(x0 + CELLA * 0.34, VETRO0 + 42, CELLA * 0.32, 5);
+    }
+
+  }
+
+  // sporco e colature su tutta la striscia in un colpo solo: le due
+  // funzioni lavorano sul canvas intero, non su un ritaglio
+  streaks(ctx, W, 131, 150, 0.05, H);
+  grime(ctx, W, 137, 0.11, 22, H);
+
+  return {
+    map: tex(c), emissive: tex(ce), normal: normalFrom(c, 1.1),
+  };
+}
+
 export function storefrontTexture() {
   const S = 512;
   const [c, ctx] = canvas(S);

@@ -1,4 +1,24 @@
 import { rand, randInt, pick } from '../core/utils.js';
+import { NEGOZI } from './textures.js';
+
+/*
+ * Piano terra: quanto e' largo un negozio e quanta texture occupa.
+ *
+ * L'atlante mette in fila NEGOZI vetrine diverse, quindi per farne
+ * scorrere una ogni LARGHEZZA_NEGOZIO metri la scala orizzontale deve
+ * valere un'intera cella su quella distanza. Lo scostamento, a passi di
+ * cella, decide da quale negozio comincia questo edificio: senza, un
+ * isolato intero ripeteva bar-lavanderia-elettronica sempre nello stesso
+ * ordine, che e' un altro modo di sembrare tutti uguali.
+ */
+const LARGHEZZA_NEGOZIO = 6.5;
+const SCALA_NEGOZI = 1 / (LARGHEZZA_NEGOZIO * NEGOZI);
+
+function pianoTerra(B, rng, x, y, z, w, h, d) {
+  B.store.uvOff = Math.floor(rng() * NEGOZI) / NEGOZI;
+  B.store.box(x, y, z, w, h, d, 0xffffff, SCALA_NEGOZI, 0, null, 1 / h);
+  B.store.uvOff = 0;
+}
 
 /**
  * Generatore di edifici: ogni palazzo e' fatto di volumi (basamento, corpo,
@@ -109,7 +129,7 @@ export function tower(B, lot, ctx) {
 
   // basamento vetrato
   const baseH = 5.4;
-  B.store.box(cx, baseH / 2, cz, w, baseH, d, 0xffffff, 1 / 9, 0, null, 1 / baseH);
+  pianoTerra(B, rng, cx, baseH / 2, cz, w, baseH, d);
   B.detail.box(cx, baseH + 0.28, cz, w + 0.7, 0.56, d + 0.7, 0x8f959c);
 
   // corpo con arretramenti
@@ -148,7 +168,7 @@ export function midrise(B, lot, ctx, style) {
   const tint = style === 'brick' ? pick(BRICK_TINT) : style === 'concrete' ? pick(CONCRETE_TINT) : pick(STUCCO_TINT);
 
   // piano terra commerciale
-  B.store.box(cx, baseH / 2, cz, w, baseH, d, 0xffffff, 1 / 9, 0, null, 1 / baseH);
+  pianoTerra(B, rng, cx, baseH / 2, cz, w, baseH, d);
   // marcapiano
   B.detail.box(cx, baseH + 0.22, cz, w + 0.5, 0.44, d + 0.5, 0xcfc8ba);
   // corpo
@@ -240,7 +260,7 @@ export function strip(B, lot, ctx) {
   const w = lot.x1 - lot.x0 - 2, d = lot.z1 - lot.z0 - 2;
   const cx = (lot.x0 + lot.x1) / 2, cz = (lot.z0 + lot.z1) / 2;
   const h = rand(4.4, 5.6);
-  B.store.box(cx, h / 2, cz, w, h, d, 0xffffff, 1 / 9, 0, null, 1 / h);
+  pianoTerra(B, rng, cx, h / 2, cz, w, h, d);
   B.detail.box(cx, h + 0.55, cz, w + 0.9, 1.1, d + 0.9, 0xe0dacd);   // fascione insegna
   parapet(B, cx, h + 1.1, cz, w + 0.7, d + 0.7, 0.5, 0xd2ccbf);
   B.roof.quadY(cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, h + 1.12, 0xffffff, w / 6, d / 6);
