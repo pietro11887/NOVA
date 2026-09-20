@@ -11906,13 +11906,16 @@ function grassTuftTexture() {
   c2.height = H2;
   const ctx = c2.getContext("2d");
   ctx.clearRect(0, 0, W2, H2);
-  for (let i = 0; i < 22; i++) {
-    const x = 4 + Math.random() * (W2 - 8);
+  for (let i = 0; i < 44; i++) {
+    const x = 3 + Math.random() * (W2 - 6);
     const h2 = H2 * (0.45 + Math.random() * 0.55);
     const lean = (Math.random() - 0.5) * 16;
     const w = 1.2 + Math.random() * 1.8;
-    const g = 118 + Math.random() * 52;
-    ctx.strokeStyle = `rgb(${g * 0.56 | 0},${g | 0},${g * 0.42 | 0})`;
+    const g = 128 + Math.random() * 62;
+    const grad = ctx.createLinearGradient(x, H2, x + lean, H2 - h2);
+    grad.addColorStop(0, `rgb(${g * 0.6 | 0},${g * 1.02 | 0},${g * 0.44 | 0})`);
+    grad.addColorStop(1, `rgb(${g * 0.82 | 0},${g * 1.26 | 0},${g * 0.58 | 0})`);
+    ctx.strokeStyle = grad;
     ctx.lineWidth = w;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -13084,9 +13087,17 @@ var City = class {
         envMapIntensity: 0.5
       }),
       leaf: new sd({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
+      /*
+       * Ciuffi d'erba. La soglia alfa secca tagliava netto, e con le mipmap
+       * l'alfa si media verso il basso man mano che ci si allontana: i fili
+       * sparivano e restavano dei rettangoli verdi appoggiati sul prato.
+       * Ora il taglio e' morbido e si appoggia ai campioni del multicampione
+       * — che prima non c'erano, quindi questa strada non era percorribile.
+       */
       tuft: new sd({
         map: grassTuftTexture(),
-        alphaTest: 0.5,
+        alphaTest: 0.28,
+        alphaToCoverage: true,
         side: p,
         roughness: 0.95,
         metalness: 0,
@@ -13138,8 +13149,11 @@ var City = class {
     g.rotateX(-Math.PI / 2);
     g.translate((gx0 + gx1) / 2, 0, (gz0 + gz1) / 2);
     const span = Math.max(gx1 - gx0, gz1 - gz0);
+    const mappaTerreno = this.mats.grass.map.clone();
+    mappaTerreno.needsUpdate = true;
+    mappaTerreno.repeat.set(span / 8, span / 8);
     this.mats.ground = new sd({
-      map: this.mats.grass.map,
+      map: mappaTerreno,
       roughness: 0.98,
       metalness: 0,
       envMapIntensity: 0.3
@@ -13147,7 +13161,6 @@ var City = class {
     const dirt = new Xs(g, this.mats.ground);
     dirt.position.set(0, -0.14, 0);
     dirt.receiveShadow = this.quality.shadows;
-    this.mats.grass.map.repeat.set(span / 8, span / 8);
     this.group.add(dirt);
     const sea = new Xs(new ma(7e3, 7e3), this.mats.water);
     sea.rotateX(-Math.PI / 2);
@@ -15758,10 +15771,18 @@ var AO_SHADER = {
     projection: { value: new cr() },
     inverseProjection: { value: new cr() },
     resolution: { value: new ti() },
-    radius: { value: 1.5 },
-    bias: { value: 0.02 },
-    power: { value: 2.2 },
-    strength: { value: 1.55 },
+    /*
+     * Raggio e forza alzati dopo averli misurati: con 1,5 metri e forza 1,55
+     * l'effetto c'era ma, confrontando due scatti della stessa scena con e
+     * senza, la differenza era appena percettibile. Non serviva accenderla
+     * piu' spesso, serviva che si vedesse. Due metri e mezzo prendono tutto
+     * l'attacco fra muro e marciapiede, che e' il punto dove un edificio
+     * smette di sembrare appoggiato sopra il terreno.
+     */
+    radius: { value: 2.5 },
+    bias: { value: 0.025 },
+    power: { value: 2 },
+    strength: { value: 2.2 },
     cameraNear: { value: 0.4 },
     cameraFar: { value: 4200 }
   },
@@ -16104,8 +16125,9 @@ var Post = class {
     const rt2 = new wi(
       Math.max(2, Math.round(size.width * dpr)),
       Math.max(2, Math.round(size.height * dpr)),
-      { type: Ut }
+      { type: Ut, samples: quality.msaa ?? 0 }
     );
+    this.rt = rt2;
     this.composer = new EffectComposer(renderer, rt2);
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
@@ -16140,6 +16162,16 @@ var Post = class {
   /** Occlusione ambientale: 0 la spegne, 1 e' piena. */
   setSSAO(v) {
     if (this.ssao) this.ssao.setIntensity(v);
+  }
+  /**
+   * Cambia i campioni per pixel. Il target va buttato e rifatto: il numero
+   * di campioni decide come e' costruito il framebuffer, non e' un
+   * interruttore che si gira a caldo.
+   */
+  setMSAA(n) {
+    if (!this.rt || this.rt.samples === n) return;
+    this.rt.samples = n;
+    this.rt.dispose();
   }
   setSize(w, h2, pixelRatio) {
     if (!this.composer) return;
@@ -24347,9 +24379,25 @@ var Game = class {
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
       shadows: true,
-      shadowMap: IS_MOBILE ? 1024 : 3072,
-      shadowRange: IS_MOBILE ? 46 : 96,
+      /*
+       * Ombre: quanto lontano arrivano e con quanti texel.
+       *
+       * Le due cose vanno insieme — allungare la portata senza alzare la
+       * mappa vuol dire solo ombre piu' sgranate. A novantasei metri la
+       * citta' in fondo restava illuminata piatta, e i palazzi lontani
+       * sembravano ritagli di cartone accanto a quelli vicini che hanno
+       * volume. Centotrenta metri con quattromila texel tengono la stessa
+       * densita' di prima — trentuno texel per metro — su un terzo di
+       * scena in piu'.
+       */
+      shadowMap: IS_MOBILE ? 1024 : 4096,
+      shadowRange: IS_MOBILE ? 46 : 130,
       bloom: !IS_MOBILE,
+      /*
+       * Campioni per pixel della post-produzione. Sul telefono resta a zero:
+       * li' ogni pixel costa, e a densita' alta i bordi si vedono meno.
+       */
+      msaa: IS_MOBILE ? 0 : 4,
       grade: true,
       // occlusione ambientale: una seconda passata sulla geometria, solo
       // dove c'e' margine
@@ -24920,7 +24968,7 @@ var Game = class {
       this.sky.quality.shadows = q.shadows;
       this.sky.clouds.visible = tier >= 1;
       if (q.shadows) {
-        const range = tier >= 3 ? IS_MOBILE ? 46 : 96 : IS_MOBILE ? 34 : 52;
+        const range = tier >= 3 ? IS_MOBILE ? 46 : 130 : IS_MOBILE ? 34 : 60;
         q.shadowRange = range;
         const c2 = this.sky.sun.shadow.camera;
         c2.left = -range;
@@ -24933,9 +24981,11 @@ var Game = class {
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       this.post.setBloom(tier >= 3);
-      q.ssao = tier >= 3;
+      q.ssao = tier >= 2;
       this.post.setSSAO(q.ssao ? 1 : 0);
     }
+    q.msaa = IS_MOBILE || tier < 2 ? 0 : 4;
+    if (this.post) this.post.setMSAA(q.msaa);
     q.parallax = tier >= 3;
     if (this.traffic) {
       const base = IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP;

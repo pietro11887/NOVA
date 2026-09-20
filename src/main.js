@@ -60,9 +60,25 @@ class Game {
       cars: IS_MOBILE ? CFG.CAR_MAX_MOBILE : CFG.CAR_MAX_DESKTOP,
       parked: IS_MOBILE ? CFG.PARKED_MOBILE : CFG.PARKED_DESKTOP,
       shadows: true,
-      shadowMap: IS_MOBILE ? 1024 : 3072,
-      shadowRange: IS_MOBILE ? 46 : 96,
+      /*
+       * Ombre: quanto lontano arrivano e con quanti texel.
+       *
+       * Le due cose vanno insieme — allungare la portata senza alzare la
+       * mappa vuol dire solo ombre piu' sgranate. A novantasei metri la
+       * citta' in fondo restava illuminata piatta, e i palazzi lontani
+       * sembravano ritagli di cartone accanto a quelli vicini che hanno
+       * volume. Centotrenta metri con quattromila texel tengono la stessa
+       * densita' di prima — trentuno texel per metro — su un terzo di
+       * scena in piu'.
+       */
+      shadowMap: IS_MOBILE ? 1024 : 4096,
+      shadowRange: IS_MOBILE ? 46 : 130,
       bloom: !IS_MOBILE,
+      /*
+       * Campioni per pixel della post-produzione. Sul telefono resta a zero:
+       * li' ogni pixel costa, e a densita' alta i bordi si vedono meno.
+       */
+      msaa: IS_MOBILE ? 0 : 4,
       grade: true,
       // occlusione ambientale: una seconda passata sulla geometria, solo
       // dove c'e' margine
@@ -638,7 +654,7 @@ class Game {
       this.sky.quality.shadows = q.shadows;
       this.sky.clouds.visible = tier >= 1;
       if (q.shadows) {
-        const range = tier >= 3 ? (IS_MOBILE ? 46 : 96) : IS_MOBILE ? 34 : 52;
+        const range = tier >= 3 ? (IS_MOBILE ? 46 : 130) : IS_MOBILE ? 34 : 60;
         q.shadowRange = range;
         const c = this.sky.sun.shadow.camera;
         c.left = -range; c.right = range; c.top = range; c.bottom = -range;
@@ -648,9 +664,15 @@ class Game {
     if (this.post) {
       this.post.enabled = tier >= 1 && this.post.hasPasses && !this.safeMode;
       this.post.setBloom(tier >= 3);
-      q.ssao = tier >= 3;
+      // l'occlusione di contatto e' illuminazione, non un ritocco: vale anche
+      // un gradino sotto il massimo
+      q.ssao = tier >= 2;
       this.post.setSSAO(q.ssao ? 1 : 0);
     }
+    // i bordi lisci seguono il livello: sotto il secondo non ci si puo'
+    // permettere di disegnare quattro volte ogni pixel
+    q.msaa = IS_MOBILE || tier < 2 ? 0 : 4;
+    if (this.post) this.post.setMSAA(q.msaa);
     // il parallax sull'asfalto segue lo stesso livello
     q.parallax = tier >= 3;
     /*

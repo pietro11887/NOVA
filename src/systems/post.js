@@ -106,14 +106,23 @@ export class Post {
     const dpr = renderer.getPixelRatio();
     /*
      * Un solo render target, della stessa identica dimensione del canvas.
-     * Multicampione e supercampionamento vogliono un target di misura
-     * diversa, e in quel caso il composer disegna solo una porzione di
-     * schermo: e' il bug del "mezzo schermo nero" visto su alcune schede.
+     * Il supercampionamento vuole un target di misura diversa, e in quel caso
+     * il composer disegna solo una porzione di schermo: e' il bug del "mezzo
+     * schermo nero" visto su alcune schede. La misura quindi non si tocca.
+     *
+     * Il multicampione invece NON cambia la misura, cambia quanti campioni
+     * stanno in ogni pixel, ed e' tutt'altra cosa. Qui serviva: il flag
+     * `antialias` sulla canvas vale solo per il buffer di schermo, e dal
+     * primo livello di qualita' in su la scena finisce qui dentro e non li'.
+     * Cioe' l'antialiasing era acceso nel renderer e non faceva niente: ogni
+     * spigolo di palazzo, ogni palo e ogni striscia per terra veniva fuori
+     * seghettato.
      */
     const rt = new THREE.WebGLRenderTarget(
       Math.max(2, Math.round(size.width * dpr)), Math.max(2, Math.round(size.height * dpr)),
-      { type: THREE.HalfFloatType }
+      { type: THREE.HalfFloatType, samples: quality.msaa ?? 0 }
     );
+    this.rt = rt;
     this.composer = new EffectComposer(renderer, rt);
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(size.width, size.height);
@@ -160,6 +169,17 @@ export class Post {
 
   /** Occlusione ambientale: 0 la spegne, 1 e' piena. */
   setSSAO(v) { if (this.ssao) this.ssao.setIntensity(v); }
+
+  /**
+   * Cambia i campioni per pixel. Il target va buttato e rifatto: il numero
+   * di campioni decide come e' costruito il framebuffer, non e' un
+   * interruttore che si gira a caldo.
+   */
+  setMSAA(n) {
+    if (!this.rt || this.rt.samples === n) return;
+    this.rt.samples = n;
+    this.rt.dispose();
+  }
 
   setSize(w, h, pixelRatio) {
     if (!this.composer) return;

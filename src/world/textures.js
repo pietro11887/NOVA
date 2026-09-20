@@ -922,13 +922,25 @@ export function grassTuftTexture() {
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, W, H);
-  for (let i = 0; i < 22; i++) {
-    const x = 4 + Math.random() * (W - 8);
+  // piu' fili e piu' fitti: un ciuffo rado, ingrandito, sembra una decalcomania
+  for (let i = 0; i < 44; i++) {
+    const x = 3 + Math.random() * (W - 6);
     const h = H * (0.45 + Math.random() * 0.55);
     const lean = (Math.random() - 0.5) * 16;
     const w = 1.2 + Math.random() * 1.8;
-    const g = 118 + Math.random() * 52;
-    ctx.strokeStyle = `rgb(${(g * 0.56) | 0},${g | 0},${(g * 0.42) | 0})`;
+    // la punta prende piu' luce della base: e' quello che da' volume a un ciuffo
+    const g = 128 + Math.random() * 62;
+    const grad = ctx.createLinearGradient(x, H, x + lean, H - h);
+    /*
+     * Il tono deve essere quello del manto, non piu' scuro. Da lontano un
+     * ciuffo e' largo pochi pixel e le mipmap lo riducono a una macchia: se
+     * la macchia e' piu' scura del prato, il parato risulta punteggiato di
+     * bolli. Alla base appena sotto il colore dell'erba, in punta appena
+     * sopra — cosi' anche quando si riduce a una macchia si confonde.
+     */
+    grad.addColorStop(0, `rgb(${(g * 0.60) | 0},${(g * 1.02) | 0},${(g * 0.44) | 0})`);
+    grad.addColorStop(1, `rgb(${(g * 0.82) | 0},${(g * 1.26) | 0},${(g * 0.58) | 0})`);
+    ctx.strokeStyle = grad;
     ctx.lineWidth = w;
     ctx.lineCap = 'round';
     ctx.beginPath();

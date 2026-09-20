@@ -210,8 +210,16 @@ export class City {
         roughness: 0.85, metalness: 0, envMapIntensity: 0.5,
       }),
       leaf: new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.35 }),
+      /*
+       * Ciuffi d'erba. La soglia alfa secca tagliava netto, e con le mipmap
+       * l'alfa si media verso il basso man mano che ci si allontana: i fili
+       * sparivano e restavano dei rettangoli verdi appoggiati sul prato.
+       * Ora il taglio e' morbido e si appoggia ai campioni del multicampione
+       * — che prima non c'erano, quindi questa strada non era percorribile.
+       */
       tuft: new THREE.MeshStandardMaterial({
-        map: TX.grassTuftTexture(), alphaTest: 0.5, side: THREE.DoubleSide,
+        map: TX.grassTuftTexture(), alphaTest: 0.28, alphaToCoverage: true,
+        side: THREE.DoubleSide,
         roughness: 0.95, metalness: 0, envMapIntensity: 0.35,
       }),
       water: new THREE.MeshStandardMaterial({
@@ -258,13 +266,26 @@ export class City {
     const span = Math.max(gx1 - gx0, gz1 - gz0);
     // materiale dedicato: quello dell'erba usa i vertex color, che questo
     // piano non ha (e senza attributo il terreno veniva nero)
+    /*
+     * La texture va COPIATA, non condivisa.
+     *
+     * Questo piano e' grande quanto il mondo e ha bisogno di una ripetizione
+     * enorme; i prati dei parchi invece hanno gia' le loro UV in metri. Con
+     * un solo oggetto texture la ripetizione del terreno si moltiplicava
+     * anche per quella dei prati: la trama si ripeteva migliaia di volte
+     * dentro un isolato e da qualunque distanza si mediava in una tinta
+     * unita. Era quello il verde piatto e finto dei parchi — non il colore,
+     * la ripetizione.
+     */
+    const mappaTerreno = this.mats.grass.map.clone();
+    mappaTerreno.needsUpdate = true;
+    mappaTerreno.repeat.set(span / 8, span / 8);
     this.mats.ground = new THREE.MeshStandardMaterial({
-      map: this.mats.grass.map, roughness: 0.98, metalness: 0, envMapIntensity: 0.3,
+      map: mappaTerreno, roughness: 0.98, metalness: 0, envMapIntensity: 0.3,
     });
     const dirt = new THREE.Mesh(g, this.mats.ground);
     dirt.position.set(0, -0.14, 0);
     dirt.receiveShadow = this.quality.shadows;
-    this.mats.grass.map.repeat.set(span / 8, span / 8);
     this.group.add(dirt);
 
     // oceano: un piano enorme oltre la citta', con normal map animata

@@ -29,10 +29,18 @@ const AO_SHADER = {
     projection: { value: new THREE.Matrix4() },
     inverseProjection: { value: new THREE.Matrix4() },
     resolution: { value: new THREE.Vector2() },
-    radius: { value: 1.5 },
-    bias: { value: 0.02 },
-    power: { value: 2.2 },
-    strength: { value: 1.55 },
+    /*
+     * Raggio e forza alzati dopo averli misurati: con 1,5 metri e forza 1,55
+     * l'effetto c'era ma, confrontando due scatti della stessa scena con e
+     * senza, la differenza era appena percettibile. Non serviva accenderla
+     * piu' spesso, serviva che si vedesse. Due metri e mezzo prendono tutto
+     * l'attacco fra muro e marciapiede, che e' il punto dove un edificio
+     * smette di sembrare appoggiato sopra il terreno.
+     */
+    radius: { value: 2.5 },
+    bias: { value: 0.025 },
+    power: { value: 2.0 },
+    strength: { value: 2.2 },
     cameraNear: { value: 0.4 },
     cameraFar: { value: 4200 },
   },
