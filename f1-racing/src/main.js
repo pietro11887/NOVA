@@ -156,7 +156,7 @@ function clearRace() {
   $('racePos').classList.add('hidden');
   if (phys) { phys.inPit = false; phys.compound = 'M'; setTyreColor(car, 'M'); }
   $('pitPanel').classList.add('hidden');
-  $('pitBtn').classList.add('hidden');
+  $('pitHint').classList.add('hidden');
   $('results').classList.add('hidden');
 }
 
@@ -171,14 +171,21 @@ function startRaceGame() {
   });
   race.onEvent = (c, kind, pit) => {
     const model = c.isPlayer ? car : c.model;
-    if (kind === 'pitIn' && c.isPlayer) { showBanner('CORSIA BOX · LIMITATORE 80 KM/H', 'yellow', 2.5, true); pitUi(); }
+    if (kind === 'pitIn' && c.isPlayer) {
+      const left = race.laps - race.player.crossings;
+      pit.plan.compound = left >= 12 ? 'H' : left >= 5 ? 'M' : 'S';
+      pit.plan.repair = phys.repairTime() > 0.5;
+      pitChoice = pit.plan;
+      $('pitPanel').classList.remove('hidden');
+      pitUi();
+    }
     if (kind === 'serviced') {
       setTyreColor(model, c.phys.compound);
       if (pit.repaired && model) debris.restoreFor(model.root);
       if (c.isPlayer) showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true);
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
-    if (kind === 'pitOut' && c.isPlayer) pitUi();
+    if (kind === 'pitOut' && c.isPlayer) { $('pitPanel').classList.add('hidden'); pitUi(); }
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
     else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
@@ -657,6 +664,15 @@ function updateHud(dt) {
     setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} / ${pit.serviceTotal.toFixed(1)} s` : 'LIMITATORE 80');
   }
   $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
+  // avviso: imbocco dei box in arrivo (dopo la chicane finale, tenendo la destra)
+  if (race && race.pitLane && !race.player.pit && race.player.finishT == null && mode === 'race') {
+    const L = track.length, s = phys.prCG.s, ss = s > L / 2 ? s - L : s;
+    $('pitHint').classList.toggle('hidden', !(ss > -330 && ss < -75));
+  } else $('pitHint').classList.add('hidden');
+  if (race && race.player.pit && race.player.pit.phase === 'in') {
+    const pit = race.player.pit;
+    setText('pitCount', `ARRIVO ALLA PIAZZOLA TRA ${Math.max(0, (pit.box - pit.ss) / Math.max(8, pit.v)).toFixed(0)} s`);
+  } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'INTERVENTI IN CORSO' : 'RIPARTENZA');
   $('warnEng').classList.toggle('hidden', phys.engTemp < 120);
   $('warnBrk').classList.toggle('hidden', phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
@@ -689,27 +705,16 @@ function setTyreColor(model, compound) {
 let pitChoice = { compound: 'M', repair: false };
 function pitUi() {
   const can = !!(race && race.pitLane) && mode !== 'menu';
-  $('pitBtn').classList.toggle('hidden', !can);
-  if (!can) { $('pitPanel').classList.add('hidden'); return; }
-  const pl = race.player;
-  const req = !!pl.pitRequest, inPit = !!pl.pit;
-  $('pitBtn').classList.toggle('active', req || inPit);
-  $('pitBtn').textContent = inPit ? 'BOX…' : req ? 'BOX ✓' : 'BOX';
+  if (!can) { $('pitPanel').classList.add('hidden'); $('pitHint').classList.add('hidden'); return; }
+  const pit = race.player.pit;
   document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
   const rt = phys.repairTime();
-  $('pitRepair').textContent = `RIPARA: ${pitChoice.repair ? 'SÌ' : 'NO'}${rt > 0 ? ` (+${rt.toFixed(1)} s)` : ''}`;
+  $('pitRepair').textContent = `RIPARA: ${pitChoice.repair ? 'SÌ' : 'NO'}${rt > 0 ? ` (+${rt.toFixed(1)} s)` : ' (nessun danno)'}`;
   $('pitRepair').classList.toggle('sel', pitChoice.repair);
-  $('pitConfirm').textContent = req ? 'ANNULLA BOX' : 'RIENTRA AI BOX';
+  const locked = pit && pit.phase !== 'in';
+  $('pitPanel').classList.toggle('locked', !!locked);
 }
-function openPitPanel() {
-  if (!race || !race.pitLane || race.player.pit) return;
-  // proposta sensata: riparazione se ci sono danni, mescola in base ai giri che mancano
-  const left = race.laps - race.player.crossings;
-  if (!race.player.pitRequest) pitChoice = { compound: left >= 12 ? 'H' : left >= 5 ? 'M' : 'S', repair: phys.repairTime() > 0.5 };
-  $('pitPanel').classList.toggle('hidden');
-  pitUi();
-}
-document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => { pitChoice.compound = b.dataset.comp; if (race && race.player.pitRequest) race.player.pitRequest = { ...pitChoice }; pitUi(); }));
+document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => { if (race && race.player.pit && race.player.pit.phase !== 'in') return; pitChoice.compound = b.dataset.comp; pitUi(); }));
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
 
@@ -866,16 +871,7 @@ $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('raceBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('settingsBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('raceStartBtn').addEventListener('click', startRaceGame);
-$('pitBtn').addEventListener('click', openPitPanel);
-$('pitRepair').addEventListener('click', () => { pitChoice.repair = !pitChoice.repair; if (race && race.player.pitRequest) race.player.pitRequest = { ...pitChoice }; pitUi(); });
-$('pitConfirm').addEventListener('click', () => {
-  if (!race) return;
-  const pl = race.player;
-  if (pl.pitRequest) { pl.pitRequest = null; }
-  else { pl.pitRequest = { ...pitChoice }; showBanner('BOX, BOX! RIENTRA AL PROSSIMO PASSAGGIO', 'yellow', 2.5, true); $('pitPanel').classList.add('hidden'); }
-  pitUi();
-});
-$('pitClose').addEventListener('click', () => $('pitPanel').classList.add('hidden'));
+$('pitRepair').addEventListener('click', () => { if (race && race.player.pit && race.player.pit.phase !== 'in') return; pitChoice.repair = !pitChoice.repair; pitUi(); });
 
 const tier = v => v <= 20 ? 'VELOCE' : v <= 45 ? 'ESPERTO' : v <= 70 ? 'PRO' : v <= 90 ? 'CAMPIONE' : v <= 100 ? 'LEGGENDA' : 'ALIENO';
 function refreshRaceSetup() {
@@ -997,7 +993,6 @@ function frame(now) {
     if (input.consume('KeyC')) cycleCam();
   }
   if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
-  if (mode === 'race' && input.consume('KeyB')) openPitPanel();
   if (mode === 'menu' && (input.consume('Enter') || input.consume('Space'))) startGame();
 
   if (mode === 'countdown') {

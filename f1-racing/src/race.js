@@ -168,8 +168,13 @@ export class Race {
     }
     if (c.ai) c.ai.pitting = !!c.pitRequest;
     // si entra passando dall'imbocco della corsia (lato destro della pista)
-    if (c.pitRequest && !c.retired && c.finishT == null && sp < PIT.entry && ss >= PIT.entry && ss - sp < 20
-        && c.phys.prCG.d < ROAD_HALF_WIDTH * 0.2) {
+    const crossing = sp < PIT.entry && ss >= PIT.entry && ss - sp < 20;
+    // il giocatore entra quando vuole: basta passare dall'imbocco tenendo la destra.
+    // Gomme e riparazione le sceglie mentre la vettura va da sola verso la piazzola.
+    if (c.isPlayer && crossing && !c.retired && c.finishT == null && c.phys.prCG.d < -ROAD_HALF_WIDTH * 0.45) {
+      c.pitRequest = { compound: c.phys.compound, repair: false };
+    }
+    if (c.pitRequest && !c.retired && c.finishT == null && crossing && c.phys.prCG.d < ROAD_HALF_WIDTH * 0.2) {
       c.pit = new PitStop(this.pitLane, c, c.pitRequest);
       c.pitRequest = null;
       if (c.ai) c.ai.pitting = false;

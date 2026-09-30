@@ -256,3 +256,10 @@ body.hq::after { content: ""; position: fixed; inset: 0; pointer-events: none; b
 .pitRow .go { background: var(--yellow); color: #111; border-color: var(--yellow); }
 .pitRow #pitRepair.sel { border-color: var(--green); color: var(--green); }
 .aids span.tyreChip { border: 2px solid #f5c518; background: rgba(255,255,255,0.08); color: var(--text); padding: 0 6px; }
+/* il pannello box deve ricevere i tocchi anche sul telefono (sopra le zone dei comandi) */
+body #hud > #pitPanel, body.touch #hud > #pitPanel.pitPanel { pointer-events: auto; z-index: 6; }
+#pitPanel.locked .pitComps, #pitPanel.locked .pitRow { opacity: 0.55; pointer-events: none; }
+.pitRow { grid-template-columns: 1fr; }
+.pitHint { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); background: #1b3a8a; border: 2px solid #8fb4ff; color: #fff; border-radius: 6px; padding: 5px 12px; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.pitPanel { top: calc(max(16px, env(safe-area-inset-top)) + 96px); }
+@media (max-height: 500px) { .pitPanel { top: calc(max(12px, env(safe-area-inset-top)) + 92px); padding: 8px 10px; } .pitPanel button { padding: 6px 4px; font-size: 13px; } .pitPanel button small { display: none; } }
