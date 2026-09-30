@@ -24,7 +24,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22 }, store.get('novaf1.settings') || {});
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -134,6 +134,9 @@ function startCountdown() {
 }
 
 function startGame() {
+  input.requestTilt();
+  goLandscape();
+  gameStartedAt = performance.now();
   sounds.init();
   $('menu').classList.add('hidden');
   $('hud').classList.remove('hidden');
@@ -555,6 +558,8 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
+  tiltSens: v => `Sensibilità sterzo: ${v <= 15 ? 'Alta' : v <= 22 ? 'Media' : 'Bassa'}`,
 };
 function refreshSettings() {
   document.querySelectorAll('[data-set]').forEach(b => { const k = b.dataset.set; b.textContent = SET_LABELS[k](settings[k]); });
@@ -564,7 +569,9 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'tiltSens') { settings.tiltSens = settings.tiltSens <= 15 ? 22 : settings.tiltSens <= 22 ? 30 : 15; }
   else settings[k] = !settings[k];
+  applyTilt();
   saveSettings(); refreshSettings();
 }));
 $('playBtn').addEventListener('click', startGame);
@@ -576,8 +583,46 @@ $('pauseBtn').addEventListener('click', () => togglePause(mode !== 'pause'));
 $('camBtn').addEventListener('click', cycleCam);
 input.bindTouch($('tLeft'), 'left');
 input.bindTouch($('tRight'), 'right');
-input.bindTouch($('tGas'), 'gas');
-input.bindTouch($('tBrake'), 'brake');
+input.bindTouch($('zGas'), 'gas');
+input.bindTouch($('zBrake'), 'brake');
+input.touchMode = isTouch;
+const applyTilt = () => { input.tilt.invert = settings.tiltInvert; input.tilt.sens = settings.tiltSens; };
+applyTilt();
+
+// telefono: si gioca in orizzontale
+const isPortrait = () => isTouch && innerHeight > innerWidth;
+function checkOrientation() {
+  const p = isPortrait();
+  $('rotate').classList.toggle('hidden', !p);
+  if (p && (mode === 'race' || mode === 'countdown')) togglePause(true);
+}
+addEventListener('orientationchange', () => setTimeout(checkOrientation, 200));
+function goLandscape() {
+  if (!isTouch) return;
+  try {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    const p = req ? req.call(el) : null;
+    const lock = () => { try { const r = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (r && r.catch) r.catch(() => {}); } catch (_) {} };
+    if (p && p.then) p.then(lock).catch(lock); else lock();
+  } catch (_) { /* non supportato */ }
+}
+let steerBtnsShown = false;
+function updateTouchSteer() {
+  if (!isTouch) return;
+  const ts = input.tiltSteer();
+  const tilt = ts !== null;
+  $('tiltBar').classList.toggle('hidden', !tilt);
+  if (tilt) $('tiltBar').firstElementChild.style.left = (50 + input.state.steer * 50) + '%';
+  const showBtns = !tilt && mode !== 'menu' && performance.now() - gameStartedAt > 1500;
+  if (showBtns !== steerBtnsShown) {
+    steerBtnsShown = showBtns;
+    $('tLeft').classList.toggle('hidden', !showBtns);
+    $('tRight').classList.toggle('hidden', !showBtns);
+    if (showBtns) showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3);
+  }
+}
+let gameStartedAt = 0;
 
 let pausedFrom = 'race';
 function togglePause(on) {
@@ -674,6 +719,7 @@ function frame(now) {
     sounds.update(phys, mode === 'race' || mode === 'countdown');
   }
   if (mode !== 'menu') updateHud(dt);
+  updateTouchSteer();
 
   // l'ombra segue la vettura
   sun.target.position.set(phys.x, phys.y, phys.z);
@@ -691,7 +737,7 @@ function resize() {
   if (particles) particles.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (minimap) minimap.resize();
 }
-addEventListener('resize', resize);
+addEventListener('resize', () => { resize(); checkOrientation(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && (mode === 'race' || mode === 'countdown')) togglePause(true); });
 
 // ---------------------------------------------------------------- avvio
@@ -701,6 +747,7 @@ fontsReady.then(() => requestAnimationFrame(() => setTimeout(() => {
   resize();
   resetSession();
   refreshSettings();
+  checkOrientation();
   $('loading').classList.add('hidden');
   window.__game = {
     phys, track, startGame, settings,

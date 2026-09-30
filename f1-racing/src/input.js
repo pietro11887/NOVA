@@ -7,6 +7,15 @@ export class Input {
     this.state = { throttle: 0, brake: 0, steer: 0, shiftUp: false, shiftDown: false };
     this.pressed = new Set();   // tasti premuti in questo frame (eventi singoli)
     this.usingPad = false;
+    // sterzo col giroscopio
+    this.tilt = { available: false, raw: 0, center: 0, sens: 22, invert: false, last: 0 };
+    const onOri = e => {
+      if (e.beta == null) return;
+      this.tilt.available = true;
+      this.tilt.last = performance.now();
+      this.tilt.raw = this.tiltAngle(e);
+    };
+    addEventListener('deviceorientation', onOri);
     this.padPrev = [];
     addEventListener('keydown', e => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -25,6 +34,37 @@ export class Input {
     el.addEventListener('pointercancel', off);
     el.addEventListener('lostpointercapture', off);
     el.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
+  // angolo del "volante" (gradi) con il telefono in orizzontale
+  tiltAngle(e) {
+    const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0);
+    if (ang === 90) return e.beta;
+    if (ang === 270 || ang === -90) return -e.beta;
+    return e.gamma; // verticale (non previsto in gioco)
+  }
+
+  // iOS richiede il permesso da un tocco dell'utente
+  async requestTilt() {
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        await DeviceOrientationEvent.requestPermission();
+      }
+    } catch (_) { /* negato o non disponibile: si useranno i tasti */ }
+  }
+
+  calibrate() { this.tilt.center = this.tilt.raw; }
+
+  tiltSteer() {
+    const t = this.tilt;
+    if (!t.available || performance.now() - t.last > 1000) return null;
+    let d = t.raw - t.center;
+    if (d > 180) d -= 360; if (d < -180) d += 360;
+    if (t.invert) d = -d;
+    const dz = 1.5;
+    if (Math.abs(d) < dz) return 0;
+    const v = (d - Math.sign(d) * dz) / t.sens;
+    return Math.max(-1, Math.min(1, v));
   }
 
   // eventi "una tantum" (R, C, M, P...) consumati dal gioco
@@ -68,7 +108,12 @@ export class Input {
       break;
     }
 
-    if (analog) {
+    const tiltS = this.touchMode ? this.tiltSteer() : null;
+    if (tiltS !== null && tSteer === 0) {
+      st.steer += (tiltS - st.steer) * Math.min(1, dt * 15);
+      st.throttle += Math.sign(tThr - st.throttle) * Math.min(Math.abs(tThr - st.throttle), 7 * dt);
+      st.brake += Math.sign(tBrk - st.brake) * Math.min(Math.abs(tBrk - st.brake), 9 * dt);
+    } else if (analog) {
       st.steer += (tSteer - st.steer) * Math.min(1, dt * 20);
       st.throttle = tThr; st.brake = tBrk;
     } else {

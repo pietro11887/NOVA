@@ -65,15 +65,13 @@
   </div>
 
   <div id="touch">
-    <div class="steer">
-      <button id="tLeft" aria-label="Sinistra">◀</button>
-      <button id="tRight" aria-label="Destra">▶</button>
-    </div>
-    <div class="pedals">
-      <button id="tBrake" class="brake" aria-label="Freno">FRENO</button>
-      <button id="tGas" class="gas" aria-label="Acceleratore">GAS</button>
-    </div>
+    <div id="zBrake" class="zone left"><span>FRENO</span></div>
+    <div id="zGas" class="zone right"><span>GAS</span></div>
+    <button id="tLeft" class="steerBtn l hidden" aria-label="Sinistra">◀</button>
+    <button id="tRight" class="steerBtn r hidden" aria-label="Destra">▶</button>
+    <div id="tiltBar" class="hidden"><i></i></div>
   </div>
+</div>
 </div>
 
 <div id="menu" class="overlay">
@@ -89,12 +87,14 @@
       <button data-set="ghost"></button>
       <button data-set="cam"></button>
       <button data-set="quality"></button>
+      <button data-set="tiltInvert" class="touchOnly"></button>
+      <button data-set="tiltSens" class="touchOnly"></button>
     </div>
     <details class="help">
       <summary>Comandi</summary>
       <p><b>Tastiera:</b> ↑/W accelera · ↓/S frena (tieni premuto da fermo = retro) · ←→/A D sterza · E/Q marcia su/giù (manuale) · C telecamera · R rimetti in pista · M audio · P/Esc pausa</p>
       <p><b>Gamepad:</b> RT/LT acceleratore/freno · stick sinistro sterzo · A/X o dorsali marce · Y rimetti in pista · B telecamera</p>
-      <p><b>Touch:</b> ◀ ▶ a sinistra per sterzare, GAS e FRENO a destra.</p>
+      <p><b>Telefono (in orizzontale):</b> tieni premuto a destra per accelerare, a sinistra per frenare. Sterzi inclinando il telefono come un volante. Se il sensore non è disponibile compaiono i tasti ◀ ▶.</p>
       <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
     </details>
   </div>
@@ -115,6 +115,14 @@
     <div class="logo red">RITIRO</div>
     <p id="dnfReason">La monoposto è troppo danneggiata per continuare.</p>
     <button id="dnfRestart" class="primary">RICOMINCIA</button>
+  </div>
+</div>
+
+<div id="rotate" class="overlay hidden">
+  <div class="rotateBox">
+    <div class="phone"></div>
+    <div class="logo">RUOTA IL TELEFONO</div>
+    <p>Nova Grand Prix si gioca in orizzontale. Tieni il telefono come un volante: inclinalo per sterzare, tocca a destra per accelerare e a sinistra per frenare.</p>
   </div>
 </div>
 
