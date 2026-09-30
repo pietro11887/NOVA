@@ -104,9 +104,22 @@ export class AIDriver {
     // --- traffico ---
     let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -14;
     let push = 0;
+    // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
+    let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
     for (const c of cars) {
       if (c.phys === p || c.retired || c.gone) continue;
       const g = gapTo(c), dd = c.phys.prCG.d - myD, lat = Math.abs(dd);
+      if (g > -4 && g < hazGap) {
+        const cp = c.phys, pr = cp.prCG;
+        const along = cp.vx * pr.tx + cp.vz * pr.tz;             // velocità lungo la pista
+        const heading = Math.abs(Math.atan2(Math.sin(cp.yaw - Math.atan2(pr.tz, pr.tx)), Math.cos(cp.yaw - Math.atan2(pr.tz, pr.tx))));
+        // rotazione "anomala": oltre a quella che serve per seguire la curva
+        const expectedYaw = along * tr.samples[pr.i].curv;
+        const spinning = Math.abs(cp.yawRate - expectedYaw) > 0.8 || Math.abs(cp.vyl) > 5 || heading > 0.55;
+        // lenta rispetto a dove si trova (non una normale frenata in staccata)
+        const slow = along < v - 14 && along < this.profile[pr.i] * 0.6 - 5;
+        if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < H + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along); }
+      }
       // una vettura lenta (testacoda) occupa più spazio in larghezza
       const wide = c.phys.speed < v - 12 ? 4 : 2.6;
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
@@ -116,11 +129,27 @@ export class AIDriver {
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
+    // reazione al pericolo: si frena per potersi fermare prima e si cerca il lato libero
+    if (hazard) {
+      const hp = hazard.phys, hd = hp.prCG.d;
+      const room = Math.max(0, hazGap - 12);
+      // frenata prudente: a bassa velocità c'è poco carico aerodinamico (e magari si è in discesa)
+      const decel = 15 + 5 * (this.strength / 110) + 0.0015 * v * v;
+      vCap = Math.min(vCap, Math.sqrt(hazV * hazV + 2 * decel * room));
+      // lato di passaggio: quello opposto a dove si trova (o dove sta scivolando) la vettura
+      const drift = -hp.vx * hp.prCG.nx - hp.vz * hp.prCG.nz;      // >0 = si sposta verso destra
+      let side = Math.abs(hd) > 1.2 ? -Math.sign(hd) : (drift > 0 ? 1 : -1);
+      const target = side * (H - 1.4);
+      this.laneTarget = target - this.line.off[i];
+      this.attack = null;
+      if (this.mistake && this.mistake.type === 'defend') this.mistake = null;
+      this.dbgHaz = { gap: hazGap, t: this.t };
+    }
     if (blocker) {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
@@ -132,7 +161,7 @@ export class AIDriver {
       }
       // 2) sul dritto: scia e poi fuori
       const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
-      if (!this.attack && straight && brakeIdx < 0 && closing > -1) {
+      if (!hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.4)) - this.line.off[i];
       }
@@ -145,13 +174,13 @@ export class AIDriver {
       const vSafe = Math.sqrt(ov * ov + 2 * 32 * room);
       if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
-      if (ov < v - 15 && bestGap < 80) {
+      if (!hazard && ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.6)) - this.line.off[i];
       }
     }
     // senza traffico, o prima di una staccata, si torna sulla traiettoria ideale
-    if (!this.attack && (!blocker || brakeIdx >= 0)) this.laneTarget *= Math.max(0, 1 - dt * (brakeIdx >= 0 ? 2.5 : 0.4));
+    if (!hazard && !this.attack && (!blocker || brakeIdx >= 0)) this.laneTarget *= Math.max(0, 1 - dt * (brakeIdx >= 0 ? 2.5 : 0.4));
     if (this.attack) this.laneTarget = this.attack.side * (lim - 0.3) - this.line.off[i];
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
