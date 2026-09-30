@@ -27,7 +27,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false }, store.get('novaf1.settings') || {});
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -248,7 +248,7 @@ function checkDetachments() {
     dnfTimer = 2.2;
     const d = phys.damage;
     $('dnfReason').textContent = d.engine >= 1 ? 'Motore distrutto dopo l\'impatto.' : 'Sospensione rotta: ruota persa!';
-    showBanner('BANDIERA ROSSA', 'red', 2.2);
+    showBanner('BANDIERA ROSSA', 'red', 2.2, true);
   }
 }
 
@@ -298,7 +298,7 @@ function physicsStep(inp) {
     if (race.player.finishT != null && !coolAI) {
       coolAI = new AIDriver(phys, racingLine, 25, 7);
       const pos = race.standings().indexOf(race.player) + 1;
-      showBanner(pos === 1 ? 'BANDIERA A SCACCHI · VITTORIA!' : `BANDIERA A SCACCHI · ${pos}° POSTO`, pos === 1 ? 'purple' : 'green', 3);
+      showBanner(pos === 1 ? 'BANDIERA A SCACCHI · VITTORIA!' : `BANDIERA A SCACCHI · ${pos}° POSTO`, pos === 1 ? 'purple' : 'green', 3, true);
       resultsTimer = 2;
     }
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
@@ -321,7 +321,7 @@ function timing(sPrev, sNow) {
       lap.sectors[2] = tCross - lap.sectorStart;
       finishLap(tCross - lap.start);
     } else if (lap.active) {
-      showBanner('GIRO NON COMPLETO', 'red', 2);
+      showBanner('GIRO NON COMPLETO', 'red', 2, true);
     }
     lap = newLap(tCross);
     lap.no = laps.length + 1;
@@ -345,7 +345,7 @@ function timing(sPrev, sNow) {
       const pb = bestSectors[k - 1];
       if (lap.valid && best && best.split) {
         const d = (t - lap.start) - best.split[Math.min(best.split.length - 1, Math.floor(b / 10))];
-        showBanner(`SETTORE ${k}  ${fmt(tSec).slice(2)}  ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(3)}`, pb == null || tSec < pb ? 'purple' : 'yellow', 2.2);
+        showBanner(`SETTORE ${k}  ${fmt(tSec).slice(2)}  ${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(3)}`, pb == null || tSec < pb ? 'purple' : 'yellow', 2.2, true);
       }
     }
   }
@@ -353,7 +353,7 @@ function timing(sPrev, sNow) {
   if (lap.valid && phys.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL)) {
     lap.valid = false;
     $('invalid').classList.remove('hidden');
-    showBanner('LIMITI DELLA PISTA · GIRO CANCELLATO', 'red', 2.5);
+    showBanner('LIMITI DELLA PISTA · GIRO CANCELLATO', 'red', 2.5, true);
   }
   // registrazione del fantasma e dei tempi intermedi
   const t = simTime - lap.start;
@@ -380,8 +380,8 @@ function finishLap(time) {
       store.set('novaf1.best', best);
     }
   }
-  if (isBest) showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5);
-  else showBanner(`GIRO ${laps.length}  ${fmt(time)}${valid ? '' : '  (NON VALIDO)'}`, valid ? 'yellow' : 'red', 3);
+  if (isBest) showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true);
+  else showBanner(`GIRO ${laps.length}  ${fmt(time)}${valid ? '' : '  (NON VALIDO)'}`, valid ? 'yellow' : 'red', 3, true);
   sounds.beep(isBest ? 1320 : 990, 0.25, 0.2);
   $('bestTime').textContent = fmt(best && best.time);
 }
@@ -559,7 +559,9 @@ function setSectorsHud(secs, cur = 0) {
   }
 }
 
-function showBanner(text, color = 'yellow', time = 2) {
+function showBanner(text, color = 'yellow', time = 2, essential = false) {
+  // avvisi secondari (sorpassi, contatti, cronaca...) solo se richiesti nelle impostazioni
+  if (!essential && !settings.msgs) return;
   $('bannerText').textContent = text;
   const b = $('banner');
   b.className = 'banner ' + color;
@@ -630,7 +632,7 @@ function raceHud(dt) {
   setText('lapTime', fmt(pl.finishT ?? race.t));
   setText('bestTime', fmt(pl.bestLap));
   setText('lastTime', fmt(pl.lastLapT));
-  if (!lastLapWarned && L > 1 && pl.crossings === L - 1 && mode === 'race') { lastLapWarned = true; showBanner('ULTIMO GIRO', 'yellow', 2.5); }
+  if (!lastLapWarned && L > 1 && pl.crossings === L - 1 && mode === 'race') { lastLapWarned = true; showBanner('ULTIMO GIRO', 'yellow', 2.5, true); }
   raceHudT -= dt;
   if (raceHudT > 0) return;
   raceHudT = 0.25;
@@ -734,6 +736,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
   damage: v => `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`,
   steer: v => `Sterzo: ${v === 'tilt' ? 'Inclinazione' : 'Frecce'}`,
   line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
@@ -832,7 +835,7 @@ function updateTouchSteer() {
   // sensore assente: si torna alle frecce
   if (!tilt && mode !== 'menu' && performance.now() - gameStartedAt > 1500) {
     settings.steer = 'buttons'; saveSettings(); applyTilt(); refreshSettings();
-    showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3);
+    showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3, true);
   }
 }
 let gameStartedAt = 0;
