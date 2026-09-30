@@ -122,6 +122,7 @@ function resetSession() {
   skids.clear();
   phys.reset(track.count - 6, -3.4);
   phys.damageMode = settings.damage;
+  phys.fuel = 10; phys.mass = phys.baseMass + phys.fuel;
   lap = { active: false, sector: -1, valid: true };
   laps = [];
   lastLap = null;
@@ -609,7 +610,7 @@ function updateHud(dt) {
   if (!race) setText('bestTime', fmt(best && best.time));
   // danni
   const d = phys.damage;
-  const map = { fwL: d.fwL, fwR: d.fwR, rw: d.rw, wFL: d.susp[0], wFR: d.susp[1], wRL: d.susp[2], wRR: d.susp[3], body: Math.max(d.engine, d.floor * 0.6) };
+  const map = { fwL: d.fwL, fwR: d.fwR, rw: d.rw, wFL: d.susp[0], wFR: d.susp[1], wRL: d.susp[2], wRR: d.susp[3], body: Math.max(d.engine, d.floor * 0.6, d.radiator * 0.8, d.gearbox * 0.7) };
   for (const k in map) {
     const wi = ['wFL', 'wFR', 'wRL', 'wRR'].indexOf(k);
     const c = wi >= 0 && d.punctured[wi] ? '#b04dff' : dmgColor(map[k]);
@@ -618,9 +619,33 @@ function updateHud(dt) {
   $('aidTc').classList.toggle('on', settings.tc);
   $('aidAbs').classList.toggle('on', settings.abs);
   setText('aidGear', settings.auto ? 'AUTO' : 'MAN');
+  // gomme: temperatura (colore) e numero
+  phys.wheels.forEach((w, i) => {
+    const t = Math.round(w.temp);
+    const col = t < 80 ? '#3d7bff' : t < 90 ? '#2ec4ea' : t <= 110 ? '#2ee06f' : t <= 120 ? '#f5c518' : '#ff3b30';
+    if (hudCache['ty' + i] !== t) { hudCache['ty' + i] = t; const el = $('ty' + i); el.textContent = t + '°'; el.style.background = col; }
+  });
+  $('warnEng').classList.toggle('hidden', phys.engTemp < 120);
+  $('warnBrk').classList.toggle('hidden', phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
   $('aidTow').classList.toggle('hidden', !tow);
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
+}
+
+function carStatusHtml() {
+  const d = phys.damage, pc = v => Math.round(v * 100) + '%';
+  const W = ['AS', 'AD', 'PS', 'PD'];
+  const rows = [
+    ['Ala anteriore sx / dx', `${pc(d.fwL)} / ${pc(d.fwR)}`],
+    ['Ala posteriore', pc(d.rw)], ['Fondo', pc(d.floor)],
+    ['Sospensioni ' + W.join(' '), d.susp.map(pc).join(' ')],
+    ['Radiatore', pc(d.radiator)], ['Cambio', pc(d.gearbox)], ['Motore', pc(d.engine) + ` · ${Math.round(phys.engTemp)} °C`],
+    ['Gomme °C', phys.wheels.map(w => Math.round(w.temp)).join(' ')],
+    ['Usura gomme', phys.wheels.map(w => pc(w.wear)).join(' ')],
+    ['Forature', d.punctured.some(Boolean) ? W.filter((_, i) => d.punctured[i]).join(' ') : 'nessuna'],
+    ['Freni', Math.round(phys.brakeTemp) + ' °C'], ['Benzina', phys.fuel.toFixed(1) + ' kg'],
+  ];
+  return rows.map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
 }
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
@@ -845,6 +870,7 @@ function togglePause(on) {
   if (on && (mode === 'race' || mode === 'countdown')) {
     pausedFrom = mode; mode = 'pause';
     $('pause').classList.remove('hidden');
+    $('carStatus').innerHTML = carStatusHtml();
     if (race) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
     else $('lapList').innerHTML = laps.length ? laps.map((l, i) => `<div class="${l.valid ? (best && l.time === best.time ? 'best' : '') : 'inv'}"><span>Giro ${i + 1}</span><span>${fmt(l.time)}</span></div>`).join('') : '<div><span>Nessun giro completato</span></div>';
     if (sounds.ctx) sounds.ctx.suspend();

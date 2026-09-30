@@ -44,6 +44,8 @@ export class Race {
     }
     this.player = this.cars[playerSlot];
     this.placeGrid();
+    // benzina per tutta la gara (circa 1,9 kg al giro) più un margine
+    for (const c of this.cars) { c.phys.fuel = Math.min(110, this.laps * 1.9 + 2); c.phys.mass = c.phys.baseMass + c.phys.fuel; }
   }
 
   // griglia dopo il traguardo (il rettilineo prima è troppo corto): pole più avanti

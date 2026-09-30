@@ -118,7 +118,7 @@ export class Input {
       st.throttle = tThr; st.brake = tBrk;
     } else {
       // rampa per i comandi digitali: sterzo progressivo, ritorno più rapido
-      const rate = (tSteer === 0 || Math.sign(tSteer) !== Math.sign(st.steer)) ? 7 : 3.2;
+      const rate = (tSteer === 0 || Math.sign(tSteer) !== Math.sign(st.steer)) ? 7.5 : 4;
       const d = tSteer - st.steer;
       st.steer += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
       st.throttle += Math.sign(tThr - st.throttle) * Math.min(Math.abs(tThr - st.throttle), 7 * dt);

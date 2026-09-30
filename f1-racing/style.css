@@ -216,3 +216,24 @@ body.race-mode .sectors, body.race-mode #delta { display: none; }
 }
 .aids span.tow { background: rgba(61,123,255,0.25); color: #8fb4ff; }
 .dmgBtn { margin-top: 2px !important; }
+.tyres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 5px; }
+.tyres i { font-style: normal; font-size: 10px; font-weight: 700; text-align: center; border-radius: 4px; padding: 1px 0; color: #0d0f14; background: var(--green); font-variant-numeric: tabular-nums; }
+.aids span.warn { background: rgba(255,59,48,0.25); color: #ff8a80; }
+.carStatus { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 12px; color: var(--muted); text-align: left; margin: 4px 0 10px; font-variant-numeric: tabular-nums; }
+.carStatus b { color: var(--text); font-weight: 700; text-align: right; }
+.lapList .resTable { display: block; margin: 0; max-height: none; }
+.lapList .resTable .r { display: grid; }
+@media (max-height: 500px) {
+  #pause .menuBox { max-width: 860px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; align-items: start; }
+  #pause .menuBox .logo { grid-column: 1 / -1; font-size: 24px; }
+  #pause .lapList { grid-column: 1; margin: 6px 0; max-height: 170px; }
+  #pause .carStatus { grid-column: 2; grid-row: 2; margin: 6px 0; }
+  #pause .menuBox button { margin: 4px 0; padding: 9px; }
+}
+@media (max-height: 500px) {
+  #pause .menuBox { padding: 10px 16px; }
+  #pause .carStatus { font-size: 11px; gap: 0 10px; }
+  #pause .lapList { max-height: 150px; font-size: 12px; }
+  #pause .lapList .resTable .r { padding: 2px 6px; font-size: 12px; }
+  #pause .menuBox button { padding: 7px; font-size: 14px; }
+}

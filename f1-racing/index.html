@@ -52,7 +52,8 @@
       <div class="gearBox"><div id="gear">N</div><div class="lbl">MARCIA</div></div>
       <div class="speedBox"><div id="speed">0</div><div class="lbl">KM/H</div></div>
     </div>
-    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTow" class="on tow hidden">SCIA</span></div>
+    <div class="tyres" id="tyres"><i id="ty0"></i><i id="ty1"></i><i id="ty2"></i><i id="ty3"></i></div>
+    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
   </div>
 
   <div class="damage panel">
@@ -92,6 +93,7 @@
       <p><b>Telefono (in orizzontale):</b> con "Sterzo: Frecce" sterzi con ◀ ▶ a sinistra e usi FRENO e GAS a destra. Con "Sterzo: Inclinazione" inclini il telefono come un volante, tieni premuto a destra per accelerare e a sinistra per frenare.</p>
       <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
       <p><b>Gara:</b> scegli lunghezza, numero di avversari, forza dei bot (1–110: già a 1 sono veloci; da 60 in su hanno più aderenza e potenza della tua vettura) e posizione in griglia. La griglia è sul rettilineo dopo il traguardo; i contatti tra vetture causano danni. I bot tentano sorpassi in staccata, si difendono, si toccano e a volte sbagliano come piloti veri (frenate lunghe, bloccaggi, traiettorie larghe, testacoda in uscita). Più sono forti, meno sbagliano.</p>
+      <p><b>Fisica:</b> le gomme hanno temperatura (finestra ideale 90–110 °C), usura e spiattellamenti se blocchi le ruote; i freni si surriscaldano; la benzina si consuma e la vettura si alleggerisce; un radiatore danneggiato fa scaldare il motore; l'ala rotta da un lato fa tirare la vettura. Lo stato completo è nel menu di pausa.</p>
       <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
       </details>
     </div>
@@ -155,6 +157,7 @@
   <div class="menuBox small">
     <div class="logo">PAUSA</div>
     <div id="lapList" class="lapList"></div>
+    <div id="carStatus" class="carStatus"></div>
     <button id="resumeBtn" class="primary">RIPRENDI</button>
     <button data-set="line"></button>
     <button data-set="msgs"></button>

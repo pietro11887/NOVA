@@ -21,6 +21,15 @@ function torqueAt(rpm) {
   return 0;
 }
 
+// aderenza in funzione di temperatura (finestra ideale ~90–110 °C), usura e spiattellamenti
+function tyreGrip(w) {
+  const t = w.temp ?? 95;
+  const dT = t < 90 ? 90 - t : t > 110 ? t - 110 : 0;
+  const temp = Math.max(0.8, 1 - 0.00012 * dT * dT);
+  return temp * (1 - 0.22 * (w.wear || 0)) * (1 - 0.06 * (w.flat || 0));
+}
+export { tyreGrip };
+
 // Punti dello scafo usati per le collisioni: [x, y(destra), parte]
 const HULL = [
   [3.28, -0.95, 'fwL'], [3.28, 0.95, 'fwR'], [3.3, 0, 'nose'],
@@ -33,7 +42,9 @@ const HULL = [
 export class CarPhysics {
   constructor(track) {
     this.track = track;
-    this.mass = 798;
+    this.baseMass = 798;            // vettura + pilota, senza benzina
+    this.fuel = 5;                  // kg di benzina
+    this.mass = this.baseMass + this.fuel;
     this.Iz = 1150;
     this.Ipitch = 950;
     this.Iroll = 300;
@@ -61,7 +72,7 @@ export class CarPhysics {
     this.damperC = 7200;
     this.arbK = [120000, 60000];   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
     this.rearGrip = 1.1;            // gomme posteriori più larghe
-    this.maxBrakeForce = 36000;
+    this.maxBrakeForce = 41000;
     this.brakeBias = 0.57;
     this.wheels = [
       { x: this.a, y: -this.tw }, { x: this.a, y: this.tw },
@@ -93,8 +104,12 @@ export class CarPhysics {
     this.kerbVibe = 0;
     this.throttleOut = 0;
     this.wheelSpinAngle = 0;
-    for (const w of this.wheels) { w.comp = 0.013; w.fz = this.mass * G / 4; w.ground = s.y; w.groundInit = true; w.spin = 0; }
-    if (!keepDamage) this.damage = { fwL: 0, fwR: 0, rw: 0, susp: [0, 0, 0, 0], engine: 0, floor: 0, puncture: [0, 0, 0, 0], punctured: [false, false, false, false], failure: null };
+    for (const w of this.wheels) {
+      w.comp = 0.013; w.fz = this.mass * G / 4; w.ground = s.y; w.groundInit = true; w.spin = 0;
+      if (!keepDamage) { w.temp = 82; w.wear = 0; w.flat = 0; }   // gomme già scaldate dalle termocoperte
+    }
+    if (!keepDamage) { this.engTemp = 95; this.brakeTemp = 400; }
+    if (!keepDamage) this.damage = { fwL: 0, fwR: 0, rw: 0, susp: [0, 0, 0, 0], engine: 0, floor: 0, radiator: 0, gearbox: 0, puncture: [0, 0, 0, 0], punctured: [false, false, false, false], failure: null };
     this.projectAll();
     let avg = 0;
     for (const w of this.wheels) { w.ground = w.pr.y + w.sf.h; avg += w.ground / 4; }
@@ -122,9 +137,12 @@ export class CarPhysics {
     }
   }
 
-  maxSteer(v) { return 0.3 / (1 + v / 17) + 0.012; }
+  maxSteer(v) { return 0.33 / (1 + v / 18.5) + 0.014; }
 
   step(dt, inp) {
+    // la benzina si consuma: la vettura si alleggerisce durante la gara
+    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000));
+    this.mass = this.baseMass + this.fuel;
     const m = this.mass, dmg = this.damage;
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
     // velocità nel riferimento vettura
@@ -150,13 +168,14 @@ export class CarPhysics {
     // --- cambio ---
     if (this.shiftTimer > 0) this.shiftTimer -= dt;
     if (this.gear > 0) {
-      if (inp.shiftUp && this.gear < 8) { this.gear++; this.shiftTimer = 0.05; }
+      const gb = dmg.gearbox * this.fx;
+      if (inp.shiftUp && this.gear < 8) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
       if (inp.shiftDown && this.gear > 1) {
         const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
         if (nr < this.maxRpm + 300) { this.gear--; this.shiftTimer = 0.04; }
       }
       if (inp.autoGear) {
-        if (this.gear < 8 && this.shiftTimer <= 0 && ((this.rpm > 11850 && throttle > 0.2) || this.rpm > 12400)) { this.gear++; this.shiftTimer = 0.05; }
+        if (this.gear < 8 && this.shiftTimer <= 0 && ((this.rpm > 11850 && throttle > 0.2) || this.rpm > 12400)) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
         else if (this.gear > 1 && this.shiftTimer <= 0) {
           const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
           const low = throttle > 0.5 ? 7200 : 8600;
@@ -183,6 +202,11 @@ export class CarPhysics {
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045);
     if (this.shiftTimer > 0) torque *= 0.1;
+    // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
+    const heat = 6 * throttle * (this.rpm / 12000);
+    const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
+    this.engTemp += (heat - cool) * dt;
+    if (this.engTemp > 128 && dfx) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);
     let driveForce = torque * ratio * 0.92 / this.R;
     if (this.gear === -1) driveForce = Math.max(driveForce, -2500);
     if (Math.abs(vxl) < 0.5 && throttle < 0.05) driveForce = 0;
@@ -192,7 +216,10 @@ export class CarPhysics {
     const q = 0.5 * RHO * vxl * vxl;
     const fwD = (dmg.fwL + dmg.fwR) / 2 * dfx;
     const floorL = 1 - 0.3 * dmg.floor * dfx;
-    const downF = q * this.ClA * this.aeroBalance * (1 - 0.7 * fwD) * this.downMul * floorL;
+    // ala anteriore asimmetrica: il lato rotto perde carico e la vettura tira da una parte
+    const fBase = q * this.ClA * this.aeroBalance * this.downMul * floorL * 0.5;
+    const downFL = fBase * (1 - 0.7 * dmg.fwL * dfx), downFR = fBase * (1 - 0.7 * dmg.fwR * dfx);
+    const downF = downFL + downFR;
     const downR = q * this.ClA * (1 - this.aeroBalance) * (1 - 0.7 * dmg.rw * dfx) * this.downMul * floorL;
     const drag = q * (this.CdA - 0.2 * dmg.rw * dfx + 0.1 * fwD) * this.dragMul;
     // la gomma forata si sgonfia in pochi secondi
@@ -216,6 +243,7 @@ export class CarPhysics {
       w.comp = comp;
       w.compRate = compRate;
     }
+    for (const w of this.wheels) vibe += w.flat * Math.min(1, speed / 30) * 0.8;
     this.kerbVibe = vibe;
     for (let axle = 0; axle < 2; axle++) {
       const L = this.wheels[axle * 2], Rw = this.wheels[axle * 2 + 1];
@@ -235,10 +263,14 @@ export class CarPhysics {
       rollM += -w.y * w.fz;
     }
     pitchM += -downF * this.a + downR * this.b;
+    rollM += 0.6 * (downFR - downFL);
 
     // --- pneumatici ---
     let Fxb = 0, Fyb = 0, Mz = 0;
-    const brakeF = brake * this.maxBrakeForce;
+    // freni: si scaldano frenando, raffreddano con l'aria; oltre ~950 °C perdono efficacia
+    const brakeFade = this.brakeTemp > 950 ? Math.max(0.7, 1 - (this.brakeTemp - 950) / 1000) : 1;
+    const brakeF = brake * this.maxBrakeForce * brakeFade;
+    this.brakeTemp += (brake * speed * 1.4 - (this.brakeTemp - 200) * (0.004 + 0.0006 * speed)) * dt * 4;
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
       const front = i < 2;
@@ -251,7 +283,7 @@ export class CarPhysics {
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / 2000 - 1));
-      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w);
       const Fmax = mu * load;
 
       // longitudinale
@@ -296,6 +328,13 @@ export class CarPhysics {
       if (load <= 0) w.slide = 0;
       // rotazione visiva della ruota
       w.spin = w.lock ? 0 : (w.spinning ? vlong + 15 * throttle : vlong);
+      // temperatura e usura: il calore viene dallo strisciamento
+      const slipV = Math.abs(vlat) + (w.lock || w.spinning ? Math.abs(vlong) * 0.6 : Math.abs(vlong) * 0.03 * Math.abs(fxOut) / Math.max(1, Fmax));
+      const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
+      // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
+      w.temp += (power / 70000 + 0.055 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
+      w.wear = Math.min(1, w.wear + power * dt * 9e-9 * (w.temp > 115 ? 2 : 1));
+      if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
       const bx = fxOut * cd - fyOut * sd;
       const by = fxOut * sd + fyOut * cd;
@@ -411,11 +450,11 @@ export class CarPhysics {
       case 'nose': add('fwL', amt * 1.5); add('fwR', amt * 1.5); break;
       case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); this.maybePuncture(0, impact, 0.04); break;
       case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); this.maybePuncture(1, impact, 0.04); break;
-      case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); add('floor', amt * 0.8); break;
-      case 'sideR': susp(1, amt * 0.4); susp(3, amt * 0.4); add('floor', amt * 0.8); break;
+      case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); add('floor', amt * 0.8); add('radiator', amt * 1.2); break;
+      case 'sideR': susp(1, amt * 0.4); susp(3, amt * 0.4); add('floor', amt * 0.8); add('radiator', amt * 1.2); break;
       case 'wRL': susp(2, amt * 1.1); this.maybePuncture(2, impact, 0.04); break;
       case 'wRR': susp(3, amt * 1.1); this.maybePuncture(3, impact, 0.04); break;
-      case 'rw': add('rw', amt * 1.5); add('engine', amt * 0.4); add('floor', amt * 0.5); break;
+      case 'rw': add('rw', amt * 1.5); add('engine', amt * 0.3); add('floor', amt * 0.5); add('gearbox', amt * 1.0); break;
     }
     if (impact > 16) add('engine', (impact - 16) / 40 * this.dmgScale);
   }
@@ -429,8 +468,8 @@ export class CarPhysics {
       case 'fwL': add('fwL', (impact - 3) / 9); break;
       case 'fwR': add('fwR', (impact - 3) / 9); break;
       case 'nose': add('fwL', (impact - 3) / 10); add('fwR', (impact - 3) / 10); break;
-      case 'rw': add('rw', (impact - 3) / 10); add('floor', (impact - 3) / 15); break;
-      case 'sideL': case 'sideR': add('floor', (impact - 3) / 14); break;
+      case 'rw': add('rw', (impact - 3) / 10); add('floor', (impact - 3) / 15); add('gearbox', (impact - 4) / 18); break;
+      case 'sideL': case 'sideR': add('floor', (impact - 3) / 14); add('radiator', (impact - 3) / 10); break;
       case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
         const i = { wFL: 0, wFR: 1, wRL: 2, wRR: 3 }[part];
         susp(i, (impact - 3) / 12);
