@@ -1,6 +1,8 @@
 # Nova Grand Prix
 
-Gioco di Formula 1 in 3D (Three.js) con grafica low-poly: time trial sul Circuito Nova (3,29 km, ispirato a Spa).
+Gioco di Formula 1 in 3D (Three.js) con grafica low-poly sul Circuito Nova (3,29 km, ispirato a Spa).
+
+Modalità: **Gara contro i bot** (1–30 giri, 1–19 avversari, forza dei bot 1–110, posizione di partenza a scelta) e **Prova a tempo** da solo con fantasma del record.
 
 Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure `python3 -m http.server` dentro `f1-racing/`) e apri `index.html`. Three.js viene caricato da jsDelivr.
 
@@ -10,6 +12,8 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/physics.js` – dinamica del veicolo (gomme, sospensioni, aerodinamica, motore, collisioni, danni)
 - `src/carModel.js` – modello della monoposto
 - `src/scenery.js` – terreno, alberi, tribune, box, semaforo
+- `src/ai.js` – pilota automatico dei bot (la forza cambia aderenza sfruttata, frenata, potenza e riflessi)
+- `src/race.js` – gara: griglia, contatti tra vetture, giri, classifica e distacchi
 - `src/racingLine.js` – linea ideale (verde/giallo/rosso) e profilo di velocità
 - `src/effects.js` – particelle, segni delle gomme, detriti
 - `src/audio.js`, `src/input.js`, `src/main.js` – audio, comandi, loop di gioco e HUD

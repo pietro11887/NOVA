@@ -47,6 +47,7 @@ export class CarPhysics {
     this.maxRpm = 12500;
     this.idleRpm = 4000;
     this.peakTorque = 650;          // Nm (~ 1000 CV con l'ibrido)
+    this.powerScale = 1;
     this.ClA = 4.6;                 // coefficiente di portanza * area
     this.CdA = 1.22;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
@@ -108,7 +109,7 @@ export class CarPhysics {
     for (const w of this.wheels) {
       const wx = this.x + cy * w.x - sy * w.y;
       const wz = this.z + sy * w.x + cy * w.y;
-      this.track.project(wx, wz, this.hint, w.pr);
+      this.track.project(wx, wz, this.hint, w.pr, 6);
       this.track.surface(w.pr, w.sf);
     }
   }
@@ -168,7 +169,7 @@ export class CarPhysics {
     rpmTarget = Math.max(this.idleRpm, rpmTarget);
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
-    let torque = torqueAt(this.rpm) * this.peakTorque * throttle * (1 - dmg.engine * 0.6);
+    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * throttle * (1 - dmg.engine * 0.6);
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045);
     if (this.shiftTimer > 0) torque *= 0.1;
@@ -338,10 +339,13 @@ export class CarPhysics {
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
     const pr = this._pr || (this._pr = {}), sf = this._sf || (this._sf = {});
     let deepest = null;
+    // lontano dai muri non serve controllare lo scafo
+    const sc = this.track.samples[this.prCG.i];
+    if (Math.abs(this.prCG.d) + 4 < Math.min(sc.wallL, sc.wallR)) return;
     for (const [hx, hy, part] of HULL) {
       const px = this.x + cy * hx - sy * hy;
       const pz = this.z + sy * hx + cy * hy;
-      this.track.project(px, pz, this.hint, pr);
+      this.track.project(px, pz, this.hint, pr, 6);
       const wall = pr.d > 0 ? this.track.samples[pr.i].wallL : this.track.samples[pr.i].wallR;
       const pen = Math.abs(pr.d) - wall;
       if (pen <= 0) continue;

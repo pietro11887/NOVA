@@ -71,6 +71,28 @@ export class Sound {
     gn.connect(this.offF); this.offF.connect(this.offG); this.offG.connect(this.master);
   }
 
+  // motore dell'avversario più vicino
+  bots(rpm, dist, thr) {
+    if (!this.ctx) return;
+    if (!this.botOsc) {
+      const ctx = this.ctx;
+      this.botOsc = ctx.createOscillator(); this.botOsc.type = 'sawtooth';
+      this.botOsc2 = ctx.createOscillator(); this.botOsc2.type = 'square';
+      this.botF = ctx.createBiquadFilter(); this.botF.type = 'lowpass'; this.botF.frequency.value = 1400;
+      this.botG = ctx.createGain(); this.botG.gain.value = 0;
+      const g2 = ctx.createGain(); g2.gain.value = 0.5;
+      this.botOsc.connect(this.botF); this.botOsc2.connect(g2); g2.connect(this.botF);
+      this.botF.connect(this.botG); this.botG.connect(this.master);
+      this.botOsc.start(); this.botOsc2.start();
+    }
+    const t = this.ctx.currentTime;
+    const f = Math.max(150, rpm / 20);
+    this.botOsc.frequency.setTargetAtTime(f * 1.01, t, 0.03);
+    this.botOsc2.frequency.setTargetAtTime(f * 0.5, t, 0.03);
+    const k = Math.max(0, 1 - dist / 90);
+    this.botG.gain.setTargetAtTime(k * k * (0.08 + 0.1 * thr), t, 0.05);
+  }
+
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55; }
 
   update(car, running) {

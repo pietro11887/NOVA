@@ -47,22 +47,28 @@ export class RacingLine {
       curv[i] = Math.abs(dh) / Math.max(1e-3, len / 2);
     }
 
+    this.curv = curv; this.ds = ds;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
-    const mu = 1.3;
+    this.speed = this.speedProfile(1.3, 0.72);
+  }
+
+  // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
+  speedProfile(mu, brakeFac, vmax = 95) {
+    const n = this.track.count, curv = this.curv, ds = this.ds;
     const v = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       const k = curv[i], kk = mu * K_AERO;
-      v[i] = k > kk ? Math.min(95, Math.sqrt(mu * G / (k - kk))) : 95;
+      v[i] = k > kk ? Math.min(vmax, Math.sqrt(mu * G / (k - kk))) : vmax;
     }
     // frenata all'indietro: v_i² <= v_{i+1}² + 2·a·ds
     for (let pass = 0; pass < 2; pass++) {
       for (let j = 2 * n; j >= 0; j--) {
         const i = j % n, nx = (i + 1) % n;
-        const dec = 0.72 * mu * (G + K_AERO * v[nx] * v[nx]);
+        const dec = brakeFac * mu * (G + K_AERO * v[nx] * v[nx]);
         v[i] = Math.min(v[i], Math.sqrt(v[nx] * v[nx] + 2 * dec * ds[i]));
       }
     }
-    this.speed = v;
+    return v;
   }
 
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { carbon } from './textures.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Modello low-poly di monoposto. Muso verso +X, destra verso +Z, origine nel baricentro
 // (terreno a y = -0.30 a vettura ferma).
@@ -177,4 +178,41 @@ export function createCar(opts = {}) {
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
 
   return { root, body, wheels, frontWing, fwHalves, rearWing, helmet: [helmet, visor], materials: M };
+}
+
+// Versione alleggerita per gli avversari: unisce le mesh per materiale
+// (da ~100 a ~20 chiamate di disegno per vettura). Ali e ruote restano animabili.
+export function mergeCar(car) {
+  const mergeUnder = (root, skip) => {
+    root.updateMatrixWorld(true);
+    const inv = root.matrixWorld.clone().invert();
+    const groups = new Map();
+    const meshes = [];
+    root.traverse(o => {
+      if (!o.isMesh || o === root) return;
+      for (let p = o.parent; p && p !== root; p = p.parent) if (skip.includes(p)) return;
+      if (skip.includes(o)) return;
+      meshes.push(o);
+    });
+    for (const o of meshes) {
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      g.applyMatrix4(inv.clone().multiply(o.matrixWorld));
+      if (!groups.has(o.material)) groups.set(o.material, []);
+      groups.get(o.material).push(g);
+      o.parent.remove(o);
+    }
+    for (const [mat, list] of groups) {
+      const m = new THREE.Mesh(mergeGeometries(list), mat);
+      m.castShadow = true; m.receiveShadow = true;
+      root.add(m);
+    }
+  };
+  const pivots = car.wheels.map(w => w.pivot);
+  mergeUnder(car.body, pivots);
+  for (const w of car.wheels) mergeUnder(w.spin, []);
+  car.helmet = [];
+  car.fwHalves = [];
+  car.merged = true;
+  return car;
 }

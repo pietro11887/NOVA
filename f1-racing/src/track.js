@@ -26,7 +26,7 @@ export class Track {
   // ---------- query ----------
 
   // Proiezione di un punto sul tracciato. hint = indice di partenza per la ricerca locale.
-  project(x, z, hint = -1, out = {}) {
+  project(x, z, hint = -1, out = {}, win = 40) {
     const S = this.samples, n = this.count;
     let best = -1, bestD = Infinity;
     if (hint < 0) {
@@ -35,7 +35,7 @@ export class Track {
         if (d < bestD) { bestD = d; best = i; }
       }
     } else {
-      for (let j = -40; j <= 40; j++) {
+      for (let j = -win; j <= win; j++) {
         const i = (hint + j + n) % n;
         const dx = S[i].x - x, dz = S[i].z - z, d = dx * dx + dz * dz;
         if (d < bestD) { bestD = d; best = i; }

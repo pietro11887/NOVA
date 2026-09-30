@@ -26,6 +26,7 @@
 
 <div id="hud" class="hidden">
   <div class="timing panel">
+    <div id="racePos" class="racePos hidden"><b id="rpPos">P1</b><span id="rpGaps"></span></div>
     <div class="row top"><span id="lapLabel">GIRO DI LANCIO</span><span id="invalid" class="invalid hidden">NON VALIDO</span></div>
     <div id="lapTime" class="big">0:00.000</div>
     <div id="delta" class="delta"></div>
@@ -79,12 +80,46 @@
 </div>
 
 <div id="menu" class="overlay">
-  <div class="menuBox">
-    <div class="logo"><span>NOVA</span> GRAND PRIX</div>
-    <div class="subtitle">TIME TRIAL · CIRCUITO NOVA · <span id="trackLen"></span></div>
-    <div class="record">Record personale: <b id="menuBest">—</b></div>
-    <button id="playBtn" class="primary">▶ GIOCA</button>
-    <button id="fsBtn" class="touchOnly">⛶ SCHERMO INTERO</button>
+  <div class="menuBox" id="menuHome">
+    <div class="homeInfo">
+      <div class="logo"><span>NOVA</span> GRAND PRIX</div>
+      <div class="subtitle">CIRCUITO NOVA · <span id="trackLen"></span></div>
+      <div class="record">Record sul giro: <b id="menuBest">—</b></div>
+      <details class="help">
+      <summary>Comandi</summary>
+      <p><b>Tastiera:</b> ↑/W accelera · ↓/S frena (tieni premuto da fermo = retro) · ←→/A D sterza · E/Q marcia su/giù (manuale) · C telecamera · R rimetti in pista · M audio · P/Esc pausa</p>
+      <p><b>Gamepad:</b> RT/LT acceleratore/freno · stick sinistro sterzo · A/X o dorsali marce · Y rimetti in pista · B telecamera</p>
+      <p><b>Telefono (in orizzontale):</b> con "Sterzo: Frecce" sterzi con ◀ ▶ a sinistra e usi FRENO e GAS a destra. Con "Sterzo: Inclinazione" inclini il telefono come un volante, tieni premuto a destra per accelerare e a sinistra per frenare.</p>
+      <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
+      <p><b>Gara:</b> scegli lunghezza, numero di avversari, forza dei bot (1–110) e posizione in griglia. La griglia è sul rettilineo dopo il traguardo; i contatti tra vetture causano danni.</p>
+      <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
+      </details>
+    </div>
+    <div class="homeButtons">
+      <button id="raceMenuBtn" class="primary">GARA CONTRO I BOT</button>
+      <button id="playBtn">PROVA A TEMPO · DA SOLO</button>
+      <button id="settingsBtn">IMPOSTAZIONI</button>
+      <button id="fsBtn" class="touchOnly">⛶ SCHERMO INTERO</button>
+    </div>
+  </div>
+
+  <div class="menuBox hidden" id="menuRace">
+    <div class="logo">GARA</div>
+    <div class="subtitle">SCEGLI LE REGOLE, POI VIA</div>
+    <div class="raceSetup">
+      <label class="rs" for="rsLaps"><span>Lunghezza</span><b id="rsLapsV"></b><input id="rsLaps" type="range" min="1" max="30" step="1"></label>
+      <label class="rs" for="rsBots"><span>Avversari</span><b id="rsBotsV"></b><input id="rsBots" type="range" min="1" max="19" step="1"></label>
+      <label class="rs" for="rsStrength"><span>Forza dei bot</span><b id="rsStrengthV"></b><input id="rsStrength" type="range" min="1" max="110" step="1"></label>
+      <label class="rs" for="rsStart"><span>Posizione di partenza</span><b id="rsStartV"></b><input id="rsStart" type="range" min="1" max="20" step="1"></label>
+    </div>
+    <div class="rowBtns">
+      <button id="raceBack">INDIETRO</button>
+      <button id="raceStartBtn" class="primary">VIA ALLA GARA</button>
+    </div>
+  </div>
+
+  <div class="menuBox hidden" id="menuSettings">
+    <div class="logo">IMPOSTAZIONI</div>
     <div class="settings">
       <button data-set="line"></button>
       <button data-set="auto"></button>
@@ -97,14 +132,19 @@
       <button data-set="tiltInvert" class="touchOnly"></button>
       <button data-set="tiltSens" class="touchOnly"></button>
     </div>
-    <details class="help">
-      <summary>Comandi</summary>
-      <p><b>Tastiera:</b> ↑/W accelera · ↓/S frena (tieni premuto da fermo = retro) · ←→/A D sterza · E/Q marcia su/giù (manuale) · C telecamera · R rimetti in pista · M audio · P/Esc pausa</p>
-      <p><b>Gamepad:</b> RT/LT acceleratore/freno · stick sinistro sterzo · A/X o dorsali marce · Y rimetti in pista · B telecamera</p>
-      <p><b>Telefono (in orizzontale):</b> con "Sterzo: Frecce" sterzi con ◀ ▶ a sinistra e usi FRENO e GAS a destra. Con "Sterzo: Inclinazione" inclini il telefono come un volante, tieni premuto a destra per accelerare e a sinistra per frenare.</p>
-      <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
-      <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
-    </details>
+    <button id="settingsBack" class="primary">FATTO</button>
+  </div>
+</div>
+
+<div id="results" class="overlay hidden">
+  <div class="menuBox">
+    <div class="logo" id="resTitle">BANDIERA A SCACCHI</div>
+    <div class="subtitle" id="resSub"></div>
+    <div id="resTable" class="resTable"></div>
+    <div class="rowBtns">
+      <button id="resMenu">MENU</button>
+      <button id="resAgain" class="primary">RIGIOCA</button>
+    </div>
   </div>
 </div>
 
@@ -114,7 +154,7 @@
     <div id="lapList" class="lapList"></div>
     <button id="resumeBtn" class="primary">RIPRENDI</button>
     <button data-set="line"></button>
-    <button id="restartBtn">RICOMINCIA SESSIONE</button>
+    <button id="restartBtn">RICOMINCIA</button>
     <button id="menuBtn">MENU PRINCIPALE</button>
   </div>
 </div>

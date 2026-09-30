@@ -91,7 +91,7 @@ export class SkidMarks {
     this.mesh.renderOrder = 1;
     scene.add(this.mesh);
     this.next = 0;
-    this.last = [null, null, null, null];
+    this.last = {};
   }
 
   add(wheel, x, y, z, intensity, dark = true) {
@@ -116,7 +116,7 @@ export class SkidMarks {
     this.last[wheel] = [x, y, z];
   }
 
-  cut() { this.last = [null, null, null, null]; }
+  cut() { this.last = {}; }
   clear() {
     this.geo.attributes.color.array.fill(0);
     this.geo.attributes.color.needsUpdate = true;
