@@ -1,6 +1,6 @@
 # Nova Grand Prix
 
-Gioco di Formula 1 in 3D (Three.js) con grafica low-poly sul Circuito Nova (3,29 km, ispirato a Spa).
+Gioco di Formula 1 in 3D (Three.js) con grafica low-poly sul Circuito Nova (3,75 km, 26 curve: tornanti, esse e chicane).
 
 Modalità: **Gara contro i bot** (1–30 giri, box dalle gare da 8 giri con mescole morbide/medie/dure e riparazioni, 1–19 avversari, forza dei bot 1–110, posizione di partenza a scelta) e **Prova a tempo** da solo con fantasma del record.
 

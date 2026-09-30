@@ -103,8 +103,8 @@ function build() {
 let mode = 'menu';           // menu | countdown | race | pause | dnf
 let simTime = 0;
 let countdown = null;
-let best = store.get('novaf1.best');       // { time, sectors, split, ghost }
-let bestSectors = store.get('novaf1.bestSectors') || [null, null, null];
+let best = store.get('novaf1.best.v2');       // { time, sectors, split, ghost }
+let bestSectors = store.get('novaf1.bestSectors.v2') || [null, null, null];
 let lap = null;
 let lastLap = null;
 let laps = [];
@@ -402,11 +402,11 @@ function finishLap(time) {
   let isBest = false;
   if (valid) {
     lap.sectors.forEach((s, k) => { if (s != null && (bestSectors[k] == null || s < bestSectors[k])) bestSectors[k] = s; });
-    store.set('novaf1.bestSectors', bestSectors);
+    store.set('novaf1.bestSectors.v2', bestSectors);
     if (!best || time < best.time) {
       isBest = true;
       best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec };
-      store.set('novaf1.best', best);
+      store.set('novaf1.best.v2', best);
     }
   }
   if (isBest) showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true);

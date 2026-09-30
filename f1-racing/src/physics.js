@@ -370,7 +370,7 @@ export class CarPhysics {
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
       w.temp += (power / 70000 + 0.055 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
-      w.wear = Math.min(1, w.wear + power * dt * 7e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
+      w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
       if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
       const bx = fxOut * cd - fyOut * sd;

@@ -1,38 +1,54 @@
-// Definizione del tracciato "Circuito Nova" (ispirato a Spa-Francorchamps).
+// Definizione del tracciato "Circuito Nova": tratto finale ispirato a Spa, parte centrale tortuosa.
 // Punti di controllo [x, y(altezza), z] in metri, percorsi in senso di marcia.
 // La linea di traguardo è vicina al secondo punto.
 
 export const CONTROL_POINTS = [
   [-260, 0, 0],
   [0, 0, 0],
-  [240, 0.5, 0],
-  [360, 1.5, 4],
-  [425, 2, -22],      // La Source (tornante)
-  [418, 2, -68],
-  [372, 1.5, -92],
-  [270, -3, -104],    // discesa
-  [185, -8, -118],
-  [140, -8.5, -140],  // Eau Rouge
-  [118, -5, -178],
-  [96, 1, -214],      // Raidillon
-  [60, 8, -262],
-  [0, 13, -318],
-  [-120, 16, -382],   // Kemmel
-  [-240, 18, -436],
-  [-300, 18, -462],   // Les Combes
+  [110, 0.3, 0],          // fine del rettilineo
+  [170, 0.6, -12],
+  [188, 1, -50],          // T1
+  [172, 1.5, -92],
+  [130, 2, -112],
+  [88, 2.5, -128],
+  [76, 3, -160],          // tornante
+  [110, 3, -182],
+  [190, 2, -178],
+  [260, 0, -150],
+  [330, -2, -150],
+  [380, -4, -180],        // discesa
+  [375, -5, -230],
+  [330, -3, -260],
+  [270, 0, -262],
+  [230, 3, -290],         // esse in salita
+  [190, 7, -285],
+  [130, 8, -265],
+  [70, 9, -240],
+  [20, 9, -250],          // esse del bosco
+  [-40, 10, -225],
+  [-110, 10, -215],
+  [-170, 11, -235],       // sinistra lenta
+  [-190, 12, -280],
+  [-170, 13, -320],       // chicane in salita
+  [-200, 14, -355],
+  [-210, 16, -400],
+  [-250, 17, -440],
+  [-300, 18, -462],       // Les Combes
   [-330, 17.5, -490],
   [-372, 17, -500],
-  [-430, 15, -482],   // Bruxelles
+  [-430, 15, -482],       // Bruxelles
   [-452, 13, -440],
   [-440, 11, -392],
-  [-462, 9, -330],    // Pouhon
+  [-462, 9, -330],        // Pouhon
   [-520, 7, -272],
-  [-574, 5, -196],
-  [-580, 4, -120],    // Fagnes
-  [-548, 3, -62],     // Blanchimont
+  [-560, 6, -215],        // chicane Fagnes
+  [-530, 5, -180],
+  [-560, 5, -140],
+  [-585, 4, -105],
+  [-548, 3, -62],         // Blanchimont
   [-478, 2, -24],
   [-410, 1, -10],
-  [-366, 0.5, -8],    // Bus stop
+  [-366, 0.5, -8],        // Bus stop
   [-334, 0.3, -19],
   [-312, 0.2, -8],
 ];
