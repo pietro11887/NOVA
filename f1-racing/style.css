@@ -130,8 +130,13 @@ body.touch #topButtons { pointer-events: auto !important; }
   .menuBox { padding: 14px 16px; }
   .logo { font-size: 30px; }
   .menuBox button { padding: 8px; margin: 5px 0; }
-  .settings { grid-template-columns: 1fr 1fr 1fr; }
-  #menu { align-items: center; }
+  #menu, #pause, #dnf { align-items: flex-start; }
+  .overlay > .menuBox { margin: auto; }
+  #menu .menuBox { max-width: 860px; display: grid; grid-template-columns: 1fr 1.5fr; column-gap: 18px; align-items: start; text-align: left; }
+  #menu .menuBox > * { grid-column: 1; }
+  #menu .menuBox > .settings { grid-column: 2; grid-row: 1 / span 7; margin-top: 0; }
+  #menu .menuBox .settings button { font-size: 12px; padding: 7px 6px; }
+  #menu .logo { font-size: 26px; }
 }
 
 /* ---------- overlay / menu ---------- */
