@@ -92,8 +92,8 @@ export class Race {
         if (cmd.needRescue && !c.retired) { c.phys.reset(c.phys.prCG.i, 0, true); c.ai.stuck = 0; c.ai.lane = c.ai.laneTarget = 0; }
         c.phys.step(dt, cmd);
         const d = c.phys.damage;
-        // guasti meccanici rari (circa 1 ogni 250 giri-vettura in modalità simulazione)
-        if (running && !c.retired && !d.failure && c.phys.damageMode === 'sim' && Math.random() < dt / (55 * 250)) {
+        // guasti meccanici rari (circa 1 ogni 400 giri-vettura in modalità simulazione)
+        if (running && !c.retired && !d.failure && c.phys.damageMode === 'sim' && Math.random() < dt / (55 * 400)) {
           d.failure = Math.random() < 0.6 ? 'engine' : 'gearbox';
           if (this.onEvent) this.onEvent(c, d.failure);
         }

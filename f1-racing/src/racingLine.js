@@ -9,10 +9,10 @@ const G = 9.81;
 const K_AERO = 0.5 * 1.225 * 4.6 / 798;  // accelerazione da carico aerodinamico per v² (come la fisica)
 
 export class RacingLine {
-  constructor(track) {
+  constructor(track, margin = 1.6) {
     this.track = track;
     const S = track.samples, n = track.count;
-    const lim = H - 1.6;
+    const lim = H - margin;
 
     // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)
     const off = new Float64Array(n);

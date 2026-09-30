@@ -5,14 +5,16 @@ import { ROAD_HALF_WIDTH as H } from './trackData.js';
 
 export function skillParams(strength) {
   const t = Math.max(0, Math.min(1, (strength - 1) / 109));
+  const boost = Math.pow(t, 1.6);
   return {
-    // come nei simulatori: le vetture sono uguali (stesso motore, stessa velocità sul dritto),
-    // la forza cambia quanto il pilota osa in curva e in frenata
-    mu: 1.18 + 0.46 * Math.pow(t, 0.8), // 1 → 1.18   60 → 1.46   100 → 1.63   110 → 1.64
-    brake: 0.64 + 0.2 * t,            // frazione della frenata massima
-    power: 1 + 0.015 * Math.max(0, (strength - 100) / 10), // oltre 100 un filo di potenza in più
-    reaction: 0.45 - 0.35 * t,        // secondi di ritardo allo spegnimento dei semafori
-    wobble: 0.9 * (1 - t),            // imprecisione sulla traiettoria (m)
+    // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
+    // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
+    mu: 1.46 + 0.18 * t,              // aderenza sfruttata (prima del bonus)
+    grip: 1 + 0.14 * boost,           // 110 → +14% di aderenza
+    power: 1 + 0.2 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
+    brake: 0.78 + 0.08 * t,           // frazione della frenata massima
+    reaction: 0.35 - 0.28 * t,        // secondi di ritardo allo spegnimento dei semafori
+    wobble: 0.4 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
 }
 
@@ -41,11 +43,12 @@ export class AIDriver {
     this.strength = strength;
     this.skill = skillParams(strength);
     const t = (strength - 1) / 109;
-    this.profile = this.line.speedProfile(this.skill.mu, this.skill.brake);
+    const mu = this.skill.mu * this.skill.grip;
+    this.profile = this.line.speedProfile(mu, this.skill.brake, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
-    this.attackProfile = this.line.speedProfile(Math.min(1.6, this.skill.mu * 1.02), Math.min(0.86, this.skill.brake + 0.1));
+    this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.9, this.skill.brake + 0.06), 120);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
-    this.errPerLap = 0.07 + 1.0 * Math.pow(1 - Math.min(1, t), 2);
+    this.errPerLap = 0.04 + 0.5 * Math.pow(1 - Math.min(1, t), 2);
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
     const P = this.profile, n = P.length;
     const apex = [];
@@ -63,6 +66,8 @@ export class AIDriver {
       this.nextApex[i] = best;
     }
     this.phys.powerScale = this.skill.power;
+    this.phys.gripScale = this.skill.grip;
+    this.phys.gearLong = Math.sqrt(this.skill.power);
   }
 
   emit(kind) { if (this.onEvent) this.onEvent(kind); }
@@ -102,7 +107,9 @@ export class AIDriver {
     for (const c of cars) {
       if (c.phys === p || c.retired || c.gone) continue;
       const g = gapTo(c), dd = c.phys.prCG.d - myD, lat = Math.abs(dd);
-      if (g > 0 && g < bestGap && lat < 2.6) { bestGap = g; blocker = c; }
+      // una vettura lenta (testacoda) occupa più spazio in larghezza
+      const wide = c.phys.speed < v - 12 ? 4 : 2.6;
+      if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
       if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
       if (Math.abs(g) < 5.5 && lat < 2.4) push += -Math.sign(dd || 1) * (2.4 - lat) * (1.2 - this.aggr);
@@ -115,9 +122,11 @@ export class AIDriver {
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
       if (!this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
-        if (this.rand() < 0.25 + 0.6 * this.aggr) {
-          const inside = this.insideAt(brakeIdx);
-          this.attack = { until: this.t + 5, side: inside };
+        // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
+        const inside = this.insideAt(brakeIdx);
+        const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
+        if (this.rand() < (covered ? 0.25 : 0.25 + 0.6 * this.aggr)) {
+          this.attack = { until: this.t + 5, side: covered ? -inside : inside };
           this.emit('attack');
         }
       }
@@ -133,8 +142,8 @@ export class AIDriver {
       const want = 5 + v * 0.22 * (1 - 0.45 * this.aggr);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       const room = Math.max(0, bestGap - 3.5 - 1.5 * (1 - this.aggr));
-      const vSafe = Math.sqrt(ov * ov + 2 * 26 * room);
-      if (!this.attack || lat < 2) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
+      const vSafe = Math.sqrt(ov * ov + 2 * 32 * room);
+      if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
@@ -146,7 +155,8 @@ export class AIDriver {
     if (this.attack) this.laneTarget = this.attack.side * (lim - 0.3) - this.line.off[i];
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
-    if (!this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -12) {
+    // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
+    if (!this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 && chaserGap < -7 && !(chaser.ai && chaser.ai.attack)) {
       this.defZone = brakeIdx;
       if (this.rand() < this.aggr * 0.7) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
     }
@@ -190,7 +200,14 @@ export class AIDriver {
     const steer = Math.max(-1, Math.min(1, ang / p.maxSteer(v)));
 
     // --- velocità ---
-    const prof = this.attack ? this.attackProfile : this.profile;
+    const dm0 = p.damage;
+    const hurt = Math.min(0.6, (0.5 * (dm0.fwL + dm0.fwR) / 2 + 0.5 * dm0.rw + 0.35 * Math.max(...dm0.susp) + 0.3 * dm0.floor + 0.3 * Math.max(...dm0.puncture)) * p.fx);
+    const hk = Math.round(hurt * 30);
+    if (hk !== this.hurtKey) {
+      this.hurtKey = hk;
+      this.dmgProfile = hk ? this.line.speedProfile(this.skill.mu * this.skill.grip * (1 - hurt), this.skill.brake * (1 - 0.4 * hurt), 120) : null;
+    }
+    const prof = this.dmgProfile || (this.attack ? this.attackProfile : this.profile);
     let look = 2;
     if (m && m.type === 'late') look += Math.round(m.meters / tr.step);   // frena come se la curva fosse più in là
     let vT = prof[(i + look) % n];
@@ -199,11 +216,12 @@ export class AIDriver {
     if (offLine > 1 && vT < 75) vT *= 1 - Math.min(0.14, 0.028 * offLine);
     // con la vettura danneggiata (meno carico, sospensioni storte) si va più piano
     const dm = p.damage;
-    const hurt = (0.45 * (dm.fwL + dm.fwR) / 2 + 0.45 * dm.rw + 0.3 * Math.max(...dm.susp) + 0.25 * dm.floor) * p.fx;
-    let bend = 0;
-    for (let k = 0; k < 60; k += 6) bend = Math.max(bend, Math.abs(tr.samples[(i + k) % n].curv));
-    if (bend > 0.002) vT *= 1 - Math.min(0.4, hurt);
+    // (il profilo "danneggiato" viene ricalcolato così la frenata arriva in tempo)
     if (dm.punctured.some(Boolean)) vT = Math.min(vT, 30);   // gomma a terra: si rientra piano
+    // girato di traverso o contromano dopo un testacoda: si rallenta e ci si rigira
+    const wrongWay = Math.abs(ang) > 1.2;
+    if (wrongWay) vT = Math.min(vT, 7);
+    else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
     vT = Math.min(vT, vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;
     // gas e freno dosati (niente strappi a metà curva, che farebbero perdere il posteriore)

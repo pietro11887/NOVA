@@ -48,6 +48,8 @@ export class CarPhysics {
     this.idleRpm = 4000;
     this.peakTorque = 650;          // Nm (~ 1000 CV con l'ibrido)
     this.powerScale = 1;
+    this.gripScale = 1;
+    this.gearLong = 1;              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
     this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
@@ -150,13 +152,13 @@ export class CarPhysics {
     if (this.gear > 0) {
       if (inp.shiftUp && this.gear < 8) { this.gear++; this.shiftTimer = 0.05; }
       if (inp.shiftDown && this.gear > 1) {
-        const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] * 60 / (2 * Math.PI);
+        const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
         if (nr < this.maxRpm + 300) { this.gear--; this.shiftTimer = 0.04; }
       }
       if (inp.autoGear) {
         if (this.gear < 8 && this.shiftTimer <= 0 && ((this.rpm > 11850 && throttle > 0.2) || this.rpm > 12400)) { this.gear++; this.shiftTimer = 0.05; }
         else if (this.gear > 1 && this.shiftTimer <= 0) {
-          const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] * 60 / (2 * Math.PI);
+          const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
           const low = throttle > 0.5 ? 7200 : 8600;
           if (this.rpm < low && nr < 11300) { this.gear--; this.shiftTimer = 0.04; }
         }
@@ -164,7 +166,7 @@ export class CarPhysics {
     }
 
     // --- motore ---
-    const ratio = this.gear === -1 ? -this.reverseRatio : this.gears[this.gear - 1];
+    const ratio = this.gear === -1 ? -this.reverseRatio : this.gears[this.gear - 1] / this.gearLong;
     const rearV = (Math.abs(vxl) + Math.abs(this.wheels[2].spin) + Math.abs(this.wheels[3].spin)) / 1;
     let rpmWheel = Math.abs(vxl) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
     let rpmTarget = rpmWheel;
@@ -249,7 +251,7 @@ export class CarPhysics {
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / 2000 - 1));
-      const mu = this.mu * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx);
       const Fmax = mu * load;
 
       // longitudinale
@@ -407,12 +409,12 @@ export class CarPhysics {
       case 'fwL': add('fwL', amt * 1.8); susp(0, amt * 0.3); break;
       case 'fwR': add('fwR', amt * 1.8); susp(1, amt * 0.3); break;
       case 'nose': add('fwL', amt * 1.5); add('fwR', amt * 1.5); break;
-      case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); this.maybePuncture(0, impact, 0.06); break;
-      case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); this.maybePuncture(1, impact, 0.06); break;
+      case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); this.maybePuncture(0, impact, 0.04); break;
+      case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); this.maybePuncture(1, impact, 0.04); break;
       case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); add('floor', amt * 0.8); break;
       case 'sideR': susp(1, amt * 0.4); susp(3, amt * 0.4); add('floor', amt * 0.8); break;
-      case 'wRL': susp(2, amt * 1.1); this.maybePuncture(2, impact, 0.06); break;
-      case 'wRR': susp(3, amt * 1.1); this.maybePuncture(3, impact, 0.06); break;
+      case 'wRL': susp(2, amt * 1.1); this.maybePuncture(2, impact, 0.04); break;
+      case 'wRR': susp(3, amt * 1.1); this.maybePuncture(3, impact, 0.04); break;
       case 'rw': add('rw', amt * 1.5); add('engine', amt * 0.4); add('floor', amt * 0.5); break;
     }
     if (impact > 16) add('engine', (impact - 16) / 40 * this.dmgScale);
@@ -432,7 +434,7 @@ export class CarPhysics {
       case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
         const i = { wFL: 0, wFR: 1, wRL: 2, wRR: 3 }[part];
         susp(i, (impact - 3) / 12);
-        this.maybePuncture(i, impact, 0.08);
+        this.maybePuncture(i, impact, 0.05);
         break;
       }
     }

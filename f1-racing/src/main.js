@@ -777,7 +777,7 @@ $('raceBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('settingsBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('raceStartBtn').addEventListener('click', startRaceGame);
 
-const tier = v => v <= 20 ? 'PRINCIPIANTE' : v <= 45 ? 'AMATORE' : v <= 70 ? 'ESPERTO' : v <= 90 ? 'PRO' : v <= 100 ? 'CAMPIONE' : 'LEGGENDA';
+const tier = v => v <= 20 ? 'VELOCE' : v <= 45 ? 'ESPERTO' : v <= 70 ? 'PRO' : v <= 90 ? 'CAMPIONE' : v <= 100 ? 'LEGGENDA' : 'ALIENO';
 function refreshRaceSetup() {
   const S = settings;
   S.raceStart = Math.min(S.raceStart, S.raceBots + 1);
