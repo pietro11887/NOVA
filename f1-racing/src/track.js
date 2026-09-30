@@ -108,8 +108,12 @@ export class Track {
     g.add(this.ribbon([[-H - 0.6, 0.0], [H + 0.6, 0.0]], null, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0 }), 10, true));
     // linee bianche di bordo pista
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.7 });
-    g.add(this.ribbon([[H - 0.45, 0.012], [H - 0.1, 0.012]], null, white));
-    g.add(this.ribbon([[-H + 0.1, 0.012], [-H + 0.45, 0.012]], null, white));
+    g.add(this.ribbon([[H - 0.55, 0.012], [H - 0.05, 0.012]], null, white));
+    g.add(this.ribbon([[-H + 0.05, 0.012], [-H + 0.55, 0.012]], null, white));
+    // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
+    const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
+    g.add(this.ribbon([[H + 0.6, 0.0], [H + 4.5, -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
+    g.add(this.ribbon([[-H - 4.5, -0.03], [-H - 0.6, 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
 
     // Cordoli
     const kt = tex.kerb(); kt.anisotropy = aniso;

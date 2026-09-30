@@ -1,5 +1,6 @@
 import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
+import { CAR_SCALE } from './carModel.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -13,7 +14,7 @@ export const DRIVERS = [
   ['PARISI', 0x2ee06f, 0x16171b],
 ];
 
-const CIRCLES = [[2.0, 0.95], [0.1, 1.0], [-1.8, 0.95]]; // [x locale, raggio]
+const CIRCLES = [[1.95, 0.95], [0.1, 1.0], [-1.85, 0.95]].map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
 
 export class Race {
   constructor(track, line, opts) {
@@ -52,9 +53,9 @@ export class Race {
   placeGrid() {
     const n = this.track.count, st = this.track.step;
     for (const c of this.cars) {
-      const s = 178 - c.slot * 8;
+      const s = 205 - c.slot * 10;   // piazzole ogni 10 m (vetture grandi)
       const i = Math.round(s / st) % n;
-      c.phys.reset(i, c.slot % 2 === 0 ? 3.2 : -3.2);
+      c.phys.reset(i, c.slot % 2 === 0 ? 3.4 : -3.4);
       c.sPrev = c.phys.prCG.s;
       c.pass = [];
     }
@@ -73,7 +74,7 @@ export class Race {
         if (o === c || o.gone) continue;
         let g = o.phys.prCG.s - p.prCG.s;
         if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
-        if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.2) best = g;
+        if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.8) best = g;
       }
       const tow = best < 60 ? 1 - best / 60 : 0;
       p.dragMul = 1 - 0.38 * tow;
@@ -147,7 +148,7 @@ export class Race {
       if (cars[a].gone || cars[b].gone) continue;
       const A = cars[a].phys, B = cars[b].phys;
       const dx = B.x - A.x, dz = B.z - A.z;
-      if (dx * dx + dz * dz > 49 || Math.abs(A.y - B.y) > 2) continue;
+      if (dx * dx + dz * dz > 81 || Math.abs(A.y - B.y) > 2) continue;
       for (const [ax, ar] of CIRCLES) for (const [bx, br] of CIRCLES) {
         const pax = A.x + Math.cos(A.yaw) * ax, paz = A.z + Math.sin(A.yaw) * ax;
         const pbx = B.x + Math.cos(B.yaw) * bx, pbz = B.z + Math.sin(B.yaw) * bx;

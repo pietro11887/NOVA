@@ -237,3 +237,7 @@ body.race-mode .sectors, body.race-mode #delta { display: none; }
   #pause .lapList .resTable .r { padding: 2px 6px; font-size: 12px; }
   #pause .menuBox button { padding: 7px; font-size: 14px; }
 }
+/* effetto "ripresa TV": sfocatura sullo sfondo lontano e vignettatura leggera */
+#lens { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 50% 60%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.22) 100%); }
+body.hq #lens { backdrop-filter: blur(2.2px); -webkit-backdrop-filter: blur(2.2px); -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 12%, transparent 38%); mask-image: linear-gradient(to bottom, #000 0%, #000 12%, transparent 38%); background: none; }
+body.hq::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 60%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.22) 100%); }

@@ -1,4 +1,4 @@
-import { GEOM } from './carModel.js';
+import { GEOM, CAR_SCALE } from './carModel.js';
 import { SURF, SURF_PROPS } from './track.js';
 
 // Dinamica del veicolo: modello a 4 ruote con pneumatici "Pacejka" semplificati,
@@ -31,13 +31,14 @@ function tyreGrip(w) {
 export { tyreGrip };
 
 // Punti dello scafo usati per le collisioni: [x, y(destra), parte]
+// (coordinate del modello, moltiplicate per la scala visiva delle vetture)
 const HULL = [
-  [3.28, -0.95, 'fwL'], [3.28, 0.95, 'fwR'], [3.3, 0, 'nose'],
-  [1.9, -1.0, 'wFL'], [1.9, 1.0, 'wFR'],
+  [2.9, -0.95, 'fwL'], [2.9, 0.95, 'fwR'], [2.9, 0, 'nose'],
+  [1.8, -1.03, 'wFL'], [1.8, 1.03, 'wFR'],
   [0.2, -0.85, 'sideL'], [0.2, 0.85, 'sideR'],
-  [-1.7, -1.02, 'wRL'], [-1.7, 1.02, 'wRR'],
-  [-2.4, -0.52, 'rw'], [-2.4, 0.52, 'rw'],
-];
+  [-1.67, -1.05, 'wRL'], [-1.67, 1.05, 'wRR'],
+  [-2.5, -0.52, 'rw'], [-2.5, 0.52, 'rw'],
+].map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
 
 export class CarPhysics {
   constructor(track) {
@@ -393,7 +394,7 @@ export class CarPhysics {
     let deepest = null;
     // lontano dai muri non serve controllare lo scafo
     const sc = this.track.samples[this.prCG.i];
-    if (Math.abs(this.prCG.d) + 4 < Math.min(sc.wallL, sc.wallR)) return;
+    if (Math.abs(this.prCG.d) + 4.5 < Math.min(sc.wallL, sc.wallR)) return;
     for (const [hx, hy, part] of HULL) {
       const px = this.x + cy * hx - sy * hy;
       const pz = this.z + sy * hx + cy * hy;
@@ -472,7 +473,7 @@ export class CarPhysics {
       case 'sideL': case 'sideR': add('floor', (impact - 3) / 14); add('radiator', (impact - 3) / 10); break;
       case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
         const i = { wFL: 0, wFR: 1, wRL: 2, wRR: 3 }[part];
-        susp(i, (impact - 3) / 12);
+        susp(i, (impact - 4) / 16);
         this.maybePuncture(i, impact, 0.05);
         break;
       }

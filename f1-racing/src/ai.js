@@ -118,21 +118,21 @@ export class AIDriver {
         const spinning = Math.abs(cp.yawRate - expectedYaw) > 0.8 || Math.abs(cp.vyl) > 5 || heading > 0.55;
         // lenta rispetto a dove si trova (non una normale frenata in staccata)
         const slow = along < v - 14 && along < this.profile[pr.i] * 0.6 - 5;
-        if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < H + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along); }
+        if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < H + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along) * (spinning ? 0.25 : 0.8); }  // chi gira si fermerà presto
       }
       // una vettura lenta (testacoda) occupa più spazio in larghezza
-      const wide = c.phys.speed < v - 12 ? 4 : 2.6;
+      const wide = c.phys.speed < v - 12 ? 5 : 3.3;
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
       if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
-      if (Math.abs(g) < 5.5 && lat < 2.4) push += -Math.sign(dd || 1) * (2.4 - lat) * (1.2 - this.aggr);
+      if (Math.abs(g) < 7 && lat < 3.1) push += -Math.sign(dd || 1) * (3.1 - lat) * (1.2 - this.aggr);
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
     // reazione al pericolo: si frena per potersi fermare prima e si cerca il lato libero
     if (hazard) {
       const hp = hazard.phys, hd = hp.prCG.d;
-      const room = Math.max(0, hazGap - 12);
+      const room = Math.max(0, hazGap - 13.5);
       // frenata prudente: a bassa velocità c'è poco carico aerodinamico (e magari si è in discesa)
       const decel = 15 + 5 * (this.strength / 110) + 0.0015 * v * v;
       vCap = Math.min(vCap, Math.sqrt(hazV * hazV + 2 * decel * room));
@@ -163,20 +163,22 @@ export class AIDriver {
       const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
       if (!hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
-        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.4)) - this.line.off[i];
+        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.2)) - this.line.off[i];
       }
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati.
       const lat = Math.abs(od - myD);
-      const want = 5 + v * 0.22 * (1 - 0.45 * this.aggr);
+      const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
-      const room = Math.max(0, bestGap - 3.5 - 1.5 * (1 - this.aggr));
-      const vSafe = Math.sqrt(ov * ov + 2 * 32 * room);
-      if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
+      const room = Math.max(0, bestGap - 4.8 - 1.5 * (1 - this.aggr));
+      // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
+      const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
+      const vSafe = Math.sqrt(ovEff * ovEff + 2 * 30 * room);
+      if (!this.attack || lat < 3.1) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
-        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.6)) - this.line.off[i];
+        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.4)) - this.line.off[i];
       }
     }
     // senza traffico, o prima di una staccata, si torna sulla traiettoria ideale

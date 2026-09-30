@@ -24,11 +24,11 @@ function rand(seed) {
 
 export function asphalt() {
   const [c, g] = canvas(512, 512);
-  g.fillStyle = '#4a4e55'; g.fillRect(0, 0, 512, 512);
+  g.fillStyle = '#5d6169'; g.fillRect(0, 0, 512, 512);
   const r = rand(7);
   const img = g.getImageData(0, 0, 512, 512);
   for (let i = 0; i < img.data.length; i += 4) {
-    const n = (r() - 0.5) * 26 + (r() < 0.02 ? 25 : 0);
+    const n = (r() - 0.5) * 14 + (r() < 0.01 ? 14 : 0);
     img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n + 1;
   }
   g.putImageData(img, 0, 0);
@@ -40,11 +40,6 @@ export function asphalt() {
   grd.addColorStop(0.65, 'rgba(20,20,22,0.18)');
   grd.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
-  // piccole crepe e macchie
-  for (let k = 0; k < 40; k++) {
-    g.fillStyle = `rgba(${r() < 0.5 ? '30,30,34' : '95,98,104'},${0.15 + r() * 0.2})`;
-    g.beginPath(); g.ellipse(r() * 512, r() * 512, 3 + r() * 14, 2 + r() * 6, r() * 3, 0, 7); g.fill();
-  }
   const t = finish(c);
   return t;
 }

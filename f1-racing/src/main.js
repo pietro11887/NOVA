@@ -28,6 +28,7 @@ const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').ma
 if (isTouch) document.body.classList.add('touch');
 
 const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false }, store.get('novaf1.settings') || {});
+if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -36,7 +37,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -44,7 +45,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xcfe6f5, 350, 2600);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 9000);
 
-const hemi = new THREE.HemisphereLight(0xdcefff, 0x4d6b35, 1.1);
+const hemi = new THREE.HemisphereLight(0xe6f3ff, 0x6a8a4a, 1.35);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
 sun.castShadow = true;
@@ -397,7 +398,9 @@ function updateModel(car, phys, dt) {
   r.rotation.set(0, -phys.yaw, 0);
   // vibrazione dei cordoli (visiva)
   const vib = phys.kerbVibe * 0.006;
-  car.body.position.y = (Math.random() - 0.5) * vib;
+  // la carrozzeria è ingrandita: si rialza perché le ruote tocchino l'asfalto
+  const S = car.scale || 1;
+  car.body.position.y = 0.32 * S - 0.3 + (Math.random() - 0.5) * vib;
   car.body.rotation.set(phys.roll + (Math.random() - 0.5) * vib * 0.6, 0, phys.pitch, 'YZX');
   car.wheels.forEach((w, i) => {
     const pw = phys.wheels[i];
@@ -405,7 +408,7 @@ function updateModel(car, phys, dt) {
     // posizione verticale della ruota segue il terreno (escursione sospensione)
     const travel = Math.max(-0.06, Math.min(0.08, pw.comp - 0.013));
     const flat = phys.damage.puncture[i];
-    w.pivot.position.y = w.baseY + travel - 0.05 * flat;
+    w.pivot.position.y = w.baseY + (travel - 0.05 * flat) / S;
     w.pivot.scale.y = 1 - 0.14 * flat;
     const dm = phys.damage.susp[i];
     w.pivot.rotation.set(w.side * dm * 0.28, -(i < 2 ? phys.steer : 0) - (i % 2 === 0 ? -1 : 1) * dm * 0.045, 0, 'YXZ');
@@ -486,7 +489,7 @@ function updateEffects(dt) {
 }
 
 // ---------------------------------------------------------------- telecamera
-const CAMS = ['INSEGUIMENTO', 'ALTA', 'T-CAM', 'ABITACOLO'];
+const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
@@ -504,9 +507,10 @@ function updateCamera(dt) {
     return;
   }
   if (camMode <= 1) {
-    const dist = (camMode === 0 ? 7.2 : 10.5) * (portrait ? 1.18 : 1);
-    const h = (camMode === 0 ? 2.9 : 4.8) * (portrait ? 1.55 : 1);
-    const ahead = portrait ? 6 : 3.5, lookY = portrait ? 0.2 : (camMode === 0 ? 0.9 : 0.6);
+    // 0 = visuale TV da dietro, alta e distante (come nei giochi arcade di F1); 1 = più bassa e vicina
+    const dist = camMode === 0 ? (portrait ? 12.5 : 12) : (portrait ? 9.5 : 8);
+    const h = camMode === 0 ? (portrait ? 8 : 7.2) : (portrait ? 4.4 : 3.2);
+    const ahead = camMode === 0 ? 3 : 4.5, lookY = camMode === 0 ? 0 : 0.7;
     // la telecamera segue la direzione del moto quando la vettura scivola
     let target = phys.yaw;
     if (phys.speed > 5) {
