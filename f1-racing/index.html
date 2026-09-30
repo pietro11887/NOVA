@@ -81,6 +81,7 @@
     <div class="record">Record personale: <b id="menuBest">—</b></div>
     <button id="playBtn" class="primary">▶ GIOCA</button>
     <div class="settings">
+      <button data-set="line"></button>
       <button data-set="auto"></button>
       <button data-set="tc"></button>
       <button data-set="abs"></button>
@@ -95,6 +96,7 @@
       <p><b>Tastiera:</b> ↑/W accelera · ↓/S frena (tieni premuto da fermo = retro) · ←→/A D sterza · E/Q marcia su/giù (manuale) · C telecamera · R rimetti in pista · M audio · P/Esc pausa</p>
       <p><b>Gamepad:</b> RT/LT acceleratore/freno · stick sinistro sterzo · A/X o dorsali marce · Y rimetti in pista · B telecamera</p>
       <p><b>Telefono (in orizzontale):</b> tieni premuto a destra per accelerare, a sinistra per frenare. Sterzi inclinando il telefono come un volante. Se il sensore non è disponibile compaiono i tasti ◀ ▶.</p>
+      <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
       <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
     </details>
   </div>
@@ -105,6 +107,7 @@
     <div class="logo">PAUSA</div>
     <div id="lapList" class="lapList"></div>
     <button id="resumeBtn" class="primary">RIPRENDI</button>
+    <button data-set="line"></button>
     <button id="restartBtn">RICOMINCIA SESSIONE</button>
     <button id="menuBtn">MENU PRINCIPALE</button>
   </div>

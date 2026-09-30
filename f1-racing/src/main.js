@@ -7,6 +7,7 @@ import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
+import { RacingLine } from './racingLine.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -24,7 +25,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22 }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full' }, store.get('novaf1.settings') || {});
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -56,7 +57,7 @@ const SUN_DIR = new THREE.Vector3(-0.45, 0.8, 0.35).normalize();
 const track = new Track();
 const sounds = new Sound();
 const input = new Input();
-let scenery, car, ghostCar, phys, particles, skids, debris;
+let scenery, car, ghostCar, phys, particles, skids, debris, racingLine;
 let minimap;
 
 function build() {
@@ -79,6 +80,8 @@ function build() {
   ghostCar.root.visible = false;
   scene.add(ghostCar.root);
 
+  racingLine = new RacingLine(track);
+  scene.add(racingLine.build());
   phys = new CarPhysics(track);
   phys.on('impact', onImpact);
   particles = new Particles(scene);
@@ -558,6 +561,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
   tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
   tiltSens: v => `Sensibilità sterzo: ${v <= 15 ? 'Alta' : v <= 22 ? 'Media' : 'Bassa'}`,
 };
@@ -569,6 +573,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
   else if (k === 'tiltSens') { settings.tiltSens = settings.tiltSens <= 15 ? 22 : settings.tiltSens <= 22 ? 30 : 15; }
   else settings[k] = !settings[k];
   applyTilt();
@@ -715,6 +720,7 @@ function frame(now) {
     updateCarVisual(mode === 'race' ? dt : 0);
     updateEffects(mode === 'race' ? dt : dt * 0.5);
     updateGhost();
+    racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
     updateCamera(dt);
     sounds.update(phys, mode === 'race' || mode === 'countdown');
   }
