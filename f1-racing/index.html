@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0f14">
+<title>Nova Grand Prix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="timing panel">
+    <div class="row top"><span id="lapLabel">GIRO DI LANCIO</span><span id="invalid" class="invalid hidden">NON VALIDO</span></div>
+    <div id="lapTime" class="big">0:00.000</div>
+    <div id="delta" class="delta"></div>
+    <div class="sectors"><i id="sec0"></i><i id="sec1"></i><i id="sec2"></i></div>
+    <div class="row small"><span>MIGLIORE</span><span id="bestTime">--:--.---</span></div>
+    <div class="row small"><span>ULTIMO</span><span id="lastTime">--:--.---</span></div>
+  </div>
+
+  <canvas id="minimap"></canvas>
+
+  <div id="topButtons">
+    <button id="pauseBtn" aria-label="Pausa">❚❚</button>
+    <button id="camBtn" aria-label="Cambia telecamera">🎥</button>
+  </div>
+
+  <div id="banner" class="banner hidden"><span id="bannerText"></span><i></i></div>
+
+  <div id="lightsHud" class="hidden"><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="dash panel">
+    <div class="leds" id="leds"></div>
+    <div class="dashRow">
+      <div class="gearBox"><div id="gear">N</div><div class="lbl">MARCIA</div></div>
+      <div class="speedBox"><div id="speed">0</div><div class="lbl">KM/H</div></div>
+    </div>
+    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span></div>
+  </div>
+
+  <div class="damage panel">
+    <svg viewBox="0 0 60 120" width="46" height="92">
+      <rect id="d_fwL" x="4" y="2" width="25" height="7" rx="2"/>
+      <rect id="d_fwR" x="31" y="2" width="25" height="7" rx="2"/>
+      <rect id="d_wFL" x="4" y="22" width="10" height="18" rx="3"/>
+      <rect id="d_wFR" x="46" y="22" width="10" height="18" rx="3"/>
+      <path id="d_body" d="M26 10 L34 10 L36 40 L44 50 L44 88 L36 100 L24 100 L16 88 L16 50 L24 40 Z"/>
+      <rect id="d_wRL" x="3" y="78" width="11" height="20" rx="3"/>
+      <rect id="d_wRR" x="46" y="78" width="11" height="20" rx="3"/>
+      <rect id="d_rw" x="14" y="106" width="32" height="10" rx="2"/>
+    </svg>
+    <div class="lbl">DANNI</div>
+  </div>
+
+  <div id="touch">
+    <div class="steer">
+      <button id="tLeft" aria-label="Sinistra">◀</button>
+      <button id="tRight" aria-label="Destra">▶</button>
+    </div>
+    <div class="pedals">
+      <button id="tBrake" class="brake" aria-label="Freno">FRENO</button>
+      <button id="tGas" class="gas" aria-label="Acceleratore">GAS</button>
+    </div>
+  </div>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="menuBox">
+    <div class="logo"><span>NOVA</span> GRAND PRIX</div>
+    <div class="subtitle">TIME TRIAL · CIRCUITO NOVA · <span id="trackLen"></span></div>
+    <div class="record">Record personale: <b id="menuBest">—</b></div>
+    <button id="playBtn" class="primary">▶ GIOCA</button>
+    <div class="settings">
+      <button data-set="auto"></button>
+      <button data-set="tc"></button>
+      <button data-set="abs"></button>
+      <button data-set="ghost"></button>
+      <button data-set="cam"></button>
+      <button data-set="quality"></button>
+    </div>
+    <details class="help">
+      <summary>Comandi</summary>
+      <p><b>Tastiera:</b> ↑/W accelera · ↓/S frena (tieni premuto da fermo = retro) · ←→/A D sterza · E/Q marcia su/giù (manuale) · C telecamera · R rimetti in pista · M audio · P/Esc pausa</p>
+      <p><b>Gamepad:</b> RT/LT acceleratore/freno · stick sinistro sterzo · A/X o dorsali marce · Y rimetti in pista · B telecamera</p>
+      <p><b>Touch:</b> ◀ ▶ a sinistra per sterzare, GAS e FRENO a destra.</p>
+      <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano ala anteriore, ala posteriore, sospensioni e motore.</p>
+    </details>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="menuBox small">
+    <div class="logo">PAUSA</div>
+    <div id="lapList" class="lapList"></div>
+    <button id="resumeBtn" class="primary">RIPRENDI</button>
+    <button id="restartBtn">RICOMINCIA SESSIONE</button>
+    <button id="menuBtn">MENU PRINCIPALE</button>
+  </div>
+</div>
+
+<div id="dnf" class="overlay hidden">
+  <div class="menuBox small">
+    <div class="logo red">RITIRO</div>
+    <p id="dnfReason">La monoposto è troppo danneggiata per continuare.</p>
+    <button id="dnfRestart" class="primary">RICOMINCIA</button>
+  </div>
+</div>
+
+<div id="loading" class="overlay"><div class="loader">CARICAMENTO CIRCUITO…</div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
