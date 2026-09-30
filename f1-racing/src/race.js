@@ -139,8 +139,8 @@ export class Race {
           if (lx < -1) return side > 0.3 ? 'wRR' : side < -0.3 ? 'wRL' : 'rw';
           return side > 0 ? 'sideR' : 'sideL';
         };
-        A.applyDamage(partOf(A, ax, cx, cz), impact * 0.8);
-        B.applyDamage(partOf(B, bx, cx, cz), impact * 0.8);
+        A.applyDamage(partOf(A, ax, cx, cz), impact * 0.55);
+        B.applyDamage(partOf(B, bx, cx, cz), impact * 0.55);
         const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: 0 };
         for (const fn of A.listeners.impact) fn({ ...info, nx: -nx, nz: -nz });
         for (const fn of B.listeners.impact) fn(info);

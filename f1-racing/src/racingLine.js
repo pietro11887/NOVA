@@ -12,7 +12,7 @@ export class RacingLine {
   constructor(track) {
     this.track = track;
     const S = track.samples, n = track.count;
-    const lim = H - 1.3;
+    const lim = H - 1.6;
 
     // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)
     const off = new Float64Array(n);

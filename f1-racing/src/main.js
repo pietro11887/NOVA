@@ -109,6 +109,7 @@ let dnfTimer = -1;
 let lastImpactSound = 0;
 let bannerTimer = 0;
 let gameType = 'trial';       // trial | race
+let lastFeed = -99, lastPos = 0, retiredSeen = new Set();
 let race = null, coolAI = null, resultsTimer = -1, lastLapWarned = false, raceHudT = 0;
 
 function newLap(start) {
@@ -143,6 +144,7 @@ function startCountdown() {
 function clearRace() {
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
   race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false;
+  lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
   $('racePos').classList.add('hidden');
   $('results').classList.add('hidden');
@@ -202,6 +204,8 @@ function onImpact(c, bot = null) {
     const n = Math.min(20, Math.floor(v * 1.2));
     for (let i = 0; i < n; i++) particles.emit(c.x, c.y + 0.3, c.z, { color: [1, 0.7, 0.25], size: 0.14, life: 0.4, vx: bot.phys.vx * 0.6 + (Math.random() - 0.5) * 8, vy: 1 + Math.random() * 4, vz: bot.phys.vz * 0.6 + (Math.random() - 0.5) * 8, grav: 9.8, drag: 1 });
     if (c.part !== 'car' && d < 70 && v > 3 && simTime - lastImpactSound > 0.25) { sounds.crash(v / 22 * (1 - d / 70)); lastImpactSound = simTime; }
+    // cronaca: incidenti degli avversari
+    if (c.part !== 'car' && v > 10 && mode === 'race' && simTime - lastFeed > 4) { lastFeed = simTime; showBanner(`INCIDENTE PER ${bot.name}!`, 'yellow', 2); }
     return;
   }
   // scintille
@@ -440,6 +444,7 @@ function updateEffects(dt) {
       const wx = p.x + cy2 * w.x - sy2 * w.y, wz = p.z + sy2 * w.x + cy2 * w.y;
       const onRoad = w.sf.type <= SURF.KERB;
       skids.add(c.skidKey + i, wx, w.ground + 0.03, wz, w.fz > 0 ? (onRoad ? w.slide : Math.min(1, p.speed / 15)) : 0, onRoad);
+      if (onRoad && w.slide > 0.5 && Math.random() < w.slide * dt * 25) particles.emit(wx, w.ground + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.8, grow: 3, life: 1.2, alpha: 0.3 * w.slide, vx: p.vx * 0.3, vy: 0.6, vz: p.vz * 0.3, drag: 2 });
       if (!onRoad && p.speed > 5 && Math.random() < dt * 15) particles.emit(wx, w.ground + 0.1, wz, { color: w.sf.type === SURF.GRAVEL ? [0.8, 0.72, 0.52] : [0.35, 0.55, 0.25], size: 0.25, life: 0.8, vx: p.vx * 0.4, vy: 2 + Math.random() * 3, vz: p.vz * 0.4, grav: 9.8, drag: 0.5 });
     });
     if (p.damage.engine > 0.3 && Math.random() < dt * 30 * p.damage.engine) particles.emit(p.x - cy2 * 2.2, p.y + 0.5, p.z - sy2 * 2.2, { color: [0.3, 0.3, 0.3], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: p.vx * 0.5, vy: 1.5, vz: p.vz * 0.5, drag: 1 });
@@ -597,6 +602,11 @@ function raceHud(dt) {
   raceHudT = 0.25;
   const st = race.standings(), pos = st.indexOf(pl);
   setText('rpPos', `P${pos + 1}/${st.length}`);
+  if (mode === 'race' && pl.finishT == null) {
+    if (lastPos && pos + 1 < lastPos && simTime - lastFeed > 1) { lastFeed = simTime; showBanner(`SORPASSO! ORA SEI P${pos + 1}`, 'green', 1.6); }
+    for (const c of race.cars) if (c.retired && !retiredSeen.has(c)) { retiredSeen.add(c); lastFeed = simTime; showBanner(`${c.name} SI RITIRA`, 'red', 2.5); }
+  }
+  lastPos = pos + 1;
   const ahead = st[pos - 1], behind = st[pos + 1];
   let html = '';
   if (ahead) { const g = race.gap(ahead, pl); html += `▲ <em>${ahead.name}</em> ${g != null && race.t > 1 ? '+' + fmtGap(g) : ''}`; }
