@@ -38,6 +38,7 @@ export class Race {
         crossings: 0, halfway: false, finishT: null, lastLapT: null, bestLap: null, lapStart: 0,
         pass: [], sPrev: 0,
       };
+      phys.damageMode = opts.damageMode || 'sim';
       if (!isPlayer) { car.ai = new AIDriver(phys, line, opts.strength, botIdx + 1); botIdx++; }
       this.cars.push(car);
     }
@@ -60,8 +61,28 @@ export class Race {
   progress(c) { return c.crossings * this.track.length + c.phys.prCG.s; }
 
   // un passo di simulazione per tutte le vetture (il giocatore riceve i propri comandi)
+  // scia e aria sporca: chi segue da vicino ha meno resistenza ma anche meno carico
+  slipstream() {
+    const L = this.track.length;
+    for (const c of this.cars) {
+      const p = c.phys;
+      let best = 1e9;
+      for (const o of this.cars) {
+        if (o === c || o.gone) continue;
+        let g = o.phys.prCG.s - p.prCG.s;
+        if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
+        if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.2) best = g;
+      }
+      const tow = best < 60 ? 1 - best / 60 : 0;
+      p.dragMul = 1 - 0.38 * tow;
+      p.downMul = best < 22 ? 1 - 0.12 * (1 - best / 22) : 1;
+      c.tow = tow;
+    }
+  }
+
   step(dt, playerCmd, running) {
     if (running) this.t += dt;
+    if (running) this.slipstream();
     for (const c of this.cars) {
       if (c.gone) continue;
       if (c.isPlayer) {
@@ -71,7 +92,21 @@ export class Race {
         if (cmd.needRescue && !c.retired) { c.phys.reset(c.phys.prCG.i, 0, true); c.ai.stuck = 0; c.ai.lane = c.ai.laneTarget = 0; }
         c.phys.step(dt, cmd);
         const d = c.phys.damage;
-        if (!c.retired && (d.engine >= 1 || d.susp.some(x => x >= 1))) { c.retired = true; c.retireT = this.t; }
+        // guasti meccanici rari (circa 1 ogni 250 giri-vettura in modalità simulazione)
+        if (running && !c.retired && !d.failure && c.phys.damageMode === 'sim' && Math.random() < dt / (55 * 250)) {
+          d.failure = Math.random() < 0.6 ? 'engine' : 'gearbox';
+          if (this.onEvent) this.onEvent(c, d.failure);
+        }
+        if (d.failure === 'gearbox' && !c.failT) c.failT = this.t;
+        const limping = d.failure === 'gearbox' && this.t - c.failT > 25;
+        // foratura: senza box il bot arranca per un po' e poi si ferma
+        if (d.punctured.some(Boolean) && !c.punctT) c.punctT = this.t;
+        const flat = c.punctT && this.t - c.punctT > 30;
+        if (!c.retired && (c.phys.isWrecked() || limping || flat)) {
+          c.retired = true; c.retireT = this.t;
+          c.retireWhy = d.failure === 'engine' ? 'MOTORE' : d.failure === 'gearbox' ? 'CAMBIO' : flat ? 'FORATURA' : 'INCIDENTE';
+          if (this.onEvent) this.onEvent(c, 'retired');
+        }
         // dopo qualche secondo la vettura ritirata viene tolta dalla pista
         if (c.retired && this.t - c.retireT > 3) c.gone = true;
       }
@@ -139,8 +174,8 @@ export class Race {
           if (lx < -1) return side > 0.3 ? 'wRR' : side < -0.3 ? 'wRL' : 'rw';
           return side > 0 ? 'sideR' : 'sideL';
         };
-        A.applyDamage(partOf(A, ax, cx, cz), impact * 0.55);
-        B.applyDamage(partOf(B, bx, cx, cz), impact * 0.55);
+        A.applyContactDamage(partOf(A, ax, cx, cz), impact);
+        B.applyContactDamage(partOf(B, bx, cx, cz), impact);
         const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: 0 };
         for (const fn of A.listeners.impact) fn({ ...info, nx: -nx, nz: -nz });
         for (const fn of B.listeners.impact) fn(info);

@@ -52,7 +52,7 @@
       <div class="gearBox"><div id="gear">N</div><div class="lbl">MARCIA</div></div>
       <div class="speedBox"><div id="speed">0</div><div class="lbl">KM/H</div></div>
     </div>
-    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span></div>
+    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTow" class="on tow hidden">SCIA</span></div>
   </div>
 
   <div class="damage panel">
@@ -112,6 +112,7 @@
       <label class="rs" for="rsStrength"><span>Forza dei bot</span><b id="rsStrengthV"></b><input id="rsStrength" type="range" min="1" max="110" step="1"></label>
       <label class="rs" for="rsStart"><span>Posizione di partenza</span><b id="rsStartV"></b><input id="rsStart" type="range" min="1" max="20" step="1"></label>
     </div>
+    <button data-set="damage" class="dmgBtn"></button>
     <div class="rowBtns">
       <button id="raceBack">INDIETRO</button>
       <button id="raceStartBtn" class="primary">VIA ALLA GARA</button>
@@ -122,6 +123,7 @@
     <div class="logo">IMPOSTAZIONI</div>
     <div class="settings">
       <button data-set="line"></button>
+      <button data-set="damage"></button>
       <button data-set="auto"></button>
       <button data-set="tc"></button>
       <button data-set="abs"></button>

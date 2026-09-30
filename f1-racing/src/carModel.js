@@ -209,10 +209,12 @@ export function mergeCar(car) {
     }
   };
   const pivots = car.wheels.map(w => w.pivot);
-  mergeUnder(car.body, pivots);
+  // ali separate: nei contatti si possono staccare anche sulle vetture avversarie
+  mergeUnder(car.body, [...pivots, ...car.fwHalves, car.rearWing]);
+  for (const h of car.fwHalves) mergeUnder(h, [h.userData.endplate]);
+  mergeUnder(car.rearWing, []);
   for (const w of car.wheels) mergeUnder(w.spin, []);
   car.helmet = [];
-  car.fwHalves = [];
   car.merged = true;
   return car;
 }

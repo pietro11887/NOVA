@@ -27,7 +27,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10 }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim' }, store.get('novaf1.settings') || {});
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -121,6 +121,7 @@ function resetSession() {
   particles.clear();
   skids.clear();
   phys.reset(track.count - 6, -3.4);
+  phys.damageMode = settings.damage;
   lap = { active: false, sector: -1, valid: true };
   laps = [];
   lastLap = null;
@@ -156,8 +157,13 @@ function startRaceGame() {
   clearRace();
   race = new Race(track, racingLine, {
     laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength,
-    startPos: settings.raceStart, playerPhys: phys,
+    startPos: settings.raceStart, playerPhys: phys, damageMode: settings.damage,
   });
+  race.onEvent = (c, kind) => {
+    if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
+    else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
+    else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
+  };
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     c.model = mergeCar(createCar({ primary: c.color, accent: c.accent }));
@@ -197,6 +203,11 @@ function prepareStart() {
 // ---------------------------------------------------------------- urti e danni
 function onImpact(c, bot = null) {
   const v = c.impact;
+  if (c.part === 'puncture') {
+    if (bot) feed(`FORATURA PER ${bot.name}`, 'yellow');
+    else showBanner('FORATURA!', 'red', 2.5);
+    return;
+  }
   if (bot) {
     // urti degli avversari: scintille e suono attenuato dalla distanza
     const d = Math.hypot(c.x - phys.x, c.z - phys.z);
@@ -205,7 +216,7 @@ function onImpact(c, bot = null) {
     for (let i = 0; i < n; i++) particles.emit(c.x, c.y + 0.3, c.z, { color: [1, 0.7, 0.25], size: 0.14, life: 0.4, vx: bot.phys.vx * 0.6 + (Math.random() - 0.5) * 8, vy: 1 + Math.random() * 4, vz: bot.phys.vz * 0.6 + (Math.random() - 0.5) * 8, grav: 9.8, drag: 1 });
     if (c.part !== 'car' && d < 70 && v > 3 && simTime - lastImpactSound > 0.25) { sounds.crash(v / 22 * (1 - d / 70)); lastImpactSound = simTime; }
     // cronaca: incidenti degli avversari
-    if (c.part !== 'car' && v > 10 && mode === 'race' && simTime - lastFeed > 4) { lastFeed = simTime; showBanner(`INCIDENTE PER ${bot.name}!`, 'yellow', 2); }
+    if (c.part !== 'car' && v > 10) feed(`INCIDENTE PER ${bot.name}!`, 'yellow');
     return;
   }
   // scintille
@@ -231,24 +242,42 @@ function onImpact(c, bot = null) {
 }
 
 function checkDetachments() {
+  detachParts(car, phys, null);
+  // ritiro
+  if (dnfTimer < 0 && phys.isWrecked()) {
+    dnfTimer = 2.2;
+    const d = phys.damage;
+    $('dnfReason').textContent = d.engine >= 1 ? 'Motore distrutto dopo l\'impatto.' : 'Sospensione rotta: ruota persa!';
+    showBanner('BANDIERA ROSSA', 'red', 2.2);
+  }
+}
+
+// pezzi che si staccano (anche dalle vetture avversarie)
+function detachParts(car, phys, bot) {
   const d = phys.damage;
+  if (phys.damageMode === 'cosmetic' && !bot) { /* anche in modalità estetica i pezzi volano */ }
   const vel = new THREE.Vector3(phys.vx, 0, phys.vz);
+  const lost = [];
   car.fwHalves.forEach((half, k) => {
     const v = k === 0 ? d.fwL : d.fwR;
     const end = half.userData.endplate;
     if (v > 0.4 && !end.userData.detached) debris.detach(end, vel, new THREE.Vector3(0, 1, 0));
-    if (v >= 0.85 && !half.userData.detached) debris.detach(half, vel, new THREE.Vector3(0, 2, 0));
+    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0)); lost.push('L\'ALA ANTERIORE'); }
   });
-  if (d.rw >= 0.85 && !car.rearWing.userData.detached) debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0));
+  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0)); lost.push('L\'ALA POSTERIORE'); }
   car.wheels.forEach((w, i) => {
-    if (d.susp[i] >= 1 && !w.pivot.userData.detached) debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0));
+    if (d.susp[i] >= 1 && !w.pivot.userData.detached) { debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0)); lost.push('UNA RUOTA'); }
   });
-  // ritiro
-  if (dnfTimer < 0 && (d.engine >= 1 || d.susp.some(s => s >= 1))) {
-    dnfTimer = 2.2;
-    $('dnfReason').textContent = d.engine >= 1 ? 'Motore distrutto dopo l\'impatto.' : 'Sospensione rotta: ruota persa!';
-    showBanner('BANDIERA ROSSA', 'red', 2.2);
+  if (lost.length) {
+    if (bot) feed(`${bot.name} PERDE ${lost[0]}`, 'yellow');
+    else showBanner(`HAI PERSO ${lost[0]}`, 'red', 2);
   }
+}
+
+function feed(text, color = 'yellow') {
+  if (simTime - lastFeed < 2.5 || mode !== 'race') return;
+  lastFeed = simTime;
+  showBanner(text, color, 2.2);
 }
 
 // ---------------------------------------------------------------- simulazione
@@ -374,7 +403,9 @@ function updateModel(car, phys, dt) {
     if (w.pivot.userData.detached) return;
     // posizione verticale della ruota segue il terreno (escursione sospensione)
     const travel = Math.max(-0.06, Math.min(0.08, pw.comp - 0.013));
-    w.pivot.position.y = w.baseY + travel;
+    const flat = phys.damage.puncture[i];
+    w.pivot.position.y = w.baseY + travel - 0.05 * flat;
+    w.pivot.scale.y = 1 - 0.14 * flat;
     const dm = phys.damage.susp[i];
     w.pivot.rotation.set(w.side * dm * 0.28, -(i < 2 ? phys.steer : 0) - (i % 2 === 0 ? -1 : 1) * dm * 0.045, 0, 'YXZ');
     w.angle -= pw.spin / GEOM.wheelR * dt;
@@ -576,14 +607,17 @@ function updateHud(dt) {
   if (!race) setText('bestTime', fmt(best && best.time));
   // danni
   const d = phys.damage;
-  const map = { fwL: d.fwL, fwR: d.fwR, rw: d.rw, wFL: d.susp[0], wFR: d.susp[1], wRL: d.susp[2], wRR: d.susp[3], body: d.engine };
+  const map = { fwL: d.fwL, fwR: d.fwR, rw: d.rw, wFL: d.susp[0], wFR: d.susp[1], wRL: d.susp[2], wRR: d.susp[3], body: Math.max(d.engine, d.floor * 0.6) };
   for (const k in map) {
-    const c = dmgColor(map[k]);
+    const wi = ['wFL', 'wFR', 'wRL', 'wRR'].indexOf(k);
+    const c = wi >= 0 && d.punctured[wi] ? '#b04dff' : dmgColor(map[k]);
     if (hudCache['d_' + k] !== c) { hudCache['d_' + k] = c; $('d_' + k).style.fill = c; }
   }
   $('aidTc').classList.toggle('on', settings.tc);
   $('aidAbs').classList.toggle('on', settings.abs);
   setText('aidGear', settings.auto ? 'AUTO' : 'MAN');
+  const tow = race && race.player.tow > 0.25;
+  $('aidTow').classList.toggle('hidden', !tow);
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
 }
 
@@ -604,7 +638,6 @@ function raceHud(dt) {
   setText('rpPos', `P${pos + 1}/${st.length}`);
   if (mode === 'race' && pl.finishT == null) {
     if (lastPos && pos + 1 < lastPos && simTime - lastFeed > 1) { lastFeed = simTime; showBanner(`SORPASSO! ORA SEI P${pos + 1}`, 'green', 1.6); }
-    for (const c of race.cars) if (c.retired && !retiredSeen.has(c)) { retiredSeen.add(c); lastFeed = simTime; showBanner(`${c.name} SI RITIRA`, 'red', 2.5); }
   }
   lastPos = pos + 1;
   const ahead = st[pos - 1], behind = st[pos + 1];
@@ -701,6 +734,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  damage: v => `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`,
   steer: v => `Sterzo: ${v === 'tilt' ? 'Inclinazione' : 'Frecce'}`,
   line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
   tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
@@ -714,6 +748,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = settings.damage; }
   else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
   else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
   else if (k === 'tiltSens') { settings.tiltSens = settings.tiltSens <= 15 ? 22 : settings.tiltSens <= 22 ? 30 : 15; }
@@ -903,6 +938,7 @@ function frame(now) {
       c.model.root.visible = !c.gone;
       if (c.gone) continue;
       updateModel(c.model, c.phys, mode === 'race' ? dt : 0);
+      if (mode === 'race') detachParts(c.model, c.phys, c);
       // ombre solo per le vetture vicine
       const near = Math.abs(c.phys.x - phys.x) + Math.abs(c.phys.z - phys.z) < 70;
       if (c.model.shadowOn !== near) { c.model.shadowOn = near; c.model.root.traverse(o => { if (o.isMesh) o.castShadow = near; }); }

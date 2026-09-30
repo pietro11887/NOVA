@@ -214,3 +214,5 @@ body.race-mode .sectors, body.race-mode #delta { display: none; }
   .raceSetup { margin: 8px 0 4px; gap: 8px 14px; }
   .homeButtons .primary { font-size: 17px; padding: 12px; }
 }
+.aids span.tow { background: rgba(61,123,255,0.25); color: #8fb4ff; }
+.dmgBtn { margin-top: 2px !important; }

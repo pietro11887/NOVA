@@ -48,6 +48,9 @@ export class CarPhysics {
     this.idleRpm = 4000;
     this.peakTorque = 650;          // Nm (~ 1000 CV con l'ibrido)
     this.powerScale = 1;
+    this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
+    this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
+    this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
     this.ClA = 4.6;                 // coefficiente di portanza * area
     this.CdA = 1.22;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
@@ -89,13 +92,16 @@ export class CarPhysics {
     this.throttleOut = 0;
     this.wheelSpinAngle = 0;
     for (const w of this.wheels) { w.comp = 0.013; w.fz = this.mass * G / 4; w.ground = s.y; w.groundInit = true; w.spin = 0; }
-    if (!keepDamage) this.damage = { fwL: 0, fwR: 0, rw: 0, susp: [0, 0, 0, 0], engine: 0 };
+    if (!keepDamage) this.damage = { fwL: 0, fwR: 0, rw: 0, susp: [0, 0, 0, 0], engine: 0, floor: 0, puncture: [0, 0, 0, 0], punctured: [false, false, false, false], failure: null };
     this.projectAll();
     let avg = 0;
     for (const w of this.wheels) { w.ground = w.pr.y + w.sf.h; avg += w.ground / 4; }
     this.y = avg + this.h;
     for (const w of this.wheels) w.comp = w.ground + this.h + 0.013 - this.y;
   }
+
+  // effetto dei danni sulla guida: 0 con danni solo estetici
+  get fx() { return this.damageMode === 'cosmetic' ? 0 : 1; }
 
   totalDamage() {
     const d = this.damage;
@@ -169,7 +175,9 @@ export class CarPhysics {
     rpmTarget = Math.max(this.idleRpm, rpmTarget);
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
-    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * throttle * (1 - dmg.engine * 0.6);
+    const dfx = this.fx;
+    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * throttle * (1 - dmg.engine * 0.6 * dfx);
+    if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045);
     if (this.shiftTimer > 0) torque *= 0.1;
@@ -180,10 +188,13 @@ export class CarPhysics {
 
     // --- aerodinamica ---
     const q = 0.5 * RHO * vxl * vxl;
-    const fwD = (dmg.fwL + dmg.fwR) / 2;
-    const downF = q * this.ClA * this.aeroBalance * (1 - 0.7 * fwD);
-    const downR = q * this.ClA * (1 - this.aeroBalance) * (1 - 0.7 * dmg.rw);
-    const drag = q * (this.CdA - 0.2 * dmg.rw + 0.1 * fwD);
+    const fwD = (dmg.fwL + dmg.fwR) / 2 * dfx;
+    const floorL = 1 - 0.3 * dmg.floor * dfx;
+    const downF = q * this.ClA * this.aeroBalance * (1 - 0.7 * fwD) * this.downMul * floorL;
+    const downR = q * this.ClA * (1 - this.aeroBalance) * (1 - 0.7 * dmg.rw * dfx) * this.downMul * floorL;
+    const drag = q * (this.CdA - 0.2 * dmg.rw * dfx + 0.1 * fwD) * this.dragMul;
+    // la gomma forata si sgonfia in pochi secondi
+    for (let k = 0; k < 4; k++) if (dmg.punctured[k] && dmg.puncture[k] < 1) dmg.puncture[k] = Math.min(1, dmg.puncture[k] + dt / 4);
 
     // --- sospensioni: altezza del terreno sotto ogni ruota ---
     this.projectAll();
@@ -229,7 +240,7 @@ export class CarPhysics {
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
       const front = i < 2;
-      const toe = (i % 2 === 0 ? -1 : 1) * dmg.susp[i] * 0.045;
+      const toe = (i % 2 === 0 ? -1 : 1) * dmg.susp[i] * 0.045 * dfx;
       const delta = (front ? this.steer : 0) + toe;
       const cd = Math.cos(delta), sd = Math.sin(delta);
       const wvx = vxl - r * w.y, wvy = vyl + r * w.x;
@@ -238,14 +249,14 @@ export class CarPhysics {
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / 2000 - 1));
-      const mu = this.mu * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i]);
+      const mu = this.mu * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx);
       const Fmax = mu * load;
 
       // longitudinale
       let fx = 0;
       if (!front) fx += driveForce / 2;
       const bf = brakeF * (front ? this.brakeBias : 1 - this.brakeBias) / 2;
-      const roll = props.roll * load + (w.sf.type === SURF.GRAVEL ? 0.004 * load * Math.abs(vlong) : 0);
+      const roll = (props.roll + 0.08 * dmg.puncture[i] * dfx) * load + (w.sf.type === SURF.GRAVEL ? 0.004 * load * Math.abs(vlong) : 0);
       const resist = bf + roll;
       // a bassa velocità le forze resistive non devono invertire il moto
       const stopCap = Math.abs(vlong) * m / 4 / dt * 0.5;
@@ -382,24 +393,65 @@ export class CarPhysics {
     }
   }
 
+  // scala dell'accumulo: danni ridotti = metà
+  get dmgScale() { return this.damageMode === 'reduced' ? 0.5 : 1; }
+
+  // urto contro barriere
   applyDamage(part, impact) {
     const d = this.damage;
-    const amt = Math.max(0, impact - 2.5) / 22;
+    const amt = Math.max(0, impact - 2.5) / 22 * this.dmgScale;
     if (amt <= 0) return;
     const add = (k, v) => { d[k] = Math.min(1, d[k] + v); };
     const susp = (i, v) => { d.susp[i] = Math.min(1, d.susp[i] + v); };
     switch (part) {
-      case 'fwL': add('fwL', amt * 1.6); susp(0, amt * 0.3); break;
-      case 'fwR': add('fwR', amt * 1.6); susp(1, amt * 0.3); break;
-      case 'nose': add('fwL', amt * 1.3); add('fwR', amt * 1.3); break;
-      case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); break;
-      case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); break;
-      case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); break;
-      case 'sideR': susp(1, amt * 0.4); susp(3, amt * 0.4); break;
-      case 'wRL': susp(2, amt * 1.1); break;
-      case 'wRR': susp(3, amt * 1.1); break;
-      case 'rw': add('rw', amt * 1.4); add('engine', amt * 0.4); break;
+      case 'fwL': add('fwL', amt * 1.8); susp(0, amt * 0.3); break;
+      case 'fwR': add('fwR', amt * 1.8); susp(1, amt * 0.3); break;
+      case 'nose': add('fwL', amt * 1.5); add('fwR', amt * 1.5); break;
+      case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); this.maybePuncture(0, impact, 0.06); break;
+      case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); this.maybePuncture(1, impact, 0.06); break;
+      case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); add('floor', amt * 0.8); break;
+      case 'sideR': susp(1, amt * 0.4); susp(3, amt * 0.4); add('floor', amt * 0.8); break;
+      case 'wRL': susp(2, amt * 1.1); this.maybePuncture(2, impact, 0.06); break;
+      case 'wRR': susp(3, amt * 1.1); this.maybePuncture(3, impact, 0.06); break;
+      case 'rw': add('rw', amt * 1.5); add('engine', amt * 0.4); add('floor', amt * 0.5); break;
     }
-    if (impact > 16) add('engine', (impact - 16) / 40);
+    if (impact > 16) add('engine', (impact - 16) / 40 * this.dmgScale);
+  }
+
+  // contatto tra vetture: le ali sono fragili, le ruote possono forarsi o piegare la sospensione
+  applyContactDamage(part, impact) {
+    const d = this.damage, k = this.dmgScale;
+    const add = (key, v) => { if (v > 0) d[key] = Math.min(1, d[key] + v * k); };
+    const susp = (i, v) => { if (v > 0) d.susp[i] = Math.min(1, d.susp[i] + v * k); };
+    switch (part) {
+      case 'fwL': add('fwL', (impact - 3) / 9); break;
+      case 'fwR': add('fwR', (impact - 3) / 9); break;
+      case 'nose': add('fwL', (impact - 3) / 10); add('fwR', (impact - 3) / 10); break;
+      case 'rw': add('rw', (impact - 3) / 10); add('floor', (impact - 3) / 15); break;
+      case 'sideL': case 'sideR': add('floor', (impact - 3) / 14); break;
+      case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
+        const i = { wFL: 0, wFR: 1, wRL: 2, wRR: 3 }[part];
+        susp(i, (impact - 3) / 12);
+        this.maybePuncture(i, impact, 0.08);
+        break;
+      }
+    }
+  }
+
+  maybePuncture(i, impact, p) {
+    const d = this.damage;
+    if (this.damageMode !== 'sim' || d.punctured[i] || impact < 4) return;
+    if (Math.random() < p * Math.min(1, (impact - 3) / 6)) {
+      d.punctured[i] = true;
+      for (const fn of this.listeners.impact) fn({ impact: 0, part: 'puncture', wheel: i, x: this.x, y: this.y, z: this.z, nx: 0, nz: 0, scrape: 0 });
+    }
+  }
+
+  // la vettura deve ritirarsi?
+  isWrecked() {
+    const d = this.damage;
+    if (this.damageMode === 'cosmetic') return false;
+    const lim = this.damageMode === 'reduced' ? 1.5 : 1;   // con danni ridotti non ci si arriva quasi mai
+    return d.engine >= lim || d.susp.some(x => x >= lim) || d.failure === 'engine';
   }
 }
