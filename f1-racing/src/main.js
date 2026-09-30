@@ -580,6 +580,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   saveSettings(); refreshSettings();
 }));
 $('playBtn').addEventListener('click', startGame);
+$('fsBtn').addEventListener('click', goLandscape);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
 $('restartBtn').addEventListener('click', () => { togglePause(false); startGame(); });
 $('menuBtn').addEventListener('click', () => { goMenu(); });
