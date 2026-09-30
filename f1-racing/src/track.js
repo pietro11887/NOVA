@@ -17,6 +17,7 @@ export class Track {
     const t = buildTrack();
     this.samples = t.samples;
     this.length = t.length;
+    this.pit = t.pit;
     this.step = t.step;
     this.count = t.count;
     this.sectorIdx = [0, Math.round(this.count / 3), Math.round(2 * this.count / 3)];
@@ -198,7 +199,7 @@ export class Track {
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
         const gravel = side > 0 ? s.gravelL : s.gravelR;
-        const wall = side > 0 ? s.wallL : s.wallR;
+        const wall = side > 0 ? s.wallL : (isGravel ? s.wallR : s.wallRVis ?? s.wallR);
         const kerb = side > 0 ? s.kerbL : s.kerbR;
         const edge = H + (kerb ? K : 0.6);
         const gStart = H + K + 4;
@@ -239,13 +240,13 @@ export class Track {
     const barrierT = tex.barrier(); barrierT.anisotropy = aniso;
     const tyreT = tex.tyreWall(); tyreT.anisotropy = aniso;
     const fenceT = tex.fence(); fenceT.anisotropy = aniso;
-    const make = (h0, h1, mat, vs, mask, extrude = 0) => {
+    const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false) => {
       const pos = [], uv = [], idx = [];
       let prev = -1;
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
         if (mask && !mask(s)) { prev = -1; continue; }
-        const w = (side > 0 ? s.wallL : s.wallR) + extrude;
+        const w = (side > 0 ? s.wallL : pitWall ? s.wallR : s.wallRVis ?? s.wallR) + extrude;
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         const row = pos.length / 6;
         pos.push(x, s.y + h0, z, x, s.y + h1, z);
@@ -272,6 +273,12 @@ export class Track {
     grp.add(make(-1.5, 1.1, tyreMat, 2.2, isTyre));
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     grp.add(make(1.05, 4.2, fenceMat, 3, null, 0.6));
+    // muretto box tra pista e corsia box (lato destro)
+    if (side < 0) {
+      const pitWallMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.8, side: THREE.DoubleSide });
+      grp.add(make(-1.5, 1.0, pitWallMat, 4, s => s.pitWall, 0, true));
+      grp.add(make(1.0, 2.6, fenceMat, 3, s => s.pitWall, 0, true));
+    }
     return grp;
   }
 

@@ -60,7 +60,7 @@ export class Scenery {
     const S = this.track.samples;
     const nr = this.nearest(x, z);
     const s = S[nr.i];
-    const wall = Math.max(s.wallL, s.wallR);
+    const wall = Math.max(s.wallL, s.wallRVis ?? s.wallR);
     // quota media pesata sulla pista (continua tra zone a quote diverse)
     let ws = 0, ys = 0;
     for (const c of this.coarse) {
@@ -136,7 +136,7 @@ export class Scenery {
   // colloca un oggetto a lato pista: indice campione, lato (+1 sx, -1 dx), distanza extra oltre il muro
   place(obj, i, side, extra) {
     const s = this.track.samples[(i + this.track.count) % this.track.count];
-    const wall = side > 0 ? s.wallL : s.wallR;
+    const wall = side > 0 ? s.wallL : s.wallRVis ?? s.wallR;
     const d = (wall + extra) * side;
     obj.position.set(s.x + s.nx * d, s.y, s.z + s.nz * d);
     // l'asse +Z locale dell'oggetto punta verso la pista
@@ -227,7 +227,7 @@ export class Scenery {
     // muretto box con cartelli
     g.userData.radius = 140;
     // il centro dell'edificio a circa 70 m dopo il traguardo, a destra
-    this.place(g, Math.round(95 / st), -1, 9);
+    this.place(g, Math.round(95 / st), -1, 0.5);
   }
 
   gantry() {
@@ -313,7 +313,7 @@ export class Scenery {
       const z = b.minZ - pad + r() * (b.maxZ - b.minZ + 2 * pad);
       const nr = this.nearest(x, z);
       const s = this.track.samples[nr.i];
-      if (nr.d < Math.max(s.wallL, s.wallR) + 14) continue;
+      if (nr.d < Math.max(s.wallL, s.wallRVis ?? s.wallR) + 14) continue;
       // alberi a gruppi: più densi in certe zone
       const dens = Math.sin(x * 0.013) * Math.cos(z * 0.017) * 0.5 + 0.5;
       if (r() > dens * 1.2 + 0.08) continue;

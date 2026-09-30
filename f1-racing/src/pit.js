@@ -10,26 +10,29 @@ const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t
 export class PitLane {
   constructor(track) {
     this.track = track;
-    this.L = track.length;
-    this.length = PIT.exit - PIT.entry;   // metri di corsia (lungo s)
+    this.pts = track.pit.pts;              // un punto ogni metro lungo la corsia
+    this.length = track.pit.length;
   }
 
-  // s "con segno" (negativo prima del traguardo) dalla distanza percorsa in corsia
-  sAt(p) { return PIT.entry + p; }
-
-  // scostamento laterale della corsia in funzione di s (con segno)
-  laneD(ss, fromD = -H) {
-    if (ss < PIT.entry + 60) return fromD + (PIT.laneD - fromD) * smooth((ss - PIT.entry) / 60);
-    if (ss > PIT.exit - 70) return PIT.laneD + (-H + 1.5 - PIT.laneD) * smooth((ss - (PIT.exit - 70)) / 70);
-    return PIT.laneD;
+  // s "con segno" (negativo prima del traguardo) alla distanza p percorsa in corsia
+  ssAt(p) {
+    const P = this.pts, f = Math.max(0, Math.min(P.length - 1.001, p)), i = Math.floor(f), k = f - i;
+    return P[i].ss + (P[i + 1].ss - P[i].ss) * k;
   }
 
-  // posizione nel mondo
-  pose(ss, d, out = {}) {
-    const S = this.track.samples, n = this.track.count, st = this.track.step;
-    const s = ((ss % this.L) + this.L) % this.L;
-    const f = s / st, i0 = Math.floor(f) % n, i1 = (i0 + 1) % n, k = f - Math.floor(f);
-    const a = S[i0], b = S[i1];
+  // distanza lungo la corsia corrispondente a un certo s
+  pAtSs(ss) {
+    const P = this.pts;
+    let lo = 0, hi = P.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P[m].ss < ss) lo = m; else hi = m; }
+    const a = P[lo], b = P[hi];
+    return lo + Math.max(0, Math.min(1, (ss - a.ss) / ((b.ss - a.ss) || 1)));
+  }
+
+  // posizione nel mondo a distanza p, con scostamento laterale d (d<0 = destra)
+  poseP(p, d = 0, out = {}) {
+    const P = this.pts, f = Math.max(0, Math.min(P.length - 1.001, p)), i = Math.floor(f), k = f - i;
+    const a = P[i], b = P[i + 1];
     const nx = a.nx + (b.nx - a.nx) * k, nz = a.nz + (b.nz - a.nz) * k;
     out.x = a.x + (b.x - a.x) * k + nx * d;
     out.z = a.z + (b.z - a.z) * k + nz * d;
@@ -37,6 +40,20 @@ export class PitLane {
     out.tx = a.tx; out.tz = a.tz;
     return out;
   }
+
+  // posizione relativa alla pista (non alla corsia)
+  trackPose(ss, d, out = {}) {
+    const S = this.track.samples, n = this.track.count, st = this.track.step, L = this.track.length;
+    const s = ((ss % L) + L) % L;
+    const f = s / st, i0 = Math.floor(f) % n, i1 = (i0 + 1) % n, k = f - Math.floor(f);
+    const a = S[i0], b = S[i1];
+    out.x = a.x + (b.x - a.x) * k + a.nx * d; out.z = a.z + (b.z - a.z) * k + a.nz * d;
+    out.y = a.y + (b.y - a.y) * k; out.tx = a.tx; out.tz = a.tz;
+    return out;
+  }
+
+  // compat: posizione a partire da s
+  pose(ss, d = 0, out = {}) { return this.poseP(this.pAtSs(ss), d, out); }
 
   boxS(slot) { return PIT.boxFrom + slot * PIT.boxGap; }
 
@@ -49,12 +66,13 @@ export class PitLane {
     const strip = (d0, d1, mat, y = 0.03, from = PIT.entry, to = PIT.exit) => {
       const pos = [], idx = [];
       let row = 0;
-      for (let ss = from; ss <= to; ss += 2) {
-        const d = this.laneD(ss);
-        const p0 = this.pose(ss, d + d0), p1 = this.pose(ss, d + d1);
+      const p0s = this.pAtSs(from), p1s = this.pAtSs(to);
+      for (let q = p0s; q <= p1s + 1e-6; q += Math.min(1, p1s - p0s || 1)) {
+        const p0 = this.poseP(q, d0), p1 = this.poseP(q, d1);
         pos.push(p0.x, p0.y + y, p0.z, p1.x, p1.y + y, p1.z);
         if (row) { const a = (row - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
         row++;
+        if (p1s - p0s <= 0) break;
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -64,15 +82,15 @@ export class PitLane {
       m.receiveShadow = true;
       g.add(m);
     };
-    strip(-3.2, 3.2, asphalt, 0.025);
-    strip(-3.3, -3.05, white, 0.035);
-    strip(3.05, 3.3, white, 0.035);
+    strip(-PIT.halfW, PIT.halfW, asphalt, 0.025);
+    strip(-PIT.halfW - 0.1, -PIT.halfW + 0.15, white, 0.035);
+    strip(PIT.halfW - 0.15, PIT.halfW + 0.1, white, 0.035);
     // linee del limitatore
     for (const ss of [PIT.limitFrom, PIT.limitTo]) strip(-3.2, 3.2, yellow, 0.04, ss, ss + 1);
     // piazzole con i colori delle squadre
     for (let k = 0; k < 20; k++) {
       const ss = this.boxS(k);
-      const p = this.pose(ss, PIT.laneD - 2.2);
+      const p = this.pose(ss, -2.2);
       const box = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.8), new THREE.MeshStandardMaterial({ color: k % 2 ? 0x3a3e47 : 0x444955, roughness: 0.9 }));
       box.rotation.x = -Math.PI / 2;
       box.rotation.z = Math.atan2(-p.tz, p.tx);
@@ -81,22 +99,23 @@ export class PitLane {
       g.add(box);
     }
     // cartelli "PIT" e 80 all'ingresso
-    const sign = (text, ss, d, bg, fg) => {
+    const sign = (text, ss, d, bg, fg, onTrack = false) => {
       const c = document.createElement('canvas'); c.width = 128; c.height = 128;
       const x = c.getContext('2d');
       x.fillStyle = bg; x.beginPath(); x.arc(64, 64, 60, 0, 7); x.fill();
       x.fillStyle = fg; x.font = 'bold 54px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 64, 68);
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
       const m = new THREE.Mesh(new THREE.CircleGeometry(0.9, 24), new THREE.MeshStandardMaterial({ map: t, side: THREE.DoubleSide }));
-      const p = this.pose(ss, d);
+      const p = onTrack ? this.trackPose(ss, d) : this.pose(ss, d);
       m.position.set(p.x, p.y + 2.2, p.z);
       m.rotation.y = -Math.atan2(p.tz, p.tx) - Math.PI / 2;
       g.add(m);
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2), white);
       pole.position.set(p.x, p.y + 1.1, p.z); g.add(pole);
     };
-    sign('PIT', PIT.entry - 40, -H - 2.5, '#1b3a8a', '#fff');
-    sign('80', PIT.limitFrom, PIT.laneD - 3.8, '#fff', '#d8231f');
+    sign('PIT', PIT.entry - 70, -H - 2.5, '#1b3a8a', '#fff', true);
+    sign('PIT', PIT.entry + 38, -H - 2.2, '#1b3a8a', '#fff', true);   // sull'isola tra pista e corsia
+    sign('80', PIT.limitFrom, -3.8, '#fff', '#d8231f');
     scene.add(g);
     this.group = g;
   }
@@ -113,6 +132,7 @@ export class PitStop {
     this.v = Math.max(p.speed, 10);
     this.fromD = Math.max(-H - 2, Math.min(H, p.prCG.d));
     this.box = lane.boxS(car.slot % 20);
+    this.boxP = lane.pAtSs(this.box);
     this.phase = 'in';              // in -> service -> out -> done
     this.service = 0;
     this.serviceTotal = 0;
@@ -120,7 +140,7 @@ export class PitStop {
     p.inPit = true;
   }
 
-  get ss() { return this.lane.sAt(this.p); }
+  get ss() { return this.lane.ssAt(this.p); }
 
   // avanza di dt; restituisce true quando la vettura è rientrata in pista
   step(dt) {
@@ -129,8 +149,8 @@ export class PitStop {
     if (this.phase === 'in') {
       // frenata fino al limitatore, poi 80 km/h fino alla piazzola
       const dLim = PIT.limitFrom - ss;
-      vt = dLim > 0 ? Math.sqrt(limit * limit + 2 * 14 * dLim) : limit;
-      const dBox = this.box - ss;
+      vt = dLim > 0 ? Math.min(120 / 3.6, Math.sqrt(limit * limit + 2 * 14 * dLim)) : limit;
+      const dBox = this.boxP - this.p;
       vt = Math.min(vt, Math.sqrt(Math.max(0, 2 * 9 * dBox)));
       if (dBox < 0.3 && this.v < 1.5) {
         this.phase = 'service'; this.v = 0;
@@ -161,12 +181,16 @@ export class PitStop {
 
   apply(dt) {
     const phys = this.car.phys, lane = this.lane;
-    const ss = this.ss;
-    // vicino alla propria piazzola la vettura entra nel box (a lato della corsia)
-    const intoBox = s0 => { const k = 1 - Math.abs(s0 - this.box) / 16; return k > 0 ? -2.4 * k * k * (3 - 2 * k) : 0; };
-    const d = lane.laneD(ss, this.fromD) + intoBox(ss);
-    const a = lane.pose(ss, d, this.pose);
-    const b = lane.pose(ss + 1, lane.laneD(ss + 1, this.fromD) + intoBox(ss + 1), {});
+    // vicino alla propria piazzola la vettura entra nel box (a lato della corsia);
+    // all'imbocco parte dalla posizione in cui si trovava in pista
+    const off = q => {
+      const k = 1 - Math.abs(q - this.boxP) / 16;
+      const box = k > 0 ? -2.4 * k * k * (3 - 2 * k) : 0;
+      const t = Math.max(0, Math.min(1, q / 50)), e = 1 - t * t * (3 - 2 * t);
+      return box + (this.fromD + H) * e;
+    };
+    const a = lane.poseP(this.p, off(this.p), this.pose);
+    const b = lane.poseP(this.p + 1, off(this.p + 1), {});
     const yaw = Math.atan2(b.z - a.z, b.x - a.x);
     phys.x = a.x; phys.z = a.z; phys.y = a.y + phys.h;
     phys.yaw = yaw; phys.yawRate = 0;

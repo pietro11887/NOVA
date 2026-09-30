@@ -43,13 +43,63 @@ export const SAMPLE_STEP = 2;       // metri tra i campioni
 export const XZ_SCALE = 1.3;        // scala planimetrica del layout
 // Corsia box (coordinate lungo la pista: s negativo = prima del traguardo)
 export const PIT = {
-  entry: -75, exit: 440,       // ingresso e uscita (dove la corsia si stacca / rientra)
+  entry: -215, exit: 440,      // ingresso (prima della chicane) e uscita
+  bypassFrom: -165, bypassTo: -40, // la corsia taglia dritta dietro la chicane
   limitFrom: -25, limitTo: 385, // tratto a 80 km/h
-  wallFrom: -22, wallTo: 385, wallD: 17.5,
   laneD: -21.5,                // centro della corsia (a destra)
+  halfW: 3.2,                  // mezza larghezza della corsia
   boxFrom: 30, boxGap: 14,     // piazzole: una ogni 14 m
   speed: 80 / 3.6,
 };
+
+const smooth01 = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+
+// scostamento laterale "di progetto" della corsia (d<0 = destra)
+export function pitLaneD(ss) {
+  if (ss < PIT.entry + 55) return -ROAD_HALF_WIDTH + (PIT.laneD + ROAD_HALF_WIDTH) * smooth01((ss - PIT.entry) / 55);
+  if (ss > PIT.exit - 70) return PIT.laneD + (-ROAD_HALF_WIDTH + 1.5 - PIT.laneD) * smooth01((ss - (PIT.exit - 70)) / 70);
+  return PIT.laneD;
+}
+
+// Percorso della corsia box nel mondo, campionato ogni metro: { pts:[{x,y,z,nx,nz,tx,tz,ss}], length }
+function buildPitPath(samples, length, step, count) {
+  const at = (ss, d) => {
+    const s = ((ss % length) + length) % length;
+    const f = s / step, i0 = Math.floor(f) % count, i1 = (i0 + 1) % count, k = f - Math.floor(f);
+    const a = samples[i0], b = samples[i1];
+    const nx = a.nx + (b.nx - a.nx) * k, nz = a.nz + (b.nz - a.nz) * k;
+    return [a.x + (b.x - a.x) * k + nx * d, a.y + (b.y - a.y) * k, a.z + (b.z - a.z) * k + nz * d];
+  };
+  const A = at(PIT.bypassFrom, pitLaneD(PIT.bypassFrom)), B = at(PIT.bypassTo, pitLaneD(PIT.bypassTo));
+  const raw = [];
+  for (let ss = PIT.entry; ss <= PIT.exit; ss += 1) {
+    const q = at(ss, pitLaneD(ss));
+    // dietro la chicane: linea retta tra i due estremi, raccordata dolcemente
+    const w = smooth01((ss - PIT.bypassFrom) / 22) * smooth01((PIT.bypassTo - ss) / 22);
+    if (w > 0) {
+      const u = (ss - PIT.bypassFrom) / (PIT.bypassTo - PIT.bypassFrom);
+      const lx = A[0] + (B[0] - A[0]) * u, lz = A[2] + (B[2] - A[2]) * u;
+      q[0] += (lx - q[0]) * w; q[2] += (lz - q[2]) * w;
+    }
+    raw.push({ x: q[0], y: q[1], z: q[2], ss });
+  }
+  // ricampionamento a passo costante (1 m) lungo la corsia
+  const cum = [0];
+  for (let i = 1; i < raw.length; i++) cum.push(cum[i - 1] + Math.hypot(raw[i].x - raw[i - 1].x, raw[i].z - raw[i - 1].z));
+  const L = cum[cum.length - 1], pts = [];
+  let k = 0;
+  for (let p = 0; p <= L; p += 1) {
+    while (k < raw.length - 2 && cum[k + 1] < p) k++;
+    const f = (p - cum[k]) / (cum[k + 1] - cum[k]), a = raw[k], b = raw[k + 1];
+    pts.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, z: a.z + (b.z - a.z) * f, ss: a.ss + (b.ss - a.ss) * f });
+  }
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 2)], b = pts[Math.min(pts.length - 1, i + 2)];
+    let tx = b.x - a.x, tz = b.z - a.z; const l = Math.hypot(tx, tz) || 1;
+    p.tx = tx / l; p.tz = tz / l; p.nx = p.tz; p.nz = -p.tx;
+  });
+  return { pts, length: pts.length - 1 };
+}
 
 // Catmull-Rom centripeta chiusa
 function catmull(p0, p1, p2, p3, t) {
@@ -183,12 +233,35 @@ export function buildTrack(points = CONTROL_POINTS) {
     s.sausageR = chicane && s.curv > 0;
   });
 
-  // corsia box lungo il rettilineo principale, sul lato destro: il muretto box
-  // (a 17,5 m dal centro) separa la pista dalla corsia
+  // corsia box sul lato destro: il muretto box separa la pista dalla corsia,
+  // la barriera esterna (solo grafica) sta oltre la corsia
+  samples.forEach(s => { s.wallRVis = s.wallR; s.pitWall = false; });
+  const pit = buildPitPath(samples, length, step, count);
+  const minWall = ROAD_HALF_WIDTH + KERB_WIDTH + 2.5;
   samples.forEach(s => {
     const ss = s.s > length / 2 ? s.s - length : s.s;
-    if (ss > PIT.wallFrom && ss < PIT.wallTo) s.wallR = PIT.wallD;
+    if (ss < PIT.entry - 5 || ss > PIT.exit + 5) return;
+    // distanza laterale della corsia su questo campione
+    let dl = null;
+    for (const p of pit.pts) {
+      if (Math.abs(p.ss - ss) > 60) continue;
+      const dx = p.x - s.x, dz = p.z - s.z;
+      if (Math.abs(dx * s.tx + dz * s.tz) > 0.8) continue;
+      const d = -(dx * s.nx + dz * s.nz);
+      if (d > 0 && (dl == null || d < dl)) dl = d;
+    }
+    if (dl == null) return;
+    const edge = dl + PIT.halfW;
+    s.wallRVis = Math.max(s.wallRVis, edge + 1.2);
+    if (dl - PIT.halfW - 1 >= minWall) {
+      s.wallR = Math.min(s.wallR, dl - PIT.halfW - 1);
+      s.pitWall = true;
+      s.gravelR = false;
+    } else if (edge > s.wallR - 0.5) {
+      // la corsia si sta staccando: niente muro fisico in mezzo
+      s.wallR = Math.max(s.wallR, edge + 1.2);
+    }
   });
 
-  return { samples, length, step, count };
+  return { samples, length, step, count, pit };
 }

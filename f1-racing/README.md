@@ -13,7 +13,7 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/carModel.js` – modello della monoposto
 - `src/scenery.js` – terreno, alberi, tribune, box, semaforo
 - `src/ai.js` – pilota automatico dei bot (la forza cambia aderenza sfruttata, frenata, potenza e riflessi)
-- `src/pit.js` – corsia box (limitatore 80 km/h), pit stop con cambio gomme e riparazioni
+- `src/pit.js` – corsia box (ingresso prima della chicane finale tenendo la destra, limitatore 80 km/h); la vettura va da sola alla piazzola mentre scegli gomme e riparazioni
 - `src/race.js` – gara: griglia, contatti tra vetture, giri, classifica e distacchi
 - `src/racingLine.js` – linea ideale (verde/giallo/rosso) e profilo di velocità
 - `src/effects.js` – particelle, segni delle gomme, detriti

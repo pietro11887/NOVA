@@ -156,7 +156,6 @@ function clearRace() {
   $('racePos').classList.add('hidden');
   if (phys) { phys.inPit = false; phys.compound = 'M'; setTyreColor(car, 'M'); }
   $('pitPanel').classList.add('hidden');
-  $('pitHint').classList.add('hidden');
   $('results').classList.add('hidden');
 }
 
@@ -664,14 +663,9 @@ function updateHud(dt) {
     setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} / ${pit.serviceTotal.toFixed(1)} s` : 'LIMITATORE 80');
   }
   $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
-  // avviso: imbocco dei box in arrivo (dopo la chicane finale, tenendo la destra)
-  if (race && race.pitLane && !race.player.pit && race.player.finishT == null && mode === 'race') {
-    const L = track.length, s = phys.prCG.s, ss = s > L / 2 ? s - L : s;
-    $('pitHint').classList.toggle('hidden', !(ss > -330 && ss < -75));
-  } else $('pitHint').classList.add('hidden');
   if (race && race.player.pit && race.player.pit.phase === 'in') {
     const pit = race.player.pit;
-    setText('pitCount', `ARRIVO ALLA PIAZZOLA TRA ${Math.max(0, (pit.box - pit.ss) / Math.max(8, pit.v)).toFixed(0)} s`);
+    setText('pitCount', `ARRIVO ALLA PIAZZOLA TRA ${Math.max(0, (pit.boxP - pit.p) / Math.max(8, pit.v)).toFixed(0)} s`);
   } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'INTERVENTI IN CORSO' : 'RIPARTENZA');
   $('warnEng').classList.toggle('hidden', phys.engTemp < 120);
   $('warnBrk').classList.toggle('hidden', phys.brakeTemp < 950);
@@ -705,7 +699,7 @@ function setTyreColor(model, compound) {
 let pitChoice = { compound: 'M', repair: false };
 function pitUi() {
   const can = !!(race && race.pitLane) && mode !== 'menu';
-  if (!can) { $('pitPanel').classList.add('hidden'); $('pitHint').classList.add('hidden'); return; }
+  if (!can) { $('pitPanel').classList.add('hidden'); return; }
   const pit = race.player.pit;
   document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
   const rt = phys.repairTime();
