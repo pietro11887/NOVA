@@ -1,4 +1,4 @@
-import { ROAD_HALF_WIDTH as H } from './trackData.js';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
@@ -107,7 +107,7 @@ export class AIDriver {
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
     for (const c of cars) {
-      if (c.phys === p || c.retired || c.gone) continue;
+      if (c.phys === p || c.retired || c.gone || c.phys.inPit) continue;
       const g = gapTo(c), dd = c.phys.prCG.d - myD, lat = Math.abs(dd);
       if (g > -4 && g < hazGap) {
         const cp = c.phys, pr = cp.prCG;
@@ -213,6 +213,10 @@ export class AIDriver {
     void lapTime;
 
     let laneT = this.laneTarget + Math.max(-1.8, Math.min(1.8, push));
+    // rientro ai box: ci si sposta a destra e si rallenta prima dell'imbocco
+    const ssNow = myS > L / 2 ? myS - L : myS;
+    const toPit = PIT.entry - ssNow;
+    if (this.pitting && toPit > 0 && toPit < 260) laneT = -(H - 1.6) - this.line.off[i];
     const m = this.mistake;
     if (m && m.type === 'wide') laneT += m.side * m.amount;
     if (m && m.type === 'defend') laneT = m.side * (lim - 0.5) - this.line.off[i];
@@ -232,7 +236,9 @@ export class AIDriver {
 
     // --- velocità ---
     const dm0 = p.damage;
-    const hurt = Math.min(0.6, (0.5 * (dm0.fwL + dm0.fwR) / 2 + 0.5 * dm0.rw + 0.35 * Math.max(...dm0.susp) + 0.3 * dm0.floor + 0.3 * Math.max(...dm0.puncture)) * p.fx);
+    const wornT = p.wheels.reduce((s, w) => s + w.wear, 0) / 4;
+    const hurt = Math.min(0.6, (0.5 * (dm0.fwL + dm0.fwR) / 2 + 0.5 * dm0.rw + 0.35 * Math.max(...dm0.susp) + 0.3 * dm0.floor + 0.3 * Math.max(...dm0.puncture)) * p.fx
+      + 0.12 * wornT + 0.5 * Math.max(0, wornT - 0.7));
     const hk = Math.round(hurt * 30);
     if (hk !== this.hurtKey) {
       this.hurtKey = hk;
@@ -253,6 +259,7 @@ export class AIDriver {
     const wrongWay = Math.abs(ang) > 1.2;
     if (wrongWay) vT = Math.min(vT, 7);
     else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
+    if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * 22 * toPit));
     vT = Math.min(vT, vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;
     // gas e freno dosati (niente strappi a metà curva, che farebbero perdere il posteriore)

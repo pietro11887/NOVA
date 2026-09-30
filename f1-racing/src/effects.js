@@ -174,6 +174,21 @@ export class Debris {
   }
 
   // riporta i pezzi sulla vettura
+  // rimette i pezzi di una sola vettura (riparazione ai box)
+  restoreFor(root) {
+    const keep = [];
+    for (const it of this.items) {
+      let p = it.obj.userData.home.parent, mine = false;
+      while (p) { if (p === root) { mine = true; break; } p = p.parent; }
+      if (!mine) { keep.push(it); continue; }
+      const h = it.obj.userData.home;
+      h.parent.add(it.obj);
+      it.obj.position.copy(h.pos); it.obj.quaternion.copy(h.quat); it.obj.scale.copy(h.scale);
+      it.obj.userData.detached = false;
+    }
+    this.items = keep;
+  }
+
   restore() {
     for (const it of this.items) {
       const h = it.obj.userData.home;

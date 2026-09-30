@@ -22,11 +22,20 @@ function torqueAt(rpm) {
 }
 
 // aderenza in funzione di temperatura (finestra ideale ~90–110 °C), usura e spiattellamenti
-function tyreGrip(w) {
+// mescole: aderenza, velocità di usura, finestra di temperatura
+export const COMPOUNDS = {
+  S: { name: 'MORBIDA', grip: 1.045, wear: 1.7, tMin: 85, tMax: 105, color: 0xe8322b },
+  M: { name: 'MEDIA', grip: 1.0, wear: 1.0, tMin: 90, tMax: 110, color: 0xf5c518 },
+  H: { name: 'DURA', grip: 0.965, wear: 0.6, tMin: 95, tMax: 118, color: 0xf2f2f2 },
+};
+function tyreGrip(w, c = COMPOUNDS.M) {
   const t = w.temp ?? 95;
-  const dT = t < 90 ? 90 - t : t > 110 ? t - 110 : 0;
+  const dT = t < c.tMin ? c.tMin - t : t > c.tMax ? t - c.tMax : 0;
   const temp = Math.max(0.8, 1 - 0.00012 * dT * dT);
-  return temp * (1 - 0.22 * (w.wear || 0)) * (1 - 0.06 * (w.flat || 0));
+  // usura: calo lento, poi il "crollo" quando la gomma è finita (oltre ~72%)
+  const wr = w.wear || 0;
+  const wear = 1 - 0.1 * wr - 0.6 * Math.max(0, wr - 0.72);
+  return c.grip * temp * wear * (1 - 0.06 * (w.flat || 0));
 }
 export { tyreGrip };
 
@@ -61,7 +70,9 @@ export class CarPhysics {
     this.peakTorque = 650;          // Nm (~ 1000 CV con l'ibrido)
     this.powerScale = 1;
     this.gripScale = 1;
-    this.gearLong = 1;              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
+    this.gearLong = 1;
+    this.compound = 'M';
+    this.inPit = false;             // guidata dalla corsia box (niente fisica)              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
     this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
@@ -116,6 +127,31 @@ export class CarPhysics {
     for (const w of this.wheels) { w.ground = w.pr.y + w.sf.h; avg += w.ground / 4; }
     this.y = avg + this.h;
     for (const w of this.wheels) w.comp = w.ground + this.h + 0.013 - this.y;
+  }
+
+  // gomme nuove (pit stop)
+  fitTyres(compound) {
+    this.compound = compound;
+    for (const w of this.wheels) { w.wear = 0; w.flat = 0; w.temp = 78; }
+    const d = this.damage;
+    d.puncture = [0, 0, 0, 0]; d.punctured = [false, false, false, false];
+  }
+
+  // riparazione ai box: tutto tranne il motore (che non si cambia in gara)
+  repair() {
+    const d = this.damage;
+    d.fwL = d.fwR = d.rw = d.floor = d.radiator = d.gearbox = 0;
+    d.susp = [0, 0, 0, 0];
+  }
+
+  // secondi di lavoro per riparare i danni attuali
+  repairTime() {
+    const d = this.damage;
+    let t = 0;
+    if (d.fwL + d.fwR > 0.05) t += 3.5;                 // muso / ala anteriore nuova
+    if (d.rw > 0.05) t += 4;
+    t += Math.max(...d.susp) * 7 + d.floor * 4 + d.radiator * 4 + d.gearbox * 5;
+    return Math.min(12, t);
   }
 
   // effetto dei danni sulla guida: 0 con danni solo estetici
@@ -284,7 +320,7 @@ export class CarPhysics {
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / 2000 - 1));
-      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
       const Fmax = mu * load;
 
       // longitudinale
@@ -334,7 +370,7 @@ export class CarPhysics {
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
       w.temp += (power / 70000 + 0.055 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
-      w.wear = Math.min(1, w.wear + power * dt * 9e-9 * (w.temp > 115 ? 2 : 1));
+      w.wear = Math.min(1, w.wear + power * dt * 7e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
       if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
       const bx = fxOut * cd - fyOut * sd;

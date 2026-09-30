@@ -9,6 +9,8 @@ import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
 import { Race } from './race.js';
+import { PitLane } from './pit.js';
+import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 
 // ---------------------------------------------------------------- utilità
@@ -27,7 +29,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M' }, store.get('novaf1.settings') || {});
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -60,7 +62,7 @@ const SUN_DIR = new THREE.Vector3(-0.45, 0.8, 0.35).normalize();
 const track = new Track();
 const sounds = new Sound();
 const input = new Input();
-let scenery, car, ghostCar, phys, particles, skids, debris, racingLine;
+let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
 let minimap;
 
 function build() {
@@ -83,6 +85,8 @@ function build() {
   ghostCar.root.visible = false;
   scene.add(ghostCar.root);
 
+  pitLane = new PitLane(track);
+  pitLane.build(scene);
   racingLine = new RacingLine(track);
   scene.add(racingLine.build());
   phys = new CarPhysics(track);
@@ -150,6 +154,9 @@ function clearRace() {
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
   $('racePos').classList.add('hidden');
+  if (phys) { phys.inPit = false; phys.compound = 'M'; setTyreColor(car, 'M'); }
+  $('pitPanel').classList.add('hidden');
+  $('pitBtn').classList.add('hidden');
   $('results').classList.add('hidden');
 }
 
@@ -160,8 +167,18 @@ function startRaceGame() {
   race = new Race(track, racingLine, {
     laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength,
     startPos: settings.raceStart, playerPhys: phys, damageMode: settings.damage,
+    pitLane, startCompound: settings.raceTyre,
   });
-  race.onEvent = (c, kind) => {
+  race.onEvent = (c, kind, pit) => {
+    const model = c.isPlayer ? car : c.model;
+    if (kind === 'pitIn' && c.isPlayer) { showBanner('CORSIA BOX · LIMITATORE 80 KM/H', 'yellow', 2.5, true); pitUi(); }
+    if (kind === 'serviced') {
+      setTyreColor(model, c.phys.compound);
+      if (pit.repaired && model) debris.restoreFor(model.root);
+      if (c.isPlayer) showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true);
+      else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
+    }
+    if (kind === 'pitOut' && c.isPlayer) pitUi();
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
     else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
@@ -172,13 +189,17 @@ function startRaceGame() {
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.skidKey = 4 + c.slot * 4;
+    setTyreColor(c.model, c.phys.compound);
     updateModel(c.model, c.phys, 0);
   }
+  setTyreColor(car, phys.compound);
   document.body.classList.add('race-mode');
   $('racePos').classList.remove('hidden');
+  pitUi();
   camState.init = false;
   updateCarVisual(0);
   startCountdown();
+  pitUi();
 }
 
 function startGame() {
@@ -444,7 +465,7 @@ function updateGhost() {
 // ---------------------------------------------------------------- effetti per frame
 function updateEffects(dt) {
   const cy = Math.cos(phys.yaw), sy = Math.sin(phys.yaw);
-  phys.wheels.forEach((w, i) => {
+  if (!phys.inPit) phys.wheels.forEach((w, i) => {
     const wx = phys.x + cy * w.x - sy * w.y, wz = phys.z + sy * w.x + cy * w.y;
     const gy = w.ground + 0.03;
     const t = w.sf.type;
@@ -471,7 +492,7 @@ function updateEffects(dt) {
     particles.emit(x, phys.y + 0.5, z, { color: [dark, dark, dark], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: phys.vx * 0.5, vy: 1.5, vz: phys.vz * 0.5, drag: 1 });
   }
   if (race) for (const c of race.cars) {
-    if (c.isPlayer || c.gone) continue;
+    if (c.isPlayer || c.gone || c.pit) continue;
     const p = c.phys;
     if (Math.abs(p.x - phys.x) > 250 || Math.abs(p.z - phys.z) > 250) continue;
     const cy2 = Math.cos(p.yaw), sy2 = Math.sin(p.yaw);
@@ -629,6 +650,13 @@ function updateHud(dt) {
     const col = t < 80 ? '#3d7bff' : t < 90 ? '#2ec4ea' : t <= 110 ? '#2ee06f' : t <= 120 ? '#f5c518' : '#ff3b30';
     if (hudCache['ty' + i] !== t) { hudCache['ty' + i] = t; const el = $('ty' + i); el.textContent = t + '°'; el.style.background = col; }
   });
+  const comp = phys.compound;
+  if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
+  if (race && race.player.pit) {
+    const pit = race.player.pit;
+    setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} / ${pit.serviceTotal.toFixed(1)} s` : 'LIMITATORE 80');
+  }
+  $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
   $('warnEng').classList.toggle('hidden', phys.engTemp < 120);
   $('warnBrk').classList.toggle('hidden', phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
@@ -651,6 +679,37 @@ function carStatusHtml() {
   ];
   return rows.map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
 }
+
+// colore della fascia sulla gomma in base alla mescola (rossa, gialla, bianca)
+function setTyreColor(model, compound) {
+  if (model && model.materials && model.materials.stripe) model.materials.stripe.color.setHex(COMPOUNDS[compound].color);
+}
+
+// ---------------------------------------------------------------- box
+let pitChoice = { compound: 'M', repair: false };
+function pitUi() {
+  const can = !!(race && race.pitLane) && mode !== 'menu';
+  $('pitBtn').classList.toggle('hidden', !can);
+  if (!can) { $('pitPanel').classList.add('hidden'); return; }
+  const pl = race.player;
+  const req = !!pl.pitRequest, inPit = !!pl.pit;
+  $('pitBtn').classList.toggle('active', req || inPit);
+  $('pitBtn').textContent = inPit ? 'BOX…' : req ? 'BOX ✓' : 'BOX';
+  document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
+  const rt = phys.repairTime();
+  $('pitRepair').textContent = `RIPARA: ${pitChoice.repair ? 'SÌ' : 'NO'}${rt > 0 ? ` (+${rt.toFixed(1)} s)` : ''}`;
+  $('pitRepair').classList.toggle('sel', pitChoice.repair);
+  $('pitConfirm').textContent = req ? 'ANNULLA BOX' : 'RIENTRA AI BOX';
+}
+function openPitPanel() {
+  if (!race || !race.pitLane || race.player.pit) return;
+  // proposta sensata: riparazione se ci sono danni, mescola in base ai giri che mancano
+  const left = race.laps - race.player.crossings;
+  if (!race.player.pitRequest) pitChoice = { compound: left >= 12 ? 'H' : left >= 5 ? 'M' : 'S', repair: phys.repairTime() > 0.5 };
+  $('pitPanel').classList.toggle('hidden');
+  pitUi();
+}
+document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => { pitChoice.compound = b.dataset.comp; if (race && race.player.pitRequest) race.player.pitRequest = { ...pitChoice }; pitUi(); }));
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
 
@@ -689,7 +748,7 @@ function standingsHtml(full) {
       t = lapsDown >= 1 ? `+${lapsDown} ${lapsDown === 1 ? 'giro' : 'giri'}` : (full ? 'in pista' : '+' + fmtGap(race.gap(leader, c)));
     }
     const col = '#' + c.color.toString(16).padStart(6, '0');
-    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}</span><span>${t}</span><span class="bl">${c.bestLap ? fmt(c.bestLap) : ''}</span></div>`;
+    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}</span><span>${t}</span><span class="bl">${c.bestLap ? fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span></div>`;
   }).join('');
 }
 
@@ -765,6 +824,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  raceTyre: v => `Gomme di partenza: ${COMPOUNDS[v].name}`,
   msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
   damage: v => `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`,
   steer: v => `Sterzo: ${v === 'tilt' ? 'Inclinazione' : 'Frecce'}`,
@@ -780,6 +840,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = settings.damage; }
   else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
   else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
@@ -805,6 +866,16 @@ $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('raceBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('settingsBack').addEventListener('click', () => showMenuPage('menuHome'));
 $('raceStartBtn').addEventListener('click', startRaceGame);
+$('pitBtn').addEventListener('click', openPitPanel);
+$('pitRepair').addEventListener('click', () => { pitChoice.repair = !pitChoice.repair; if (race && race.player.pitRequest) race.player.pitRequest = { ...pitChoice }; pitUi(); });
+$('pitConfirm').addEventListener('click', () => {
+  if (!race) return;
+  const pl = race.player;
+  if (pl.pitRequest) { pl.pitRequest = null; }
+  else { pl.pitRequest = { ...pitChoice }; showBanner('BOX, BOX! RIENTRA AL PROSSIMO PASSAGGIO', 'yellow', 2.5, true); $('pitPanel').classList.add('hidden'); }
+  pitUi();
+});
+$('pitClose').addEventListener('click', () => $('pitPanel').classList.add('hidden'));
 
 const tier = v => v <= 20 ? 'VELOCE' : v <= 45 ? 'ESPERTO' : v <= 70 ? 'PRO' : v <= 90 ? 'CAMPIONE' : v <= 100 ? 'LEGGENDA' : 'ALIENO';
 function refreshRaceSetup() {
@@ -813,7 +884,7 @@ function refreshRaceSetup() {
   $('rsLaps').value = S.raceLaps; $('rsBots').value = S.raceBots; $('rsStrength').value = S.raceStrength;
   $('rsStart').max = S.raceBots + 1; $('rsStart').value = S.raceStart;
   const km = (S.raceLaps * track.length / 1000).toFixed(1).replace('.', ',');
-  $('rsLapsV').innerHTML = `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'}<small>${km} KM</small>`;
+  $('rsLapsV').innerHTML = `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'}<small>${km} KM${S.raceLaps >= 8 ? ' · BOX' : ''}</small>`;
   $('rsBotsV').textContent = `${S.raceBots}`;
   $('rsStrengthV').innerHTML = `${S.raceStrength}<small>${tier(S.raceStrength)}</small>`;
   $('rsStartV').innerHTML = `${S.raceStart}°<small>${S.raceStart === 1 ? 'POLE' : S.raceStart === S.raceBots + 1 ? 'ULTIMO' : 'DI ' + (S.raceBots + 1)}</small>`;
@@ -925,7 +996,8 @@ function frame(now) {
   if (mode === 'race' || mode === 'countdown') {
     if (input.consume('KeyC')) cycleCam();
   }
-  if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0) rescue();
+  if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
+  if (mode === 'race' && input.consume('KeyB')) openPitPanel();
   if (mode === 'menu' && (input.consume('Enter') || input.consume('Space'))) startGame();
 
   if (mode === 'countdown') {

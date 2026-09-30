@@ -1,6 +1,8 @@
 import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE } from './carModel.js';
+import { PitStop } from './pit.js';
+import { PIT, ROAD_HALF_WIDTH } from './trackData.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -21,6 +23,8 @@ export class Race {
     this.track = track;
     this.line = line;
     this.laps = opts.laps;
+    // box solo nelle gare lunghe (da 8 giri)
+    this.pitLane = opts.laps >= 8 ? opts.pitLane : null;
     this.cars = [];
     this.t = 0;              // secondi dalla partenza
     this.started = false;
@@ -38,6 +42,7 @@ export class Race {
         accent: isPlayer ? 0x27c3ea : DRIVERS[botIdx % DRIVERS.length][2],
         crossings: 0, halfway: false, finishT: null, lastLapT: null, bestLap: null, lapStart: 0,
         pass: [], sPrev: 0,
+        pit: null, pitRequest: null, stops: 0, plan: [],
       };
       phys.damageMode = opts.damageMode || 'sim';
       if (!isPlayer) { car.ai = new AIDriver(phys, line, opts.strength, botIdx + 1); botIdx++; }
@@ -47,6 +52,18 @@ export class Race {
     this.placeGrid();
     // benzina per tutta la gara (circa 1,9 kg al giro) più un margine
     for (const c of this.cars) { c.phys.fuel = Math.min(110, this.laps * 1.9 + 2); c.phys.mass = c.phys.baseMass + c.phys.fuel; }
+    // gomme di partenza e strategia dei bot (una sosta, due nelle gare lunghe)
+    for (const c of this.cars) {
+      c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : 'M');
+      c.phys.inPit = false;
+      if (!c.isPlayer && this.pitLane) {
+        const stops = this.laps >= 20 ? 2 : 1;
+        for (let k = 1; k <= stops; k++) {
+          const lap = Math.round(this.laps * k / (stops + 1) + (Math.random() - 0.5) * this.laps * 0.2);
+          c.plan.push(Math.max(2, Math.min(this.laps - 1, lap)));
+        }
+      }
+    }
   }
 
   // griglia dopo il traguardo (il rettilineo prima è troppo corto): pole più avanti
@@ -71,7 +88,7 @@ export class Race {
       const p = c.phys;
       let best = 1e9;
       for (const o of this.cars) {
-        if (o === c || o.gone) continue;
+        if (o === c || o.gone || o.pit) continue;
         let g = o.phys.prCG.s - p.prCG.s;
         if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
         if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.8) best = g;
@@ -88,6 +105,17 @@ export class Race {
     if (running) this.slipstream();
     for (const c of this.cars) {
       if (c.gone) continue;
+      // in corsia box la vettura segue il percorso (niente fisica)
+      if (c.pit) {
+        if (!running) continue;
+        const wasService = c.pit.phase === 'service';
+        const out = c.pit.step(dt);
+        if (wasService && c.pit.phase === 'out' && this.onEvent) this.onEvent(c, 'serviced', c.pit);
+        if (out) { c.stops++; if (this.onEvent) this.onEvent(c, 'pitOut', c.pit); c.pit = null; }
+        continue;
+      }
+      if (running && this.pitLane) this.pitLogic(c);
+      if (c.pit) continue;
       if (c.isPlayer) {
         c.phys.step(dt, playerCmd);
       } else {
@@ -104,8 +132,9 @@ export class Race {
         const limping = d.failure === 'gearbox' && this.t - c.failT > 25;
         // foratura: senza box il bot arranca per un po' e poi si ferma
         if (d.punctured.some(Boolean) && !c.punctT) c.punctT = this.t;
-        const flat = c.punctT && this.t - c.punctT > 30;
-        if (!c.retired && (c.phys.isWrecked() || limping || flat)) {
+        // (con i box il bot rientra piano a cambiare la gomma)
+        const flat = !this.pitLane && c.punctT && this.t - c.punctT > 30;
+        if (!c.retired && c.finishT == null && (c.phys.isWrecked() || limping || flat)) {
           c.retired = true; c.retireT = this.t;
           c.retireWhy = d.failure === 'engine' ? 'MOTORE' : d.failure === 'gearbox' ? 'CAMBIO' : flat ? 'FORATURA' : 'INCIDENTE';
           if (this.onEvent) this.onEvent(c, 'retired');
@@ -116,6 +145,36 @@ export class Race {
     }
     this.collideCars();
     if (running) for (const c of this.cars) if (!c.gone) this.lapLogic(c, dt);
+  }
+
+  // decide e gestisce l'ingresso ai box
+  pitLogic(c) {
+    const L = this.track.length, s = c.phys.prCG.s, ss = s > L / 2 ? s - L : s;
+    const sp = c.pitPrev ?? ss;
+    c.pitPrev = ss;
+    const lapNow = c.crossings + 1, left = this.laps - c.crossings;
+    if (!c.isPlayer && !c.retired && !c.pitRequest && c.finishT == null && left >= 1) {
+      const d = c.phys.damage;
+      const flat = d.punctured.some(Boolean);
+      // si rientra per i danni solo se mancano abbastanza giri per recuperare il tempo perso
+      const hurt = flat || (left >= 3 && (d.fwL + d.fwR > 0.8 || d.rw > 0.5 || Math.max(...d.susp) > 0.5));
+      const planned = left >= 2 && c.plan.length && lapNow >= c.plan[0];
+      const worn = left >= 3 && c.phys.wheels.some(w => w.wear > 0.8);
+      if (planned || hurt || worn) {
+        const rem = this.laps - lapNow;
+        c.pitRequest = { compound: rem >= 12 ? 'H' : rem >= 5 ? 'M' : 'S', repair: hurt || d.fwL + d.fwR > 0.2 };
+        if (planned) c.plan.shift();
+      }
+    }
+    if (c.ai) c.ai.pitting = !!c.pitRequest;
+    // si entra passando dall'imbocco della corsia (lato destro della pista)
+    if (c.pitRequest && !c.retired && c.finishT == null && sp < PIT.entry && ss >= PIT.entry && ss - sp < 20
+        && c.phys.prCG.d < ROAD_HALF_WIDTH * 0.2) {
+      c.pit = new PitStop(this.pitLane, c, c.pitRequest);
+      c.pitRequest = null;
+      if (c.ai) c.ai.pitting = false;
+      if (this.onEvent) this.onEvent(c, 'pitIn', c.pit);
+    }
   }
 
   lapLogic(c, dt) {
@@ -145,7 +204,7 @@ export class Race {
   collideCars() {
     const cars = this.cars;
     for (let a = 0; a < cars.length; a++) for (let b = a + 1; b < cars.length; b++) {
-      if (cars[a].gone || cars[b].gone) continue;
+      if (cars[a].gone || cars[b].gone || cars[a].pit || cars[b].pit) continue;
       const A = cars[a].phys, B = cars[b].phys;
       const dx = B.x - A.x, dz = B.z - A.z;
       if (dx * dx + dz * dz > 81 || Math.abs(A.y - B.y) > 2) continue;

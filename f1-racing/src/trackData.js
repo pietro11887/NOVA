@@ -41,6 +41,15 @@ export const ROAD_HALF_WIDTH = 7;   // carreggiata 14 m
 export const KERB_WIDTH = 1.6;
 export const SAMPLE_STEP = 2;       // metri tra i campioni
 export const XZ_SCALE = 1.3;        // scala planimetrica del layout
+// Corsia box (coordinate lungo la pista: s negativo = prima del traguardo)
+export const PIT = {
+  entry: -75, exit: 440,       // ingresso e uscita (dove la corsia si stacca / rientra)
+  limitFrom: -25, limitTo: 385, // tratto a 80 km/h
+  wallFrom: -22, wallTo: 385, wallD: 17.5,
+  laneD: -21.5,                // centro della corsia (a destra)
+  boxFrom: 30, boxGap: 14,     // piazzole: una ogni 14 m
+  speed: 80 / 3.6,
+};
 
 // Catmull-Rom centripeta chiusa
 function catmull(p0, p1, p2, p3, t) {
@@ -172,6 +181,13 @@ export function buildTrack(points = CONTROL_POINTS) {
     }
     s.sausageL = chicane && s.curv < 0;
     s.sausageR = chicane && s.curv > 0;
+  });
+
+  // corsia box lungo il rettilineo principale, sul lato destro: il muretto box
+  // (a 17,5 m dal centro) separa la pista dalla corsia
+  samples.forEach(s => {
+    const ss = s.s > length / 2 ? s.s - length : s.s;
+    if (ss > PIT.wallFrom && ss < PIT.wallTo) s.wallR = PIT.wallD;
   });
 
   return { samples, length, step, count };
