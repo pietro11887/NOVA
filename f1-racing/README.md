@@ -15,6 +15,6 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/audio.js`, `src/input.js`, `src/main.js` – audio, comandi, loop di gioco e HUD
 
 ## Comandi
-Telefono (in orizzontale): tocca a destra per accelerare, a sinistra per frenare, inclina il telefono per sterzare (tasti ◀ ▶ se il sensore non è disponibile).
+Telefono (in orizzontale): ◀ ▶ a sinistra per sterzare, FRENO e GAS a destra. Nel menu "Sterzo: Inclinazione" attiva lo sterzo col giroscopio (tieni premuto a destra per accelerare, a sinistra per frenare).
 
 Tastiera: ↑/W gas · ↓/S freno (tenuto da fermo = retromarcia) · ←→ sterzo · E/Q marce (manuale) · C telecamera · R rimetti in pista · M audio · P pausa. Supporta anche il gamepad.

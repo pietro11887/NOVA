@@ -86,10 +86,20 @@ body.touch #touch { display: block; position: absolute; inset: 0; }
 #touch .zone.left span { border-color: rgba(255,59,48,0.55); }
 #touch .zone.right span { border-color: rgba(46,224,111,0.6); }
 #touch .zone.on span { background: rgba(255,255,255,0.28); color: #fff; }
-#touch .steerBtn { position: absolute; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 80px); width: 76px; height: 76px; border-radius: 50%; pointer-events: auto; touch-action: none; border: 2px solid rgba(255,255,255,0.35); background: rgba(10,12,18,0.45); color: #fff; font-size: 26px; z-index: 2; }
-#touch .steerBtn.l { left: max(18px, env(safe-area-inset-left)); }
-#touch .steerBtn.r { right: max(18px, env(safe-area-inset-right)); }
-#touch .steerBtn.on { background: rgba(255,255,255,0.35); }
+#touch .padL, #touch .padR { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 14px; align-items: flex-end; z-index: 2; }
+#touch .padL { left: max(18px, env(safe-area-inset-left)); }
+#touch .padR { right: max(18px, env(safe-area-inset-right)); }
+#touch .steerBtn, #touch .pedal { pointer-events: auto; touch-action: none; border: 2px solid rgba(255,255,255,0.4); background: rgba(10,12,18,0.45); color: #fff; font-family: var(--font); font-weight: 900; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#touch .steerBtn { width: 88px; height: 88px; border-radius: 50%; font-size: 30px; }
+#touch .pedal { width: 88px; height: 112px; border-radius: 18px; font-size: 15px; letter-spacing: 1px; }
+#touch .pedal.brake { border-color: rgba(255,59,48,0.85); height: 92px; }
+#touch .pedal.gas { border-color: rgba(46,224,111,0.85); }
+#touch .steerBtn.on, #touch .pedal.on { background: rgba(255,255,255,0.35); transform: scale(0.95); }
+/* modalità frecce: niente zone; modalità inclinazione: niente pulsanti */
+body.steer-buttons #touch .zone, body.steer-buttons #tiltBar { display: none !important; }
+body.steer-tilt #touch .padL, body.steer-tilt #touch .padR { display: none; }
+body.steer-buttons.touch .dash { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 126px); }
+body.steer-buttons.touch .damage { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 104px); }
 #tiltBar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 4px); width: 160px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.18); pointer-events: none; }
 #tiltBar i { position: absolute; top: -3px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); }
 body.touch .dash { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 84px); right: max(16px, env(safe-area-inset-right)); width: 200px; pointer-events: none; }

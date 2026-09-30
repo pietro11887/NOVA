@@ -108,7 +108,7 @@ export class Input {
       break;
     }
 
-    const tiltS = this.touchMode ? this.tiltSteer() : null;
+    const tiltS = this.touchMode && this.tiltEnabled ? this.tiltSteer() : null;
     if (tiltS !== null && tSteer === 0) {
       st.steer += (tiltS - st.steer) * Math.min(1, dt * 15);
       st.throttle += Math.sign(tThr - st.throttle) * Math.min(Math.abs(tThr - st.throttle), 7 * dt);

@@ -25,7 +25,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons' }, store.get('novaf1.settings') || {});
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // ---------------------------------------------------------------- renderer / scena
@@ -137,7 +137,7 @@ function startCountdown() {
 }
 
 function startGame() {
-  input.requestTilt();
+  if (settings.steer === 'tilt') input.requestTilt();
   goLandscape();
   gameStartedAt = performance.now();
   sounds.init();
@@ -561,6 +561,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  steer: v => `Sterzo: ${v === 'tilt' ? 'Inclinazione' : 'Frecce'}`,
   line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
   tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
   tiltSens: v => `Sensibilità sterzo: ${v <= 15 ? 'Alta' : v <= 22 ? 'Media' : 'Bassa'}`,
@@ -573,6 +574,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
   else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
   else if (k === 'tiltSens') { settings.tiltSens = settings.tiltSens <= 15 ? 22 : settings.tiltSens <= 22 ? 30 : 15; }
   else settings[k] = !settings[k];
@@ -591,8 +593,15 @@ input.bindTouch($('tLeft'), 'left');
 input.bindTouch($('tRight'), 'right');
 input.bindTouch($('zGas'), 'gas');
 input.bindTouch($('zBrake'), 'brake');
+input.bindTouch($('pGas'), 'gas');
+input.bindTouch($('pBrake'), 'brake');
 input.touchMode = isTouch;
-const applyTilt = () => { input.tilt.invert = settings.tiltInvert; input.tilt.sens = settings.tiltSens; };
+const applyTilt = () => {
+  input.tilt.invert = settings.tiltInvert; input.tilt.sens = settings.tiltSens;
+  input.tiltEnabled = settings.steer === 'tilt';
+  document.body.classList.toggle('steer-buttons', settings.steer !== 'tilt');
+  document.body.classList.toggle('steer-tilt', settings.steer === 'tilt');
+};
 applyTilt();
 
 // telefono: si gioca in orizzontale
@@ -613,19 +622,15 @@ function goLandscape() {
     if (p && p.then) p.then(lock).catch(lock); else lock();
   } catch (_) { /* non supportato */ }
 }
-let steerBtnsShown = false;
 function updateTouchSteer() {
-  if (!isTouch) return;
-  const ts = input.tiltSteer();
-  const tilt = ts !== null;
+  if (!isTouch || settings.steer !== 'tilt') return;
+  const tilt = input.tiltSteer() !== null;
   $('tiltBar').classList.toggle('hidden', !tilt);
   if (tilt) $('tiltBar').firstElementChild.style.left = (50 + input.state.steer * 50) + '%';
-  const showBtns = !tilt && mode !== 'menu' && performance.now() - gameStartedAt > 1500;
-  if (showBtns !== steerBtnsShown) {
-    steerBtnsShown = showBtns;
-    $('tLeft').classList.toggle('hidden', !showBtns);
-    $('tRight').classList.toggle('hidden', !showBtns);
-    if (showBtns) showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3);
+  // sensore assente: si torna alle frecce
+  if (!tilt && mode !== 'menu' && performance.now() - gameStartedAt > 1500) {
+    settings.steer = 'buttons'; saveSettings(); applyTilt(); refreshSettings();
+    showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3);
   }
 }
 let gameStartedAt = 0;
