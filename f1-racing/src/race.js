@@ -16,7 +16,7 @@ export const DRIVERS = [
   ['PARISI', 0x2ee06f, 0x16171b],
 ];
 
-const CIRCLES = [[1.95, 0.95], [0.1, 1.0], [-1.85, 0.95]].map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
+const CIRCLES = [[1.42, 1.0], [0.0, 1.02], [-1.32, 1.0]].map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
 
 export class Race {
   constructor(track, line, opts) {

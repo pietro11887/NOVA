@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { carbon } from './textures.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Modello low-poly di monoposto. Muso verso +X, destra verso +Z, origine nel baricentro
-// (terreno a y = -0.30 a vettura ferma).
+// Modello low-poly di vettura GT. Muso verso +X, destra verso +Z, origine nel baricentro
+// (terreno a y = -(cgHeight + 0.02) a vettura ferma).
 
+// misure da GT3 (passo 2,6 m, carreggiata 1,66 m, ruote da 71 cm, baricentro a 40 cm)
 export const GEOM = {
-  axleF: 1.9, axleR: -1.7, halfTrack: 0.8, wheelR: 0.33, cgHeight: 0.3,
+  axleF: 1.37, axleR: -1.25, halfTrack: 0.83, wheelR: 0.355, cgHeight: 0.4,
 };
 
 // Box "rastremato": sezione (w0,y0b,y0t) a x0 e (w1,y1b,y1t) a x1
@@ -135,121 +136,135 @@ export function createCar(opts = {}) {
   const add = (m, parent = body) => { m.castShadow = !ghost; m.receiveShadow = !ghost; parent.add(m); return m; };
   const mesh = (g, mat) => new THREE.Mesh(g, mat);
 
-  // Fondo piatto
-  add(mesh(new THREE.BoxGeometry(3.3, 0.04, 1.5), M.carbon)).position.set(-0.3, -0.25, 0);
-  // Scocca: muso, abitacolo e cofano motore in un unico corpo arrotondato
+  // ---- vettura GT3: lunga 4,65 m, larga 2,0 m, alta 1,25 m (terreno a y = -0.42) ----
+  const glass = mk({ color: 0x1a2330, roughness: 0.08, metalness: 0.6 });
+  const head = ghost ? mk({}) : new THREE.MeshStandardMaterial({ color: 0xfff6d8, emissive: 0xfff2c0, emissiveIntensity: 0.6, roughness: 0.2 });
+  // fondo
+  add(mesh(new THREE.BoxGeometry(4.0, 0.04, 1.6), M.carbon)).position.set(0, -0.35, 0);
+  // scocca centrale (tra le ruote)
   add(mesh(loft([
-    { x: -2.15, w: 0.26, yb: -0.12, yt: 0.12 },
-    { x: -1.75, w: 0.42, yb: -0.2, yt: 0.3 },
-    { x: -1.0, w: 0.6, yb: -0.24, yt: 0.56 },
-    { x: -0.45, w: 0.74, yb: -0.25, yt: 0.6 },
-    { x: -0.1, w: 0.82, yb: -0.25, yt: 0.34 },
-    { x: 0.6, w: 0.72, yb: -0.24, yt: 0.28 },
-    { x: 1.25, w: 0.5, yb: -0.2, yt: 0.2 },
-    { x: 2.0, w: 0.3, yb: -0.17, yt: 0.06 },
-    { x: 2.55, w: 0.18, yb: -0.16, yt: -0.04 },
-  ], 24), M.paint));
-  // striscia sul muso e sul cofano
+    { x: 2.33, w: 1.15, yb: -0.33, yt: -0.08 },
+    { x: 2.1, w: 1.25, yb: -0.35, yt: 0.18 },
+    { x: 1.6, w: 1.3, yb: -0.35, yt: 0.33 },
+    { x: 0.9, w: 1.3, yb: -0.35, yt: 0.42 },
+    { x: -1.0, w: 1.3, yb: -0.35, yt: 0.45 },
+    { x: -2.0, w: 1.3, yb: -0.33, yt: 0.5 },
+    { x: -2.32, w: 1.2, yb: -0.25, yt: 0.48 },
+  ], 24, 0, 4), M.paint));
+  // paraurti anteriore (fino ai passaruota) con presa d'aria
   add(mesh(loft([
-    { x: 0.7, w: 0.2, yb: 0.2, yt: 0.29 }, { x: 1.3, w: 0.16, yb: 0.14, yt: 0.21 }, { x: 2.05, w: 0.1, yb: 0.01, yt: 0.075 }, { x: 2.5, w: 0.06, yb: -0.07, yt: -0.02 },
-  ], 12), M.accent));
-  add(mesh(loft([
-    { x: -0.5, w: 0.06, yb: 0.3, yt: 0.64 }, { x: -1.0, w: 0.05, yb: 0.3, yt: 0.6 }, { x: -1.7, w: 0.04, yb: 0.1, yt: 0.33 },
-  ], 10), M.accent));
-  // presa d'aria sopra la testa
-  add(mesh(loft([{ x: -0.36, w: 0.26, yb: 0.42, yt: 0.62 }, { x: -0.3, w: 0.24, yb: 0.44, yt: 0.6 }], 12), M.black));
-  // pance laterali
+    { x: 2.36, w: 1.7, yb: -0.34, yt: -0.1 },
+    { x: 2.15, w: 1.96, yb: -0.35, yt: 0.1 },
+    { x: 1.7, w: 2.0, yb: -0.35, yt: 0.2 },
+  ], 22, 0, 4), M.paint));
+  add(mesh(loft([{ x: 2.36, w: 1.1, yb: -0.3, yt: -0.16 }, { x: 2.3, w: 1.1, yb: -0.3, yt: -0.16 }], 12, 0, 6), M.black));
+  // fari
+  for (const s of [-1, 1]) add(mesh(loft([{ x: 2.29, w: 0.36, yb: -0.06, yt: 0.02 }, { x: 2.05, w: 0.4, yb: 0.08, yt: 0.17 }], 10, s * 0.64, 4), head));
   for (const s of [-1, 1]) {
+    // passaruota anteriori e posteriori (bombati sopra le gomme)
     add(mesh(loft([
-      { x: 0.85, w: 0.34, yb: -0.22, yt: 0.14 },
-      { x: 0.55, w: 0.5, yb: -0.24, yt: 0.22 },
-      { x: -0.3, w: 0.5, yb: -0.25, yt: 0.2 },
-      { x: -1.1, w: 0.36, yb: -0.25, yt: 0.04 },
-      { x: -1.6, w: 0.18, yb: -0.24, yt: -0.1 },
-    ], 16, s * 0.6), M.paint));
-    add(mesh(loft([{ x: 0.86, w: 0.3, yb: -0.16, yt: 0.1 }, { x: 0.8, w: 0.3, yb: -0.16, yt: 0.1 }], 12, s * 0.6), M.black));
-    // fascia colorata sopra la pancia
-    add(mesh(loft([{ x: 0.6, w: 0.34, yb: 0.17, yt: 0.235 }, { x: -0.3, w: 0.36, yb: 0.15, yt: 0.215 }, { x: -1.0, w: 0.22, yb: 0.0, yt: 0.07 }], 12, s * 0.6), M.accent));
+      { x: 1.75, w: 0.4, yb: 0.0, yt: 0.2 },
+      { x: 1.55, w: 0.42, yb: 0.2, yt: 0.37 },
+      { x: 1.3, w: 0.42, yb: 0.27, yt: 0.41 },
+      { x: 1.05, w: 0.42, yb: 0.2, yt: 0.39 },
+      { x: 0.85, w: 0.4, yb: 0.0, yt: 0.38 },
+    ], 16, s * 0.82), M.paint));
+    add(mesh(loft([
+      { x: -0.8, w: 0.42, yb: 0.0, yt: 0.44 },
+      { x: -1.0, w: 0.44, yb: 0.24, yt: 0.47 },
+      { x: -1.225, w: 0.44, yb: 0.3, yt: 0.49 },
+      { x: -1.45, w: 0.44, yb: 0.24, yt: 0.48 },
+      { x: -1.66, w: 0.42, yb: 0.0, yt: 0.47 },
+    ], 16, s * 0.82), M.paint));
+    // fiancata (porte e minigonna) tra le ruote
+    add(mesh(loft([
+      { x: 0.92, w: 0.44, yb: -0.35, yt: 0.38 },
+      { x: 0.0, w: 0.46, yb: -0.35, yt: 0.43 },
+      { x: -0.85, w: 0.46, yb: -0.35, yt: 0.44 },
+    ], 14, s * 0.77, 4), M.paint));
+    // banda colorata, minigonna nera, specchietti
+    add(mesh(loft([{ x: 0.9, w: 0.48, yb: 0.12, yt: 0.22 }, { x: -0.83, w: 0.5, yb: 0.15, yt: 0.25 }], 10, s * 0.775, 6), M.accent));
+    add(mesh(loft([{ x: 0.9, w: 0.5, yb: -0.37, yt: -0.28 }, { x: -0.83, w: 0.5, yb: -0.37, yt: -0.28 }], 10, s * 0.775, 6), M.black));
+    add(mesh(loft([{ x: 0.62, w: 0.1, yb: 0.47, yt: 0.55 }, { x: 0.5, w: 0.12, yb: 0.46, yt: 0.56 }], 10, s * 0.8, 4), M.paint));
   }
-  // abitacolo
-  add(mesh(loft([{ x: -0.25, w: 0.48, yb: 0.24, yt: 0.36 }, { x: 0.15, w: 0.5, yb: 0.22, yt: 0.33 }, { x: 0.55, w: 0.36, yb: 0.2, yt: 0.29 }], 14), M.black));
-  const helmet = add(mesh(new THREE.SphereGeometry(0.15, 18, 14), M.helmet));
-  helmet.position.set(0.02, 0.38, 0);
-  const visor = add(mesh(new THREE.SphereGeometry(0.152, 18, 6, -0.9, 1.8, 1.25, 0.45), M.black));
+  // paraurti posteriore con coda alta e luci
+  add(mesh(loft([
+    { x: -1.62, w: 2.0, yb: -0.35, yt: 0.47 },
+    { x: -2.05, w: 1.98, yb: -0.33, yt: 0.5 },
+    { x: -2.32, w: 1.82, yb: -0.24, yt: 0.51 },
+  ], 22, 0, 4), M.paint));
+  add(mesh(loft([{ x: -2.31, w: 1.5, yb: 0.3, yt: 0.38 }, { x: -2.34, w: 1.5, yb: 0.3, yt: 0.38 }], 12, 0, 8), M.light));
+  // diffusore
+  add(mesh(taper(-1.7, 1.4, -0.37, -0.33, -2.38, 1.4, -0.3, -0.14), M.carbon));
+  // abitacolo: vetri scuri e tetto in tinta (lunotto spiovente)
+  add(mesh(loft([
+    { x: 0.78, w: 1.3, yb: 0.4, yt: 0.44 },
+    { x: 0.15, w: 1.38, yb: 0.42, yt: 0.8 },
+    { x: -0.5, w: 1.38, yb: 0.43, yt: 0.83 },
+    { x: -1.1, w: 1.3, yb: 0.45, yt: 0.7 },
+    { x: -1.75, w: 1.2, yb: 0.46, yt: 0.51 },
+  ], 22, 0, 4), glass));
+  add(mesh(loft([
+    { x: 0.1, w: 1.24, yb: 0.795, yt: 0.82 },
+    { x: -0.5, w: 1.3, yb: 0.83, yt: 0.855 },
+    { x: -1.05, w: 1.2, yb: 0.715, yt: 0.74 },
+  ], 18, 0, 5), M.paint));
+  // strisce sul cofano e sul tetto, sfogo d'aria sul cofano
+  add(mesh(loft([{ x: 2.2, w: 0.24, yb: 0.06, yt: 0.09 }, { x: 1.6, w: 0.26, yb: 0.33, yt: 0.345 }, { x: 0.85, w: 0.26, yb: 0.42, yt: 0.435 }], 10, 0, 6), M.accent));
+  add(mesh(loft([{ x: 0.08, w: 0.26, yb: 0.817, yt: 0.828 }, { x: -0.5, w: 0.26, yb: 0.852, yt: 0.863 }, { x: -1.03, w: 0.24, yb: 0.737, yt: 0.748 }], 10, 0, 6), M.accent));
+  add(mesh(loft([{ x: 1.95, w: 0.62, yb: 0.2, yt: 0.24 }, { x: 1.5, w: 0.64, yb: 0.33, yt: 0.36 }], 10, 0, 6), M.black));
+  // pilota (dentro l'abitacolo)
+  const helmet = add(mesh(new THREE.SphereGeometry(0.13, 14, 10), M.helmet));
+  helmet.position.set(-0.4, 0.6, -0.26);
+  const visor = add(mesh(new THREE.SphereGeometry(0.132, 14, 6, -0.9, 1.8, 1.25, 0.45), M.black));
   visor.position.copy(helmet.position);
-  // halo
-  const halo = add(mesh(new THREE.TorusGeometry(0.34, 0.03, 8, 28, Math.PI * 1.1), M.carbon));
-  halo.position.set(-0.02, 0.5, 0);
-  halo.rotation.set(-Math.PI / 2, 0, -0.55 * Math.PI);
-  const pillar = add(box(0.04, 0.26, 0.05, M.carbon, 0.36, 0.4, 0)); pillar.rotation.z = -0.35;
-  // specchietti
-  for (const s of [-1, 1]) { add(mesh(loft([{ x: 0.48, w: 0.14, yb: 0.34, yt: 0.4 }, { x: 0.58, w: 0.14, yb: 0.34, yt: 0.4 }], 10, s * 0.46), M.paint)); }
 
-  // Ala anteriore: due metà staccabili, ognuna con piano, flap colorato e paratia
+  // Splitter anteriore: due metà staccabili, con i "canard" laterali (si rompono per primi)
   const frontWing = new THREE.Group(); body.add(frontWing);
   const fwHalves = [];
   for (const s of [-1, 1]) {
     const half = new THREE.Group();
-    add(mesh(loft([{ x: 2.4, w: 0.9, yb: -0.25, yt: -0.21 }, { x: 2.7, w: 0.9, yb: -0.255, yt: -0.215 }, { x: 2.9, w: 0.88, yb: -0.25, yt: -0.225 }], 10, s * 0.5, 6), M.carbon), half);
-    add(mesh(loft([{ x: 2.35, w: 0.86, yb: -0.19, yt: -0.16 }, { x: 2.6, w: 0.86, yb: -0.2, yt: -0.17 }], 10, s * 0.52, 6), M.accent), half);
-    add(mesh(loft([{ x: 2.25, w: 0.8, yb: -0.13, yt: -0.105 }, { x: 2.45, w: 0.8, yb: -0.14, yt: -0.115 }], 10, s * 0.55, 6), M.paint), half);
-    const end = add(mesh(loft([{ x: 2.25, w: 0.035, yb: -0.26, yt: -0.08 }, { x: 2.93, w: 0.035, yb: -0.26, yt: -0.14 }], 8, s * 0.97, 6), M.paint), half);
+    add(mesh(loft([{ x: 2.15, w: 0.96, yb: -0.385, yt: -0.355 }, { x: 2.47, w: 0.96, yb: -0.385, yt: -0.36 }], 10, s * 0.5, 8), M.carbon), half);
+    const end = add(mesh(loft([{ x: 2.12, w: 0.22, yb: -0.16, yt: -0.135 }, { x: 2.32, w: 0.16, yb: -0.17, yt: -0.15 }], 8, s * 0.96, 6), M.carbon), half);
     half.userData.endplate = end;
     frontWing.add(half);
     fwHalves.push(half);
   }
-  add(box(0.3, 0.14, 0.08, M.carbon, 2.35, -0.14, 0), frontWing);
 
-  // Ala posteriore alta con paratie
+  // Alettone posteriore GT: largo, all'altezza del tetto, su supporti "a collo di cigno"
   const rearWing = new THREE.Group(); body.add(rearWing);
-  add(mesh(loft([{ x: -2.35, w: 1.0, yb: 0.52, yt: 0.57 }, { x: -2.05, w: 1.0, yb: 0.55, yt: 0.6 }], 10, 0, 6), M.carbon), rearWing);
-  const flap = add(mesh(loft([{ x: -2.5, w: 1.0, yb: 0.66, yt: 0.7 }, { x: -2.3, w: 1.0, yb: 0.66, yt: 0.7 }], 10, 0, 6), M.paint), rearWing);
+  add(mesh(loft([{ x: -2.55, w: 1.86, yb: 0.86, yt: 0.9 }, { x: -2.2, w: 1.86, yb: 0.89, yt: 0.93 }], 10, 0, 8), M.carbon), rearWing);
+  const flap = add(mesh(loft([{ x: -2.6, w: 1.84, yb: 0.94, yt: 0.97 }, { x: -2.45, w: 1.84, yb: 0.94, yt: 0.97 }], 10, 0, 8), M.accent), rearWing);
   for (const s of [-1, 1]) {
-    add(mesh(loft([{ x: -2.55, w: 0.04, yb: 0.1, yt: 0.78 }, { x: -1.95, w: 0.04, yb: 0.12, yt: 0.66 }], 8, s * 0.52, 6), M.accent), rearWing);
+    add(mesh(loft([{ x: -2.64, w: 0.035, yb: 0.8, yt: 1.02 }, { x: -2.15, w: 0.035, yb: 0.83, yt: 0.96 }], 8, s * 0.94, 6), M.paint), rearWing);
+    const st = add(box(0.06, 0.44, 0.05, M.carbon, -2.22, 0.69, s * 0.4), rearWing); st.rotation.z = 0.3;
   }
-  add(box(0.28, 0.02, 0.9, M.carbon, -2.05, 0.1, 0), rearWing);
-  add(box(0.1, 0.46, 0.06, M.carbon, -2.12, 0.32, 0), rearWing);
   rearWing.userData.flap = flap;
-  // diffusore e luce
-  add(mesh(taper(-1.6, 1.0, -0.27, -0.22, -2.2, 1.0, -0.2, -0.03), M.carbon));
-  add(box(0.03, 0.07, 0.12, M.light, -2.2, -0.04, 0));
 
-  // Ruote grandi (posteriori più larghe) con cerchi colorati: 0=AS 1=AD 2=PS 3=PD
+  // Ruote da 18" con gomme da GT (71 cm): 0=AS 1=AD 2=PS 3=PD
   const wheels = [];
   const wheelPos = [[GEOM.axleF * 0.95, -1], [GEOM.axleF * 0.95, 1], [GEOM.axleR * 0.98, -1], [GEOM.axleR * 0.98, 1]];
   for (const [x, s] of wheelPos) {
     const front = x > 0;
-    const R = front ? 0.36 : 0.38, width = front ? 0.44 : 0.56;
+    const R = GEOM.wheelR, width = front ? 0.3 : 0.33;
     const pivot = new THREE.Group();
     const baseY = R - GEOM.cgHeight - 0.02;
-    pivot.position.set(x, baseY, s * (front ? 0.8 : 0.78));
+    pivot.position.set(x, baseY, s * GEOM.halfTrack);
     const spin = new THREE.Group();
     pivot.add(spin);
     add(mesh(tyreGeo(R, width), M.tyre), spin);
-    // cerchio
-    const rim = add(mesh(new THREE.CylinderGeometry(R * 0.62, R * 0.62, width * 0.92, 20), M.rim), spin);
+    const rim = add(mesh(new THREE.CylinderGeometry(R * 0.66, R * 0.66, width * 0.9, 20), M.rim), spin);
     rim.rotation.x = Math.PI / 2;
-    // mozzo e razze (per vedere la rotazione)
-    const hub = add(mesh(new THREE.CylinderGeometry(0.07, 0.07, width + 0.02, 10), M.black), spin);
+    const hub = add(mesh(new THREE.CylinderGeometry(0.06, 0.06, width + 0.02, 10), M.black), spin);
     hub.rotation.x = Math.PI / 2;
-    for (let k = 0; k < 3; k++) {
-      const spoke = box(R * 1.1, 0.05, 0.02, M.black, 0, 0, s * (width / 2 + 0.005));
-      spoke.rotation.z = k * Math.PI / 3; add(spoke, spin);
+    for (let k = 0; k < 5; k++) {
+      const spoke = box(R * 1.2, 0.045, 0.02, M.black, 0, 0, s * (width / 2 + 0.005));
+      spoke.rotation.z = k * Math.PI / 5; add(spoke, spin);
     }
-    // scritta laterale della gomma
-    const band = add(mesh(new THREE.TorusGeometry(R * 0.8, 0.012, 4, 28), M.stripe), spin);
+    const band = add(mesh(new THREE.TorusGeometry(R * 0.8, 0.011, 4, 28), M.stripe), spin);
     band.position.z = s * (width / 2 + 0.002);
     body.add(pivot);
-    const arms = [];
-    for (const [dy, dx] of [[0.1, 0.18], [-0.08, -0.18]]) {
-      const len = 0.42;
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, len, 5), M.black);
-      arm.rotation.x = Math.PI / 2;
-      arm.rotation.y = s * dx;
-      arm.position.set(x, baseY + dy, s * (0.36 + len / 2));
-      add(arm); arms.push(arm);
-    }
-    wheels.push({ pivot, spin, baseY, x, side: s, arms, angle: 0 });
+    wheels.push({ pivot, spin, baseY, x, side: s, arms: [], angle: 0 });
   }
 
   if (ghost) root.traverse(o => { o.renderOrder = 2; });

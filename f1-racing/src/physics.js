@@ -42,11 +42,11 @@ export { tyreGrip };
 // Punti dello scafo usati per le collisioni: [x, y(destra), parte]
 // (coordinate del modello, moltiplicate per la scala visiva delle vetture)
 const HULL = [
-  [2.9, -0.95, 'fwL'], [2.9, 0.95, 'fwR'], [2.9, 0, 'nose'],
-  [1.8, -1.03, 'wFL'], [1.8, 1.03, 'wFR'],
-  [0.2, -0.85, 'sideL'], [0.2, 0.85, 'sideR'],
-  [-1.67, -1.05, 'wRL'], [-1.67, 1.05, 'wRR'],
-  [-2.5, -0.52, 'rw'], [-2.5, 0.52, 'rw'],
+  [2.3, -0.92, 'fwL'], [2.3, 0.92, 'fwR'], [2.45, 0, 'nose'],
+  [1.3, -1.02, 'wFL'], [1.3, 1.02, 'wFR'],
+  [0.0, -1.0, 'sideL'], [0.0, 1.0, 'sideR'],
+  [-1.22, -1.02, 'wRL'], [-1.22, 1.02, 'wRR'],
+  [-2.3, -0.85, 'rw'], [-2.3, 0.85, 'rw'],
 ].map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
 
 // Caratteristiche della vettura: monoposto con prestazioni da GT
@@ -185,7 +185,8 @@ export class CarPhysics {
     }
   }
 
-  maxSteer(v) { return 0.33 / (1 + v / 18.5) + 0.014; }
+  // passo da GT (2,6 m): angoli più piccoli per la stessa curvatura che con il passo lungo
+  maxSteer(v) { return 0.73 * (0.33 / (1 + v / 18.5) + 0.014); }
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara

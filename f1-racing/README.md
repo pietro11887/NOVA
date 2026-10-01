@@ -1,6 +1,6 @@
 # Nova Grand Prix
 
-Gioco di corse in 3D (Three.js) con grafica low-poly: monoposto con prestazioni da GT (≈1240 kg, ≈560 CV, poco carico aerodinamico: staccate lunghe, scia e tecnica per superare) sul Circuito Nova (3,75 km, 26 curve: tornanti, esse e chicane).
+Gioco di corse in 3D (Three.js) con grafica low-poly: vetture GT3 (4,65 m, passo 2,6 m, ≈1240 kg, ≈560 CV, poco carico aerodinamico: staccate lunghe, scia e tecnica per superare) sul Circuito Nova (3,75 km, 26 curve: tornanti, esse e chicane).
 
 Modalità: **Gara contro i bot** (1–30 giri, box dalle gare da 8 giri con mescole morbide/medie/dure e riparazioni, 1–19 avversari, forza dei bot 1–110, posizione di partenza a scelta) e **Prova a tempo** da solo con fantasma del record.
 
@@ -10,7 +10,7 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/trackData.js` – tracciato (spline, cordoli, ghiaia, muri)
 - `src/track.js` – mesh della pista e interrogazione della superficie
 - `src/physics.js` – dinamica del veicolo (gomme, sospensioni, aerodinamica, motore, collisioni, danni)
-- `src/carModel.js` – modello della monoposto
+- `src/carModel.js` – modello della vettura GT3
 - `src/scenery.js` – terreno, alberi, tribune, box, semaforo
 - `src/ai.js` – pilota automatico dei bot (la forza cambia aderenza sfruttata, frenata, potenza e riflessi)
 - `src/pit.js` – corsia box (ingresso prima della chicane finale tenendo la destra, limitatore 80 km/h); la vettura va da sola alla piazzola mentre scegli gomme e riparazioni

@@ -291,9 +291,9 @@ function detachParts(car, phys, bot) {
     const v = k === 0 ? d.fwL : d.fwR;
     const end = half.userData.endplate;
     if (v > 0.4 && !end.userData.detached) debris.detach(end, vel, new THREE.Vector3(0, 1, 0));
-    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0)); lost.push('L\'ALA ANTERIORE'); }
+    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0)); lost.push('LO SPLITTER'); }
   });
-  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0)); lost.push('L\'ALA POSTERIORE'); }
+  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0)); lost.push('L\'ALETTONE'); }
   car.wheels.forEach((w, i) => {
     if (d.susp[i] >= 1 && !w.pivot.userData.detached) { debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0)); lost.push('UNA RUOTA'); }
   });
@@ -427,7 +427,7 @@ function updateModel(car, phys, dt) {
   const vib = phys.kerbVibe * 0.006;
   // la carrozzeria è ingrandita: si rialza perché le ruote tocchino l'asfalto
   const S = car.scale || 1;
-  car.body.position.y = 0.32 * S - 0.3 + (Math.random() - 0.5) * vib;
+  car.body.position.y = (GEOM.cgHeight + 0.02) * S - GEOM.cgHeight + (Math.random() - 0.5) * vib;
   car.body.rotation.set(phys.roll + (Math.random() - 0.5) * vib * 0.6, 0, phys.pitch, 'YZX');
   car.wheels.forEach((w, i) => {
     const pw = phys.wheels[i];
@@ -558,7 +558,7 @@ function updateCamera(dt) {
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
   } else {
     car.root.updateMatrixWorld(true);
-    const local = camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0);
+    const local = camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26);
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
