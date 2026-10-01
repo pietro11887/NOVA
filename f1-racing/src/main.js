@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { Track, SURF } from './track.js';
 import { ROAD_HALF_WIDTH } from './trackData.js';
-import { Scenery } from './scenery.js';
+import { Scenery, ENV } from './scenery.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
+import { loadGT, createGT, gtReady } from './gtModel.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
@@ -39,17 +40,17 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xcfe6f5, 350, 2600);
+scene.fog = new THREE.Fog(ENV.horizon, 420, 2700);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 9000);
 
-const hemi = new THREE.HemisphereLight(0xe6f3ff, 0x6a8a4a, 1.35);
+const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
+const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
 const shadowSize = settings.quality === 'low' ? 1024 : 2048;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
@@ -57,7 +58,7 @@ Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, n
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
-const SUN_DIR = new THREE.Vector3(-0.45, 0.8, 0.35).normalize();
+const SUN_DIR = ENV.sunDir;
 
 const track = new Track();
 const sounds = new Sound();
@@ -79,9 +80,9 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
 
-  car = createCar();
+  car = gtReady() ? createGT() : createCar();
   scene.add(car.root);
-  ghostCar = createCar({ ghost: true });
+  ghostCar = gtReady() ? createGT({ ghost: true }) : createCar({ ghost: true });
   ghostCar.root.visible = false;
   scene.add(ghostCar.root);
 
@@ -191,7 +192,7 @@ function startRaceGame() {
   };
   for (const c of race.cars) {
     if (c.isPlayer) continue;
-    c.model = mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() ? createGT({ primary: c.color, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.skidKey = 4 + c.slot * 4;
@@ -1055,6 +1056,7 @@ function frame(now) {
   sun.target.position.set(phys.x, phys.y, phys.z);
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 200);
   scenery.skyMesh.position.copy(camera.position);
+  scenery.update(mode === 'pause' ? 0 : dt);
   renderer.render(scene, camera);
   input.endFrame();
 }
@@ -1072,7 +1074,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && (mo
 
 // ---------------------------------------------------------------- avvio
 const fontsReady = Promise.race([document.fonts ? document.fonts.ready : Promise.resolve(), new Promise(r => setTimeout(r, 1500))]);
-fontsReady.then(() => requestAnimationFrame(() => setTimeout(() => {
+// il modello 3D delle GT si carica insieme ai font (se non arriva si usa quello procedurale)
+const gtLoad = Promise.race([loadGT().catch(e => console.warn('modello GT non caricato', e)), new Promise(r => setTimeout(r, 20000))]);
+Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTimeout(() => {
   build();
   resize();
   resetSession();
@@ -1081,7 +1085,7 @@ fontsReady.then(() => requestAnimationFrame(() => setTimeout(() => {
   $('loading').classList.add('hidden');
   window.__game = {
     phys, track, startGame, startRaceGame, settings, get race() { return race; }, get calls() { return renderer.info.render.calls; },
-    get mode() { return mode; }, get lap() { return lap; },
+    get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };

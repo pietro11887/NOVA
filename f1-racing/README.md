@@ -10,8 +10,9 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/trackData.js` – tracciato (spline, cordoli, ghiaia, muri)
 - `src/track.js` – mesh della pista e interrogazione della superficie
 - `src/physics.js` – dinamica del veicolo (gomme, sospensioni, aerodinamica, motore, collisioni, danni)
-- `src/carModel.js` – modello della vettura GT3
-- `src/scenery.js` – terreno, alberi, tribune, box, semaforo
+- `src/gtModel.js` – carica la Porsche 992 GT3 R (`assets/`), ruote, colori delle squadre, parti staccabili
+- `src/carModel.js` – geometria di riferimento e modello procedurale di riserva
+- `src/scenery.js` – ambientazione: cielo con nuvole, montagne, campagna, lago, boschi, tribune con bandiere, spettatori, paddock, ponte, paese, pale eoliche, mongolfiere
 - `src/ai.js` – pilota automatico dei bot (la forza cambia aderenza sfruttata, frenata, potenza e riflessi)
 - `src/pit.js` – corsia box (ingresso prima della chicane finale tenendo la destra, limitatore 80 km/h); la vettura va da sola alla piazzola mentre scegli gomme e riparazioni
 - `src/race.js` – gara: griglia, contatti tra vetture, giri, classifica e distacchi
@@ -23,3 +24,6 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 Telefono (in orizzontale): ◀ ▶ a sinistra per sterzare, FRENO e GAS a destra. Nel menu "Sterzo: Inclinazione" attiva lo sterzo col giroscopio (tieni premuto a destra per accelerare, a sinistra per frenare).
 
 Tastiera: ↑/W gas · ↓/S freno (tenuto da fermo = retromarcia) · ←→ sterzo · E/Q marce (manuale) · C telecamera · R rimetti in pista · M audio · P pausa. Supporta anche il gamepad.
+
+## Crediti
+Modello 3D "Porsche 992 GT3 R" di [MattDoesBlender](https://sketchfab.com/MattDoesBlender) ([Sketchfab](https://sketchfab.com/3d-models/porsche-992-gt3-r-03ea07f7972648aa9350853b2a1a942a)), licenza [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Le versioni ottimizzate in `assets/` (abitacolo rimosso, poligoni ridotti, texture WebP) sono distribuite con la stessa licenza. Progetto non commerciale. Dettagli in `assets/CREDITS.md`.
