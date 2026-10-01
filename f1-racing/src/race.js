@@ -196,7 +196,7 @@ export class Race {
       c.lapStart = tc;
       c.crossings++;
       c.halfway = false;
-      if (c.crossings >= this.laps) c.finishT = tc;
+      if (c.crossings >= this.laps) c.finishT = tc + (c.penalty || 0);   // penalità in secondi
     }
     // tempi di passaggio ogni 10 m (per i distacchi)
     if (c.finishT == null) {

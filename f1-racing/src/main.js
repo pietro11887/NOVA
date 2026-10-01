@@ -4,6 +4,7 @@ import { ROAD_HALF_WIDTH } from './trackData.js';
 import { Scenery, ENV } from './scenery.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
 import { loadGT, createGT, gtReady } from './gtModel.js';
+import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
@@ -118,6 +119,7 @@ let bannerTimer = 0;
 let gameType = 'trial';       // trial | race
 let lastFeed = -99, lastPos = 0, retiredSeen = new Set();
 let race = null, coolAI = null, resultsTimer = -1, lastLapWarned = false, raceHudT = 0;
+let sc = null, scPlayerIdx = -1, scPassT = -99;
 
 function newLap(start) {
   return { active: true, start, sector: 0, sectorStart: start, sectors: [null, null, null], valid: true, rec: [], recNext: 0, split: [], splitNext: 0 };
@@ -152,6 +154,8 @@ function startCountdown() {
 
 function clearRace() {
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
+  if (sc) { sc.dispose(); sc = null; }
+  $('scInfo').classList.add('hidden');
   race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false;
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
@@ -201,6 +205,15 @@ function startRaceGame() {
     setTyreColor(c.model, c.phys.compound);
     updateModel(c.model, c.phys, 0);
   }
+  // safety car (vettura gialla con barra luci)
+  const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid' }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
+  sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
+  sc.onEvent = kind => {
+    if (kind === 'out') { showBanner('SAFETY CAR · NON SORPASSARE', 'yellow', 3, true); feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow'); }
+    if (kind === 'in') feed('SAFETY CAR RIENTRA IN QUESTO GIRO', 'yellow');
+    if (kind === 'green') { showBanner('VIA LIBERA!', 'green', 2.5, true); feed('BANDIERA VERDE: SI TORNA A CORRERE', 'green'); }
+  };
+  scPlayerIdx = -1;
   setTyreColor(car, phys.compound);
   document.body.classList.add('race-mode');
   $('racePos').classList.remove('hidden');
@@ -516,6 +529,29 @@ function updateEffects(dt) {
   }
   particles.update(dt);
   debris.update(dt, phys.hint);
+}
+
+// regole in regime di safety car: chi sorpassa prende una penalità di tempo
+function scRules() {
+  const el = $('scInfo');
+  if (!sc.active || !race || race.player.finishT != null) { el.classList.add('hidden'); scPlayerIdx = -1; return; }
+  el.classList.remove('hidden');
+  el.textContent = sc.phase === 'out' ? 'SAFETY CAR · NON SORPASSARE' : sc.phase === 'in' ? 'SAFETY CAR RIENTRA · NON SORPASSARE' : 'PRONTI AL VIA · SI SORPASSA DOPO IL TRAGUARDO';
+  const p = race.player;
+  if (p.pit) { scPlayerIdx = -1; el.classList.add('hidden'); return; }
+  const ord = sc.order(), idx = ord.indexOf(p);
+  if (scPlayerIdx >= 0 && idx >= 0 && idx < scPlayerIdx && simTime - scPassT > 2) {
+    const passed = ord[idx + 1];
+    if (passed && passed.phys.speed > 12) { penalize(5, 'SORPASSO IN REGIME DI SAFETY CAR'); scPassT = simTime; }
+  }
+  if (sc.isAhead(p) === false && (sc.phase === 'out' || sc.phase === 'in') && simTime - scPassT > 4) { penalize(10, 'HAI SUPERATO LA SAFETY CAR'); scPassT = simTime; }
+  scPlayerIdx = idx;
+}
+
+function penalize(sec, why) {
+  race.player.penalty = (race.player.penalty || 0) + sec;
+  showBanner(`${why}: +${sec} s`, 'red', 3, true);
+  feed(`PENALITÀ ${race.player.name}: +${sec} s (${why.toLowerCase()})`, 'red');
 }
 
 // ---------------------------------------------------------------- telecamera
@@ -1040,6 +1076,7 @@ function frame(now) {
       const near = Math.abs(c.phys.x - phys.x) + Math.abs(c.phys.z - phys.z) < 70;
       if (c.model.shadowOn !== near) { c.model.shadowOn = near; c.model.root.traverse(o => { if (o.isMesh) o.castShadow = near; }); }
     }
+    if (sc && mode === 'race') { sc.update(dt); scRules(); }
     updateEffects(mode === 'race' ? dt : dt * 0.5);
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
@@ -1099,7 +1136,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   $('loading').classList.add('hidden');
   window.__game = {
     phys, track, startGame, startRaceGame, settings, get race() { return race; }, get calls() { return renderer.info.render.calls; },
-    get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get info() { return renderer.info.render; },
+    get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };

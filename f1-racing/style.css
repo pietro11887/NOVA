@@ -263,3 +263,7 @@ body #hud > #pitPanel, body.touch #hud > #pitPanel.pitPanel { pointer-events: au
 .pitRow { grid-template-columns: 1fr; }
 .pitPanel { top: calc(max(16px, env(safe-area-inset-top)) + 96px); }
 @media (max-height: 500px) { .pitPanel { top: calc(max(12px, env(safe-area-inset-top)) + 92px); padding: 8px 10px; } .pitPanel button { padding: 6px 4px; font-size: 13px; } .pitPanel button small { display: none; } }
+
+/* safety car */
+.scInfo { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); background: #f5c518; color: #111; border-radius: 6px; padding: 4px 12px; font-weight: 900; font-size: 14px; letter-spacing: 0.04em; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.35); animation: scBlink 1.2s infinite; }
+@keyframes scBlink { 50% { background: #ffdf4d; } }

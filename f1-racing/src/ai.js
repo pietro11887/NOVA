@@ -100,6 +100,8 @@ export class AIDriver {
 
     // --- scadenza di errori e attacchi ---
     if (this.mistake && this.t > this.mistake.until) this.mistake = null;
+    // safety car: in fila, niente attacchi né errori
+    if (this.sc) { this.attack = null; if (this.mistake && this.mistake.type !== 'late') this.mistake = null; if (this.mistake) this.mistake = null; }
     if (this.attack && this.t > this.attack.until) this.attack = null;
 
     // --- traffico ---
@@ -150,7 +152,7 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
@@ -162,7 +164,7 @@ export class AIDriver {
       }
       // 2) sul dritto: scia e poi fuori
       const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
-      if (!hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
+      if (!this.sc && !hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.2)) - this.line.off[i];
       }
@@ -188,14 +190,14 @@ export class AIDriver {
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
-    if (!this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 && chaserGap < -7 && !(chaser.ai && chaser.ai.attack)) {
+    if (!this.sc && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 && chaserGap < -7 && !(chaser.ai && chaser.ai.attack)) {
       this.defZone = brakeIdx;
       if (this.rand() < this.aggr * 0.7) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
     }
 
     // --- errori umani ---
     const lapTime = 55;
-    if (!this.mistake && brakeIdx >= 0 && this.lastZoneRoll !== brakeIdx && raceT > 4) {
+    if (!this.sc && !this.mistake && brakeIdx >= 0 && this.lastZoneRoll !== brakeIdx && raceT > 4) {
       this.lastZoneRoll = brakeIdx;
       if (this.rand() < this.errPerLap / 5) {
         const r = this.rand(), sev = 0.4 + 0.6 * this.rand();
@@ -207,7 +209,7 @@ export class AIDriver {
     }
     // uscita di curva: troppo gas
     const exiting = this.profile[(i + 20) % n] > v + 8 && v < 55 && Math.abs(tr.samples[i].curv) > 0.008;
-    if (!this.mistake && exiting && this.exitZone !== (i >> 5) && raceT > 4) {
+    if (!this.sc && !this.mistake && exiting && this.exitZone !== (i >> 5) && raceT > 4) {
       this.exitZone = i >> 5;
       if (this.rand() < this.errPerLap / 25) { this.mistake = { type: 'power', until: this.t + 1.4 }; this.emit('power'); }
     }
@@ -262,6 +264,7 @@ export class AIDriver {
     else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
     if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * 13 * toPit));
     vT = Math.min(vT, vCap);
+    if (this.sc) vT = Math.min(vT, this.sc.vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;
     // gas e freno dosati (niente strappi a metà curva, che farebbero perdere il posteriore)
     const err = vT - v;

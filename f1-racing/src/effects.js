@@ -155,7 +155,13 @@ export class Debris {
     const h = kind === 'wheel' ? 0.32 : kind === 'wing' ? 0.1 : kind === 'end' ? 0.04 : 0.06;
     const sharp = kind !== 'wheel';
     const mass = kind === 'wheel' ? 25 : kind === 'wing' ? 8 : 4;
-    this.items.push({ obj: piece, v, w, hint: -1, rest: false, r, h, sharp, mass, kick: 0 });
+    this.items.push({ obj: piece, v, w, hint: -1, rest: false, r, h, sharp, mass, kick: 0, kind });
+  }
+
+  // i commissari portano via un rottame
+  removeItem(it) {
+    this.scene.remove(it.obj);
+    this.items = this.items.filter(x => x !== it);
   }
 
   // contatto ruote-rottami per una vettura (chiamato dalla fisica a ogni passo)
