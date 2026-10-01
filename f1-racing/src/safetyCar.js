@@ -103,7 +103,8 @@ export class SafetyCar {
       }
       this.pose(dt);
     }
-    if (this.phase === 'restart' && lead.crossings > this.inLap) this.end();
+    // bandiera verde: si smette subito di guidare il gruppo (niente limiti rimasti ai bot)
+    if (this.phase === 'restart' && lead.crossings > this.inLap) { this.end(); return; }
     if (this.lightMat) this.lightMat.emissiveIntensity = this.phase === 'out' ? (Math.sin(this.t * 12) > 0 ? 3 : 0.2) : 0;
     this.guide(ord);
   }
@@ -128,6 +129,7 @@ export class SafetyCar {
 
   // velocità massima per ogni bot: in fila, a distanza costante, senza attacchi
   guide(ord) {
+    if (this.phase === 'off') return;
     const scD = this.phase === 'restart' ? null : this.D;
     let prevD = scD, prevV = this.v;
     for (let k = 0; k < ord.length; k++) {
