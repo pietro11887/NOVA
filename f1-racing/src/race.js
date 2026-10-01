@@ -213,40 +213,59 @@ export class Race {
       const A = cars[a].phys, B = cars[b].phys;
       const dx = B.x - A.x, dz = B.z - A.z;
       if (dx * dx + dz * dz > 81 || Math.abs(A.y - B.y) > 2) continue;
+      // un solo contatto per coppia: la coppia di cerchi più compenetrata
+      // (prima ogni coppia applicava il suo urto e un tocco valeva 2-3 urti)
+      let best = null;
       for (const [ax, ar] of CIRCLES) for (const [bx, br] of CIRCLES) {
         const pax = A.x + Math.cos(A.yaw) * ax, paz = A.z + Math.sin(A.yaw) * ax;
         const pbx = B.x + Math.cos(B.yaw) * bx, pbz = B.z + Math.sin(B.yaw) * bx;
-        let nx = pbx - pax, nz = pbz - paz;
+        const nx = pbx - pax, nz = pbz - paz;
         const dist = Math.hypot(nx, nz), pen = ar + br - dist;
         if (pen <= 0 || dist < 1e-4) continue;
-        nx /= dist; nz /= dist;
-        // punto di contatto e bracci
-        const cx = pax + nx * ar, cz = paz + nz * ar;
-        const rax = cx - A.x, raz = cz - A.z, rbx = cx - B.x, rbz = cz - B.z;
-        const vax = A.vx - A.yawRate * raz, vaz = A.vz + A.yawRate * rax;
-        const vbx = B.vx - B.yawRate * rbz, vbz = B.vz + B.yawRate * rbx;
-        const vn = (vbx - vax) * nx + (vbz - vaz) * nz;
-        // separazione
-        A.x -= nx * pen / 2; A.z -= nz * pen / 2; B.x += nx * pen / 2; B.z += nz * pen / 2;
-        if (vn >= 0) continue;
-        const ran = rax * nz - raz * nx, rbn = rbx * nz - rbz * nx;
-        const e = 0.25;
-        const j = -(1 + e) * vn / (1 / A.mass + 1 / B.mass + ran * ran / A.Iz + rbn * rbn / B.Iz);
-        A.vx -= j * nx / A.mass; A.vz -= j * nz / A.mass; A.yawRate -= j * ran / A.Iz;
-        B.vx += j * nx / B.mass; B.vz += j * nz / B.mass; B.yawRate += j * rbn / B.Iz;
-        const impact = -vn;
-        const partOf = (P, lx, cxw, czw) => {
-          const side = -(cxw - P.x) * Math.sin(P.yaw) + (czw - P.z) * Math.cos(P.yaw); // >0 destra
-          if (lx > 1) return side > 0.3 ? 'fwR' : side < -0.3 ? 'fwL' : 'nose';
-          if (lx < -1) return side > 0.3 ? 'wRR' : side < -0.3 ? 'wRL' : 'rw';
-          return side > 0 ? 'sideR' : 'sideL';
-        };
-        A.applyContactDamage(partOf(A, ax, cx, cz), impact);
-        B.applyContactDamage(partOf(B, bx, cx, cz), impact);
-        const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: 0 };
-        for (const fn of A.listeners.impact) fn({ ...info, nx: -nx, nz: -nz });
-        for (const fn of B.listeners.impact) fn(info);
+        if (!best || pen > best.pen) best = { ax, ar, bx, pax, paz, nx: nx / dist, nz: nz / dist, pen };
       }
+      if (!best) continue;
+      const { ax, ar, bx, pax, paz, nx, nz, pen } = best;
+      // punto di contatto e bracci
+      const cx = pax + nx * ar, cz = paz + nz * ar;
+      const rax = cx - A.x, raz = cz - A.z, rbx = cx - B.x, rbz = cz - B.z;
+      const vax = A.vx - A.yawRate * raz, vaz = A.vz + A.yawRate * rax;
+      const vbx = B.vx - B.yawRate * rbz, vbz = B.vz + B.yawRate * rbx;
+      const vn = (vbx - vax) * nx + (vbz - vaz) * nz;
+      // separazione morbida (niente "scatti" di posizione)
+      const corr = Math.min(pen, 0.02 + pen * 0.4) / 2;
+      A.x -= nx * corr; A.z -= nz * corr; B.x += nx * corr; B.z += nz * corr;
+      if (vn >= 0) continue;
+      const impact = -vn;
+      // inerzia d'imbardata coerente con le dimensioni (scalate) della vettura;
+      // nei tocchi leggeri pneumatici e sospensioni assorbono quasi tutta la rotazione
+      const soft = Math.min(1, Math.max(0.25, (impact - 1.5) / 6));
+      const IzA = A.Iz * CAR_SCALE * CAR_SCALE / soft, IzB = B.Iz * CAR_SCALE * CAR_SCALE / soft;
+      const ran = rax * nz - raz * nx, rbn = rbx * nz - rbz * nx;
+      const e = impact < 3 ? 0.05 : 0.15;
+      const j = -(1 + e) * vn / (1 / A.mass + 1 / B.mass + ran * ran / IzA + rbn * rbn / IzB);
+      A.vx -= j * nx / A.mass; A.vz -= j * nz / A.mass; A.yawRate -= j * ran / IzA;
+      B.vx += j * nx / B.mass; B.vz += j * nz / B.mass; B.yawRate += j * rbn / IzB;
+      // sfregamento tra le carrozzerie (attrito limitato)
+      const tx = -nz, tz = nx;
+      const vt = ((B.vx - B.yawRate * rbz) - (A.vx - A.yawRate * raz)) * tx + ((B.vz + B.yawRate * rbx) - (A.vz + A.yawRate * rax)) * tz;
+      const rat = rax * tz - raz * tx, rbt = rbx * tz - rbz * tx;
+      let jt = -vt / (1 / A.mass + 1 / B.mass + rat * rat / IzA + rbt * rbt / IzB);
+      const maxJt = 0.15 * j;
+      jt = Math.max(-maxJt, Math.min(maxJt, jt));
+      A.vx -= jt * tx / A.mass; A.vz -= jt * tz / A.mass; A.yawRate -= jt * rat / IzA;
+      B.vx += jt * tx / B.mass; B.vz += jt * tz / B.mass; B.yawRate += jt * rbt / IzB;
+      const partOf = (P, lx, cxw, czw) => {
+        const side = -(cxw - P.x) * Math.sin(P.yaw) + (czw - P.z) * Math.cos(P.yaw); // >0 destra
+        if (lx > 1) return side > 0.3 ? 'fwR' : side < -0.3 ? 'fwL' : 'nose';
+        if (lx < -1) return side > 0.3 ? 'wRR' : side < -0.3 ? 'wRL' : 'rw';
+        return side > 0 ? 'sideR' : 'sideL';
+      };
+      A.applyContactDamage(partOf(A, ax, cx, cz), impact);
+      B.applyContactDamage(partOf(B, bx, cx, cz), impact);
+      const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: Math.abs(vt) };
+      for (const fn of A.listeners.impact) fn({ ...info, nx: -nx, nz: -nz });
+      for (const fn of B.listeners.impact) fn(info);
     }
   }
 

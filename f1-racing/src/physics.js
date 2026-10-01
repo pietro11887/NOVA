@@ -427,48 +427,51 @@ export class CarPhysics {
   collide(dt) {
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
     const pr = this._pr || (this._pr = {}), sf = this._sf || (this._sf = {});
-    let deepest = null;
     // lontano dai muri non serve controllare lo scafo
     const sc = this.track.samples[this.prCG.i];
     if (Math.abs(this.prCG.d) + 4.5 < Math.min(sc.wallL, sc.wallR)) return;
+    // punto dello scafo più compenetrato nel muro: un solo contatto per passo
+    let hit = null;
     for (const [hx, hy, part] of HULL) {
       const px = this.x + cy * hx - sy * hy;
       const pz = this.z + sy * hx + cy * hy;
       this.track.project(px, pz, this.hint, pr, 6);
       const wall = pr.d > 0 ? this.track.samples[pr.i].wallL : this.track.samples[pr.i].wallR;
       const pen = Math.abs(pr.d) - wall;
-      if (pen <= 0) continue;
+      if (pen <= 0 || (hit && pen <= hit.pen)) continue;
       const sgn = pr.d > 0 ? 1 : -1;
-      const nx = -sgn * pr.nx, nz = -sgn * pr.nz; // verso la pista
-      const rx = px - this.x, rz = pz - this.z;
-      // velocità del punto di contatto
-      const vpx = this.vx - this.yawRate * rz;
-      const vpz = this.vz + this.yawRate * rx;
-      const vn = vpx * nx + vpz * nz;
-      // correzione di posizione
-      this.x += nx * pen; this.z += nz * pen;
-      if (vn >= 0) continue;
-      const rn = rx * nz - rz * nx;
-      const e = 0.28;
-      const j = -(1 + e) * vn / (1 / this.mass + rn * rn / this.Iz);
-      this.vx += j * nx / this.mass; this.vz += j * nz / this.mass;
-      this.yawRate += j * rn / this.Iz;
-      // attrito sul muro
-      const tx = -nz, tz = nx;
-      const vt = (this.vx - this.yawRate * rz) * tx + (this.vz + this.yawRate * rx) * tz;
-      const rt = rx * tz - rz * tx;
-      let jt = -vt / (1 / this.mass + rt * rt / this.Iz);
-      const maxJt = 0.45 * j;
-      jt = Math.max(-maxJt, Math.min(maxJt, jt));
-      this.vx += jt * tx / this.mass; this.vz += jt * tz / this.mass;
-      this.yawRate += jt * rt / this.Iz;
-      const impact = -vn;
-      if (!deepest || impact > deepest.impact) deepest = { impact, part, x: px, z: pz, y: pr.y, nx, nz, scrape: Math.abs(vt) };
+      hit = { pen, part, px, pz, y: pr.y, nx: -sgn * pr.nx, nz: -sgn * pr.nz };   // normale verso la pista
     }
-    if (deepest) {
-      this.applyDamage(deepest.part, deepest.impact);
-      for (const fn of this.listeners.impact) fn(deepest);
-    }
+    if (!hit) return;
+    const { pen, part, px, pz, nx, nz } = hit;
+    const rx = px - this.x, rz = pz - this.z;
+    // correzione di posizione
+    this.x += nx * pen; this.z += nz * pen;
+    // velocità del punto di contatto
+    const vn = (this.vx - this.yawRate * rz) * nx + (this.vz + this.yawRate * rx) * nz;
+    if (vn >= 0) return;
+    const impact = -vn;
+    // inerzia d'imbardata coerente con le dimensioni della vettura; nelle strisciate
+    // leggere pneumatici e sospensioni assorbono gran parte della rotazione
+    const soft = Math.min(1, Math.max(0.3, (impact - 1) / 7));
+    const Iz = this.Iz * CAR_SCALE * CAR_SCALE / soft;
+    const rn = rx * nz - rz * nx;
+    const e = impact < 4 ? 0.06 : 0.18;
+    const j = -(1 + e) * vn / (1 / this.mass + rn * rn / Iz);
+    this.vx += j * nx / this.mass; this.vz += j * nz / this.mass;
+    this.yawRate += j * rn / Iz;
+    // attrito sul muro: rallenta, ma non fa girare la vettura come una trottola
+    const tx = -nz, tz = nx;
+    const vt = (this.vx - this.yawRate * rz) * tx + (this.vz + this.yawRate * rx) * tz;
+    const rt = rx * tz - rz * tx;
+    let jt = -vt / (1 / this.mass + rt * rt / Iz);
+    const maxJt = 0.3 * j;
+    jt = Math.max(-maxJt, Math.min(maxJt, jt));
+    this.vx += jt * tx / this.mass; this.vz += jt * tz / this.mass;
+    this.yawRate += jt * rt / Iz;
+    const ev = { impact, part, x: px, z: pz, y: hit.y, nx, nz, scrape: Math.abs(vt) };
+    this.applyDamage(part, impact);
+    for (const fn of this.listeners.impact) fn(ev);
   }
 
   // scala dell'accumulo: danni ridotti = metà
@@ -477,7 +480,7 @@ export class CarPhysics {
   // urto contro barriere
   applyDamage(part, impact) {
     const d = this.damage;
-    const amt = Math.max(0, impact - 2.5) / 22 * this.dmgScale;
+    const amt = Math.max(0, impact - 3.5) / 22 * this.dmgScale;   // sotto ~13 km/h di velocità d'urto è una strisciata
     if (amt <= 0) return;
     const add = (k, v) => { d[k] = Math.min(1, d[k] + v); };
     const susp = (i, v) => { d.susp[i] = Math.min(1, d.susp[i] + v); };
@@ -502,15 +505,16 @@ export class CarPhysics {
     const add = (key, v) => { if (v > 0) d[key] = Math.min(1, d[key] + v * k); };
     const susp = (i, v) => { if (v > 0) d.susp[i] = Math.min(1, d.susp[i] + v * k); };
     switch (part) {
-      case 'fwL': add('fwL', (impact - 3) / 9); break;
-      case 'fwR': add('fwR', (impact - 3) / 9); break;
-      case 'nose': add('fwL', (impact - 3) / 10); add('fwR', (impact - 3) / 10); break;
-      case 'rw': add('rw', (impact - 3) / 10); add('floor', (impact - 3) / 15); add('gearbox', (impact - 4) / 18); break;
-      case 'sideL': case 'sideR': add('floor', (impact - 3) / 14); add('radiator', (impact - 3) / 10); break;
+      // sotto ~4 m/s (15 km/h di differenza) è un tocco: nessun danno
+      case 'fwL': add('fwL', (impact - 4) / 12); break;
+      case 'fwR': add('fwR', (impact - 4) / 12); break;
+      case 'nose': add('fwL', (impact - 4) / 13); add('fwR', (impact - 4) / 13); break;
+      case 'rw': add('rw', (impact - 4.5) / 13); add('floor', (impact - 4.5) / 18); add('gearbox', (impact - 6) / 20); break;
+      case 'sideL': case 'sideR': add('floor', (impact - 4.5) / 16); add('radiator', (impact - 4.5) / 12); break;
       case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
         const i = { wFL: 0, wFR: 1, wRL: 2, wRR: 3 }[part];
-        susp(i, (impact - 4) / 16);
-        this.maybePuncture(i, impact, 0.05);
+        susp(i, (impact - 5) / 18);
+        this.maybePuncture(i, impact, 0.04);
         break;
       }
     }
