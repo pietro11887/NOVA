@@ -786,6 +786,7 @@ export class Scenery {
         const j = (i - Math.round((dist + 20) / st) + n) % n, s = S[j];
         const d = (s.hw + 1.6 + 2.2) * side;
         const x = s.x + s.nx * d, z = s.z + s.nz * d, ry = Math.atan2(-s.tz, s.tx);
+        if (!this.free(x, z, 0.5)) return;
         this.batch.add(board, mats[q], mat4(x, s.y + 1.9, z, ry + Math.PI));
         this.batch.add(post, this.colored, mat4(x, s.y + 0.6, z), 0x9aa3ae);
       });

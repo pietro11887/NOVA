@@ -277,13 +277,14 @@ export class Track {
       m.receiveShadow = true;
       return m;
     };
-    const isTyre = s => (side > 0 ? s.gravelL : s.gravelR);
+    const isTyre = s => (side > 0 ? s.gravelL || s.escL : s.gravelR || s.escR);
+    const shared = s => (side > 0 ? s.sharedL : s.sharedR);
     const barrierMat = new THREE.MeshStandardMaterial({ map: barrierT, roughness: 0.7, side: THREE.DoubleSide });
     const tyreMat = new THREE.MeshStandardMaterial({ map: tyreT, roughness: 0.9, side: THREE.DoubleSide });
-    grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s)));
-    grp.add(make(-1.5, 1.1, tyreMat, 2.2, isTyre));
+    grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
+    grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s)));
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
-    grp.add(make(1.05, 4.2, fenceMat, 3, null, 0.6));
+    grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
     // muretto box tra pista e corsia box (dal lato dei box)
     if (side === (TRACK.pit.side || -1)) {
       const pitWallMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.8, side: THREE.DoubleSide });

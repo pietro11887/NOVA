@@ -203,6 +203,41 @@ function buildingProbe(buildings) {
   };
 }
 
+function separate(pts, step) {
+  const n = pts.length, skip = Math.round(120 / step);
+  for (let iter = 0; iter < 4; iter++) {
+    const push = pts.map(() => [0, 0]);
+    let any = false;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i];
+      let best = -1, bd = Infinity;
+      for (let j = 0; j < n; j++) {
+        let ds = Math.abs(i - j); ds = Math.min(ds, n - ds);
+        if (ds < skip) continue;
+        const b = pts[j], dx = b[0] - a[0], dz = b[2] - a[2];
+        if (Math.abs(dx) > 30 || Math.abs(dz) > 30) continue;
+        const d = Math.hypot(dx, dz);
+        if (d < bd) { bd = d; best = j; }
+      }
+      if (best < 0) continue;
+      const b = pts[best], want = a[3] + b[3] + 1.4;
+      if (bd >= want) continue;
+      const k = (want - bd) / 2 / bd;
+      push[i][0] = (a[0] - b[0]) * k; push[i][1] = (a[2] - b[2]) * k;
+      any = true;
+    }
+    if (!any) break;
+    // spostamento graduale lungo il tracciato
+    const W = 25;
+    const sm = push.map((_, i) => {
+      let x = 0, z = 0, w = 0;
+      for (let j = -W; j <= W; j++) { const q = push[(i + j + n) % n], f = 1 - Math.abs(j) / (W + 1); x += q[0] * f; z += q[1] * f; w += f; }
+      return [x / w * 1.6, z / w * 1.6];
+    });
+    pts.forEach((p, i) => { p[0] += sm[i][0]; p[2] += sm[i][1]; });
+  }
+}
+
 export function buildTrack(points) {
   const def = TRACK;
   const scale = points ? 1.3 : def.xzScale;
@@ -234,6 +269,9 @@ export function buildTrack(points) {
     const a = dense[k], b = dense[(k + 1) % dense.length];
     pts.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f]);
   }
+  // in città: due tratti affiancati (le carreggiate opposte dello stesso viale) vengono
+  // allontanati quanto basta per la loro larghezza più il muro in mezzo
+  if (def.street) separate(pts, step);
   // traguardo spostato indietro lungo il rettilineo (s = 0 sulla linea)
   const shift = Math.round((def.lineShift || 0) / step);
   if (shift) pts = pts.slice(count - shift).concat(pts.slice(0, count - shift));
@@ -257,6 +295,35 @@ export function buildTrack(points) {
   });
   sm.forEach((c, i) => samples[i].curv = c);
 
+  // 3b) spazio verso le altre parti di pista (a sinistra e a destra), con il campione più vicino.
+  // In città due tratti possono correre affiancati (le due carreggiate di un viale):
+  // la larghezza si riduce perché le due piste non si sovrappongano e in mezzo resta un solo muro.
+  const street = !!def.street;
+  for (let i = 0; i < count; i++) {
+    const si = samples[i];
+    si.clearL = si.clearR = 1e9; si.nearL = si.nearR = -1;
+    for (let j = 0; j < count; j++) {
+      let ds = Math.abs(i - j); ds = Math.min(ds, count - ds) * step;
+      if (ds < 120) continue;
+      const sj = samples[j];
+      const dx = sj.x - si.x, dz = sj.z - si.z;
+      if (Math.abs(dx) > 200 || Math.abs(dz) > 200) continue;
+      const dist = Math.hypot(dx, dz);
+      const along = Math.abs(dx * si.tx + dz * si.tz);
+      if (along > dist * 0.8) continue;
+      if (dx * si.nx + dz * si.nz > 0) { if (dist < si.clearL) { si.clearL = dist; si.nearL = j; } }
+      else if (dist < si.clearR) { si.clearR = dist; si.nearR = j; }
+    }
+  }
+  if (street) {
+    const target = samples.map(s => Math.min(s.hw, Math.min(s.clearL, s.clearR) / 2 - 0.7));
+    const lo = target.map((_, i) => { let m = Infinity; for (let j = -10; j <= 10; j++) m = Math.min(m, target[(i + j + count) % count]); return m; });
+    samples.forEach((s, i) => {
+      let acc = 0; for (let j = -6; j <= 6; j++) acc += lo[(i + j + count) % count];
+      s.hw = Math.max(3.2, Math.min(s.hw, acc / 13, target[i]));
+    });
+  }
+
   // 4) cordoli: presenti dove la curva è significativa (su entrambi i lati)
   // (in città solo nelle curve vere: le strade hanno piccole pieghe che non sono curve)
   const kerbMask = samples.map(s => Math.abs(s.curv) > (def.street ? 0.012 : 0.0065));
@@ -265,33 +332,23 @@ export function buildTrack(points) {
   const ext = kerbMask.map((_, i) => {
     for (let j = -kx; j <= kx; j++) if (kerbMask[(i + j + count) % count]) return true; return false;
   });
-  samples.forEach((s, i) => { s.kerbL = ext[i]; s.kerbR = ext[i]; });
+  samples.forEach((s, i) => {
+    s.kerbL = ext[i]; s.kerbR = ext[i];
+    // in città niente cordolo sul lato di un tratto affiancato (c'è solo il muro in mezzo)
+    if (street) { if (s.clearL < 2 * s.hw + 6) s.kerbL = false; if (s.clearR < 2 * s.hw + 6) s.kerbR = false; }
+  });
 
   // 5) distanza delle barriere: limitata dallo spazio verso altre parti di pista
-  const street = !!def.street;
   const maxRun = street ? 24 : 26, minRun = street ? 0 : 11;
   for (let i = 0; i < count; i++) {
     const si = samples[i];
-    let clearL = 1e9, clearR = 1e9;
-    for (let j = 0; j < count; j += 2) {
-      let ds = Math.abs(i - j); ds = Math.min(ds, count - ds) * step;
-      if (ds < 120) continue;
-      const sj = samples[j];
-      const dx = sj.x - si.x, dz = sj.z - si.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > 200) continue;
-      const side = dx * si.nx + dz * si.nz; // >0 sinistra
-      const along = Math.abs(dx * si.tx + dz * si.tz);
-      if (along > dist * 0.8) continue;
-      if (side > 0) clearL = Math.min(clearL, dist); else clearR = Math.min(clearR, dist);
-    }
+    const clearL = si.clearL, clearR = si.clearR;
     if (street) {
-      // città: muri di cemento subito dopo il bordo (o il cordolo); in mezzo ad altre parti di pista
-      // il muro sta a metà strada
+      // città: muri di cemento subito dopo il bordo (o il cordolo); tra due tratti affiancati
+      // un solo muro a metà strada
       const base = si.hw + 1.1;
-      si.wallL = Math.min(base + (si.kerbL ? KERB_WIDTH : 0), clearL / 2 - 1);
-      si.wallR = Math.min(base + (si.kerbR ? KERB_WIDTH : 0), clearR / 2 - 1);
-      si.clearL = clearL; si.clearR = clearR;
+      si.wallL = Math.min(base + (si.kerbL ? KERB_WIDTH : 0), clearL / 2);
+      si.wallR = Math.min(base + (si.kerbR ? KERB_WIDTH : 0), clearR / 2);
     } else {
       si.wallL = Math.max(minRun, Math.min(maxRun, clearL / 2 - 2));
       si.wallR = Math.max(minRun, Math.min(maxRun, clearR / 2 - 2));
@@ -307,8 +364,10 @@ export function buildTrack(points) {
         const t = Math.min((so - a) / 25, (b - so) / 25, 1);
         const want = s.hw + 3 + (maxRun - s.hw - 3) * Math.max(0, t);
         const clear = side > 0 ? s.clearL : s.clearR;
-        const lim = Math.min(want, clear / 2 - 1);
+        const lim = Math.min(want, clear / 2);
         if (side > 0) s.wallL = Math.max(s.wallL, lim); else s.wallR = Math.max(s.wallR, lim);
+        // in fondo alla via di fuga barriere ad assorbimento invece del cemento
+        if (lim > s.hw + 4) { if (side > 0) s.escL = true; else s.escR = true; }
       }
       if (probe) {
         for (const side of [1, -1]) {
@@ -333,6 +392,16 @@ export function buildTrack(points) {
     const minW = street ? s.hw + 0.8 : ROAD_HALF_WIDTH + KERB_WIDTH + 2.5;
     s.wallL = Math.max(s.wallL, minW + (street && s.kerbL ? KERB_WIDTH : 0));
     s.wallR = Math.max(s.wallR, minW + (street && s.kerbR ? KERB_WIDTH : 0));
+    if (street) {
+      // mai oltre la metà dello spazio verso l'altro tratto
+      s.wallL = Math.max(s.hw + 0.4, Math.min(s.wallL, s.clearL / 2));
+      s.wallR = Math.max(s.hw + 0.4, Math.min(s.wallR, s.clearR / 2));
+    }
+  });
+  // muro condiviso tra due tratti affiancati: lo disegna uno solo dei due
+  samples.forEach((s, i) => {
+    s.sharedL = street && s.nearL >= 0 && s.wallL >= s.clearL / 2 - 0.05 && i > s.nearL;
+    s.sharedR = street && s.nearR >= 0 && s.wallR >= s.clearR / 2 - 0.05 && i > s.nearR;
   });
 
   // ghiaia all'esterno delle curve lente, a partire da 4 m oltre il cordolo (non in città)

@@ -176,7 +176,7 @@ export class BakuScenery extends Scenery {
       }
   }
 
-  free(x, z, r) { return super.free(x, z, r) && !this.inBuilding(x, z, r) && this.isLand(x, z); }
+  free(x, z, r) { return super.free(x, z, r) && !this.inBuilding(x, z, r) && this.isLand(x, z) && this.clearance(x, z).d > 0.2; }
 
   // ------------------------------------------------------------------ quote
   baseHeight(x, z) {
@@ -357,6 +357,26 @@ export class BakuScenery extends Scenery {
       pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z; hh[k] = y;
       col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
     }
+    // il terreno resta sempre sotto ogni tratto di pista vicino (anche tra due tratti a quote diverse)
+    for (const sm of this.track.samples) {
+      const R = Math.max(sm.wallLVis ?? sm.wallL, sm.wallRVis ?? sm.wallR) + step * 1.6, top = sm.y - 0.35;
+      const i0 = Math.max(0, Math.floor((sm.x - R - tb.x0) / step)), i1 = Math.min(nx, Math.ceil((sm.x + R - tb.x0) / step));
+      const j0 = Math.max(0, Math.floor((sm.z - R - tb.z0) / step)), j1 = Math.min(nz, Math.ceil((sm.z + R - tb.z0) / step));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const q = j * (nx + 1) + i;
+        if (hh[q] > top && (vx(i) - sm.x) ** 2 + (vz(j) - sm.z) ** 2 < R * R) { hh[q] = top; pos[q * 3 + 1] = top; }
+      }
+    }
+    // pista del box: stesso trattamento lungo la corsia
+    for (const p of this.track.pit.pts) {
+      const R = PIT.halfW + 2 + step * 1.6, top = p.y - 0.35;
+      const i0 = Math.max(0, Math.floor((p.x - R - tb.x0) / step)), i1 = Math.min(nx, Math.ceil((p.x + R - tb.x0) / step));
+      const j0 = Math.max(0, Math.floor((p.z - R - tb.z0) / step)), j1 = Math.min(nz, Math.ceil((p.z + R - tb.z0) / step));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const q = j * (nx + 1) + i;
+        if (hh[q] > top) { hh[q] = top; pos[q * 3 + 1] = top; }
+      }
+    }
     this.tgrid = { x0: tb.x0, z0: tb.z0, step, nx, nz, h: hh };
     const idx = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -439,7 +459,7 @@ export class BakuScenery extends Scenery {
       const wv = side > 0 ? (s.wallLVis ?? s.wallL) : (s.wallRVis ?? s.wallR);
       const d = (wv + 2.6) * side;
       const x = s.x + s.nx * d, z = s.z + s.nz * d;
-      if (this.inBuilding(x, z, 1.8) || !this.isLand(x, z)) { flush(); continue; }
+      if (this.inBuilding(x, z, 1.8) || !this.isLand(x, z) || this.clearance(x, z).d < 1.2) { flush(); continue; }
       run.push({ x, z, s, side });
     }
     flush();
@@ -471,17 +491,14 @@ export class BakuScenery extends Scenery {
       // torri semicircolari ogni ~38 m, sporgenti verso la pista
       if (acc - lastTower > 38) {
         lastTower = acc;
-        const nx = (b.z - a.z) / len, nz = -(b.x - a.x) / len;   // normale
-        const sg = run[k].side;
-        // la pista è dal lato opposto all'interno: -side rispetto alla normale della pista
-        const s = run[k].s, tx = -s.nx * sg, tz = -s.nz * sg;
-        const dir = Math.sign(nx * tx + nz * tz) || 1;
-        const cx = b.x + nx * dir * 0.6, cz = b.z + nz * dir * 0.6;
+        // la torre sporge verso la città, mai oltre la barriera verso la pista
+        const sg = run[k].side, s = run[k].s;
+        const cx = b.x + s.nx * sg * 2.0, cz = b.z + s.nz * sg * 2.0;
         const th = H + 2.5;
-        this.batch.add(new THREE.CylinderGeometry(3.6, 4.0, th + 2, 14), this.colored, mat4(cx, y + th / 2 - 1, cz), stone2);
+        this.batch.add(new THREE.CylinderGeometry(3.0, 3.3, th + 2, 14), this.colored, mat4(cx, y + th / 2 - 1, cz), stone2);
         for (let q = 0; q < 10; q++) {
           const ang = q / 10 * Math.PI * 2;
-          this.batch.add(merlon, this.colored, mat4(cx + Math.cos(ang) * 3.3, y + th + 0.55, cz + Math.sin(ang) * 3.3, -ang + Math.PI / 2), stone);
+          this.batch.add(merlon, this.colored, mat4(cx + Math.cos(ang) * 2.7, y + th + 0.55, cz + Math.sin(ang) * 2.7, -ang + Math.PI / 2), stone);
         }
         this.occupied.push([cx, cz, 5]);
       }
