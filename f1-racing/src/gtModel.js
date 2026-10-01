@@ -14,7 +14,7 @@ const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };   // ordine del gioco: AS, AD,
 let templates = null;
 
 // copia di riserva su jsDelivr (versione bloccata: sempre disponibile e senza cache vecchie)
-const CDN = 'https://cdn.jsdelivr.net/gh/pietro11887/NOVA@e0c1207/f1-racing/assets/';
+const CDN = 'https://cdn.jsdelivr.net/gh/pietro11887/NOVA@3fd4fbd/f1-racing/assets/';
 
 // prova più fonti: file locale, copia incorporata in un modulo .js (pagine che non servono .glb), CDN
 async function fetchGLB(name) {
