@@ -129,18 +129,27 @@ export class Debris {
   constructor(scene, track) {
     this.scene = scene; this.track = track;
     this.items = [];
+    this.parts = [];
     this.pr = {};
   }
 
-  // obj: Object3D già parte della vettura. Viene staccato mantenendo la posizione nel mondo.
+  // obj: Object3D della vettura. Sulla pista cade una copia (che resta lì fino a fine sessione:
+  // rottami da evitare); il pezzo originale sparisce dalla vettura e torna con la riparazione ai box.
   detach(obj, carVel, impulse) {
     if (obj.userData.detached) return;
-    if (!obj.userData.home) obj.userData.home = { parent: obj.parent, pos: obj.position.clone(), quat: obj.quaternion.clone(), scale: obj.scale.clone() };
+    obj.updateWorldMatrix(true, true);
+    const ud = obj.userData; obj.userData = {};          // niente copia dei riferimenti interni
+    const piece = obj.clone(true);
+    obj.userData = ud;
+    obj.matrixWorld.decompose(piece.position, piece.quaternion, piece.scale);
+    piece.userData = { debris: true };
+    this.scene.add(piece);
     obj.userData.detached = true;
-    this.scene.attach(obj);
+    obj.visible = false;
+    this.parts.push(obj);
     const v = new THREE.Vector3(carVel.x * 0.75 + (Math.random() - 0.5) * 6 + impulse.x, 2 + Math.random() * 5 + impulse.y, carVel.z * 0.75 + (Math.random() - 0.5) * 6 + impulse.z);
     const w = new THREE.Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18);
-    this.items.push({ obj, v, w, hint: -1, rest: false });
+    this.items.push({ obj: piece, v, w, hint: -1, rest: false });
   }
 
   update(dt, hint) {
@@ -173,30 +182,22 @@ export class Debris {
     }
   }
 
-  // riporta i pezzi sulla vettura
-  // rimette i pezzi di una sola vettura (riparazione ai box)
+  // riparazione ai box: la vettura ha di nuovo i suoi pezzi (i rottami restano in pista)
   restoreFor(root) {
-    const keep = [];
-    for (const it of this.items) {
-      let p = it.obj.userData.home.parent, mine = false;
+    this.parts = this.parts.filter(o => {
+      let p = o.parent, mine = false;
       while (p) { if (p === root) { mine = true; break; } p = p.parent; }
-      if (!mine) { keep.push(it); continue; }
-      const h = it.obj.userData.home;
-      h.parent.add(it.obj);
-      it.obj.position.copy(h.pos); it.obj.quaternion.copy(h.quat); it.obj.scale.copy(h.scale);
-      it.obj.userData.detached = false;
-    }
-    this.items = keep;
+      if (!mine) return true;
+      o.visible = true; o.userData.detached = false;
+      return false;
+    });
   }
 
+  // nuova sessione: pista pulita e vetture integre
   restore() {
-    for (const it of this.items) {
-      const h = it.obj.userData.home;
-      h.parent.add(it.obj);
-      it.obj.position.copy(h.pos); it.obj.quaternion.copy(h.quat); it.obj.scale.copy(h.scale);
-      it.obj.userData.detached = false;
-      it.obj.visible = true;
-    }
+    for (const it of this.items) this.scene.remove(it.obj);
+    for (const o of this.parts) { o.visible = true; o.userData.detached = false; }
     this.items = [];
+    this.parts = [];
   }
 }
