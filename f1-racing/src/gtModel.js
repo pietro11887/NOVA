@@ -13,7 +13,7 @@ const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };   // ordine del gioco: AS, AD,
 
 let templates = null;
 
-export function loadGT(base = 'assets/') {
+export function loadGT(base = window.GT_BASE || 'assets/') {
   const loader = new GLTFLoader();
   const get = f => new Promise((res, rej) => loader.load(base + f, res, undefined, rej));
   return Promise.all([get('gt3r_hi.glb'), get('gt3r_mid.glb')]).then(([hi, mid]) => {
