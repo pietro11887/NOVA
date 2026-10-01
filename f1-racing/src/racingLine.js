@@ -13,7 +13,7 @@ export class RacingLine {
   constructor(track, margin = 1.6) {
     this.track = track;
     const S = track.samples, n = track.count;
-    const lim = H - margin;
+    const lim = i => Math.max(0.6, S[i].hw - margin);   // per campione: la larghezza cambia
 
     // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)
     const off = new Float64Array(n);
@@ -26,7 +26,7 @@ export class RacingLine {
           const mx = (px(a) + px(b)) / 2, mz = (pz(a) + pz(b)) / 2;
           const d = (mx - S[i].x) * S[i].nx + (mz - S[i].z) * S[i].nz;
           off[i] += (d - off[i]) * 0.5;
-          off[i] = Math.max(-lim, Math.min(lim, off[i]));
+          off[i] = Math.max(-lim(i), Math.min(lim(i), off[i]));
         }
       }
     }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GEOM } from './carModel.js';
-import { ROAD_HALF_WIDTH as H } from './trackData.js';
+import { PIT } from './trackData.js';
 
 // Safety car: entra dopo un incidente che lascia abbastanza rottami sulla carreggiata,
 // raccoglie il gruppo dietro di sé, i commissari puliscono la pista, dopo almeno un giro
@@ -44,12 +44,12 @@ export class SafetyCar {
     for (const it of this.debris.items) {
       const o = it.obj.position;
       this.track.project(o.x, o.z, it.hint >= 0 ? it.hint : -1, pr);
-      if (Math.abs(pr.d) < H + 1.5) sc += WEIGHT[it.kind] ?? 0.5;
+      if (Math.abs(pr.d) < this.track.samples[pr.i].hw + 1.5) sc += WEIGHT[it.kind] ?? 0.5;
     }
     // vetture ferme (ritirate) sulla carreggiata o appena fuori
     for (const c of this.race.cars) if (c.retired && !c.gone) {
-      const d = Math.abs(c.phys.prCG.d);
-      if (d < H + 2) sc += 3; else if (d < H + 5) sc += 1.5;
+      const d = Math.abs(c.phys.prCG.d), hw = this.track.samples[c.phys.prCG.i].hw;
+      if (d < hw + 2) sc += 3; else if (d < hw + 5) sc += 1.5;
     }
     return sc;
   }
@@ -99,7 +99,7 @@ export class SafetyCar {
       // in questo giro entra in corsia box (all'imbocco sparisce)
       if (this.phase === 'in') {
         const ss = s > L / 2 ? s - L : s;
-        if (lead.crossings === this.inLap && ss > -230 && ss < -200) { this.phase = 'restart'; if (this.model) this.model.root.visible = false; }
+        if (lead.crossings === this.inLap && ss > PIT.entry - 15 && ss < PIT.entry + 15) { this.phase = 'restart'; if (this.model) this.model.root.visible = false; }
       }
       this.pose(dt);
     }

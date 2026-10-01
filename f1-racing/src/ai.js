@@ -60,6 +60,8 @@ export class AIDriver {
       let mx = 0; for (let k = 20; k < 200; k++) mx = Math.max(mx, P[(i - k + n) % n]);
       if (mx - P[i] > 12 && (!apex.length || i - apex[apex.length - 1] > 20)) apex.push(i);
     }
+    // errori distribuiti sulle staccate del giro (piste cittadine: tante curve, stesso numero di errori)
+    this.zonesPerLap = Math.max(5, apex.length);
     this.nextApex = new Int32Array(n).fill(-1);
     if (apex.length) for (let i = 0; i < n; i++) {
       let best = -1, bd = 1e9;
@@ -94,7 +96,8 @@ export class AIDriver {
     const i = p.prCG.i;
     this.t += dt;
     const v = p.speed;
-    const lim = H - 1.2;
+    const hwI = tr.samples[i].hw;
+    const lim = hwI - 1.2;
     const myS = p.prCG.s, myD = p.prCG.d;
     const gapTo = c => { let g = c.phys.prCG.s - myS; if (g < -L / 2) g += L; else if (g > L / 2) g -= L; return g; };
 
@@ -121,7 +124,7 @@ export class AIDriver {
         const spinning = Math.abs(cp.yawRate - expectedYaw) > 0.8 || Math.abs(cp.vyl) > 5 || heading > 0.55;
         // lenta rispetto a dove si trova (non una normale frenata in staccata)
         const slow = along < v - 14 && along < this.profile[pr.i] * 0.6 - 5;
-        if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < H + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along) * (spinning ? 0.25 : 0.8); }  // chi gira si fermerà presto
+        if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < tr.samples[pr.i].hw + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along) * (spinning ? 0.25 : 0.8); }  // chi gira si fermerà presto
       }
       // una vettura lenta (testacoda) occupa più spazio in larghezza
       const wide = c.phys.speed < v - 12 ? 5 : 3.3;
@@ -142,7 +145,7 @@ export class AIDriver {
       // lato di passaggio: quello opposto a dove si trova (o dove sta scivolando) la vettura
       const drift = -hp.vx * hp.prCG.nx - hp.vz * hp.prCG.nz;      // >0 = si sposta verso destra
       let side = Math.abs(hd) > 1.2 ? -Math.sign(hd) : (drift > 0 ? 1 : -1);
-      const target = side * (H - 1.4);
+      const target = side * (hwI - 1.4);
       this.laneTarget = target - this.line.off[i];
       this.attack = null;
       if (this.mistake && this.mistake.type === 'defend') this.mistake = null;
@@ -199,7 +202,7 @@ export class AIDriver {
     const lapTime = 55;
     if (!this.sc && !this.mistake && brakeIdx >= 0 && this.lastZoneRoll !== brakeIdx && raceT > 4) {
       this.lastZoneRoll = brakeIdx;
-      if (this.rand() < this.errPerLap / 5) {
+      if (this.rand() < this.errPerLap / this.zonesPerLap) {
         const r = this.rand(), sev = 0.4 + 0.6 * this.rand();
         if (r < 0.5) { this.mistake = { type: 'late', until: this.t + 4, meters: 12 + 45 * sev }; }
         else if (r < 0.72) { this.mistake = { type: 'lock', until: this.t + 2.5 }; }
@@ -211,7 +214,7 @@ export class AIDriver {
     const exiting = this.profile[(i + 20) % n] > v + 8 && v < 55 && Math.abs(tr.samples[i].curv) > 0.008;
     if (!this.sc && !this.mistake && exiting && this.exitZone !== (i >> 5) && raceT > 4) {
       this.exitZone = i >> 5;
-      if (this.rand() < this.errPerLap / 25) { this.mistake = { type: 'power', until: this.t + 1.4 }; this.emit('power'); }
+      if (this.rand() < this.errPerLap / (5 * this.zonesPerLap)) { this.mistake = { type: 'power', until: this.t + 1.4 }; this.emit('power'); }
     }
     void lapTime;
 
@@ -219,7 +222,7 @@ export class AIDriver {
     // rientro ai box: ci si sposta a destra e si rallenta prima dell'imbocco
     const ssNow = myS > L / 2 ? myS - L : myS;
     const toPit = PIT.entry - ssNow;
-    if (this.pitting && toPit > 0 && toPit < 260) laneT = -(H - 1.6) - this.line.off[i];
+    if (this.pitting && toPit > 0 && toPit < 260) laneT = PIT.side * (hwI - 1.6) - this.line.off[i];
     const m = this.mistake;
     if (m && m.type === 'wide') laneT += m.side * m.amount;
     if (m && m.type === 'defend') laneT = m.side * (lim - 0.5) - this.line.off[i];
@@ -230,7 +233,8 @@ export class AIDriver {
     const j = (i + la) % n, s = tr.samples[j];
     const wob = this.skill.wobble * Math.sin(this.t * 0.7 + this.seed * 3.1);
     let off = this.line.off[j] + this.lane + wob;
-    const offLim = m && m.type === 'wide' ? H + 3 : H - 1.3;   // l'errore può portare fuori pista
+    const hwJ = tr.samples[j].hw;
+    const offLim = m && m.type === 'wide' ? hwJ + 3 : hwJ - 1.3;   // l'errore può portare fuori pista
     off = Math.max(-offLim, Math.min(offLim, off));
     const tx = s.x + s.nx * off, tz = s.z + s.nz * off;
     let ang = Math.atan2(tz - p.z, tx - p.x) - p.yaw;

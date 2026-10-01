@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH } from './trackData.js';
+import { ROAD_HALF_WIDTH, selectTrack, bakuTrack } from './trackData.js';
 import { Scenery, ENV } from './scenery.js';
+import { BakuScenery } from './sceneryBaku.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
 import { loadGT, createGT, gtReady } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
@@ -31,7 +32,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova' }, store.get('novaf1.settings') || {});
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -61,6 +62,12 @@ sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
 const SUN_DIR = ENV.sunDir;
 
+// pista scelta: i dati di Baku (OpenStreetMap) si caricano solo se servono
+if (settings.track === 'baku') {
+  try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
+  catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
+}
+const trackKey = settings.track === 'baku' ? '.baku' : '';
 const track = new Track();
 const sounds = new Sound();
 const input = new Input();
@@ -69,14 +76,14 @@ let minimap;
 
 function build() {
   scene.add(track.build(renderer));
-  scenery = new Scenery(scene, track, renderer, settings.quality);
+  scenery = new (track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
 
   // riflessi ambientali generati dal cielo
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envScene = new THREE.Scene();
   envScene.add(scenery.skyMesh.clone());
-  const g = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshBasicMaterial({ color: 0x3f6a33 }));
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshBasicMaterial({ color: track.street ? 0x6f6a5e : 0x3f6a33 }));
   g.rotation.x = -Math.PI / 2; g.position.y = -5; envScene.add(g);
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
@@ -100,14 +107,15 @@ function build() {
   minimap = new Minimap($('minimap'), track);
 
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
+  $('trackName').textContent = track.name;
 }
 
 // ---------------------------------------------------------------- stato di gioco
 let mode = 'menu';           // menu | countdown | race | pause | dnf
 let simTime = 0;
 let countdown = null;
-let best = store.get('novaf1.best.v3');       // { time, sectors, split, ghost }
-let bestSectors = store.get('novaf1.bestSectors.v3') || [null, null, null];
+let best = store.get('novaf1.best.v3' + trackKey);       // { time, sectors, split, ghost }
+let bestSectors = store.get('novaf1.bestSectors.v3' + trackKey) || [null, null, null];
 let lap = null;
 let lastLap = null;
 let laps = [];
@@ -418,11 +426,11 @@ function finishLap(time) {
   let isBest = false;
   if (valid) {
     lap.sectors.forEach((s, k) => { if (s != null && (bestSectors[k] == null || s < bestSectors[k])) bestSectors[k] = s; });
-    store.set('novaf1.bestSectors.v3', bestSectors);
+    store.set('novaf1.bestSectors.v3' + trackKey, bestSectors);
     if (!best || time < best.time) {
       isBest = true;
       best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec };
-      store.set('novaf1.best.v3', best);
+      store.set('novaf1.best.v3' + trackKey, best);
     }
   }
   if (isBest) showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true);
@@ -870,6 +878,7 @@ const SET_LABELS = {
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
   raceTyre: v => `Gomme di partenza: ${COMPOUNDS[v].name}`,
   msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
   damage: v => `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`,
@@ -885,6 +894,7 @@ function refreshSettings() {
 document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
+  else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = settings.damage; }
@@ -896,6 +906,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   saveSettings(); refreshSettings();
 }));
 $('playBtn').addEventListener('click', startGame);
+$('trackBtn').addEventListener('click', () => { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); });
 $('fsBtn').addEventListener('click', goLandscape);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
 const restart = () => (gameType === 'race' ? startRaceGame() : startGame());

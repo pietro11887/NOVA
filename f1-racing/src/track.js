@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildTrack, ROAD_HALF_WIDTH as H, KERB_WIDTH as K } from './trackData.js';
+import { buildTrack, KERB_WIDTH as K, TRACK } from './trackData.js';
 import * as tex from './textures.js';
 
 export const SURF = { ROAD: 0, KERB: 1, SAUSAGE: 2, GRASS: 3, GRAVEL: 4 };
@@ -21,6 +21,8 @@ export class Track {
     this.step = t.step;
     this.count = t.count;
     this.sectorIdx = [0, Math.round(this.count / 3), Math.round(2 * this.count / 3)];
+    this.street = !!TRACK.street;
+    this.name = TRACK.name;
     this.group = new THREE.Group();
   }
 
@@ -73,6 +75,7 @@ export class Track {
     out.h = 0; out.type = SURF.ROAD;
     out.wall = left ? s.wallL : s.wallR;
     const hasKerb = left ? s.kerbL : s.kerbR;
+    const H = s.hw;
     if (ad <= H + (hasKerb ? 0 : 0.6)) return out;
     if (hasKerb && ad <= H + K) {
       const u = (ad - H) / K;
@@ -88,6 +91,8 @@ export class Track {
       out.type = SURF.SAUSAGE;
       return out;
     }
+    // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato)
+    if (this.street) { out.h = -0.01; return out; }
     const gravel = left ? s.gravelL : s.gravelR;
     const edge = H + (hasKerb ? K : 0);
     out.h = -Math.min(0.08, (ad - edge) * 0.03);
@@ -106,31 +111,36 @@ export class Track {
 
     // Asfalto
     const asphalt = tex.asphalt(); asphalt.anisotropy = aniso;
-    g.add(this.ribbon([[-H - 0.6, 0.0], [H + 0.6, 0.0]], null, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0 }), 10, true));
+    const E = (sd, off) => s => sd * s.hw + off;      // distanza dal centro relativa al bordo
+    g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0 }), 10, true));
     // linee bianche di bordo pista
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.7 });
-    g.add(this.ribbon([[H - 0.55, 0.012], [H - 0.05, 0.012]], null, white));
-    g.add(this.ribbon([[-H + 0.05, 0.012], [-H + 0.55, 0.012]], null, white));
+    g.add(this.ribbon([[E(1, -0.55), 0.012], [E(1, -0.05), 0.012]], null, white));
+    g.add(this.ribbon([[E(-1, 0.05), 0.012], [E(-1, 0.55), 0.012]], null, white));
     // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
-    const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
-    g.add(this.ribbon([[H + 0.6, 0.0], [H + 4.5, -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
-    g.add(this.ribbon([[-H - 4.5, -0.03], [-H - 0.6, 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
+    if (!this.street) {
+      const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
+      g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
+      g.add(this.ribbon([[E(-1, -4.5), -0.03], [E(-1, -0.6), 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
+    }
 
     // Cordoli
     const kt = tex.kerb(); kt.anisotropy = aniso;
     const kerbMat = new THREE.MeshStandardMaterial({ map: kt, roughness: 0.6 });
     const prof = [[0, 0.006], [0.35, 0.05], [K, 0.07]];
-    g.add(this.ribbon(prof.map(([u, h]) => [H + u, h]), i => S[i].kerbL, kerbMat, 3.6));
-    g.add(this.ribbon(prof.map(([u, h]) => [-H - K + (K - u), h]).reverse(), i => S[i].kerbR, kerbMat, 3.6));
+    g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, 3.6));
+    g.add(this.ribbon(prof.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].kerbR, kerbMat, 3.6));
     // cordoli a salsiccia (gialli)
     const sausMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 });
-    const sp = []; for (let k = 0; k <= 6; k++) sp.push([H + K + 0.7 * k / 6, 0.11 * Math.sin(Math.PI * k / 6)]);
-    g.add(this.ribbon(sp, i => S[i].sausageL, sausMat));
-    g.add(this.ribbon(sp.map(([d, h]) => [-d, h]).reverse(), i => S[i].sausageR, sausMat));
+    const sp = []; for (let k = 0; k <= 6; k++) sp.push([K + 0.7 * k / 6, 0.11 * Math.sin(Math.PI * k / 6)]);
+    g.add(this.ribbon(sp.map(([u, h]) => [E(1, u), h]), i => S[i].sausageL, sausMat));
+    g.add(this.ribbon(sp.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].sausageR, sausMat));
 
     // Erba vicino alla pista e ghiaia
     const grassT = tex.grass(); grassT.anisotropy = aniso;
-    const grassMat = new THREE.MeshStandardMaterial({ map: grassT, roughness: 1 });
+    const grassMat = this.street
+      ? new THREE.MeshStandardMaterial({ map: asphalt, color: 0x9a9da3, roughness: 0.95 })    // città: asfalto delle vie di fuga
+      : new THREE.MeshStandardMaterial({ map: grassT, roughness: 1 });
     const gravT = tex.gravel(); gravT.anisotropy = aniso;
     const gravMat = new THREE.MeshStandardMaterial({ map: gravT, roughness: 1 });
     // lato sinistro: da bordo pista al muro
@@ -155,7 +165,8 @@ export class Track {
     const addRow = (i) => {
       const s = S[i];
       for (let k = 0; k < m; k++) {
-        const [d, h] = prof[k];
+        const [d0, h] = prof[k];
+        const d = typeof d0 === 'function' ? d0(s) : d0;
         pos.push(s.x + s.nx * d, s.y + h + 0.02, s.z + s.nz * d);
         uv.push(k / (m - 1), s.s / vScale);
       }
@@ -199,10 +210,10 @@ export class Track {
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
         const gravel = side > 0 ? s.gravelL : s.gravelR;
-        const wall = side > 0 ? s.wallL : (isGravel ? s.wallR : s.wallRVis ?? s.wallR);
+        const wall = isGravel ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR);
         const kerb = side > 0 ? s.kerbL : s.kerbR;
-        const edge = H + (kerb ? K : 0.6);
-        const gStart = H + K + 4;
+        const edge = s.hw + (kerb ? K : 0.6);
+        const gStart = s.hw + K + 4;
         let d0, d1;
         if (isGravel) { if (!gravel) { prev = -1; continue; } d0 = gStart; d1 = wall; }
         else { d0 = edge; d1 = gravel ? gStart : wall; }
@@ -246,7 +257,7 @@ export class Track {
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
         if (mask && !mask(s)) { prev = -1; continue; }
-        const w = (side > 0 ? s.wallL : pitWall ? s.wallR : s.wallRVis ?? s.wallR) + extrude;
+        const w = (pitWall ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR)) + extrude;
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         const row = pos.length / 6;
         pos.push(x, s.y + h0, z, x, s.y + h1, z);
@@ -273,8 +284,8 @@ export class Track {
     grp.add(make(-1.5, 1.1, tyreMat, 2.2, isTyre));
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     grp.add(make(1.05, 4.2, fenceMat, 3, null, 0.6));
-    // muretto box tra pista e corsia box (lato destro)
-    if (side < 0) {
+    // muretto box tra pista e corsia box (dal lato dei box)
+    if (side === (TRACK.pit.side || -1)) {
       const pitWallMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.8, side: THREE.DoubleSide });
       grp.add(make(-1.5, 1.0, pitWallMat, 4, s => s.pitWall, 0, true));
       grp.add(make(1.0, 2.6, fenceMat, 3, s => s.pitWall, 0, true));
@@ -288,7 +299,7 @@ export class Track {
     // Linea del traguardo
     const chk = tex.checker(); chk.anisotropy = aniso;
     const s0 = S[0];
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(2.4, H * 2), new THREE.MeshStandardMaterial({ map: chk, roughness: 0.7 }));
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(2.4, s0.hw * 2), new THREE.MeshStandardMaterial({ map: chk, roughness: 0.7 }));
     line.rotation.x = -Math.PI / 2;
     line.rotation.z = Math.atan2(-s0.tz, s0.tx);
     line.position.set(s0.x, s0.y + 0.035, s0.z);
@@ -343,7 +354,8 @@ export class Track {
           const j = (i - Math.round((dist - 40) / this.step) + n) % n, s = S[j];
           if (!boardMat[dist]) boardMat[dist] = new THREE.MeshStandardMaterial({ map: tex.text(String(dist), '#111', 128, 128, 'bold 64px Arial', '#fff'), roughness: 0.6 });
           const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.9), boardMat[dist]);
-          const d = (H + 3.2) * outer;
+          const d = (s.hw + 3.2) * outer;
+          if (Math.abs(d) > (outer > 0 ? s.wallL : s.wallR) - 0.4) continue;   // in città non c'è spazio
           b.position.set(s.x + s.nx * d, s.y + 0.9, s.z + s.nz * d);
           b.rotation.y = -Math.atan2(s.tz, s.tx);
           b.castShadow = true;

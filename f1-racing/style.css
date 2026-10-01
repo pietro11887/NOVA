@@ -272,3 +272,7 @@ body #hud > #pitPanel, body.touch #hud > #pitPanel.pitPanel { pointer-events: au
 .scBadge.pen { background: #e8322b; color: #fff; font-size: 12px; }
 .scBadge.green { background: #2ee06f; }
 @keyframes scBlink { 50% { background: #8a6d00; color: #f5c518; } }
+
+.trackBtn { margin-left: 8px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08);
+  color: #fff; font: 700 11px/1.4 inherit; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; vertical-align: middle; }
+.trackBtn:active { background: rgba(255,138,28,0.35); }

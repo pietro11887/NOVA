@@ -2,7 +2,7 @@ import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE } from './carModel.js';
 import { PitStop } from './pit.js';
-import { PIT, ROAD_HALF_WIDTH } from './trackData.js';
+import { PIT, TRACK } from './trackData.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -70,9 +70,10 @@ export class Race {
   placeGrid() {
     const n = this.track.count, st = this.track.step;
     for (const c of this.cars) {
-      const s = 205 - c.slot * 10;   // piazzole ogni 10 m (vetture grandi)
+      const G = TRACK.grid;
+      const s = G.pole - c.slot * G.gap;   // piazzole in fila (vetture grandi)
       const i = Math.round(s / st) % n;
-      c.phys.reset(i, c.slot % 2 === 0 ? 3.4 : -3.4);
+      c.phys.reset(i, c.slot % 2 === 0 ? G.lat : -G.lat);
       c.sPrev = c.phys.prCG.s;
       c.pass = [];
     }
@@ -175,10 +176,11 @@ export class Race {
     const crossing = sp < PIT.entry && ss >= PIT.entry && ss - sp < 20;
     // il giocatore entra quando vuole: basta passare dall'imbocco tenendo la destra.
     // Gomme e riparazione le sceglie mentre la vettura va da sola verso la piazzola.
-    if (c.isPlayer && crossing && !c.retired && c.finishT == null && c.phys.prCG.d < -ROAD_HALF_WIDTH * 0.45) {
+    const hwHere = this.track.samples[c.phys.prCG.i].hw, dSide = c.phys.prCG.d * PIT.side;   // >0 = verso i box
+    if (c.isPlayer && crossing && !c.retired && c.finishT == null && dSide > hwHere * 0.45) {
       c.pitRequest = { compound: c.phys.compound, repair: false };
     }
-    if (c.pitRequest && !c.retired && c.finishT == null && crossing && c.phys.prCG.d < ROAD_HALF_WIDTH * 0.2) {
+    if (c.pitRequest && !c.retired && c.finishT == null && crossing && dSide > -hwHere * 0.2) {
       c.pit = new PitStop(this.pitLane, c, c.pitRequest);
       c.pitRequest = null;
       if (c.ai) c.ai.pitting = false;

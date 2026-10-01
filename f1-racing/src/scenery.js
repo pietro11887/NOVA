@@ -12,7 +12,6 @@ function rand(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const H_EDGE = 7 + 1.6;   // bordo pista + cordolo
 const hash2 = (i, j) => { const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return h - Math.floor(h); };
 
 // colori dell'ambiente (condivisi con la nebbia e le luci in main.js)
@@ -142,14 +141,14 @@ export class Scenery {
   clearance(x, z) {
     const nr = this.nearest(x, z);
     const s = this.track.samples[nr.i];
-    return { d: nr.d - Math.max(s.wallL, s.wallRVis ?? s.wallR), nr, s };
+    return { d: nr.d - Math.max(s.wallLVis ?? s.wallL, s.wallRVis ?? s.wallR), nr, s };
   }
 
   baseHeight(x, z) {
     const S = this.track.samples;
     const nr = this.nearest(x, z);
     const s = S[nr.i];
-    const wall = Math.max(s.wallL, s.wallRVis ?? s.wallR);
+    const wall = Math.max(s.wallLVis ?? s.wallL, s.wallRVis ?? s.wallR);
     // quota media pesata sulla pista (continua tra zone a quote diverse)
     let ws = 0, ys = 0;
     for (const c of this.coarse) {
@@ -401,7 +400,7 @@ export class Scenery {
   // colloca un oggetto a lato pista: indice campione, lato (+1 sx, -1 dx), distanza extra oltre il muro
   place(obj, i, side, extra) {
     const s = this.track.samples[(i + this.track.count) % this.track.count];
-    const wall = side > 0 ? s.wallL : s.wallRVis ?? s.wallR;
+    const wall = side > 0 ? (s.wallLVis ?? s.wallL) : (s.wallRVis ?? s.wallR);
     const d = (wall + extra) * side;
     obj.position.set(s.x + s.nx * d, s.y, s.z + s.nz * d);
     // l'asse +Z locale dell'oggetto punta verso la pista
@@ -415,7 +414,7 @@ export class Scenery {
   // posa a lato pista: { x, y, z, ry } con +Z locale verso la pista
   frame(i, side, extra, along = 0) {
     const n = this.track.count, s = this.track.samples[((i % n) + n) % n];
-    const wall = side > 0 ? s.wallL : s.wallRVis ?? s.wallR;
+    const wall = side > 0 ? (s.wallLVis ?? s.wallL) : (s.wallRVis ?? s.wallR);
     const d = (wall + extra) * side;
     const x = s.x + s.nx * d + s.tx * along, z = s.z + s.nz * d + s.tz * along;
     return { x, z, y: this.heightAt(x, z), ry: Math.atan2(-s.nx * side, -s.nz * side), s };
@@ -427,7 +426,7 @@ export class Scenery {
   standMats() {
     if (this._sm) return this._sm;
     const crowdT = tex.crowd(); crowdT.anisotropy = this.aniso;
-    const roofT = tex.sponsor('NOVA GRAND PRIX', '#ffffff', ['#6a2cd8', '#2c7be0']);
+    const roofT = tex.sponsor(this.brand?.stand || 'NOVA GRAND PRIX', '#ffffff', this.brand?.standBg || ['#6a2cd8', '#2c7be0']);
     this._sm = {
       crowdT,
       grey: new THREE.MeshStandardMaterial({ color: 0xc9ccd2, roughness: 0.8 }),
@@ -567,7 +566,7 @@ export class Scenery {
     }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, span), dark);
     beam.position.set(0, 7.7, (s.wallR - s.wallL) / 2); beam.castShadow = true; g.add(beam);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.6), new THREE.MeshStandardMaterial({ map: tex.sponsor('NOVA GP', '#ffffff', ['#4b2fd6', '#b43adf']), roughness: 0.5 }));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.6), new THREE.MeshStandardMaterial({ map: tex.sponsor(this.brand?.gantry || 'NOVA GP', '#ffffff', this.brand?.gantryBg || ['#4b2fd6', '#b43adf']), roughness: 0.5 }));
     sign.position.set(-0.31, 8.4, 0); sign.rotation.y = -Math.PI / 2; g.add(sign);
     const sign2 = sign.clone(); sign2.position.x = 0.31; sign2.rotation.y = Math.PI / 2; g.add(sign2);
     // pannello luci
@@ -785,7 +784,7 @@ export class Scenery {
       const side = S[i].curv > 0 ? 1 : -1;   // lato esterno della curva (dove si arriva in staccata)
       [150, 100, 50].forEach((dist, q) => {
         const j = (i - Math.round((dist + 20) / st) + n) % n, s = S[j];
-        const d = (H_EDGE + 2.2) * side;
+        const d = (s.hw + 1.6 + 2.2) * side;
         const x = s.x + s.nx * d, z = s.z + s.nz * d, ry = Math.atan2(-s.tz, s.tx);
         this.batch.add(board, mats[q], mat4(x, s.y + 1.9, z, ry + Math.PI));
         this.batch.add(post, this.colored, mat4(x, s.y + 0.6, z), 0x9aa3ae);

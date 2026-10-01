@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PIT, ROAD_HALF_WIDTH as H } from './trackData.js';
+import { PIT, TRACK } from './trackData.js';
 
 // Corsia box: percorso parallelo al rettilineo, limitatore a 80 km/h, piazzole e pit stop.
 // In corsia la vettura è "guidata" lungo il percorso (come fanno molti giochi di F1),
@@ -83,6 +83,7 @@ export class PitLane {
       g.add(m);
     };
     strip(-PIT.halfW, PIT.halfW, asphalt, 0.025);
+    const sd = PIT.side;
     strip(-PIT.halfW - 0.1, -PIT.halfW + 0.15, white, 0.035);
     strip(PIT.halfW - 0.15, PIT.halfW + 0.1, white, 0.035);
     // linee del limitatore
@@ -90,7 +91,7 @@ export class PitLane {
     // piazzole con i colori delle squadre
     for (let k = 0; k < 20; k++) {
       const ss = this.boxS(k);
-      const p = this.pose(ss, -2.2);
+      const p = this.pose(ss, sd * 2.2);
       const box = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.8), new THREE.MeshStandardMaterial({ color: k % 2 ? 0x3a3e47 : 0x444955, roughness: 0.9 }));
       box.rotation.x = -Math.PI / 2;
       box.rotation.z = Math.atan2(-p.tz, p.tx);
@@ -113,9 +114,10 @@ export class PitLane {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2), white);
       pole.position.set(p.x, p.y + 1.1, p.z); g.add(pole);
     };
-    sign('PIT', PIT.entry - 70, -H - 2.5, '#1b3a8a', '#fff', true);
-    sign('PIT', PIT.entry + 38, -H - 2.2, '#1b3a8a', '#fff', true);   // sull'isola tra pista e corsia
-    sign('80', PIT.limitFrom, -3.8, '#fff', '#d8231f');
+    const hwAt = ss => { const S = this.track.samples, L = this.track.length; return S[Math.floor((((ss % L) + L) % L) / this.track.step) % this.track.count].hw; };
+    sign('PIT', PIT.entry - 70, sd * (hwAt(PIT.entry - 70) + 2.5), '#1b3a8a', '#fff', true);
+    if (!TRACK.pitPath) sign('PIT', PIT.entry + 38, sd * (hwAt(PIT.entry + 38) + 2.2), '#1b3a8a', '#fff', true);   // sull'isola tra pista e corsia
+    sign(String(Math.round(PIT.speed * 3.6)), PIT.limitFrom, sd * 3.8, '#fff', '#d8231f');
     scene.add(g);
     this.group = g;
   }
@@ -130,7 +132,8 @@ export class PitStop {
     const p = car.phys;
     this.p = 0;                     // metri percorsi in corsia
     this.v = Math.max(p.speed, 10);
-    this.fromD = Math.max(-H - 2, Math.min(H, p.prCG.d));
+    const hw = p.track.samples[p.prCG.i].hw;
+    this.fromD = Math.max(-hw - 2, Math.min(hw + 2, p.prCG.d));
     this.box = lane.boxS(car.slot % 20);
     this.boxP = lane.pAtSs(this.box);
     this.phase = 'in';              // in -> service -> out -> done
@@ -168,7 +171,7 @@ export class PitStop {
       }
       vt = 0;
     } else {
-      vt = ss < PIT.limitTo ? limit : 70;
+      vt = ss < PIT.limitTo ? limit : Math.max(limit, 30);   // uscita: si accelera, ma senza esagerare
     }
     const acc = vt > this.v ? 9 : 16;
     this.v += Math.max(-acc * dt, Math.min(acc * dt, vt - this.v));
@@ -185,13 +188,16 @@ export class PitStop {
     // all'imbocco parte dalla posizione in cui si trovava in pista
     const off = q => {
       const k = 1 - Math.abs(q - this.boxP) / 16;
-      const box = k > 0 ? -2.4 * k * k * (3 - 2 * k) : 0;
+      const box = k > 0 ? PIT.side * 2.4 * k * k * (3 - 2 * k) : 0;
       const t = Math.max(0, Math.min(1, q / 50)), e = 1 - t * t * (3 - 2 * t);
-      return box + (this.fromD + H) * e;
+      return box + (this.fromD - PIT.startD) * e;
     };
+    // direzione: un metro avanti (in fondo alla corsia, un metro indietro)
+    const p0 = Math.min(this.p, lane.length - 1);
     const a = lane.poseP(this.p, off(this.p), this.pose);
-    const b = lane.poseP(this.p + 1, off(this.p + 1), {});
-    const yaw = Math.atan2(b.z - a.z, b.x - a.x);
+    const a0 = lane.poseP(p0, off(p0), {});
+    const b = lane.poseP(p0 + 1, off(p0 + 1), {});
+    const yaw = Math.atan2(b.z - a0.z, b.x - a0.x);
     phys.x = a.x; phys.z = a.z; phys.y = a.y + phys.h;
     phys.yaw = yaw; phys.yawRate = 0;
     phys.vx = Math.cos(yaw) * this.v; phys.vz = Math.sin(yaw) * this.v; phys.vy = 0;
