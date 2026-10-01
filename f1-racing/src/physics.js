@@ -276,15 +276,18 @@ export class CarPhysics {
 
     // --- sospensioni: altezza del terreno sotto ogni ruota ---
     this.projectAll();
+    // rottami in pista (pezzi staccati): rialzo sotto la ruota e meno aderenza
+    if (this.hazards) this.hazards(this);
     let sumFz = 0, pitchM = 0, rollM = 0;
     let vibe = 0;
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
-      const raw = w.pr.y + w.sf.h;
+      const raw = w.pr.y + w.sf.h + (w.debrisH || 0);
       // il pneumatico "filtra" le asperità più piccole (le nervature del cordolo)
       w.ground += (raw - w.ground) * Math.min(1, dt * 45);
       w.onKerb = w.sf.type === SURF.KERB || w.sf.type === SURF.SAUSAGE;
       if (w.onKerb) vibe += Math.min(1, speed / 25) * (w.sf.type === SURF.SAUSAGE ? 1.8 : 1);
+      if (w.debrisH) vibe += Math.min(1.5, speed / 20) * 1.4;
       else if (w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL) vibe += Math.min(1, speed / 30) * 0.5;
       const cornerY = this.y + w.x * this.pitch - w.y * this.roll;
       const comp = w.ground + this.h + 0.013 - cornerY;
@@ -332,7 +335,7 @@ export class CarPhysics {
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / (m * G * 0.25) - 1));
-      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
       const Fmax = mu * load;
 
       // longitudinale

@@ -135,7 +135,7 @@ export class Debris {
 
   // obj: Object3D della vettura. Sulla pista cade una copia (che resta lì fino a fine sessione:
   // rottami da evitare); il pezzo originale sparisce dalla vettura e torna con la riparazione ai box.
-  detach(obj, carVel, impulse) {
+  detach(obj, carVel, impulse, kind = 'part') {
     if (obj.userData.detached) return;
     obj.updateWorldMatrix(true, true);
     const ud = obj.userData; obj.userData = {};          // niente copia dei riferimenti interni
@@ -149,10 +149,52 @@ export class Debris {
     this.parts.push(obj);
     const v = new THREE.Vector3(carVel.x * 0.75 + (Math.random() - 0.5) * 6 + impulse.x, 2 + Math.random() * 5 + impulse.y, carVel.z * 0.75 + (Math.random() - 0.5) * 6 + impulse.z);
     const w = new THREE.Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18);
-    this.items.push({ obj: piece, v, w, hint: -1, rest: false });
+    // ingombro e "spessore" del rottame per la fisica delle vetture che ci passano sopra
+    const box = new THREE.Box3().setFromObject(piece), size = box.getSize(new THREE.Vector3());
+    const r = Math.max(0.3, Math.min(1.8, Math.hypot(size.x, size.z) / 2 * 0.8));
+    const h = kind === 'wheel' ? 0.32 : kind === 'wing' ? 0.1 : kind === 'end' ? 0.04 : 0.06;
+    const sharp = kind !== 'wheel';
+    const mass = kind === 'wheel' ? 25 : kind === 'wing' ? 8 : 4;
+    this.items.push({ obj: piece, v, w, hint: -1, rest: false, r, h, sharp, mass, kick: 0 });
+  }
+
+  // contatto ruote-rottami per una vettura (chiamato dalla fisica a ogni passo)
+  contact(p) {
+    const W = p.wheels;
+    for (const w of W) { w.debrisH = 0; w.debrisGrip = 0; }
+    if (!this.items.length || p.inPit) return;
+    const cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
+    for (const it of this.items) {
+      const o = it.obj.position;
+      const dx0 = o.x - p.x, dz0 = o.z - p.z;
+      if (dx0 * dx0 + dz0 * dz0 > 49 || Math.abs(o.y - p.y) > 2.5) continue;
+      for (let i = 0; i < 4; i++) {
+        const w = W[i];
+        const wx = p.x + cy * w.x - sy * w.y, wz = p.z + sy * w.x + cy * w.y;
+        const dist = Math.hypot(o.x - wx, o.z - wz), reach = it.r + 0.22;
+        if (dist >= reach) continue;
+        const f = 1 - dist / reach;
+        // la ruota sale sul pezzo (profilo morbido) e ha poca presa su carbonio e plastica
+        w.debrisH = Math.max(w.debrisH, it.h * Math.min(1, f * 2.2));
+        w.debrisGrip = Math.max(w.debrisGrip, (it.sharp ? 0.5 : 0.35) * Math.min(1, f * 2));
+        // il pezzo viene calciato via (una volta per passaggio)
+        if (p.speed > 3 && this.time - it.kick > 0.25) {
+          it.kick = this.time;
+          const k = Math.min(1, 30 / it.mass) * (0.35 + Math.random() * 0.3);
+          it.v.set(p.vx * k + (Math.random() - 0.5) * 3, 1 + p.speed * 0.05 * Math.random() * (20 / it.mass), p.vz * k + (Math.random() - 0.5) * 3);
+          it.w.set((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+          it.rest = false;
+          // carbonio tagliente: a velocità alta può forare
+          if (it.sharp && p.speed > 18) p.maybePuncture(i, 6 + p.speed * 0.08, 0.1);
+          // una ruota piena è un ostacolo vero: colpo alla sospensione
+          if (!it.sharp && p.speed > 12) p.damage.susp[i] = Math.min(1, p.damage.susp[i] + (p.speed - 12) / 400 * p.dmgScale);
+        }
+      }
+    }
   }
 
   update(dt, hint) {
+    this.time = (this.time || 0) + dt;
     const q = new THREE.Quaternion(), e = new THREE.Euler();
     for (const it of this.items) {
       if (it.rest) continue;

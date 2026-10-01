@@ -95,6 +95,7 @@ function build() {
   particles = new Particles(scene);
   skids = new SkidMarks(scene);
   debris = new Debris(scene, track);
+  phys.hazards = p => debris.contact(p);
   minimap = new Minimap($('minimap'), track);
 
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
@@ -195,6 +196,7 @@ function startRaceGame() {
     c.model = gtReady() ? createGT({ primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
+    c.phys.hazards = p => debris.contact(p);
     c.skidKey = 4 + c.slot * 4;
     setTyreColor(c.model, c.phys.compound);
     updateModel(c.model, c.phys, 0);
@@ -291,12 +293,12 @@ function detachParts(car, phys, bot) {
   car.fwHalves.forEach((half, k) => {
     const v = k === 0 ? d.fwL : d.fwR;
     const end = half.userData.endplate;
-    if (v > 0.4 && !end.userData.detached) debris.detach(end, vel, new THREE.Vector3(0, 1, 0));
-    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0)); lost.push('LO SPLITTER'); }
+    if (v > 0.4 && !end.userData.detached) debris.detach(end, vel, new THREE.Vector3(0, 1, 0), 'end');
+    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0), 'splitter'); lost.push('LO SPLITTER'); }
   });
-  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0)); lost.push('L\'ALETTONE'); }
+  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0), 'wing'); lost.push('L\'ALETTONE'); }
   car.wheels.forEach((w, i) => {
-    if (d.susp[i] >= 1 && !w.pivot.userData.detached) { debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0)); lost.push('UNA RUOTA'); }
+    if (d.susp[i] >= 1 && !w.pivot.userData.detached) { debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0), 'wheel'); lost.push('UNA RUOTA'); }
   });
   if (lost.length) {
     if (bot) feed(`${bot.name} PERDE ${lost[0]}`, 'yellow');
