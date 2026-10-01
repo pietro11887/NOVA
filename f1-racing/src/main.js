@@ -1074,6 +1074,18 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && (mo
 
 // ---------------------------------------------------------------- avvio
 const fontsReady = Promise.race([document.fonts ? document.fonts.ready : Promise.resolve(), new Promise(r => setTimeout(r, 1500))]);
+// niente zoom del browser: doppio tocco rapido (pedali premuti di fila), pizzico, doppio clic
+{
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = performance.now();
+    if (now - lastTouchEnd < 350 && !e.target.closest('input, select, textarea, a')) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+}
+
 // il modello 3D delle GT si carica insieme ai font (se non arriva si usa quello procedurale)
 const gtLoad = Promise.race([loadGT().catch(e => console.warn('modello GT non caricato', e)), new Promise(r => setTimeout(r, 20000))]);
 Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTimeout(() => {

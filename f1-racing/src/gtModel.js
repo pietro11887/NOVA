@@ -13,9 +13,24 @@ const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };   // ordine del gioco: AS, AD,
 
 let templates = null;
 
-export function loadGT(base = window.GT_BASE || 'assets/') {
+// copia di riserva su jsDelivr (versione bloccata: sempre disponibile e senza cache vecchie)
+const CDN = 'https://cdn.jsdelivr.net/gh/pietro11887/NOVA@e0c1207/f1-racing/assets/';
+
+// prova più fonti: file locale, copia incorporata in un modulo .js (pagine che non servono .glb), CDN
+async function fetchGLB(name) {
+  const tries = [
+    async () => { const r = await fetch('assets/' + name); if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); },
+    async () => { const m = await import(new URL('../assets/' + name + '.js', import.meta.url).href); const bin = atob(m.default); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; },
+    async () => { const r = await fetch(CDN + name); if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); },
+  ];
+  let last;
+  for (const t of tries) { try { return await t(); } catch (e) { last = e; } }
+  throw last;
+}
+
+export function loadGT() {
   const loader = new GLTFLoader();
-  const get = f => new Promise((res, rej) => loader.load(base + f, res, undefined, rej));
+  const get = f => fetchGLB(f).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)));
   return Promise.all([get('gt3r_hi.glb'), get('gt3r_mid.glb')]).then(([hi, mid]) => {
     templates = { hi: prepare(hi.scene, false), mid: prepare(mid.scene, true) };
     return templates;
