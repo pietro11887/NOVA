@@ -130,9 +130,6 @@ function liveryVariant(base, primary, accent, size = 512) {
   const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
   const pr = Math.pow(P.r, 1), lumP = 0.3 * P.r + 0.59 * P.g + 0.11 * P.b;
   const darkTeam = lumP < 0.06;
-  // schema "pieno": il nero diventa il colore della squadra e il giallo il colore secondario
-  const full = !darkTeam && ((primary >>> 4) % 3 !== 0);
-  const Y = full ? A : P, K = full ? P : A;
   void pr;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
@@ -145,10 +142,10 @@ function liveryVariant(base, primary, accent, size = 512) {
     const yellow = h > 28 && h < 68 && s > 0.35 && l > 0.12;
     if (yellow) {
       const k = Math.min(1.25, l / 0.5);
-      d[i] = toS(Y.r * k); d[i + 1] = toS(Y.g * k); d[i + 2] = toS(Y.b * k);
-    } else if ((darkTeam || full) && l < 0.13 && s < 0.35) {
-      const k = 0.6 + l * 3;
-      d[i] = toS(K.r * k); d[i + 1] = toS(K.g * k); d[i + 2] = toS(K.b * k);
+      d[i] = toS(P.r * k); d[i + 1] = toS(P.g * k); d[i + 2] = toS(P.b * k);
+    } else if (darkTeam && l < 0.13 && s < 0.35) {
+      const k = 0.55 + l * 3;
+      d[i] = toS(A.r * k); d[i + 1] = toS(A.g * k); d[i + 2] = toS(A.b * k);
     }
   }
   g.putImageData(img, 0, 0);
