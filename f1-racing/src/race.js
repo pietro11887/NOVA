@@ -95,7 +95,7 @@ export class Race {
       }
       const tow = best < 60 ? 1 - best / 60 : 0;
       p.dragMul = 1 - 0.38 * tow;
-      p.downMul = best < 22 ? 1 - 0.12 * (1 - best / 22) : 1;
+      p.downMul = best < 22 ? 1 - 0.06 * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
       c.tow = tow;
     }
   }

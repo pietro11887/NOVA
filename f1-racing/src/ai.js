@@ -1,4 +1,5 @@
 import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
+import { CAR } from './physics.js';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
@@ -9,7 +10,7 @@ export function skillParams(strength) {
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: 1.46 + 0.18 * t,              // aderenza sfruttata (prima del bonus)
+    mu: (0.81 + 0.1 * t) * CAR.mu,    // aderenza sfruttata (prima del bonus)
     grip: 1 + 0.14 * boost,           // 110 → +14% di aderenza
     power: 1 + 0.2 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
     brake: 0.78 + 0.08 * t,           // frazione della frenata massima
@@ -134,7 +135,7 @@ export class AIDriver {
       const hp = hazard.phys, hd = hp.prCG.d;
       const room = Math.max(0, hazGap - 13.5);
       // frenata prudente: a bassa velocità c'è poco carico aerodinamico (e magari si è in discesa)
-      const decel = 15 + 5 * (this.strength / 110) + 0.0015 * v * v;
+      const decel = 10.5 + 3 * (this.strength / 110) + 0.0009 * v * v;   // frenata da GT
       vCap = Math.min(vCap, Math.sqrt(hazV * hazV + 2 * decel * room));
       // lato di passaggio: quello opposto a dove si trova (o dove sta scivolando) la vettura
       const drift = -hp.vx * hp.prCG.nx - hp.vz * hp.prCG.nz;      // >0 = si sposta verso destra
@@ -173,7 +174,7 @@ export class AIDriver {
       const room = Math.max(0, bestGap - 4.8 - 1.5 * (1 - this.aggr));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
-      const vSafe = Math.sqrt(ovEff * ovEff + 2 * 30 * room);
+      const vSafe = Math.sqrt(ovEff * ovEff + 2 * 18 * room);
       if (!this.attack || lat < 3.1) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
@@ -259,7 +260,7 @@ export class AIDriver {
     const wrongWay = Math.abs(ang) > 1.2;
     if (wrongWay) vT = Math.min(vT, 7);
     else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
-    if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * 22 * toPit));
+    if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * 13 * toPit));
     vT = Math.min(vT, vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;
     // gas e freno dosati (niente strappi a metà curva, che farebbero perdere il posteriore)

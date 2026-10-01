@@ -49,15 +49,26 @@ const HULL = [
   [-2.5, -0.52, 'rw'], [-2.5, 0.52, 'rw'],
 ].map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
 
+// Caratteristiche della vettura: monoposto con prestazioni da GT
+// (più pesante, meno potente, poco carico aerodinamico: staccate lunghe e scia che conta)
+export const CAR = {
+  mass: 1240,        // kg vettura + pilota, senza benzina
+  ClA: 1.9,          // portanza * area (una F1 è ~4.5)
+  CdA: 1.15,
+  mu: 1.55,          // aderenza degli slick
+  torque: 375,       // Nm di picco (~560 CV)
+  brake: 31000,      // N: abbastanza per arrivare al limite di aderenza anche in alto
+};
+
 export class CarPhysics {
   constructor(track) {
     this.track = track;
-    this.baseMass = 798;            // vettura + pilota, senza benzina
+    this.baseMass = CAR.mass;       // vettura + pilota, senza benzina
     this.fuel = 5;                  // kg di benzina
     this.mass = this.baseMass + this.fuel;
-    this.Iz = 1150;
-    this.Ipitch = 950;
-    this.Iroll = 300;
+    this.Iz = 1780;
+    this.Ipitch = 1450;
+    this.Iroll = 460;
     this.a = GEOM.axleF;            // baricentro -> asse anteriore
     this.b = -GEOM.axleR;           // baricentro -> asse posteriore
     this.tw = GEOM.halfTrack;
@@ -67,7 +78,7 @@ export class CarPhysics {
     this.reverseRatio = 14;
     this.maxRpm = 12500;
     this.idleRpm = 4000;
-    this.peakTorque = 650;          // Nm (~ 1000 CV con l'ibrido)
+    this.peakTorque = CAR.torque;
     this.powerScale = 1;
     this.gripScale = 1;
     this.gearLong = 1;
@@ -76,15 +87,15 @@ export class CarPhysics {
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
     this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
-    this.ClA = 4.6;                 // coefficiente di portanza * area
-    this.CdA = 1.22;
+    this.ClA = CAR.ClA;             // coefficiente di portanza * area
+    this.CdA = CAR.CdA;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
-    this.mu = 1.8;                  // aderenza pneumatici slick
-    this.springK = 150000;
-    this.damperC = 7200;
-    this.arbK = [120000, 60000];   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
+    this.mu = CAR.mu;               // aderenza pneumatici slick
+    this.springK = 231000;           // stessa compressione statica con più massa
+    this.damperC = 11000;
+    this.arbK = [185000, 92000];   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
     this.rearGrip = 1.1;            // gomme posteriori più larghe
-    this.maxBrakeForce = 41000;
+    this.maxBrakeForce = CAR.brake;
     this.brakeBias = 0.57;
     this.wheels = [
       { x: this.a, y: -this.tw }, { x: this.a, y: this.tw },
@@ -319,7 +330,7 @@ export class CarPhysics {
       const vlat = -wvx * sd + wvy * cd;
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
-      const loadSens = Math.max(0.62, 1 - 0.07 * (load / 2000 - 1));
+      const loadSens = Math.max(0.62, 1 - 0.07 * (load / (m * G * 0.25) - 1));
       const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
       const Fmax = mu * load;
 
@@ -369,7 +380,7 @@ export class CarPhysics {
       const slipV = Math.abs(vlat) + (w.lock || w.spinning ? Math.abs(vlong) * 0.6 : Math.abs(vlong) * 0.03 * Math.abs(fxOut) / Math.max(1, Fmax));
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
-      w.temp += (power / 70000 + 0.055 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
+      w.temp += (power / 42000 + 0.075 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
       w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
       if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 

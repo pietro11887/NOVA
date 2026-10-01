@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { ROAD_HALF_WIDTH as H } from './trackData.js';
+import { CAR } from './physics.js';
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
 // Il colore di ogni tratto dipende dalla velocità attuale della vettura:
 // verde = puoi accelerare, giallo = alza il piede, rosso = frena.
 
 const G = 9.81;
-const K_AERO = 0.5 * 1.225 * 4.6 / 798;  // accelerazione da carico aerodinamico per v² (come la fisica)
+const K_AERO = 0.5 * 1.225 * CAR.ClA / CAR.mass;  // accelerazione da carico aerodinamico per v² (come la fisica)
 
 export class RacingLine {
   constructor(track, margin = 1.6) {
@@ -49,7 +50,7 @@ export class RacingLine {
 
     this.curv = curv; this.ds = ds;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
-    this.speed = this.speedProfile(1.3, 0.72);
+    this.speed = this.speedProfile(1.3 * CAR.mu / 1.8, 0.72);
   }
 
   // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
