@@ -1,6 +1,6 @@
 # Nova Grand Prix
 
-Gioco di corse in 3D (Three.js) con grafica low-poly: vetture GT3 (4,65 m, passo 2,6 m, ≈1240 kg, ≈560 CV, poco carico aerodinamico: staccate lunghe, scia e tecnica per superare) su due circuiti: il Circuito Nova (3,75 km, 26 curve: tornanti, esse e chicane) e il **Baku City Circuit** (6,0 km), ricostruito dai dati OpenStreetMap con le stesse curve, larghezze (7,6 m al castello), salita nella Città Vecchia, corsia box vera e la città intorno. Il circuito si cambia dal menu ("cambia circuito").
+Gioco di corse in 3D (Three.js) con grafica low-poly: vetture GT3 (4,65 m, passo 2,6 m, ≈1240 kg, ≈560 CV, poco carico aerodinamico: staccate lunghe, scia e tecnica per superare) su due circuiti: il Circuito Nova (3,75 km, 26 curve: tornanti, esse e chicane) e il **Baku City Circuit** (6,0 km), ricostruito dai dati OpenStreetMap con le stesse curve, larghezze (7,6 m al castello), salita nella Città Vecchia, corsia box vera e la città intorno. Il circuito si sceglie dal menu, dopo GARA o PROVA A TEMPO.
 
 Modalità: **Gara contro i bot** (1–30 giri, box dalle gare da 8 giri con mescole morbide/medie/dure e riparazioni, 1–19 avversari, forza dei bot 1–110, posizione di partenza a scelta) e **Prova a tempo** da solo con fantasma del record.
 
