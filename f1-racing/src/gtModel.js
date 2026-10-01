@@ -28,8 +28,40 @@ async function fetchGLB(name) {
   throw last;
 }
 
+// Le immagini dentro il .glb vengono decodificate direttamente (createImageBitmap), senza
+// indirizzi "blob:" temporanei: alcune pagine (es. l'anteprima su Claude) li bloccano e le
+// vetture resterebbero bianche.
+function inlineImages(parser) {
+  return {
+    name: 'NOVA_inline_images',
+    beforeRoot() {
+      const original = parser.loadImageSource.bind(parser);
+      parser.loadImageSource = (sourceIndex, loader) => {
+        const def = parser.json.images[sourceIndex];
+        if (def.bufferView === undefined) return original(sourceIndex, loader);
+        if (parser.sourceCache[sourceIndex]) return parser.sourceCache[sourceIndex].then(t => t.clone());
+        const promise = parser.getDependency('bufferView', def.bufferView).then(buf => {
+          const blob = new Blob([buf], { type: def.mimeType });
+          const viaImage = () => new Promise((res, rej) => {
+            const fr = new FileReader();
+            fr.onload = () => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = fr.result; };
+            fr.onerror = rej;
+            fr.readAsDataURL(blob);
+          });
+          const dec = typeof createImageBitmap === 'function' ? createImageBitmap(blob).catch(viaImage) : viaImage();
+          return dec.then(img => { const t = new THREE.Texture(img); t.needsUpdate = true; t.userData.mimeType = def.mimeType; return t; });
+        });
+        parser.sourceCache[sourceIndex] = promise;
+        return promise;
+      };
+      return null;
+    },
+  };
+}
+
 export function loadGT() {
   const loader = new GLTFLoader();
+  loader.register(inlineImages);
   const get = f => fetchGLB(f).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)));
   return Promise.all([get('gt3r_hi.glb'), get('gt3r_mid.glb')]).then(([hi, mid]) => {
     templates = { hi: prepare(hi.scene, false), mid: prepare(mid.scene, true) };
