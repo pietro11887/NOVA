@@ -139,8 +139,12 @@ export class Race {
           c.retireWhy = d.failure === 'engine' ? 'MOTORE' : d.failure === 'gearbox' ? 'CAMBIO' : flat ? 'FORATURA' : 'INCIDENTE';
           if (this.onEvent) this.onEvent(c, 'retired');
         }
-        // dopo qualche secondo la vettura ritirata viene tolta dalla pista
-        if (c.retired && this.t - c.retireT > 3) c.gone = true;
+        // la vettura ritirata resta dov'è: fuori pista la portano via dopo un po', sulla
+        // carreggiata è un ostacolo (arriva la safety car e la rimuovono i commissari)
+        if (c.retired && !c.gone) {
+          const offTrack = Math.abs(c.phys.prCG.d) > 10;
+          if ((offTrack && this.t - c.retireT > 20) || this.t - c.retireT > 60) c.gone = true;
+        }
       }
     }
     this.collideCars();

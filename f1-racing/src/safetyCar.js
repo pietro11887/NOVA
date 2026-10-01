@@ -46,6 +46,11 @@ export class SafetyCar {
       this.track.project(o.x, o.z, it.hint >= 0 ? it.hint : -1, pr);
       if (Math.abs(pr.d) < H + 1.5) sc += WEIGHT[it.kind] ?? 0.5;
     }
+    // vetture ferme (ritirate) sulla carreggiata o appena fuori
+    for (const c of this.race.cars) if (c.retired && !c.gone) {
+      const d = Math.abs(c.phys.prCG.d);
+      if (d < H + 2) sc += 3; else if (d < H + 5) sc += 1.5;
+    }
     return sc;
   }
 
@@ -67,8 +72,14 @@ export class SafetyCar {
     this.cleanT += dt;
     if (this.cleanT > (this.t < 12 ? 99 : 2.5)) {
       this.cleanT = 0;
-      const it = this.debris.items.find(it => race.cars.every(c => c.gone || Math.hypot(c.phys.x - it.obj.position.x, c.phys.z - it.obj.position.z) > 70));
-      if (it) this.debris.removeItem(it);
+      const far = (x, z, self) => race.cars.every(c => c === self || c.gone || c.retired || Math.hypot(c.phys.x - x, c.phys.z - z) > 70);
+      // prima le vetture ferme (carro attrezzi), poi i rottami
+      const wreck = race.cars.find(c => c.retired && !c.gone && far(c.phys.x, c.phys.z, c));
+      if (wreck) { wreck.gone = true; if (this.onEvent) this.onEvent('towed', wreck); }
+      else {
+        const it = this.debris.items.find(it => far(it.obj.position.x, it.obj.position.z, null));
+        if (it) this.debris.removeItem(it);
+      }
     }
     // safety car in pista
     if (this.phase === 'out' || this.phase === 'in') {

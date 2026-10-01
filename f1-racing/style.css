@@ -264,6 +264,11 @@ body #hud > #pitPanel, body.touch #hud > #pitPanel.pitPanel { pointer-events: au
 .pitPanel { top: calc(max(16px, env(safe-area-inset-top)) + 96px); }
 @media (max-height: 500px) { .pitPanel { top: calc(max(12px, env(safe-area-inset-top)) + 92px); padding: 8px 10px; } .pitPanel button { padding: 6px 4px; font-size: 13px; } .pitPanel button small { display: none; } }
 
-/* safety car */
-.scInfo { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); background: #f5c518; color: #111; border-radius: 6px; padding: 4px 12px; font-weight: 900; font-size: 14px; letter-spacing: 0.04em; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.35); animation: scBlink 1.2s infinite; }
-@keyframes scBlink { 50% { background: #ffdf4d; } }
+/* safety car: quadratino accanto a pausa e telecamera */
+.scBadge { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; letter-spacing: 0.02em; color: #111; background: #f5c518; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.35); pointer-events: none; }
+.scBadge.hidden { display: none; }
+.scBadge.sc { animation: scBlink 0.9s infinite; }
+.scBadge.scIn { background: #f5c518; opacity: 0.85; }
+.scBadge.pen { background: #e8322b; color: #fff; font-size: 12px; }
+.scBadge.green { background: #2ee06f; }
+@keyframes scBlink { 50% { background: #8a6d00; color: #f5c518; } }

@@ -110,7 +110,7 @@ export class AIDriver {
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
     for (const c of cars) {
-      if (c.phys === p || c.retired || c.gone || c.phys.inPit) continue;
+      if (c.phys === p || c.gone || c.phys.inPit) continue;   // le vetture ritirate in pista sono ostacoli
       const g = gapTo(c), dd = c.phys.prCG.d - myD, lat = Math.abs(dd);
       if (g > -4 && g < hazGap) {
         const cp = c.phys, pr = cp.prCG;

@@ -155,7 +155,7 @@ function startCountdown() {
 function clearRace() {
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
   if (sc) { sc.dispose(); sc = null; }
-  $('scInfo').classList.add('hidden');
+  $('scBadge').classList.add('hidden'); scBadgeUntil = -1;
   race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false;
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
@@ -209,9 +209,9 @@ function startRaceGame() {
   const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid' }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
   sc.onEvent = kind => {
-    if (kind === 'out') { showBanner('SAFETY CAR · NON SORPASSARE', 'yellow', 3, true); feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow'); }
+    if (kind === 'out') feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow');
     if (kind === 'in') feed('SAFETY CAR RIENTRA IN QUESTO GIRO', 'yellow');
-    if (kind === 'green') { showBanner('VIA LIBERA!', 'green', 2.5, true); feed('BANDIERA VERDE: SI TORNA A CORRERE', 'green'); }
+    if (kind === 'green') { feed('BANDIERA VERDE: SI TORNA A CORRERE', 'green'); scBadge('GO', 'green', 3); }
   };
   scPlayerIdx = -1;
   setTyreColor(car, phys.compound);
@@ -533,12 +533,10 @@ function updateEffects(dt) {
 
 // regole in regime di safety car: chi sorpassa prende una penalità di tempo
 function scRules() {
-  const el = $('scInfo');
-  if (!sc.active || !race || race.player.finishT != null) { el.classList.add('hidden'); scPlayerIdx = -1; return; }
-  el.classList.remove('hidden');
-  el.textContent = sc.phase === 'out' ? 'SAFETY CAR · NON SORPASSARE' : sc.phase === 'in' ? 'SAFETY CAR RIENTRA · NON SORPASSARE' : 'PRONTI AL VIA · SI SORPASSA DOPO IL TRAGUARDO';
+  if (!sc.active || !race || race.player.finishT != null) { if (simTime > scBadgeUntil) scBadge(null); scPlayerIdx = -1; return; }
+  if (simTime > scBadgeUntil) scBadge(sc.phase === 'restart' ? 'SC' : 'SC', sc.phase === 'out' ? 'sc' : 'scIn');
   const p = race.player;
-  if (p.pit) { scPlayerIdx = -1; el.classList.add('hidden'); return; }
+  if (p.pit) { scPlayerIdx = -1; return; }
   const ord = sc.order(), idx = ord.indexOf(p);
   if (scPlayerIdx >= 0 && idx >= 0 && idx < scPlayerIdx && simTime - scPassT > 2) {
     const passed = ord[idx + 1];
@@ -548,9 +546,19 @@ function scRules() {
   scPlayerIdx = idx;
 }
 
+// quadratino accanto a pausa/telecamera: SC (giallo lampeggiante), SC in rientro, GO, penalità
+let scBadgeUntil = -1;
+function scBadge(text, kind = 'sc', hold = 0) {
+  const el = $('scBadge');
+  if (!text) { el.classList.add('hidden'); return; }
+  el.textContent = text;
+  el.className = 'scBadge ' + kind;
+  if (hold) scBadgeUntil = simTime + hold;
+}
+
 function penalize(sec, why) {
   race.player.penalty = (race.player.penalty || 0) + sec;
-  showBanner(`${why}: +${sec} s`, 'red', 3, true);
+  scBadge(`+${sec}s`, 'pen', 3);
   feed(`PENALITÀ ${race.player.name}: +${sec} s (${why.toLowerCase()})`, 'red');
 }
 
