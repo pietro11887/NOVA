@@ -192,7 +192,7 @@ function startRaceGame() {
   };
   for (const c of race.cars) {
     if (c.isPlayer) continue;
-    c.model = gtReady() ? createGT({ primary: c.color, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() ? createGT({ primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.skidKey = 4 + c.slot * 4;

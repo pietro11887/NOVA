@@ -43,7 +43,7 @@ function tuneMaterial(src) {
   const n = src.name || '';
   const m = new THREE.MeshStandardMaterial({ name: n, map: src.map || null, color: src.color.clone(), transparent: src.transparent, opacity: src.opacity, alphaTest: src.alphaTest, side: src.side });
   m.roughness = 0.6; m.metalness = 0.1;
-  if (n === 'PAINT') { m.roughness = 0.28; m.metalness = 0.35; m.color.set(0xffffff); }
+  if (n === 'PAINT') { m.roughness = 0.32; m.metalness = 0.25; m.color.set(0xffffff); }
   else if (/^EXT_Windows/.test(n)) { m.map = null; m.transparent = false; m.color.set(0x0c1118); m.roughness = 0.06; m.metalness = 0.65; }
   else if (/^EXT_RIM/.test(n)) { m.roughness = 0.3; m.metalness = 0.75; m.color.set(0x9aa0a8); }
   else if (/^MI_Tyre/.test(n)) { m.roughness = 0.9; m.metalness = 0; }
@@ -115,6 +115,50 @@ function prepare(scene, lowPoly) {
   return { parts, wheelInfo, mats };
 }
 
+// Livree alternative: la grafica originale viene ridipinta. Le parti gialle prendono il colore
+// della squadra (mantenendo ombre e motivi), loghi e scritte restano; le vetture con colore
+// scuro hanno le parti nere nel colore secondario.
+const liveryCache = new Map();
+function liveryVariant(base, primary, accent, size = 512) {
+  const key = primary + '_' + accent;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size), d = img.data;
+  const P = new THREE.Color(primary), A = new THREE.Color(accent);
+  const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  const pr = Math.pow(P.r, 1), lumP = 0.3 * P.r + 0.59 * P.g + 0.11 * P.b;
+  const darkTeam = lumP < 0.06;
+  // schema "pieno": il nero diventa il colore della squadra e il giallo il colore secondario
+  const full = !darkTeam && ((primary >>> 4) % 3 !== 0);
+  const Y = full ? A : P, K = full ? P : A;
+  void pr;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, ch = mx - mn;
+    const s = ch === 0 ? 0 : ch / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (ch > 0) h = mx === r ? ((gg - b) / ch) % 6 : mx === gg ? (b - r) / ch + 2 : (r - gg) / ch + 4;
+    h *= 60; if (h < 0) h += 360;
+    // giallo/oro della livrea -> colore squadra (la luminosità relativa conserva i motivi)
+    const yellow = h > 28 && h < 68 && s > 0.35 && l > 0.12;
+    if (yellow) {
+      const k = Math.min(1.25, l / 0.5);
+      d[i] = toS(Y.r * k); d[i + 1] = toS(Y.g * k); d[i + 2] = toS(Y.b * k);
+    } else if ((darkTeam || full) && l < 0.13 && s < 0.35) {
+      const k = 0.6 + l * 3;
+      d[i] = toS(K.r * k); d[i + 1] = toS(K.g * k); d[i + 2] = toS(K.b * k);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.channel = base.channel; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
   const tpl = opts.lod === 'mid' ? templates.mid : templates.hi;
@@ -122,7 +166,8 @@ export function createGT(opts = {}) {
   const ghostMat = ghost ? new THREE.MeshBasicMaterial({ color: 0x7fd8ff, transparent: true, opacity: 0.28, depthWrite: false }) : null;
   const paint = tpl.mats.get([...tpl.mats.keys()].find(k => tpl.mats.get(k).name === 'PAINT'));
   const myPaint = paint ? paint.clone() : null;
-  if (myPaint) myPaint.color.set(opts.primary ?? 0xff8a1c);
+  // livrea: quella originale (Manthey #91) oppure ridipinta con i colori della squadra
+  if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   const stripe = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.6 });
   const M = m => ghost ? ghostMat : (m === paint ? myPaint : m);
   const root = new THREE.Group(), body = new THREE.Group();
