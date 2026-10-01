@@ -15,6 +15,7 @@ import { Race } from './race.js';
 import { PitLane } from './pit.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
+import { TRACKS, outlinePath } from './tracks/catalog.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -905,8 +906,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   applyTilt();
   saveSettings(); refreshSettings();
 }));
-$('playBtn').addEventListener('click', startGame);
-$('trackBtn').addEventListener('click', () => { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); });
+$('playBtn').addEventListener('click', () => openTrackPicker('trial'));
 $('fsBtn').addEventListener('click', goLandscape);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
 const restart = () => (gameType === 'race' ? startRaceGame() : startGame());
@@ -917,12 +917,57 @@ $('resAgain').addEventListener('click', startRaceGame);
 $('resMenu').addEventListener('click', () => goMenu());
 
 // --- navigazione del menu
-function showMenuPage(id) { ['menuHome', 'menuRace', 'menuSettings'].forEach(p => $(p).classList.toggle('hidden', p !== id)); }
-$('raceMenuBtn').addEventListener('click', () => { showMenuPage('menuRace'); refreshRaceSetup(); });
+const MENU_PAGES = ['menuHome', 'menuTrack', 'menuRace', 'menuSettings', 'menuHelp', 'menuCredits'];
+function showMenuPage(id) { MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id)); }
+$('raceMenuBtn').addEventListener('click', () => openTrackPicker('race'));
 $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
-$('raceBack').addEventListener('click', () => showMenuPage('menuHome'));
-$('settingsBack').addEventListener('click', () => showMenuPage('menuHome'));
+$('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
+$('creditsBtn').addEventListener('click', () => showMenuPage('menuCredits'));
+['settingsBack', 'helpBack', 'creditsBack', 'trackBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
+$('raceBack').addEventListener('click', () => openTrackPicker('race'));
 $('raceStartBtn').addEventListener('click', startRaceGame);
+
+// scelta del circuito (cambiare circuito ricarica la pagina e riprende da qui)
+let pickMode = 'race';
+const trackRecord = id => store.get('novaf1.best.v3' + (id === 'baku' ? '.baku' : ''));
+function openTrackPicker(m) {
+  pickMode = m;
+  $('tStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
+  $('tStepNext').classList.toggle('hidden', m !== 'race');
+  const box = $('trackCards');
+  box.innerHTML = '';
+  for (const t of TRACKS) {
+    const b = document.createElement('button');
+    b.className = 'card trackCard' + (t.id === settings.track ? ' sel' : '');
+    b.dataset.track = t.id;
+    const { d, start } = outlinePath(t, 268, 120);
+    const rec = trackRecord(t.id);
+    b.innerHTML = `<span class="flag">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+      <svg viewBox="0 0 268 120" aria-hidden="true"><path d="${d}" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="7" stroke-linejoin="round"/>
+      <path d="${d}" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/><circle cx="${start[0]}" cy="${start[1]}" r="5" fill="#ff8a1c"/></svg>
+      <span class="cTitle">${t.name.toUpperCase()}</span><span class="cText">${t.place} · ${t.info}</span>
+      <span class="tMeta"><span><b>${t.km} km</b>LUNGHEZZA</span><span><b>${t.corners}</b>CURVE</span><span class="tRec"><b>${rec ? fmt(rec.time) : '—'}</b>RECORD</span></span>`;
+    b.addEventListener('click', () => pickTrack(t.id));
+    box.appendChild(b);
+  }
+  showMenuPage('menuTrack');
+}
+function pickTrack(id) {
+  if (id !== settings.track) {
+    settings.track = id; saveSettings();
+    try { sessionStorage.setItem('novaf1.next', pickMode); } catch (e) { /* niente */ }
+    location.reload();
+    return;
+  }
+  if (pickMode === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
+  else startGame();
+}
+document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => {
+  const [k, dv] = b.dataset.step.split(':');
+  const lim = { raceBots: [1, 19], raceLaps: [1, 30], raceStrength: [1, 110], raceStart: [1, settings.raceBots + 1] }[k];
+  settings[k] = Math.max(lim[0], Math.min(lim[1], settings[k] + +dv));
+  refreshRaceSetup(); saveSettings();
+}));
 $('pitRepair').addEventListener('click', () => { if (race && race.player.pit && race.player.pit.phase !== 'in') return; pitChoice.repair = !pitChoice.repair; pitUi(); });
 
 const tier = v => v <= 20 ? 'VELOCE' : v <= 45 ? 'ESPERTO' : v <= 70 ? 'PRO' : v <= 90 ? 'CAMPIONE' : v <= 100 ? 'LEGGENDA' : 'ALIENO';
@@ -933,7 +978,10 @@ function refreshRaceSetup() {
   $('rsStart').max = S.raceBots + 1; $('rsStart').value = S.raceStart;
   const km = (S.raceLaps * track.length / 1000).toFixed(1).replace('.', ',');
   $('rsLapsV').innerHTML = `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'}<small>${km} KM${S.raceLaps >= 8 ? ' · BOX' : ''}</small>`;
-  $('rsBotsV').textContent = `${S.raceBots}`;
+  $('rsBotsV').innerHTML = `${S.raceBots}<small>${S.raceBots + 1} VETTURE</small>`;
+  $('raceTitle').textContent = track.name;
+  $('gpCount').textContent = S.raceBots + 1;
+  $('gpCars').innerHTML = Array.from({ length: S.raceBots + 1 }, (_, k) => `<i class="${k + 1 === S.raceStart ? 'me' : ''}" data-n="${k + 1 === S.raceStart ? 'TU' : k + 1}"></i>`).join('');
   $('rsStrengthV').innerHTML = `${S.raceStrength}<small>${tier(S.raceStrength)}</small>`;
   $('rsStartV').innerHTML = `${S.raceStart}°<small>${S.raceStart === 1 ? 'POLE' : S.raceStart === S.raceBots + 1 ? 'ULTIMO' : 'DI ' + (S.raceBots + 1)}</small>`;
 }
@@ -1153,6 +1201,11 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   refreshSettings();
   checkOrientation();
   $('loading').classList.add('hidden');
+  // dopo il cambio di circuito si riprende dal punto del menu in cui si era
+  let next = null;
+  try { next = sessionStorage.getItem('novaf1.next'); sessionStorage.removeItem('novaf1.next'); } catch (e) { /* niente */ }
+  if (next === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
+  else if (next === 'trial') startGame();
   window.__game = {
     phys, track, startGame, startRaceGame, settings, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
