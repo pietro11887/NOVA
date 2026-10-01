@@ -89,7 +89,7 @@ export class BakuScenery extends Scenery {
   constructor(scene, track, renderer, quality) {
     super(scene, track, renderer, quality);
     this.data = TRACK.data;
-    this.brand = { gantry: 'BAKU', gantryBg: ['#0092bc', '#00b5e2'], stand: 'BAKU CITY CIRCUIT', standBg: ['#ef3340', '#00b5e2'] };
+    this.brand = { real: true, gantryBrand: 'qatar', stand: 'QATAR AIRWAYS', standBg: ['#5c0632', '#7a0a44'] };
     this.floorY = -3;
     const b = this.bounds, pad = this.low ? 650 : 850;
     this.terrainBox = { x0: b.minX - pad, x1: b.maxX + pad, z0: b.minZ - pad, z1: b.maxZ + pad };
@@ -215,7 +215,7 @@ export class BakuScenery extends Scenery {
   }
 
   build() {
-    const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'grandstands', 'gantry', 'screen', 'billboards',
+    const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'timingClock', 'grandstands', 'gantry', 'screen', 'billboards',
       'buildings', 'roads', 'landmarks', 'trackside', 'brakeBoards', 'spectators', 'cityTrees', 'lamps'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
@@ -558,6 +558,42 @@ export class BakuScenery extends Scenery {
     this.batch.add(new THREE.BoxGeometry(17, 10, 0.8), this.colored, mat4(f.x + ox, f.y + 10.5, f.z + oz, f.ry), 0x23252b);
     this.batch.add(new THREE.BoxGeometry(1.2, 6, 1.2), this.colored, mat4(f.x + ox * 3, f.y + 3, f.z + oz * 3, f.ry), 0x3a3d45);
     this.occupied.push([f.x, f.z, 12]);
+  }
+
+  // orologio TAG Heuer (cronometrista ufficiale della F1 dal 2025) sul rettilineo dei box
+  timingClock() {
+    let f = null;
+    for (const at of [60, 90, 30, 120, 0, 150]) for (const ex of [2.5, 4, 6]) {
+      const q = this.frame(Math.round(at / this.track.step), -PIT.side, ex);
+      if (!f && this.free(q.x, q.z, 1.5)) f = q;
+    }
+    if (!f) return;
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#f4f1e8'; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.fill();
+    g.strokeStyle = '#d6202a'; g.lineWidth = 10; g.stroke();
+    g.fillStyle = '#1a1a1a';
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; g.fillRect(128 + Math.cos(a) * 92 - 4, 128 + Math.sin(a) * 92 - 4, 8, 8); }
+    g.fillStyle = '#00843d'; g.fillRect(108, 58, 40, 40); g.fillStyle = '#d6202a'; g.fillRect(108, 74, 40, 7);
+    g.fillStyle = '#111'; g.font = '700 20px Arial, sans-serif'; g.textAlign = 'center'; g.fillText('TAG HEUER', 128, 120);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const faceMat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 });
+    const ox = Math.sin(f.ry), oz = Math.cos(f.ry);
+    this.batch.add(new THREE.BoxGeometry(1.2, 9, 1.2), this.colored, mat4(f.x, f.y + 4.5, f.z, f.ry), 0x0b0b0b);
+    this.batch.add(new THREE.BoxGeometry(4.4, 4.4, 1.2), this.colored, mat4(f.x, f.y + 10.5, f.z, f.ry), 0x0b0b0b);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(1.95, 40), faceMat);
+    face.position.set(f.x + ox * 0.62, f.y + 10.5, f.z + oz * 0.62); face.rotation.y = f.ry;
+    this.group.add(face);
+    // lancette che segnano l'ora vera
+    const handMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+    const mk = (len, w) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, len).translate(0, len / 2, 0), handMat); m.position.copy(face.position).addScaledVector(new THREE.Vector3(ox, 0, oz), 0.02); m.rotation.set(0, f.ry, 0, 'YXZ'); this.group.add(m); return m; };
+    const hh = mk(1.0, 0.14), mm = mk(1.5, 0.09);
+    this.animated.push(() => {
+      const d = new Date(), mi = d.getMinutes() + d.getSeconds() / 60, ho = (d.getHours() % 12) + mi / 60;
+      hh.rotation.z = -ho / 12 * Math.PI * 2; mm.rotation.z = -mi / 60 * Math.PI * 2;
+    });
+    this.occupied.push([f.x, f.z, 4]);
   }
 
   // ------------------------------------------------------------------ città

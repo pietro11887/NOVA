@@ -187,3 +187,82 @@ export function carbon() {
   }
   return finish(c);
 }
+
+// Partner della F1 presenti al GP di Baku 2026: nome scritto con i colori del marchio
+// (non i loghi ufficiali)
+export const BRANDS = {
+  qatar: { name: 'QATAR AIRWAYS', bg: '#5c0632', fg: '#ffffff', font: '600 {s}px Arial, sans-serif', track: 0.08 },
+  lv: { name: 'LOUIS VUITTON', bg: '#3a271b', fg: '#e3cfa8', font: '600 {s}px Georgia, "Times New Roman", serif', track: 0.18 },
+  tag: { name: 'TAG HEUER', bg: '#0b0b0b', fg: '#ffffff', font: '700 {s}px Arial, sans-serif', track: 0.06, shield: true },
+  moet: { name: 'MOËT & CHANDON', bg: '#111111', fg: '#d8b46a', font: '600 {s}px Georgia, serif', track: 0.08 },
+  lenovo: { name: 'Lenovo', bg: '#e2231a', fg: '#ffffff', font: '700 {s}px "Titillium Web", Arial, sans-serif' },
+  aramco: { name: 'aramco', bg: '#ffffff', fg: '#00a3e0', font: '700 {s}px "Titillium Web", Arial, sans-serif', bar: '#84bd00' },
+  heineken: { name: 'Heineken 0.0', bg: '#0c6b33', fg: '#ffffff', font: '700 {s}px "Titillium Web", Arial, sans-serif', star: '#d6202a' },
+  dhl: { name: 'DHL', bg: '#ffcc00', fg: '#d40511', font: 'italic 900 {s}px Arial Black, Arial, sans-serif', stripes: '#d40511' },
+  aws: { name: 'aws', bg: '#232f3e', fg: '#ffffff', font: '700 {s}px Arial, sans-serif', smile: '#ff9900' },
+  pirelli: { name: 'PIRELLI', bg: '#111111', fg: '#fed100', font: 'italic 900 {s}px Arial Black, Arial, sans-serif' },
+  crypto: { name: 'crypto.com', bg: '#03316c', fg: '#ffffff', font: '600 {s}px Arial, sans-serif' },
+  msc: { name: 'MSC CRUISES', bg: '#0b1f4d', fg: '#ffffff', font: '600 {s}px Georgia, serif', track: 0.1 },
+  salesforce: { name: 'salesforce', bg: '#00a1e0', fg: '#ffffff', font: '700 {s}px Arial, sans-serif' },
+  amex: { name: 'AMERICAN EXPRESS', bg: '#006fcf', fg: '#ffffff', font: '800 {s}px Arial, sans-serif', track: 0.04 },
+};
+
+// disegna il pannello di un marchio nel rettangolo (x, y, w, h)
+export function drawBrand(g, b, x, y, w, h) {
+  g.save();
+  g.beginPath(); g.rect(x, y, w, h); g.clip();
+  g.fillStyle = b.bg; g.fillRect(x, y, w, h);
+  if (b.stripes) { g.fillStyle = b.stripes; for (let k = 0; k < 3; k++) g.fillRect(x + w * 0.06, y + h * (0.3 + k * 0.15), w * 0.14, h * 0.07); }
+  let s = h * 0.62;
+  const font = () => b.font.replace('{s}', Math.round(s));
+  g.font = font();
+  const spacing = (b.track || 0) * s;
+  const width = () => g.measureText(b.name).width + spacing * (b.name.length - 1);
+  while (width() > w * 0.84 && s > 8) { s *= 0.92; g.font = font(); }
+  const tw = width();
+  let cx = x + (w - tw) / 2;
+  if (b.shield || b.star) cx += h * 0.2;
+  const cy = y + h * 0.54;
+  g.fillStyle = b.fg; g.textBaseline = 'middle';
+  if (spacing) { for (const ch of b.name) { g.fillText(ch, cx, cy); cx += g.measureText(ch).width + spacing; } }
+  else g.fillText(b.name, cx, cy);
+  if (b.bar) { g.fillStyle = b.bar; g.fillRect(x + (w - tw) / 2, y + h * 0.82, tw * 0.35, h * 0.06); }
+  if (b.smile) {
+    g.strokeStyle = b.smile; g.lineWidth = h * 0.06; g.lineCap = 'round';
+    const sx = x + (w - tw) / 2;
+    g.beginPath(); g.moveTo(sx + tw * 0.05, y + h * 0.8); g.quadraticCurveTo(sx + tw * 0.5, y + h * 0.95, sx + tw * 0.95, y + h * 0.78); g.stroke();
+  }
+  if (b.star) {
+    const sx = x + (w - tw) / 2 - h * 0.35, sy = y + h * 0.52, r = h * 0.2;
+    g.fillStyle = b.star; g.beginPath();
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; g.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); }
+    g.fill();
+  }
+  if (b.shield) {
+    const sx = x + (w - tw) / 2 - h * 0.45, sy = y + h * 0.2, sw = h * 0.36, sh = h * 0.6;
+    g.fillStyle = '#00843d'; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + sw, sy); g.lineTo(sx + sw, sy + sh * 0.7); g.lineTo(sx + sw / 2, sy + sh); g.lineTo(sx, sy + sh * 0.7); g.fill();
+    g.fillStyle = '#d6202a'; g.fillRect(sx, sy + sh * 0.42, sw, sh * 0.14);
+  }
+  g.restore();
+}
+
+// rivestimento dei muri per un marchio: pannello da ripetere ogni 6 m, il nome nella parte
+// che sporge dall'asfalto (il muro va da -1,5 a +1,05 m: la parte visibile è il 41% in alto)
+const wallCache = {};
+export function sponsorWall(key) {
+  if (wallCache[key]) return wallCache[key];
+  const b = BRANDS[key], P = 340, H = 128;
+  const [c, g] = canvas(P, H);
+  g.fillStyle = b.bg; g.fillRect(0, 0, P, H);
+  drawBrand(g, b, 4, 2, P - 8, H * 0.39);
+  g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(0, 0, P, 2);
+  g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(0, 0, 2, H);
+  return (wallCache[key] = finish(c));
+}
+
+// cartellone singolo
+export function brandBoard(b) {
+  const [c, g] = canvas(512, 128);
+  drawBrand(g, b, 0, 0, 512, 128);
+  return finish(c, false);
+}

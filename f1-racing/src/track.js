@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK } from './trackData.js';
+import { buildTrack, KERB_WIDTH as K, TRACK, sponsorAt } from './trackData.js';
 import * as tex from './textures.js';
 
 export const SURF = { ROAD: 0, KERB: 1, SAUSAGE: 2, GRASS: 3, GRAVEL: 4 };
@@ -251,7 +251,7 @@ export class Track {
     const barrierT = tex.barrier(); barrierT.anisotropy = aniso;
     const tyreT = tex.tyreWall(); tyreT.anisotropy = aniso;
     const fenceT = tex.fence(); fenceT.anisotropy = aniso;
-    const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false) => {
+    const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false, flip = 1) => {
       const pos = [], uv = [], idx = [];
       let prev = -1;
       for (let ii = 0; ii <= n; ii++) {
@@ -261,7 +261,7 @@ export class Track {
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         const row = pos.length / 6;
         pos.push(x, s.y + h0, z, x, s.y + h1, z);
-        uv.push(s.s / vs, 0, s.s / vs, 1);
+        uv.push(flip * s.s / vs, 0, flip * s.s / vs, 1);
         if (prev >= 0) {
           const a = prev * 2, b = a + 1, c = row * 2, d = c + 1;
           if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
@@ -281,14 +281,27 @@ export class Track {
     const shared = s => (side > 0 ? s.sharedL : s.sharedR);
     const barrierMat = new THREE.MeshStandardMaterial({ map: barrierT, roughness: 0.7, side: THREE.DoubleSide });
     const tyreMat = new THREE.MeshStandardMaterial({ map: tyreT, roughness: 0.9, side: THREE.DoubleSide });
-    grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
+    if (this.street) {
+      // città: muri rivestiti con gli sponsor (pannelli da 6 m), leggibili dalla pista;
+      // lo spartitraffico tra due carreggiate resta bianco (si vede da entrambi i lati)
+      const median = s => (side > 0 ? s.clearL : s.clearR) < 2 * s.hw + 8;
+      const keys = new Set(S.map(q => sponsorAt(q.s, side)).filter(Boolean));
+      for (const key of keys) {
+        const spT = tex.sponsorWall(key); spT.anisotropy = aniso;
+        const spMat = new THREE.MeshStandardMaterial({ map: spT, roughness: 0.6, side: THREE.DoubleSide });
+        grp.add(make(-1.5, 1.05, spMat, 6, s => sponsorAt(s.s, side) === key && !isTyre(s) && !shared(s) && !median(s), 0, false, side > 0 ? 1 : -1));
+      }
+      grp.add(make(-1.5, 1.05, barrierMat, 4, s => !sponsorAt(s.s, side) && !isTyre(s) && !shared(s) && !median(s)));
+      grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s) && median(s)));
+    } else grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
     grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s)));
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
     // muretto box tra pista e corsia box (dal lato dei box)
     if (side === (TRACK.pit.side || -1)) {
-      const pitWallMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.8, side: THREE.DoubleSide });
-      grp.add(make(-1.5, 1.0, pitWallMat, 4, s => s.pitWall, 0, true));
+      const pwT = TRACK.pitWallBrand ? tex.sponsorWall(TRACK.pitWallBrand) : null;
+      const pitWallMat = pwT ? new THREE.MeshStandardMaterial({ map: pwT, roughness: 0.6, side: THREE.DoubleSide }) : new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.8, side: THREE.DoubleSide });
+      grp.add(make(-1.5, 1.0, pitWallMat, pwT ? 6 : 4, s => s.pitWall, 0, true));
       grp.add(make(1.0, 2.6, fenceMat, 3, s => s.pitWall, 0, true));
     }
     return grp;

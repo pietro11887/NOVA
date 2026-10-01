@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as tex from './textures.js';
+import { sponsorAt } from './trackData.js';
 
 // Ambientazione attorno al circuito: cielo con nuvole e sole, montagne all'orizzonte,
 // campagna a campi coltivati, lago, boschi, tribune con bandiere, paddock, paese,
@@ -566,7 +567,7 @@ export class Scenery {
     }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, span), dark);
     beam.position.set(0, 7.7, (s.wallR - s.wallL) / 2); beam.castShadow = true; g.add(beam);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.6), new THREE.MeshStandardMaterial({ map: tex.sponsor(this.brand?.gantry || 'NOVA GP', '#ffffff', this.brand?.gantryBg || ['#4b2fd6', '#b43adf']), roughness: 0.5 }));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.6), new THREE.MeshStandardMaterial({ map: this.brand?.gantryBrand ? tex.brandBoard(tex.BRANDS[this.brand.gantryBrand]) : tex.sponsor(this.brand?.gantry || 'NOVA GP', '#ffffff', this.brand?.gantryBg || ['#4b2fd6', '#b43adf']), roughness: 0.5 }));
     sign.position.set(-0.31, 8.4, 0); sign.rotation.y = -Math.PI / 2; g.add(sign);
     const sign2 = sign.clone(); sign2.position.x = 0.31; sign2.rotation.y = Math.PI / 2; g.add(sign2);
     // pannello luci
@@ -599,6 +600,13 @@ export class Scenery {
       ['TURBOX', '#ffffff', ['#1a1a1a', '#3a3a3a']], ['NOVA', '#ffffff', ['#4b2fd6', '#b43adf']],
       ['PISTA+', '#ffffff', ['#0a7d3e', '#19b35a']], ['GOMMA', '#ffffff', ['#0c3c8c', '#2a6fe0']],
     ].map(([t, f, b]) => new THREE.MeshStandardMaterial({ map: tex.sponsor(t, f, b), roughness: 0.6 }));
+    // circuito vero: il cartellone riprende il marchio del tratto di muro in cui si trova
+    const realMat = {};
+    const pickReal = (i, side) => {
+      const key = sponsorAt(this.track.samples[i].s, side);
+      if (!key) return null;
+      return realMat[key] || (realMat[key] = new THREE.MeshStandardMaterial({ map: tex.brandBoard(tex.BRANDS[key]), roughness: 0.6 }));
+    };
     const S = this.track.samples, n = this.track.count;
     const r = rand(9);
     const boardG = new THREE.BoxGeometry(12, 2.6, 0.2), postG = new THREE.CylinderGeometry(0.12, 0.12, 4);
@@ -608,7 +616,8 @@ export class Scenery {
       const f = this.frame(i, side, 2.5);
       if (!this.free(f.x, f.z, 4)) continue;
       const base = f.y;
-      this.batch.add(boardG, names[Math.floor(r() * names.length)], mat4(f.x, base + 4.6, f.z, f.ry));
+      const rnd = names[Math.floor(r() * names.length)];
+      this.batch.add(boardG, this.brand?.real ? (pickReal(i, side) || rnd) : rnd, mat4(f.x, base + 4.6, f.z, f.ry));
       for (const dx of [-5, 5]) {
         const ox = Math.cos(f.ry) * dx, oz = -Math.sin(f.ry) * dx;
         this.batch.add(postG, this.colored, mat4(f.x + ox, base + 2, f.z + oz), 0x555a63);
