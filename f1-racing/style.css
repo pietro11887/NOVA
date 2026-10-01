@@ -364,3 +364,31 @@ button.card:active { transform: scale(0.97); }
 .carCard svg { width: 100%; height: 96px; display: block; margin-bottom: 6px; }
 .card.carCard.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 @media (max-height: 500px) { .card.carCard { width: 250px; } .carCard svg { height: 70px; } }
+
+.teamRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; align-items: stretch; padding: 2px; touch-action: pan-x; }
+.teamRow::-webkit-scrollbar { display: none; }
+.teamLbl { flex: 0 0 auto; align-self: center; color: var(--muted); font-weight: 800; font-size: 11px; letter-spacing: 1.5px; writing-mode: vertical-rl; transform: rotate(180deg); }
+.teamChip { flex: 0 0 auto; display: grid; grid-template-columns: 26px auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left;
+  padding: 8px 12px 8px 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(12,14,20,0.75); color: var(--text); font-family: var(--font); cursor: pointer; }
+.teamChip i { grid-row: 1 / 3; width: 26px; height: 26px; border-radius: 7px; box-shadow: 0 0 0 1px rgba(255,255,255,0.25); }
+.teamChip b { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.teamChip small { font-size: 10.5px; color: var(--muted); font-weight: 700; }
+.teamChip.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.carHint { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+
+.teamNow { display: flex; align-items: center; gap: 10px; }
+.teamNow i { width: 30px; height: 30px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(255,255,255,0.3); flex: 0 0 auto; }
+.teamNow .big { font-size: 22px !important; line-height: 1.05; }
+.teamCar { text-align: center; font-weight: 800; color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+
+.teamRow { flex: 0 0 auto; align-items: center; }
+.teamChip { grid-template-columns: 22px auto; padding: 6px 10px 6px 6px; }
+.teamChip i { width: 22px; height: 22px; }
+#menuCar .cards { margin: 0; }
+@media (max-height: 500px) {
+  .card.carCard { min-height: 0; padding: 10px 12px; gap: 3px; }
+  .carCard svg { height: 46px; margin-bottom: 0; }
+  .carCard .cTitle { font-size: 16px; }
+  .carCard .cText { font-size: 10.5px; }
+  .teamChip b { font-size: 12px; } .teamChip small { font-size: 10px; }
+}

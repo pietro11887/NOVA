@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
 import { CAR_CLASS } from './vehicle.js';
+import { liveryTexture } from './f1Teams.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
@@ -264,7 +265,16 @@ export function createGT(opts = {}) {
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   const swap = new Map();
-  if (tpl.kind === 'f1' && opts.primary != null) {
+  if (tpl.kind === 'f1' && opts.team && !opts.team.original) {
+    // scuderia vera: carrozzeria e ali ridipinte, niente adesivi Red Bull
+    const size = opts.lod === 'mid' ? 512 : 1024;
+    for (const m of tpl.mats.values()) {
+      if ((m.name === 'chasis' || m.name === 'chassis2') && m.map) {
+        const tex = liveryTexture(opts.team, m.name, size, m.map);
+        if (tex) { const c = m.clone(); c.map = tex; c.roughness = opts.team.gloss ? 0.22 : 0.42; swap.set(m, c); }
+      } else if (m.name === 'decal') { const c = m.clone(); c.visible = false; swap.set(m, c); }
+    }
+  } else if (tpl.kind === 'f1' && opts.primary != null && !(opts.team && opts.team.original)) {
     for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
       const c = m.clone(); c.map = liveryF1(m.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
     }
@@ -311,7 +321,7 @@ export function createGT(opts = {}) {
   // Formula 1: il pilota (casco nell'abitacolo aperto)
   const helmet = [];
   if (tpl.kind === 'f1') {
-    const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
+    const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.team ? opts.team.colors[1] : opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
     const visor = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });
     const h = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), hm);
     h.scale.set(1.12, 1, 1); h.position.set(HELMET.x, HELMET.y, 0); h.castShadow = !ghost;

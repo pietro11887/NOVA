@@ -41,12 +41,22 @@ export class Race {
         name: isPlayer ? 'TU' : DRIVERS[botIdx % DRIVERS.length][0],
         color: isPlayer ? 0xff8a1c : DRIVERS[botIdx % DRIVERS.length][1],
         accent: isPlayer ? 0x27c3ea : DRIVERS[botIdx % DRIVERS.length][2],
+        team: isPlayer ? opts.playerTeam || null : null,
         crossings: 0, halfway: false, finishT: null, lastLapT: null, bestLap: null, lapStart: 0,
         pass: [], sPrev: 0,
         pit: null, pitRequest: null, stops: 0, plan: [],
       };
       phys.damageMode = opts.damageMode || 'sim';
-      if (!isPlayer) { car.ai = new AIDriver(phys, line, opts.strength, botIdx + 1); botIdx++; }
+      // Formula 1: piloti e scuderie veri; le scuderie di testa sono un filo più veloci
+      let strength = opts.strength;
+      if (!isPlayer && opts.grid && opts.grid[botIdx]) {
+        const e = opts.grid[botIdx];
+        car.name = e.name; car.team = e.team;
+        car.color = parseInt(e.team.colors[0].slice(1), 16); car.accent = parseInt(e.team.colors[1].slice(1), 16);
+        strength = Math.max(1, Math.min(110, strength + (e.team.tier - 1.5) * 4));
+      }
+      if (isPlayer && opts.playerTeam) car.color = parseInt(opts.playerTeam.colors[0].slice(1), 16);
+      if (!isPlayer) { car.ai = new AIDriver(phys, line, strength, botIdx + 1); botIdx++; }
       this.cars.push(car);
     }
     this.player = this.cars[playerSlot];

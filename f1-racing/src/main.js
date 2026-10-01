@@ -17,6 +17,7 @@ import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
 import { CAR_CLASS, IS_F1 } from './vehicle.js';
+import { TEAMS, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -34,7 +35,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull' }, store.get('novaf1.settings') || {});
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -94,7 +95,7 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
 
-  car = gtReady() ? createGT() : createCar();
+  car = gtReady() ? createGT(playerCarOpts()) : createCar();
   scene.add(car.root);
   ghostCar = gtReady() ? createGT({ ghost: true }) : createCar({ ghost: true });
   ghostCar.root.visible = false;
@@ -188,6 +189,7 @@ function startRaceGame() {
   race = new Race(track, racingLine, {
     laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength,
     startPos: settings.raceStart, playerPhys: phys, damageMode: settings.damage,
+    playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? f1Grid(settings.f1Team, settings.raceBots) : null,
     pitLane, startCompound: settings.raceTyre,
   });
   race.onEvent = (c, kind, pit) => {
@@ -214,7 +216,7 @@ function startRaceGame() {
   };
   for (const c of race.cars) {
     if (c.isPlayer) continue;
-    c.model = gtReady() ? createGT({ primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() ? createGT(c.team ? { team: c.team, lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.phys.hazards = p => debris.contact(p);
@@ -982,24 +984,63 @@ function pickTrack(id) {
   }
   openCarPicker(pickMode);
 }
+// opzioni del modello del giocatore: in F1 la livrea della scuderia scelta
+function playerCarOpts(extra = {}) { return IS_F1 ? { team: teamById(settings.f1Team), ...extra } : extra; }
+// scuderie (solo Formula 1): la vettura del giocatore cambia livrea subito
+function renderTeams() {
+  const box = $('teamRow');
+  box.classList.toggle('hidden', !IS_F1);
+  if (!IS_F1) return;
+  box.innerHTML = '<span class="teamLbl">LA TUA SCUDERIA</span>' + TEAMS.map(t => `<button class="teamChip${t.id === settings.f1Team ? ' sel' : ''}" data-team="${t.id}">
+    <i style="background:linear-gradient(135deg, ${t.colors[0]} 0 55%, ${t.colors[1]} 55% 80%, ${t.colors[2]} 80%)"></i><b>${t.name}</b><small>${t.car}</small></button>`).join('');
+  box.querySelectorAll('.teamChip').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    settings.f1Team = b.dataset.team; saveSettings();
+    setPlayerTeam();
+    renderTeams();
+    refreshRaceSetup();
+  }));
+}
+function setPlayerTeam() {
+  if (!IS_F1 || !gtReady() || !car) return;
+  scene.remove(car.root);
+  car = createGT(playerCarOpts());
+  scene.add(car.root);
+  setTyreColor(car, phys.compound);
+  updateCarVisual(0);
+}
 // scelta della vettura: GT3 o Formula 1 (cambiare categoria ricarica la pagina)
 function openCarPicker(m) {
   pickMode = m;
   $('cStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
   $('cStepNext').classList.toggle('hidden', m !== 'race');
   document.querySelectorAll('#carCards .carCard').forEach(b => b.classList.toggle('sel', b.dataset.class === CAR_CLASS));
+  renderTeams();
+  $('carHint').textContent = IS_F1 ? 'Scegli la scuderia: la vedi subito sulla tua vettura' : 'Tocca GT3 o FORMULA 1';
   showMenuPage('menuCar');
 }
+function carContinue() {
+  if (pickMode === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
+  else startGame();
+}
+$('carNext').addEventListener('click', carContinue);
+const cycleTeam = d => {
+  const i = TEAMS.findIndex(t => t.id === settings.f1Team);
+  settings.f1Team = TEAMS[(i + d + TEAMS.length) % TEAMS.length].id; saveSettings();
+  setPlayerTeam(); refreshRaceSetup();
+};
+$('teamPrev').addEventListener('click', () => cycleTeam(-1));
+$('teamNext').addEventListener('click', () => cycleTeam(1));
 document.querySelectorAll('#carCards .carCard').forEach(b => b.addEventListener('click', () => {
   const cls = b.dataset.class;
   if (cls !== CAR_CLASS) {
     settings.carClass = cls; saveSettings();
-    try { sessionStorage.setItem('novaf1.next', pickMode); } catch (e) { /* niente */ }
+    try { sessionStorage.setItem('novaf1.next', cls === 'f1' ? 'car-' + pickMode : pickMode); } catch (e) { /* niente */ }
     location.reload();
     return;
   }
-  if (pickMode === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
-  else startGame();
+  // stessa categoria: si va avanti (la scuderia si sceglie qui sotto o nella griglia)
+  carContinue();
 }));
 document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => {
   const [k, dv] = b.dataset.step.split(':');
@@ -1018,7 +1059,14 @@ function refreshRaceSetup() {
   const km = (S.raceLaps * track.length / 1000).toFixed(1).replace('.', ',');
   $('rsLapsV').innerHTML = `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'}<small>${km} KM${S.raceLaps >= 8 ? ' · BOX' : ''}</small>`;
   $('rsBotsV').innerHTML = `${S.raceBots}<small>${S.raceBots + 1} VETTURE</small>`;
-  $('raceTitle').textContent = track.name;
+  $('raceTitle').textContent = track.name + (IS_F1 ? ' · F1' : ' · GT3');
+  $('teamCard').classList.toggle('hidden', !IS_F1);
+  if (IS_F1) {
+    const tm = teamById(settings.f1Team);
+    $('rsTeamV').textContent = tm.name;
+    $('rsTeamCar').textContent = `${tm.car} · con ${tm.drivers[1]}`;
+    $('rsTeamSw').style.background = `linear-gradient(135deg, ${tm.colors[0]} 0 55%, ${tm.colors[1]} 55% 80%, ${tm.colors[2]} 80%)`;
+  }
   $('gpCount').textContent = S.raceBots + 1;
   $('gpCars').innerHTML = Array.from({ length: S.raceBots + 1 }, (_, k) => `<i class="${k + 1 === S.raceStart ? 'me' : ''}" data-n="${k + 1 === S.raceStart ? 'TU' : k + 1}"></i>`).join('');
   $('rsStrengthV').innerHTML = `${S.raceStrength}<small>${tier(S.raceStrength)}</small>`;
@@ -1260,7 +1308,7 @@ const fontsReady = Promise.race([document.fonts ? document.fonts.ready : Promise
 }
 
 // il modello 3D delle GT si carica insieme ai font (se non arriva si usa quello procedurale)
-const gtLoad = Promise.race([loadGT().catch(e => console.warn('modello GT non caricato', e)), new Promise(r => setTimeout(r, 20000))]);
+const gtLoad = Promise.race([Promise.all([loadGT(), IS_F1 ? loadLiveryMaps() : null]).catch(e => console.warn('modello non caricato', e)), new Promise(r => setTimeout(r, 20000))]);
 Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTimeout(() => {
   build();
   resize();
@@ -1275,7 +1323,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   else if (next === 'trial') startGame();
   else if (next === 'car-race' || next === 'car-trial') openCarPicker(next.slice(4));
   window.__game = {
-    phys, track, startGame, startRaceGame, settings, get race() { return race; }, get calls() { return renderer.info.render.calls; },
+    phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },

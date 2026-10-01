@@ -145,7 +145,8 @@
         <span class="cTitle">FORMULA 1</span><span class="cText">Red Bull RB22 2026 · 798 kg · ~1000 CV · tanto carico aerodinamico: curve velocissime e frenate brevissime</span>
       </button>
     </div>
-    <div class="mFoot"><button class="back" id="carBack">‹ CIRCUITO</button></div>
+    <div class="teamRow hidden" id="teamRow"></div>
+    <div class="mFoot"><button class="back" id="carBack">‹ CIRCUITO</button><span class="carHint" id="carHint"></span><button class="go" id="carNext">AVANTI ›</button></div>
   </div>
 
   <div class="menuPage hidden" id="menuRace">
@@ -170,6 +171,11 @@
       <div class="card opt">
         <span class="cTitle">PARTI IN</span><b class="big" id="rsStartV"></b>
         <div class="step"><button data-step="raceStart:-1">−</button><input id="rsStart" type="range" min="1" max="20" step="1"><button data-step="raceStart:1">+</button></div>
+      </div>
+      <div class="card opt" id="teamCard">
+        <span class="cTitle">SCUDERIA</span>
+        <div class="teamNow"><i id="rsTeamSw"></i><b class="big" id="rsTeamV"></b></div>
+        <div class="step"><button id="teamPrev">‹</button><span class="teamCar" id="rsTeamCar"></span><button id="teamNext">›</button></div>
       </div>
       <div class="card opt">
         <span class="cTitle">GOMME E DANNI</span>
