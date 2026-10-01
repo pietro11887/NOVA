@@ -536,6 +536,7 @@ export class BakuScenery extends Scenery {
     }
     const pts = [];
     for (const g of stands) { g.updateMatrixWorld(true); for (const p of g.userData.flags) pts.push(p.clone().applyMatrix4(g.matrixWorld)); }
+    this.standPos = stands.map(g => g.position.clone());   // per il rumore del pubblico
     if (pts.length) this.flags(pts);
   }
 

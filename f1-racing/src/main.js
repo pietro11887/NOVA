@@ -34,7 +34,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true }, store.get('novaf1.settings') || {});
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -72,6 +72,10 @@ if (settings.track === 'baku') {
 const trackKey = (settings.track === 'baku' ? '.baku' : '') + (IS_F1 ? '.f1' : '');   // record separati per circuito e categoria
 const track = new Track();
 const sounds = new Sound();
+sounds.level = settings.audio; sounds.radioOn = settings.radio;
+// l'audio del browser parte solo dopo un tocco: lo si accende al primo gesto
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => sounds.init(), { capture: true, passive: true });
+addEventListener('click', e => { if (e.target.closest && e.target.closest('#menu button, #pause button, #results button, .pitPanel button')) sounds.ui(); }, true);
 const input = new Input();
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
 let minimap;
@@ -167,6 +171,8 @@ function clearRace() {
   if (sc) { sc.dispose(); sc = null; }
   $('scBadge').classList.add('hidden'); scBadgeUntil = -1;
   race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false;
+  for (const k in radioSaid) delete radioSaid[k];
+  audioPos = 0;
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
   $('racePos').classList.add('hidden');
@@ -187,6 +193,7 @@ function startRaceGame() {
   race.onEvent = (c, kind, pit) => {
     const model = c.isPlayer ? car : c.model;
     if (kind === 'pitIn' && c.isPlayer) {
+      sounds.radio('Ok, box box. Scegli le gomme.');
       const left = race.laps - race.player.crossings;
       pit.plan.compound = left >= 12 ? 'H' : left >= 5 ? 'M' : 'S';
       pit.plan.repair = phys.repairTime() > 0.5;
@@ -219,9 +226,9 @@ function startRaceGame() {
   const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
   sc.onEvent = kind => {
-    if (kind === 'out') feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow');
-    if (kind === 'in') feed('SAFETY CAR RIENTRA IN QUESTO GIRO', 'yellow');
-    if (kind === 'green') { feed('BANDIERA VERDE: SI TORNA A CORRERE', 'green'); scBadge('GO', 'green', 3); }
+    if (kind === 'out') { feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow'); sounds.radio('Safety car, safety car. Rallenta e resta in fila, niente sorpassi.'); }
+    if (kind === 'in') { feed('SAFETY CAR RIENTRA IN QUESTO GIRO', 'yellow'); sounds.radio('La safety car rientra in questo giro. Scalda le gomme.'); }
+    if (kind === 'green') { feed('BANDIERA VERDE: SI TORNA A CORRERE', 'green'); scBadge('GO', 'green', 3); sounds.radio('Bandiera verde! Vai, vai, vai!'); sounds.cheerUp(0.5); }
   };
   scPlayerIdx = -1;
   setTyreColor(car, phys.compound);
@@ -269,7 +276,7 @@ function onImpact(c, bot = null) {
     if (d > 150) return;
     const n = Math.min(20, Math.floor(v * 1.2));
     for (let i = 0; i < n; i++) particles.emit(c.x, c.y + 0.3, c.z, { color: [1, 0.7, 0.25], size: 0.14, life: 0.4, vx: bot.phys.vx * 0.6 + (Math.random() - 0.5) * 8, vy: 1 + Math.random() * 4, vz: bot.phys.vz * 0.6 + (Math.random() - 0.5) * 8, grav: 9.8, drag: 1 });
-    if (c.part !== 'car' && d < 70 && v > 3 && simTime - lastImpactSound > 0.25) { sounds.crash(v / 22 * (1 - d / 70)); lastImpactSound = simTime; }
+    if (d < 90 && v > 2.5 && simTime - lastImpactSound > 0.2) { sounds.crash(v / 22 * Math.max(0, 1 - d / 90) ** 1.5, c.part === 'car' ? 'car' : 'wall'); lastImpactSound = simTime; }
     // cronaca: incidenti degli avversari
     if (c.part !== 'car' && v > 10) feed(`INCIDENTE PER ${bot.name}!`, 'yellow');
     return;
@@ -288,9 +295,14 @@ function onImpact(c, bot = null) {
       vx: (Math.random() - 0.5) * 3, vy: 1 + Math.random(), vz: (Math.random() - 0.5) * 3, drag: 1.5,
     });
   }
-  if (simTime - lastImpactSound > 0.18 && v > 1.5) {
-    sounds.crash(v / 22);
+  if (simTime - lastImpactSound > 0.15 && v > 1.2) {
+    sounds.crash(v / 20, c.part === 'car' ? 'car' : 'wall');
     lastImpactSound = simTime;
+  }
+  if (c.part !== 'car' && c.scrape > 2) sounds.scrapeWall(c.scrape);
+  // radio: danni seri all'ala o alle sospensioni
+  if (mode === 'race' && race && race.pitLane && !radioSaid.damage && (phys.damage.fwL + phys.damage.fwR > 0.7 || Math.max(...phys.damage.susp) > 0.5)) {
+    radioSaid.damage = true; setTimeout(() => sounds.radio('Abbiamo danni sulla vettura. Valuta di rientrare ai box.'), 1200);
   }
   camState.shake = Math.min(1, camState.shake + v / 18);
   if (v > 6 && mode === 'race') showBanner(v > 18 ? 'IMPATTO VIOLENTO!' : c.part === 'car' ? 'CONTATTO CON UN AVVERSARIO' : 'CONTATTO CON LE BARRIERE', 'red', 1.5);
@@ -354,6 +366,8 @@ function physicsStep(inp) {
       coolAI = new AIDriver(phys, racingLine, 25, 7);
       const pos = race.standings().indexOf(race.player) + 1;
       showBanner(pos === 1 ? 'BANDIERA A SCACCHI · VITTORIA!' : `BANDIERA A SCACCHI · ${pos}° POSTO`, pos === 1 ? 'purple' : 'green', 3, true);
+      sounds.cheerUp(pos <= 3 ? 1 : 0.6);
+      sounds.radio(pos === 1 ? 'Sì! Hai vinto! Che gara, fantastico!' : pos <= 3 ? `P${pos}! Sul podio, grande gara!` : `Bandiera a scacchi. Finisci P${pos}. Buon lavoro.`);
       resultsTimer = 2;
     }
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
@@ -435,7 +449,7 @@ function finishLap(time) {
       store.set('novaf1.best.v3' + trackKey, best);
     }
   }
-  if (isBest) showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true);
+  if (isBest) { showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true); if (gameType === 'trial') sounds.radio('Nuovo record! Giro fantastico.'); }
   else showBanner(`GIRO ${laps.length}  ${fmt(time)}${valid ? '' : '  (NON VALIDO)'}`, valid ? 'yellow' : 'red', 3, true);
   sounds.beep(isBest ? 1320 : 990, 0.25, 0.2);
   $('bestTime').textContent = fmt(best && best.time);
@@ -570,6 +584,7 @@ function penalize(sec, why) {
   race.player.penalty = (race.player.penalty || 0) + sec;
   scBadge(`+${sec}s`, 'pen', 3);
   feed(`PENALITÀ ${race.player.name}: +${sec} s (${why.toLowerCase()})`, 'red');
+  sounds.radio(`Abbiamo una penalità di ${sec} secondi.`);
 }
 
 // ---------------------------------------------------------------- telecamera
@@ -776,7 +791,7 @@ function raceHud(dt) {
   setText('lapTime', fmt(pl.finishT ?? race.t));
   setText('bestTime', fmt(pl.bestLap));
   setText('lastTime', fmt(pl.lastLapT));
-  if (!lastLapWarned && L > 1 && pl.crossings === L - 1 && mode === 'race') { lastLapWarned = true; showBanner('ULTIMO GIRO', 'yellow', 2.5, true); }
+  if (!lastLapWarned && L > 1 && pl.crossings === L - 1 && mode === 'race') { lastLapWarned = true; showBanner('ULTIMO GIRO', 'yellow', 2.5, true); sounds.radio('Ultimo giro! Dai tutto.'); }
   raceHudT -= dt;
   if (raceHudT > 0) return;
   raceHudT = 0.25;
@@ -888,6 +903,8 @@ const SET_LABELS = {
   line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
   tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
   tiltSens: v => `Sensibilità sterzo: ${v <= 15 ? 'Alta' : v <= 22 ? 'Media' : 'Bassa'}`,
+  audio: v => `Volume: ${v >= 1 ? 'Alto' : v >= 0.6 ? 'Medio' : v > 0 ? 'Basso' : 'Spento'}`,
+  radio: v => `Radio del box: ${v ? 'Sì' : 'No'}`,
 };
 function refreshSettings() {
   document.querySelectorAll('[data-set]').forEach(b => { const k = b.dataset.set; b.textContent = SET_LABELS[k](settings[k]); });
@@ -896,6 +913,8 @@ function refreshSettings() {
 document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
+  else if (k === 'audio') { settings.audio = settings.audio >= 1 ? 0.6 : settings.audio >= 0.6 ? 0.3 : settings.audio > 0 ? 0 : 1; sounds.setLevel(settings.audio); }
+  else if (k === 'radio') { settings.radio = !settings.radio; sounds.radioOn = settings.radio; if (settings.radio) sounds.radio('Radio controllo.'); }
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
@@ -1099,6 +1118,39 @@ function rescue() {
   showBanner('VETTURA RIPOSIZIONATA', 'yellow', 1.5);
 }
 
+// ---------------------------------------------------------------- audio
+var radioSaid = {};   // messaggi radio già detti in questa gara
+var audioPitPhase = null, audioPos = 0;
+function updateAudio(dt) {
+  if (!sounds.ctx) return;
+  sounds.setView(camMode >= 2);
+  sounds.update(phys, mode === 'race' || mode === 'countdown', dt);
+  // ascoltatore: la telecamera
+  camera.getWorldDirection(tmpAudio);
+  const fl = Math.hypot(tmpAudio.x, tmpAudio.z) || 1;
+  const L = { x: camera.position.x, z: camera.position.z, fx: tmpAudio.x / fl, fz: tmpAudio.z / fl, vx: phys.vx, vz: phys.vz };
+  const list = [];
+  if (race) for (const c of race.cars) if (!c.isPlayer && !c.gone && !c.phys.inPit) list.push({ id: c.slot, x: c.phys.x, z: c.phys.z, vx: c.phys.vx, vz: c.phys.vz, rpm: c.phys.rpm, thr: c.phys.throttleOut || 0 });
+  if (sc && sc.active && sc.model && sc.model.root.visible) { const p = sc.model.root.position; list.push({ id: 'sc', x: p.x, z: p.z, vx: 0, vz: 0, rpm: 5000 + sc.v * 90, thr: 0.4 }); }
+  sounds.others(list, L);
+  // pubblico: vicino alle tribune
+  let dmin = 1e9;
+  for (const p of scenery.standPos || []) dmin = Math.min(dmin, Math.hypot(p.x - camera.position.x, p.z - camera.position.z));
+  sounds.setCrowd(Math.max(0, 1 - dmin / 160) * 0.8);
+  // pit stop: rumori del box quando la vettura si ferma
+  const pit = race && race.player.pit;
+  const ph = pit ? pit.phase : null;
+  if (ph === 'service' && audioPitPhase !== 'service') sounds.pitService(pit.serviceTotal);
+  audioPitPhase = ph;
+  // sorpassi davanti al pubblico
+  if (race && mode === 'race') {
+    const pos = race.standings().indexOf(race.player) + 1;
+    if (audioPos && pos < audioPos && dmin < 140) sounds.cheerUp(0.35);
+    audioPos = pos;
+  }
+}
+const tmpAudio = new THREE.Vector3();
+
 // ---------------------------------------------------------------- loop principale
 let lastT = performance.now();
 function frame(now) {
@@ -1122,7 +1174,7 @@ function frame(now) {
       countdown.lit = lit;
       scenery.setLights(lit);
       [...$('lightsHud').children].forEach((e, k) => e.classList.toggle('on', k < lit));
-      if (lit > 0) sounds.beep(440, 0.15, 0.15);
+      if (lit > 0) sounds.beep(660, 0.12, 0.1);
     }
     // da fermi si può dare gas: il motore sale di giri
     phys.rpm += ((phys.idleRpm + inp.throttle * 7500) - phys.rpm) * Math.min(1, dt * 6);
@@ -1131,7 +1183,7 @@ function frame(now) {
       scenery.setLights(0);
       [...$('lightsHud').children].forEach(e => e.classList.remove('on'));
       setTimeout(() => $('lightsHud').classList.add('hidden'), 600);
-      sounds.beep(1200, 0.35, 0.2);
+      sounds.cheerUp(0.8);
       showBanner(gameType === 'race' ? 'VIA! BUONA GARA' : 'VIA! IL TEMPO PARTE AL TRAGUARDO', 'green', 2);
       mode = 'race';
       acc = 0;
@@ -1168,12 +1220,7 @@ function frame(now) {
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
     updateCamera(dt);
-    sounds.update(phys, mode === 'race' || mode === 'countdown');
-    if (race) {
-      let near = null, nd = 1e9;
-      for (const c of race.cars) { if (c.isPlayer || c.gone) continue; const d = Math.hypot(c.phys.x - phys.x, c.phys.z - phys.z); if (d < nd) { nd = d; near = c; } }
-      sounds.bots(near ? near.phys.rpm : 0, nd, near ? near.phys.throttleOut : 0);
-    } else sounds.bots(0, 1e9, 0);
+    updateAudio(dt);
   }
   if (mode !== 'menu') updateHud(dt);
   updateTouchSteer();

@@ -22,7 +22,8 @@ Avvio: servi la cartella con un server statico (es. `npx serve f1-racing` oppure
 - `src/race.js` – gara: griglia, contatti tra vetture, giri, classifica e distacchi
 - `src/racingLine.js` – linea ideale (verde/giallo/rosso) e profilo di velocità
 - `src/effects.js` – particelle, segni delle gomme, detriti
-- `src/audio.js`, `src/input.js`, `src/main.js` – audio, comandi, loop di gioco e HUD
+- `src/audio.js` – suoni sintetizzati: motore costruito scoppio per scoppio (V6 turbo F1 / boxer aspirato GT3), cambiate, scoppiettii, turbo, gomme, cordoli, ghiaia, vento, urti a strati, avversari con doppler, pubblico, box e radio con la voce
+- `src/input.js`, `src/main.js` – comandi, loop di gioco e HUD
 
 ## Comandi
 Telefono (in orizzontale): ◀ ▶ a sinistra per sterzare, FRENO e GAS a destra. Nel menu "Sterzo: Inclinazione" attiva lo sterzo col giroscopio (tieni premuto a destra per accelerare, a sinistra per frenare).
