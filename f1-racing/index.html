@@ -101,7 +101,7 @@
     </header>
     <div class="cards" id="homeCards">
       <button class="card big primary" id="raceMenuBtn">
-        <span class="cIcon">🏁</span><span class="cTitle">GARA</span><span class="cText">Scegli il circuito e quanti avversari, poi via dal semaforo</span>
+        <span class="cIcon">🏁</span><span class="cTitle">GARA</span><span class="cText">Scegli circuito, GT3 o Formula 1 e quanti avversari, poi via dal semaforo</span>
       </button>
       <button class="card big" id="playBtn">
         <span class="cIcon">⏱</span><span class="cTitle">PROVA A TEMPO</span><span class="cText">Da solo in pista, contro il tuo fantasma</span>
@@ -123,16 +123,34 @@
 
   <div class="menuPage hidden" id="menuTrack">
     <header class="mHead">
-      <div class="steps"><b id="tStepMode">GARA</b> › <b class="on">CIRCUITO</b><span id="tStepNext"> › GRIGLIA</span></div>
+      <div class="steps"><b id="tStepMode">GARA</b> › <b class="on">CIRCUITO</b><span> › VETTURA</span><span id="tStepNext"> › GRIGLIA</span></div>
       <div class="logo">SCEGLI IL CIRCUITO</div>
     </header>
     <div class="cards" id="trackCards"></div>
     <div class="mFoot"><button class="back" id="trackBack">‹ INDIETRO</button></div>
   </div>
 
+  <div class="menuPage hidden" id="menuCar">
+    <header class="mHead">
+      <div class="steps"><b id="cStepMode">GARA</b> › <b>CIRCUITO</b> › <b class="on">VETTURA</b><span id="cStepNext"> › GRIGLIA</span></div>
+      <div class="logo">SCEGLI LA VETTURA</div>
+    </header>
+    <div class="cards" id="carCards">
+      <button class="card carCard" data-class="gt">
+        <svg viewBox="0 0 260 90" aria-hidden="true"><path d="M14 66 L22 50 Q60 40 92 30 Q128 18 170 22 Q200 26 222 40 L246 44 L248 58 L240 66 Z" fill="#f5c518"/><rect x="214" y="22" width="40" height="5" rx="2" fill="#222"/><rect x="228" y="26" width="4" height="16" fill="#222"/><path d="M102 32 Q130 22 160 26 L168 40 L100 42 Z" fill="#1d2633"/><circle cx="62" cy="66" r="15" fill="#15171c"/><circle cx="62" cy="66" r="8" fill="#8a9099"/><circle cx="200" cy="66" r="15" fill="#15171c"/><circle cx="200" cy="66" r="8" fill="#8a9099"/></svg>
+        <span class="cTitle">GT3</span><span class="cText">Porsche 992 GT3 R · 1240 kg · ~560 CV · poco carico: staccate lunghe, scia e tecnica per superare</span>
+      </button>
+      <button class="card carCard" data-class="f1">
+        <svg viewBox="0 0 260 90" aria-hidden="true"><path d="M8 62 L40 56 Q90 50 120 46 L140 36 Q150 30 162 34 L176 44 Q210 46 238 50 L240 64 L20 68 Z" fill="#1b2a5a"/><rect x="226" y="28" width="28" height="6" rx="2" fill="#1b2a5a"/><rect x="236" y="34" width="4" height="18" fill="#1b2a5a"/><rect x="4" y="62" width="34" height="5" rx="2" fill="#1b2a5a"/><circle cx="150" cy="34" r="8" fill="#ff8a1c"/><circle cx="60" cy="64" r="16" fill="#15171c"/><circle cx="60" cy="64" r="7" fill="#c9ced6"/><circle cx="206" cy="64" r="17" fill="#15171c"/><circle cx="206" cy="64" r="7" fill="#c9ced6"/><path d="M110 50 Q160 40 190 52" stroke="#d6202a" stroke-width="3" fill="none"/></svg>
+        <span class="cTitle">FORMULA 1</span><span class="cText">Red Bull RB22 2026 · 798 kg · ~1000 CV · tanto carico aerodinamico: curve velocissime e frenate brevissime</span>
+      </button>
+    </div>
+    <div class="mFoot"><button class="back" id="carBack">‹ CIRCUITO</button></div>
+  </div>
+
   <div class="menuPage hidden" id="menuRace">
     <header class="mHead">
-      <div class="steps"><b>GARA</b> › <b>CIRCUITO</b> › <b class="on">GRIGLIA</b></div>
+      <div class="steps"><b>GARA</b> › <b>CIRCUITO</b> › <b>VETTURA</b> › <b class="on">GRIGLIA</b></div>
       <div class="logo" id="raceTitle">GRIGLIA DI PARTENZA</div>
     </header>
     <div class="gridPreview"><div class="gpLabel"><b id="gpCount"></b> vetture in pista</div><div class="gpCars" id="gpCars"></div></div>
@@ -160,7 +178,7 @@
       </div>
     </div>
     <div class="mFoot">
-      <button class="back" id="raceBack">‹ CIRCUITO</button>
+      <button class="back" id="raceBack">‹ VETTURA</button>
       <button class="go" id="raceStartBtn">VIA ALLA GARA ›</button>
     </div>
   </div>
@@ -202,6 +220,7 @@
     <header class="mHead"><div class="logo">CREDITI</div></header>
     <div class="textPage">
       <p>Modello 3D "Porsche 992 GT3 R" di <a href="https://sketchfab.com/MattDoesBlender" target="_blank" rel="noopener">MattDoesBlender</a> (<a href="https://sketchfab.com/3d-models/porsche-992-gt3-r-03ea07f7972648aa9350853b2a1a942a" target="_blank" rel="noopener">Sketchfab</a>), licenza <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Modificato per il gioco: abitacolo rimosso, poligoni ridotti, texture compresse, colori delle squadre. Gioco non commerciale.</p>
+      <p>Modello 3D "2026 Red Bull Racing RB22" di <a href="https://sketchfab.com/Tyler_Dave" target="_blank" rel="noopener">Dave Love</a> (<a href="https://sketchfab.com/3d-models/2026-red-bull-racing-rb22-8e5a68a7991c4a46bd66a879c060b3c5" target="_blank" rel="noopener">Sketchfab</a>), licenza <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Modificato per il gioco: volante, cinture e led dell'abitacolo rimossi, poligoni ridotti, texture compresse, livree dei bot ridipinte.</p>
       <p>Circuito di Baku, edifici, strade, parchi e costa: dati © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, licenza ODbL.</p>
       </div>
     <div class="mFoot"><button class="go" id="creditsBack">OK</button></div>

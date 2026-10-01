@@ -16,6 +16,7 @@ import { PitLane } from './pit.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
+import { CAR_CLASS, IS_F1 } from './vehicle.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -33,7 +34,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt' }, store.get('novaf1.settings') || {});
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -68,7 +69,7 @@ if (settings.track === 'baku') {
   try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
   catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
 }
-const trackKey = settings.track === 'baku' ? '.baku' : '';
+const trackKey = (settings.track === 'baku' ? '.baku' : '') + (IS_F1 ? '.f1' : '');   // record separati per circuito e categoria
 const track = new Track();
 const sounds = new Sound();
 const input = new Input();
@@ -108,7 +109,7 @@ function build() {
   minimap = new Minimap($('minimap'), track);
 
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
-  $('trackName').textContent = track.name;
+  $('trackName').textContent = track.name + ' · ' + (IS_F1 ? 'FORMULA 1' : 'GT3');
 }
 
 // ---------------------------------------------------------------- stato di gioco
@@ -215,7 +216,7 @@ function startRaceGame() {
     updateModel(c.model, c.phys, 0);
   }
   // safety car (vettura gialla con barra luci)
-  const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid' }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
+  const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
   sc.onEvent = kind => {
     if (kind === 'out') feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow');
@@ -316,9 +317,9 @@ function detachParts(car, phys, bot) {
     const v = k === 0 ? d.fwL : d.fwR;
     const end = half.userData.endplate;
     if (v > 0.4 && !end.userData.detached) debris.detach(end, vel, new THREE.Vector3(0, 1, 0), 'end');
-    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0), 'splitter'); lost.push('LO SPLITTER'); }
+    if (v >= 0.85 && !half.userData.detached) { debris.detach(half, vel, new THREE.Vector3(0, 2, 0), 'splitter'); lost.push(IS_F1 ? 'L\'ALA ANTERIORE' : 'LO SPLITTER'); }
   });
-  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0), 'wing'); lost.push('L\'ALETTONE'); }
+  if (d.rw >= 0.85 && !car.rearWing.userData.detached) { debris.detach(car.rearWing, vel, new THREE.Vector3(0, 4, 0), 'wing'); lost.push(IS_F1 ? 'L\'ALA POSTERIORE' : 'L\'ALETTONE'); }
   car.wheels.forEach((w, i) => {
     if (d.susp[i] >= 1 && !w.pivot.userData.detached) { debris.detach(w.pivot, vel, new THREE.Vector3(0, 3, 0), 'wheel'); lost.push('UNA RUOTA'); }
   });
@@ -614,7 +615,7 @@ function updateCamera(dt) {
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
   } else {
     car.root.updateMatrixWorld(true);
-    const local = camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26);
+    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
@@ -917,19 +918,20 @@ $('resAgain').addEventListener('click', startRaceGame);
 $('resMenu').addEventListener('click', () => goMenu());
 
 // --- navigazione del menu
-const MENU_PAGES = ['menuHome', 'menuTrack', 'menuRace', 'menuSettings', 'menuHelp', 'menuCredits'];
+const MENU_PAGES = ['menuHome', 'menuTrack', 'menuCar', 'menuRace', 'menuSettings', 'menuHelp', 'menuCredits'];
 function showMenuPage(id) { MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id)); }
 $('raceMenuBtn').addEventListener('click', () => openTrackPicker('race'));
 $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
 $('creditsBtn').addEventListener('click', () => showMenuPage('menuCredits'));
 ['settingsBack', 'helpBack', 'creditsBack', 'trackBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
-$('raceBack').addEventListener('click', () => openTrackPicker('race'));
+$('raceBack').addEventListener('click', () => openCarPicker('race'));
+$('carBack').addEventListener('click', () => openTrackPicker(pickMode));
 $('raceStartBtn').addEventListener('click', startRaceGame);
 
 // scelta del circuito (cambiare circuito ricarica la pagina e riprende da qui)
 let pickMode = 'race';
-const trackRecord = id => store.get('novaf1.best.v3' + (id === 'baku' ? '.baku' : ''));
+const trackRecord = id => store.get('novaf1.best.v3' + (id === 'baku' ? '.baku' : '') + (IS_F1 ? '.f1' : ''));
 function openTrackPicker(m) {
   pickMode = m;
   $('tStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
@@ -955,13 +957,31 @@ function openTrackPicker(m) {
 function pickTrack(id) {
   if (id !== settings.track) {
     settings.track = id; saveSettings();
+    try { sessionStorage.setItem('novaf1.next', 'car-' + pickMode); } catch (e) { /* niente */ }
+    location.reload();
+    return;
+  }
+  openCarPicker(pickMode);
+}
+// scelta della vettura: GT3 o Formula 1 (cambiare categoria ricarica la pagina)
+function openCarPicker(m) {
+  pickMode = m;
+  $('cStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
+  $('cStepNext').classList.toggle('hidden', m !== 'race');
+  document.querySelectorAll('#carCards .carCard').forEach(b => b.classList.toggle('sel', b.dataset.class === CAR_CLASS));
+  showMenuPage('menuCar');
+}
+document.querySelectorAll('#carCards .carCard').forEach(b => b.addEventListener('click', () => {
+  const cls = b.dataset.class;
+  if (cls !== CAR_CLASS) {
+    settings.carClass = cls; saveSettings();
     try { sessionStorage.setItem('novaf1.next', pickMode); } catch (e) { /* niente */ }
     location.reload();
     return;
   }
   if (pickMode === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
   else startGame();
-}
+}));
 document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => {
   const [k, dv] = b.dataset.step.split(':');
   const lim = { raceBots: [1, 19], raceLaps: [1, 30], raceStrength: [1, 110], raceStart: [1, settings.raceBots + 1] }[k];
@@ -1206,6 +1226,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   try { next = sessionStorage.getItem('novaf1.next'); sessionStorage.removeItem('novaf1.next'); } catch (e) { /* niente */ }
   if (next === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
   else if (next === 'trial') startGame();
+  else if (next === 'car-race' || next === 'car-trial') openCarPicker(next.slice(4));
   window.__game = {
     phys, track, startGame, startRaceGame, settings, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },

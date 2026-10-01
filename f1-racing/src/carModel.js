@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SPEC } from './vehicle.js';
 import { carbon } from './textures.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -6,9 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // (terreno a y = -(cgHeight + 0.02) a vettura ferma).
 
 // misure da GT3 (passo 2,6 m, carreggiata 1,66 m, ruote da 71 cm, baricentro a 40 cm)
-export const GEOM = {
-  axleF: 1.37, axleR: -1.25, halfTrack: 0.83, wheelR: 0.355, cgHeight: 0.4,
-};
+export const GEOM = { ...SPEC.geom };   // GT3 o F1 (vehicle.js)
 
 // Box "rastremato": sezione (w0,y0b,y0t) a x0 e (w1,y1b,y1t) a x1
 function taper(x0, w0, yb0, yt0, x1, w1, yb1, yt1) {

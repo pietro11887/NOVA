@@ -2,14 +2,18 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
+import { CAR_CLASS } from './vehicle.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
-// Ottimizzato per il gioco (abitacolo rimosso, poligoni ridotti, texture compresse).
+// Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
+// Ottimizzati per il gioco (abitacolo semplificato, poligoni ridotti, texture compresse).
 // Qui viene convertito nel formato delle vetture del gioco: muso verso +X, destra verso +Z,
 // terreno a y = -(cgHeight + 0.02); ruote separate che girano e sterzano; splitter e
 // alettone staccabili negli urti; vernice ricolorabile per squadra.
 
-const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };   // ordine del gioco: AS, AD, PS, PD
+const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };
+// posizione del casco nella RB22 (coordinate del gioco, prima della scala)
+const HELMET = { x: 0.36, y: 0.38 };   // ordine del gioco: AS, AD, PS, PD
 
 let templates = null;
 
@@ -59,12 +63,19 @@ function inlineImages(parser) {
   };
 }
 
+// file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'] };
+
 export function loadGT() {
   const loader = new GLTFLoader();
   loader.register(inlineImages);
   const get = f => fetchGLB(f).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)));
-  return Promise.all([get('gt3r_hi.glb'), get('gt3r_mid.glb')]).then(([hi, mid]) => {
-    templates = { hi: prepare(hi.scene, false), mid: prepare(mid.scene, true) };
+  // in Formula 1 serve comunque una GT leggera: la safety car
+  const jobs = [get(FILES[CAR_CLASS][0]), get(FILES[CAR_CLASS][1])];
+  if (CAR_CLASS !== 'gt') jobs.push(get(FILES.gt[1]));
+  return Promise.all(jobs).then(([hi, mid, gtMid]) => {
+    templates = { hi: prepare(hi.scene, false, CAR_CLASS), mid: prepare(mid.scene, true, CAR_CLASS) };
+    templates.gtMid = gtMid ? prepare(gtMid.scene, true, 'gt') : templates.mid;
     return templates;
   });
 }
@@ -76,6 +87,14 @@ function tuneMaterial(src) {
   const m = new THREE.MeshStandardMaterial({ name: n, map: src.map || null, color: src.color.clone(), transparent: src.transparent, opacity: src.opacity, alphaTest: src.alphaTest, side: src.side });
   m.roughness = 0.6; m.metalness = 0.1;
   if (n === 'PAINT') { m.roughness = 0.32; m.metalness = 0.25; m.color.set(0xffffff); }
+  // Formula 1 (RB22)
+  else if (n === 'chasis' || n === 'chassis2') { m.roughness = 0.3; m.metalness = 0.2; m.color.set(0xffffff); m.userData.livery = true; }
+  else if (n === 'decal') { m.transparent = false; m.alphaTest = 0.45; m.roughness = 0.35; m.depthWrite = true; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; }
+  else if (n === 'carbon') { m.roughness = 0.45; m.metalness = 0.35; m.color.set(0x9a9a9a); }
+  else if (n === 'glass') { m.map = null; m.transparent = true; m.opacity = 0.35; m.color.set(0x1a2230); m.roughness = 0.05; }
+  else if (n === 'redbull_wheel_hub') { m.roughness = 0.35; m.metalness = 0.6; }
+  else if (/^TIRE_/.test(n)) { m.roughness = 0.88; m.metalness = 0; }
+  else if (n === 'mirrors') { m.roughness = 0.05; m.metalness = 0.9; m.color.set(0x9aa4b0); }
   else if (/^EXT_Windows/.test(n)) { m.map = null; m.transparent = false; m.color.set(0x0c1118); m.roughness = 0.06; m.metalness = 0.65; }
   else if (/^EXT_RIM/.test(n)) { m.roughness = 0.3; m.metalness = 0.75; m.color.set(0x9aa0a8); }
   else if (/^MI_Tyre/.test(n)) { m.roughness = 0.9; m.metalness = 0; }
@@ -91,7 +110,16 @@ function tuneMaterial(src) {
 }
 
 // classifica un triangolo (coordinate del gioco) nelle parti staccabili
-function partOf(cx, cy, cz) {
+function partOf(cx, cy, cz, kind) {
+  if (kind === 'f1') {
+    // RB22: ala posteriore sopra il diffusore, ala anteriore bassa davanti alle ruote
+    if (cx < -1.72 && cy > 0.2) return 'rw';
+    if (cx > 2.02 && cy < 0.12) {
+      if (Math.abs(cz) > 0.78) return cz < 0 ? 'fwLe' : 'fwRe';
+      return cz < 0 ? 'fwL' : 'fwR';
+    }
+    return 'body';
+  }
   if (cx < -1.98 && cy > 0.42) return 'rw';                       // alettone (sopra il cofano posteriore)
   if (cx > 2.08 && cy < -0.24) {                                   // splitter anteriore
     if (Math.abs(cz) > 0.72) return cz < 0 ? 'fwLe' : 'fwRe';
@@ -100,7 +128,7 @@ function partOf(cx, cy, cz) {
   return 'body';
 }
 
-function prepare(scene, lowPoly) {
+function prepare(scene, lowPoly, kind = 'gt') {
   scene.updateMatrixWorld(true);
   // modello: Y in alto, muso verso +Z, sinistra verso +X  ->  gioco: muso +X, destra +Z
   const T = new THREE.Matrix4().makeRotationY(Math.PI / 2);
@@ -124,7 +152,7 @@ function prepare(scene, lowPoly) {
     for (let v = 0; v < n; v += 3) {
       tmp.set(0, 0, 0);
       for (let q = 0; q < 3; q++) tmp.x += P.getX(v + q) / 3, tmp.y += P.getY(v + q) / 3, tmp.z += P.getZ(v + q) / 3;
-      const k = mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
+      const k = kind === 'f1' ? partOf(tmp.x, tmp.y, tmp.z, 'f1') : mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
       (buckets[k] || (buckets[k] = [])).push(v);
     }
     for (const [k, list] of Object.entries(buckets)) {
@@ -144,7 +172,7 @@ function prepare(scene, lowPoly) {
     const c = tyre.g.boundingBox.getCenter(new THREE.Vector3()), s = tyre.g.boundingBox.getSize(new THREE.Vector3());
     return { center: c, radius: s.y / 2, width: s.z, list: list.map(p => ({ g: p.g.clone().translate(-c.x, -c.y, -c.z), mat: p.mat, kind: p.kind })) };
   });
-  return { parts, wheelInfo, mats };
+  return { parts, wheelInfo, mats, kind };
 }
 
 // Livree alternative: la grafica originale viene ridipinta. Le parti gialle prendono il colore
@@ -188,17 +216,61 @@ function liveryVariant(base, primary, accent, size = 512) {
   return t;
 }
 
+// Livrea F1: il nero/blu notte della carrozzeria prende il colore della squadra, l'arancio dei
+// cerchi il colore secondario, il rosso diventa bianco; scritte e loghi bianchi restano.
+function liveryF1(base, primary, accent, size = 1024) {
+  const key = 'f1_' + base.uuid + '_' + primary + '_' + accent;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const sz = Math.min(size, base.image.width || size);
+  const c = document.createElement('canvas'); c.width = c.height = sz;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, sz, sz);
+  const img = g.getImageData(0, 0, sz, sz), d = img.data;
+  const P = new THREE.Color(primary), A = new THREE.Color(accent);
+  const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, ch = mx - mn;
+    const sat = ch === 0 ? 0 : ch / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (ch > 0) h = mx === r ? ((gg - b) / ch) % 6 : mx === gg ? (b - r) / ch + 2 : (r - gg) / ch + 4;
+    h *= 60; if (h < 0) h += 360;
+    if (l < 0.16 && (sat < 0.5 || mx < 0.12)) {                    // base scura -> colore squadra
+      const k = 0.78 + l * 1.6;
+      d[i] = toS(P.r * k); d[i + 1] = toS(P.g * k); d[i + 2] = toS(P.b * k);
+    } else if (sat > 0.45 && h > 18 && h < 50 && l > 0.2) {       // arancio -> secondario
+      const k = Math.min(1.2, l / 0.48);
+      d[i] = toS(A.r * k); d[i + 1] = toS(A.g * k); d[i + 2] = toS(A.b * k);
+    } else if (sat > 0.45 && (h < 18 || h > 335) && l > 0.15) {    // rosso (toro, filetti) -> bianco
+      const k = Math.min(1, 0.55 + l);
+      d[i] = d[i + 1] = d[i + 2] = toS(0.92 * k);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = base.wrapS; t.wrapT = base.wrapT; t.channel = base.channel; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
-  const tpl = opts.lod === 'mid' ? templates.mid : templates.hi;
+  const tpl = opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
   const ghost = !!opts.ghost;
   const ghostMat = ghost ? new THREE.MeshBasicMaterial({ color: 0x7fd8ff, transparent: true, opacity: 0.28, depthWrite: false }) : null;
   const paint = tpl.mats.get([...tpl.mats.keys()].find(k => tpl.mats.get(k).name === 'PAINT'));
   const myPaint = paint ? paint.clone() : null;
-  // livrea: quella originale (Manthey #91) oppure ridipinta con i colori della squadra
+  // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
+  const swap = new Map();
+  if (tpl.kind === 'f1' && opts.primary != null) {
+    for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
+      const c = m.clone(); c.map = liveryF1(m.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
+    }
+  }
   const stripe = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.6 });
-  const M = m => ghost ? ghostMat : (m === paint ? myPaint : m);
+  const M = m => ghost ? ghostMat : (m === paint ? myPaint : swap.get(m) || m);
   const root = new THREE.Group(), body = new THREE.Group();
   body.rotation.order = 'YZX';
   body.scale.setScalar(CAR_SCALE);
@@ -236,6 +308,17 @@ export function createGT(opts = {}) {
     body.add(pivot);
     return { pivot, spin, baseY: wi.center.y, x: wi.center.x, side, arms: [], angle: 0 };
   });
+  // Formula 1: il pilota (casco nell'abitacolo aperto)
+  const helmet = [];
+  if (tpl.kind === 'f1') {
+    const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
+    const visor = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });
+    const h = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), hm);
+    h.scale.set(1.12, 1, 1); h.position.set(HELMET.x, HELMET.y, 0); h.castShadow = !ghost;
+    const v = new THREE.Mesh(new THREE.SphereGeometry(0.137, 20, 8, Math.PI - 0.9, 1.8, 1.15, 0.5), visor);
+    v.rotation.y = 0; h.add(v);
+    body.add(h); helmet.push(h);
+  }
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
-  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet: [], materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true };
+  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true };
 }

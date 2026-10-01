@@ -1,4 +1,5 @@
 import { GEOM, CAR_SCALE } from './carModel.js';
+import { SPEC } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 
 // Dinamica del veicolo: modello a 4 ruote con pneumatici "Pacejka" semplificati,
@@ -41,24 +42,11 @@ export { tyreGrip };
 
 // Punti dello scafo usati per le collisioni: [x, y(destra), parte]
 // (coordinate del modello, moltiplicate per la scala visiva delle vetture)
-const HULL = [
-  [2.3, -0.92, 'fwL'], [2.3, 0.92, 'fwR'], [2.45, 0, 'nose'],
-  [1.3, -1.02, 'wFL'], [1.3, 1.02, 'wFR'],
-  [0.0, -1.0, 'sideL'], [0.0, 1.0, 'sideR'],
-  [-1.22, -1.02, 'wRL'], [-1.22, 1.02, 'wRR'],
-  [-2.3, -0.85, 'rw'], [-2.3, 0.85, 'rw'],
-].map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
+const HULL = SPEC.hull.map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
 
 // Caratteristiche della vettura: monoposto con prestazioni da GT
 // (più pesante, meno potente, poco carico aerodinamico: staccate lunghe e scia che conta)
-export const CAR = {
-  mass: 1240,        // kg vettura + pilota, senza benzina
-  ClA: 1.9,          // portanza * area (una F1 è ~4.5)
-  CdA: 1.15,
-  mu: 1.55,          // aderenza degli slick
-  torque: 375,       // Nm di picco (~560 CV)
-  brake: 31000,      // N: abbastanza per arrivare al limite di aderenza anche in alto
-};
+export const CAR = { ...SPEC.car };   // GT3 o F1 (vehicle.js)
 
 export class CarPhysics {
   constructor(track) {
@@ -66,9 +54,9 @@ export class CarPhysics {
     this.baseMass = CAR.mass;       // vettura + pilota, senza benzina
     this.fuel = 5;                  // kg di benzina
     this.mass = this.baseMass + this.fuel;
-    this.Iz = 1780;
-    this.Ipitch = 1450;
-    this.Iroll = 460;
+    this.Iz = SPEC.inertia.Iz;
+    this.Ipitch = SPEC.inertia.Ipitch;
+    this.Iroll = SPEC.inertia.Iroll;
     this.a = GEOM.axleF;            // baricentro -> asse anteriore
     this.b = -GEOM.axleR;           // baricentro -> asse posteriore
     this.tw = GEOM.halfTrack;
@@ -91,9 +79,9 @@ export class CarPhysics {
     this.CdA = CAR.CdA;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
     this.mu = CAR.mu;               // aderenza pneumatici slick
-    this.springK = 231000;           // stessa compressione statica con più massa
-    this.damperC = 11000;
-    this.arbK = [185000, 92000];   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
+    this.springK = SPEC.susp.springK;           // stessa compressione statica con più massa
+    this.damperC = SPEC.susp.damperC;
+    this.arbK = SPEC.susp.arbK.slice();   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
     this.rearGrip = 1.1;            // gomme posteriori più larghe
     this.maxBrakeForce = CAR.brake;
     this.brakeBias = 0.57;
@@ -186,7 +174,7 @@ export class CarPhysics {
   }
 
   // passo da GT (2,6 m): angoli più piccoli per la stessa curvatura che con il passo lungo
-  maxSteer(v) { return 0.73 * (0.33 / (1 + v / 18.5) + 0.014); }
+  maxSteer(v) { return SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014); }
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara
@@ -384,7 +372,7 @@ export class CarPhysics {
       const slipV = Math.abs(vlat) + (w.lock || w.spinning ? Math.abs(vlong) * 0.6 : Math.abs(vlong) * 0.03 * Math.abs(fxOut) / Math.max(1, Fmax));
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
-      w.temp += (power / 42000 + 0.075 * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
+      w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
       w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
       if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 

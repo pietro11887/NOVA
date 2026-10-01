@@ -1,6 +1,7 @@
 import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE } from './carModel.js';
+import { SPEC } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
 
@@ -16,7 +17,7 @@ export const DRIVERS = [
   ['PARISI', 0x2ee06f, 0x16171b],
 ];
 
-const CIRCLES = [[1.42, 1.0], [0.0, 1.02], [-1.32, 1.0]].map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
+const CIRCLES = SPEC.circles.map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
 
 export class Race {
   constructor(track, line, opts) {
@@ -96,7 +97,7 @@ export class Race {
       }
       const tow = best < 60 ? 1 - best / 60 : 0;
       p.dragMul = 1 - 0.38 * tow;
-      p.downMul = best < 22 ? 1 - 0.06 * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
+      p.downMul = best < 22 ? 1 - SPEC.dirtyAir * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
       c.tow = tow;
     }
   }
