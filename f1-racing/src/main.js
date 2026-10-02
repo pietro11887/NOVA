@@ -18,6 +18,7 @@ import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
 import { CAR_CLASS, IS_F1 } from './vehicle.js';
+import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { TEAMS, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -36,7 +37,11 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull' }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull', driveMode: 'sim', arcTow: 1, arcRubber: 1 }, store.get('novaf1.settings') || {});
+// modalità di guida: realistica (simulazione) o arcade (driveMode.js)
+const ARC = () => settings.driveMode === 'arcade';
+// in arcade i danni "simulazione" diventano una barra di salute senza forature né guasti
+const dmMode = () => (ARC() && settings.damage === 'sim' ? 'reduced' : settings.damage);
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
@@ -129,8 +134,14 @@ function build() {
 let mode = 'menu';           // menu | countdown | race | pause | dnf
 let simTime = 0;
 let countdown = null;
-let best = store.get('novaf1.best.v3' + trackKey);       // { time, sectors, split, ghost }
-let bestSectors = store.get('novaf1.bestSectors.v3' + trackKey) || [null, null, null];
+// record separati anche per modalità di guida (arcade e realistica non si confrontano)
+const recKey = () => trackKey + (ARC() ? '.arc' : '');
+let best = store.get('novaf1.best.v3' + recKey());       // { time, sectors, split, ghost }
+let bestSectors = store.get('novaf1.bestSectors.v3' + recKey()) || [null, null, null];
+function loadRecords() {
+  best = store.get('novaf1.best.v3' + recKey());
+  bestSectors = store.get('novaf1.bestSectors.v3' + recKey()) || [null, null, null];
+}
 let lap = null;
 let lastLap = null;
 let laps = [];
@@ -153,7 +164,10 @@ function resetSession() {
   particles.clear();
   skids.clear();
   phys.reset(track.count - 6, -3.4);
-  phys.damageMode = settings.damage;
+  phys.damageMode = dmMode();
+  phys.arcade = ARC();
+  racingLine.setArcade(ARC());
+  arcOffT = 0;
   phys.fuel = 10; phys.mass = phys.baseMass + phys.fuel;
   lap = { active: false, sector: -1, valid: true };
   laps = [];
@@ -196,7 +210,8 @@ function startRaceGame() {
   clearRace();
   race = new Race(track, racingLine, {
     laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength,
-    startPos: settings.raceStart, playerPhys: phys, damageMode: settings.damage,
+    startPos: settings.raceStart, playerPhys: phys, damageMode: dmMode(),
+    arcade: ARC(), tow: settings.arcTow, rubber: settings.arcRubber,
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? f1Grid(settings.f1Team, settings.raceBots) : null,
     pitLane, startCompound: settings.raceTyre,
   });
@@ -382,10 +397,39 @@ function physicsStep(inp) {
     }
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
     race.step(DT, pc, true);
+    if (!coolAI) { arcadeCut(); arcadeRescue(DT); }
     return;
   }
   phys.step(DT, cmd);
   timing(sPrev, phys.prCG.s);
+  arcadeRescue(DT);
+}
+
+// arcade: tagliare la pista con quattro ruote costa 2 secondi (invece di cancellare il giro)
+var cutOut = false;
+function arcadeCut() {
+  if (!ARC() || phys.inPit) return;
+  const out = phys.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL);
+  if (out && !cutOut) {
+    if (race) race.player.penalty = (race.player.penalty || 0) + ARCADE.cutPenalty;
+    else if (lap.active) lap.penalty = (lap.penalty || 0) + ARCADE.cutPenalty;
+    showBanner(`TAGLIO DELLA PISTA · +${ARCADE.cutPenalty} s`, 'red', 2, true);
+  }
+  // si riarma solo dopo essere rientrati bene in pista
+  if (phys.wheels.every(w => w.sf.type !== SURF.GRASS && w.sf.type !== SURF.GRAVEL)) cutOut = false;
+  else if (out) cutOut = true;
+}
+
+// arcade: fermi fuori pista o finiti lontano dalla strada → rimessi in pista da soli
+var arcOffT = 0;
+function arcadeRescue(dt) {
+  if (!ARC() || phys.inPit || dnfTimer >= 0) { arcOffT = 0; return; }
+  const pr = phys.prCG, sm = track.samples[pr.i0 ?? pr.i];
+  const edge = (pr.d > 0 ? sm.hwL : sm.hwR) ?? sm.hw;
+  const off = Math.abs(pr.d) - edge;
+  const bad = (off > 1.5 && phys.speed < 3) || off > 14 || (phys.speed < 1 && Math.cos(phys.yaw - Math.atan2(sm.tz, sm.tx)) < -0.3);
+  arcOffT = bad ? arcOffT + dt : Math.max(0, arcOffT - dt * 2);
+  if (arcOffT > 2.2) { arcOffT = 0; rescue(); }
 }
 
 function timing(sPrev, sNow) {
@@ -398,7 +442,7 @@ function timing(sPrev, sNow) {
     const tCross = simTime - DT + DT * f;
     if (lap.active && lap.sector === 2) {
       lap.sectors[2] = tCross - lap.sectorStart;
-      finishLap(tCross - lap.start);
+      finishLap(tCross - lap.start + (lap.penalty || 0));
     } else if (lap.active) {
       showBanner('GIRO NON COMPLETO', 'red', 2, true);
     }
@@ -429,7 +473,8 @@ function timing(sPrev, sNow) {
     }
   }
   // limiti della pista: tutte e quattro le ruote fuori
-  if (lap.valid && phys.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL)) {
+  if (ARC()) arcadeCut();
+  else if (lap.valid && phys.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL)) {
     lap.valid = false;
     $('invalid').classList.remove('hidden');
     showBanner('LIMITI DELLA PISTA · GIRO CANCELLATO', 'red', 2.5, true);
@@ -452,11 +497,11 @@ function finishLap(time) {
   let isBest = false;
   if (valid) {
     lap.sectors.forEach((s, k) => { if (s != null && (bestSectors[k] == null || s < bestSectors[k])) bestSectors[k] = s; });
-    store.set('novaf1.bestSectors.v3' + trackKey, bestSectors);
+    store.set('novaf1.bestSectors.v3' + recKey(), bestSectors);
     if (!best || time < best.time) {
       isBest = true;
       best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec };
-      store.set('novaf1.best.v3' + trackKey, best);
+      store.set('novaf1.best.v3' + recKey(), best);
     }
   }
   if (isBest) { showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true); if (gameType === 'trial') sounds.radio('Nuovo record! Giro fantastico.'); }
@@ -734,10 +779,21 @@ function updateHud(dt) {
   setText('aidGear', settings.auto ? 'AUTO' : 'MAN');
   // gomme: temperatura (colore) e numero
   phys.wheels.forEach((w, i) => {
+    if (ARC()) {
+      // arcade: solo il grip rimasto (usura)
+      const g = Math.round(100 * (1 - 0.1 * w.wear - 0.6 * Math.max(0, w.wear - 0.72)));
+      const col = g >= 95 ? '#2ee06f' : g >= 88 ? '#f5c518' : '#ff3b30';
+      const key = 'g' + g;
+      if (hudCache['ty' + i] !== key) { hudCache['ty' + i] = key; const el = $('ty' + i); el.textContent = g + '%'; el.style.background = col; }
+      return;
+    }
     const t = Math.round(w.temp);
     const col = t < 80 ? '#3d7bff' : t < 90 ? '#2ec4ea' : t <= 110 ? '#2ee06f' : t <= 120 ? '#f5c518' : '#ff3b30';
     if (hudCache['ty' + i] !== t) { hudCache['ty' + i] = t; const el = $('ty' + i); el.textContent = t + '°'; el.style.background = col; }
   });
+  // arcade: i danni diventano una barra di salute
+  const hl = ARC() && phys.damageMode !== 'cosmetic' ? `SALUTE ${Math.round(100 * (1 - phys.totalDamage()))}%` : 'DANNI';
+  if (hudCache.hl !== hl) { hudCache.hl = hl; document.querySelector('.damage .lbl').textContent = hl; }
   const comp = phys.compound;
   if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
   if (race && race.player.pit) {
@@ -749,8 +805,8 @@ function updateHud(dt) {
     const pit = race.player.pit;
     setText('pitCount', `ARRIVO ALLA PIAZZOLA TRA ${Math.max(0, (pit.boxP - pit.p) / Math.max(8, pit.v)).toFixed(0)} s`);
   } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'INTERVENTI IN CORSO' : 'RIPARTENZA');
-  $('warnEng').classList.toggle('hidden', phys.engTemp < 120);
-  $('warnBrk').classList.toggle('hidden', phys.brakeTemp < 950);
+  $('warnEng').classList.toggle('hidden', ARC() || phys.engTemp < 120);
+  $('warnBrk').classList.toggle('hidden', ARC() || phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
   $('aidTow').classList.toggle('hidden', !tow);
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
@@ -908,13 +964,16 @@ const SET_LABELS = {
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
   raceTyre: v => `Gomme di partenza: ${COMPOUNDS[v].name}`,
   msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
-  damage: v => `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`,
+  damage: v => (ARC() ? `Salute: ${v === 'sim' ? 'Normale' : v === 'reduced' ? 'Resistente' : 'Solo estetica'}` : `Danni: ${v === 'sim' ? 'Simulazione' : v === 'reduced' ? 'Ridotti' : 'Solo estetici'}`),
   steer: v => `Sterzo: ${v === 'tilt' ? 'Inclinazione' : 'Frecce'}`,
   line: v => `Linea ideale: ${v === 'full' ? 'Completa' : v === 'brake' ? 'Solo frenate' : 'OFF'}`,
   tiltInvert: v => `Sterzo inclinazione: ${v ? 'Invertito' : 'Normale'}`,
   tiltSens: v => `Sensibilità sterzo: ${v <= 15 ? 'Alta' : v <= 22 ? 'Media' : 'Bassa'}`,
   audio: v => `Volume: ${v >= 1 ? 'Alto' : v >= 0.6 ? 'Medio' : v > 0 ? 'Basso' : 'Spento'}`,
   radio: v => `Radio del box: ${v ? 'Sì' : 'No'}`,
+  driveMode: v => `Guida: ${v === 'arcade' ? 'Arcade' : 'Realistica'}`,
+  arcTow: v => `Scia: ${TOW_NAMES[v]}`,
+  arcRubber: v => `Elastico: ${RUBBER_NAMES[v]}`,
 };
 function refreshSettings() {
   document.querySelectorAll('[data-set]').forEach(b => { const k = b.dataset.set; b.textContent = SET_LABELS[k](settings[k]); });
@@ -928,14 +987,31 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
-  else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = settings.damage; }
+  else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
   else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
   else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
+  else if (k === 'driveMode') { setDriveMode(settings.driveMode === 'arcade' ? 'sim' : 'arcade'); return; }
+  else if (k === 'arcTow') { settings.arcTow = (settings.arcTow + 1) % 3; }
+  else if (k === 'arcRubber') { settings.arcRubber = (settings.arcRubber + 1) % 3; }
   else if (k === 'tiltSens') { settings.tiltSens = settings.tiltSens <= 15 ? 22 : settings.tiltSens <= 22 ? 30 : 15; }
   else settings[k] = !settings[k];
   applyTilt();
   saveSettings(); refreshSettings();
 }));
+// cambio della modalità di guida (non serve ricaricare: vale dalla prossima partenza)
+function setDriveMode(m) {
+  settings.driveMode = m; saveSettings();
+  loadRecords();
+  if (phys) { phys.arcade = ARC(); phys.damageMode = dmMode(); }
+  if (racingLine) racingLine.setArcade(ARC());
+  refreshSettings(); refreshDriveMode();
+}
+function refreshDriveMode() {
+  document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.classList.toggle('sel', b.dataset.mode === settings.driveMode));
+  document.querySelectorAll('.arcadeOnly').forEach(e => e.classList.toggle('hidden', !ARC()));
+  document.body.classList.toggle('arcade', ARC());
+}
+document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.addEventListener('click', () => setDriveMode(b.dataset.mode)));
 $('playBtn').addEventListener('click', () => openTrackPicker('trial'));
 $('fsBtn').addEventListener('click', goLandscape);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
@@ -960,7 +1036,7 @@ $('raceStartBtn').addEventListener('click', startRaceGame);
 
 // scelta del circuito (cambiare circuito ricarica la pagina e riprende da qui)
 let pickMode = 'race';
-const trackRecord = id => store.get('novaf1.best.v3' + keyOf(id));
+const trackRecord = id => store.get('novaf1.best.v3' + keyOf(id) + (ARC() ? '.arc' : ''));
 function openTrackPicker(m) {
   pickMode = m;
   $('tStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
@@ -1170,8 +1246,8 @@ function rescue() {
   phys.reset(i, 0, true);
   skids.cut();
   camState.init = false;
-  if (lap.active) { lap.valid = false; $('invalid').classList.remove('hidden'); }
-  showBanner('VETTURA RIPOSIZIONATA', 'yellow', 1.5);
+  if (lap.active && !ARC()) { lap.valid = false; $('invalid').classList.remove('hidden'); }
+  showBanner(ARC() ? 'RIMESSO IN PISTA' : 'VETTURA RIPOSIZIONATA', 'yellow', 1.5);
 }
 
 // ---------------------------------------------------------------- audio
@@ -1322,6 +1398,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   resize();
   resetSession();
   refreshSettings();
+  refreshDriveMode();
   checkOrientation();
   $('loading').classList.add('hidden');
   // dopo il cambio di circuito si riprende dal punto del menu in cui si era

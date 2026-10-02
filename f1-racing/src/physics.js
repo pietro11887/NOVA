@@ -1,6 +1,7 @@
 import { GEOM, CAR_SCALE } from './carModel.js';
 import { SPEC } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
+import { ARCADE } from './driveMode.js';
 
 // Dinamica del veicolo: modello a 4 ruote con pneumatici "Pacejka" semplificati,
 // ellisse d'attrito, sospensioni molla-smorzatore (beccheggio / rollio / scuotimento),
@@ -75,6 +76,7 @@ export class CarPhysics {
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
     this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
+    this.arcade = false;            // guida arcade (driveMode.js)
     this.ClA = CAR.ClA;             // coefficiente di portanza * area
     this.CdA = CAR.CdA;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
@@ -154,7 +156,7 @@ export class CarPhysics {
   }
 
   // effetto dei danni sulla guida: 0 con danni solo estetici
-  get fx() { return this.damageMode === 'cosmetic' ? 0 : 1; }
+  get fx() { return this.damageMode === 'cosmetic' ? 0 : this.arcade ? ARCADE.dmgFx : 1; }
 
   totalDamage() {
     const d = this.damage;
@@ -175,13 +177,16 @@ export class CarPhysics {
 
   // passo da GT (2,6 m): angoli più piccoli per la stessa curvatura che con il passo lungo
   // in più sotto i ~55 km/h: tornanti come La Source o Monaco (raggio ~10 m) si fanno senza andare larghi
-  maxSteer(v) { return SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014) + 0.14 * Math.max(0, 1 - v / 16); }
+  // arcade: più aderenza = curve più strette alla stessa velocità, quindi anche più sterzo
+  maxSteer(v) { return (SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014)) * (this.arcade ? ARCADE.grip : 1) + 0.14 * Math.max(0, 1 - v / 16); }
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara
     this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000));
     this.mass = this.baseMass + this.fuel;
-    const m = this.mass, dmg = this.damage;
+    const m = this.mass, dmg = this.damage, A = this.arcade;
+    // arcade: controllo trazione e ABS sempre attivi
+    const tcOn = A || inp.tc, absOn = A || inp.abs;
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
     // velocità nel riferimento vettura
     const vxl = this.vx * cy + this.vz * sy;
@@ -238,13 +243,13 @@ export class CarPhysics {
     let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
-    if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045);
+    if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045) * (A ? ARCADE.engineBrake : 1);
     if (this.shiftTimer > 0) torque *= 0.1;
     // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
     const heat = 6 * throttle * (this.rpm / 12000);
     const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
     this.engTemp += (heat - cool) * dt;
-    if (this.engTemp > 128 && dfx) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);
+    if (this.engTemp > 128 && dfx && !A) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);
     let driveForce = torque * ratio * 0.92 / this.R;
     if (this.gear === -1) driveForce = Math.max(driveForce, -2500);
     if (Math.abs(vxl) < 0.5 && throttle < 0.05) driveForce = 0;
@@ -309,8 +314,8 @@ export class CarPhysics {
     // --- pneumatici ---
     let Fxb = 0, Fyb = 0, Mz = 0;
     // freni: si scaldano frenando, raffreddano con l'aria; oltre ~950 °C perdono efficacia
-    const brakeFade = this.brakeTemp > 950 ? Math.max(0.7, 1 - (this.brakeTemp - 950) / 1000) : 1;
-    const brakeF = brake * this.maxBrakeForce * brakeFade;
+    const brakeFade = !A && this.brakeTemp > 950 ? Math.max(0.7, 1 - (this.brakeTemp - 950) / 1000) : 1;
+    const brakeF = brake * this.maxBrakeForce * brakeFade * (A ? ARCADE.brake : 1);
     this.brakeTemp += (brake * speed * 1.4 - (this.brakeTemp - 200) * (0.004 + 0.0006 * speed)) * dt * 4;
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
@@ -323,8 +328,9 @@ export class CarPhysics {
       const vlat = -wvx * sd + wvy * cd;
       const props = SURF_PROPS[w.sf.type];
       const load = w.fz;
+      if (A) { w.temp = 95; w.flat = 0; }   // arcade: gomme sempre in temperatura, niente spiattellamenti
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / (m * G * 0.25) - 1));
-      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * (A ? ARCADE.grip * (front ? 1 : ARCADE.rear) : 1) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
       const Fmax = mu * load;
 
       // longitudinale
@@ -346,8 +352,8 @@ export class CarPhysics {
       const fxAid = Math.sqrt(Math.max(0, Fmax * Fmax - fy * fy)) * 0.92 + Fmax * 0.06;
       const isDrive = !front && Math.sign(fx) === Math.sign(driveForce) && Math.abs(driveForce) > 0 && throttle > 0.05;
       w.tcActive = false;
-      if (isDrive && inp.tc && Math.abs(fx) > fxAid) { fx = Math.sign(fx) * fxAid; w.tcActive = true; }
-      else if (!isDrive && inp.abs && Math.abs(vlong) > 1.5 && Math.abs(fx) > fxAid) fx = Math.sign(fx) * fxAid;
+      if (isDrive && tcOn && Math.abs(fx) > fxAid) { fx = Math.sign(fx) * fxAid; w.tcActive = true; }
+      else if (!isDrive && absOn && Math.abs(vlong) > 1.5 && Math.abs(fx) > fxAid) fx = Math.sign(fx) * fxAid;
       if (Math.abs(fx) > Fmax && load > 0) {
         if (isDrive) { fx = Math.sign(fx) * Fmax * 0.8; w.spinning = true; latScale = 0.45; }
         else if (Math.abs(vlong) > 1.5) w.lock = true;
@@ -374,8 +380,8 @@ export class CarPhysics {
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
       w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
-      w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
-      if (w.lock && speed > 12) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
+      w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (A ? ARCADE.wear : 1) * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
+      if (w.lock && speed > 12 && !A) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
       const bx = fxOut * cd - fyOut * sd;
       const by = fxOut * sd + fyOut * cd;
@@ -404,6 +410,7 @@ export class CarPhysics {
     this.vx += fxw / m * dt;
     this.vz += fzw / m * dt;
     this.yawRate += Mz / this.Iz * dt;
+    if (A) this.arcadeAssist(dt, vxl);
     // smorzamento a bassa velocità (evita tremolii da fermi)
     if (speed < 0.4 && throttle < 0.05) { this.vx *= 0.9; this.vz *= 0.9; this.yawRate *= 0.9; }
     this.yaw += this.yawRate * dt;
@@ -426,6 +433,26 @@ export class CarPhysics {
 
     this.collide(dt);
     this.wheelSpinAngle += 0; // gestito dalla grafica
+  }
+
+  // arcade: la vettura non ruota più di quanto chiede lo sterzo e va dove punta
+  // (stile iRacing Arcade: ci si gira solo con le ruote posteriori sull'erba o sulla ghiaia)
+  arcadeAssist(dt, vxl) {
+    if (vxl < 4) return;
+    const offRear = [2, 3].some(k => { const t = this.wheels[k].sf.type; return t === SURF.GRASS || t === SURF.GRAVEL; });
+    if (offRear) return;
+    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+    const vlon = this.vx * cy + this.vz * sy;
+    let vlat = -this.vx * sy + this.vz * cy;
+    const beta = Math.atan2(Math.abs(vlat), Math.abs(vlon));
+    if (beta < 0.12) return;                 // curva normale: nessun intervento
+    // sbandata vera: la rotazione torna verso quella chiesta dallo sterzo e la vettura si raddrizza
+    const k = Math.min(1, (beta - 0.12) / 0.15);
+    const rT = vxl * Math.tan(this.steer) / (this.a + this.b);
+    this.yawRate += (rT - this.yawRate) * Math.min(1, dt * 6 * k);
+    const maxLat = Math.tan(0.12) * Math.abs(vlon);
+    vlat += (Math.sign(vlat) * maxLat - vlat) * Math.min(1, dt * 3 * k);
+    this.vx = vlon * cy - vlat * sy; this.vz = vlon * sy + vlat * cy;
   }
 
   collide(dt) {
@@ -536,7 +563,7 @@ export class CarPhysics {
   // la vettura deve ritirarsi?
   isWrecked() {
     const d = this.damage;
-    if (this.damageMode === 'cosmetic') return false;
+    if (this.damageMode === 'cosmetic' || this.arcade) return false;   // arcade: la salute non porta al ritiro
     const lim = this.damageMode === 'reduced' ? 1.5 : 1;   // con danni ridotti non ci si arriva quasi mai
     return d.engine >= lim || d.susp.some(x => x >= lim) || d.failure === 'engine';
   }

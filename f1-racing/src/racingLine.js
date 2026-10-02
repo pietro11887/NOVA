@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROAD_HALF_WIDTH as H } from './trackData.js';
 import { CAR } from './physics.js';
+import { ARCADE } from './driveMode.js';
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
 // Il colore di ogni tratto dipende dalla velocità attuale della vettura:
@@ -83,6 +84,13 @@ export class RacingLine {
       }
     }
     return v;
+  }
+
+  // colori della linea per la guida arcade (più aderenza, frenate più corte) o realistica
+  setArcade(on) {
+    if (this.arcadeOn === on) return;
+    this.arcadeOn = on;
+    this.speed = this.speedProfile(1.3 * CAR.mu / 1.8 * (on ? ARCADE.grip : 1), 0.72 * (on ? ARCADE.brake : 1));
   }
 
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)

@@ -365,6 +365,12 @@ button.card:active { transform: scale(0.97); }
 .card.carCard.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 @media (max-height: 500px) { .card.carCard { width: 250px; } .carCard svg { height: 70px; } }
 
+.modeRow { display: flex; gap: 8px; align-items: stretch; margin: 2px 0 6px; }
+.modeLbl { font-weight: 900; font-size: 12px; letter-spacing: .12em; color: var(--dim, #9aa3b2); writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; }
+.modeBtn { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font-family: var(--font); cursor: pointer; }
+.modeBtn b { font-size: 15px; font-weight: 900; letter-spacing: .04em; }
+.modeBtn small { font-size: 11px; opacity: .75; line-height: 1.25; }
+.modeBtn.sel { border-color: #ff8a1c; background: rgba(255,138,28,0.16); box-shadow: 0 0 0 1px #ff8a1c inset; }
 .teamRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; align-items: stretch; padding: 2px; touch-action: pan-x; }
 .teamRow::-webkit-scrollbar { display: none; }
 .teamLbl { flex: 0 0 auto; align-self: center; color: var(--muted); font-weight: 800; font-size: 11px; letter-spacing: 1.5px; writing-mode: vertical-rl; transform: rotate(180deg); }
@@ -392,3 +398,5 @@ button.card:active { transform: scale(0.97); }
   .carCard .cText { font-size: 10.5px; }
   .teamChip b { font-size: 12px; } .teamChip small { font-size: 10px; }
 }
+
+@media (max-height: 500px) { .modeBtn small { display: none; } .modeBtn { padding: 6px 10px; } .modeLbl { display: none; } }

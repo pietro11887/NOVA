@@ -1,6 +1,7 @@
 import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
 import { CAR } from './physics.js';
 import { SPEC } from './vehicle.js';
+import { ARCADE } from './driveMode.js';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
@@ -45,10 +46,13 @@ export class AIDriver {
     this.strength = strength;
     this.skill = skillParams(strength);
     const t = (strength - 1) / 109;
-    const mu = this.skill.mu * this.skill.grip;
-    this.profile = this.line.speedProfile(mu, this.skill.brake, 120);
+    // arcade: più aderenza e frenate più forti anche per i bot
+    const arc = this.phys.arcade;
+    const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip : 1);
+    const brk = Math.min(0.95, this.skill.brake * (arc ? ARCADE.brake : 1));
+    this.profile = this.line.speedProfile(mu, brk, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
-    this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.9, this.skill.brake + 0.06), 120);
+    this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.95, brk + 0.06), 120);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
     this.errPerLap = 0.04 + 0.5 * Math.pow(1 - Math.min(1, t), 2);
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda

@@ -4,6 +4,7 @@ import { CAR_SCALE } from './carModel.js';
 import { SPEC } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
+import { TOW_LEVELS } from './driveMode.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -30,6 +31,10 @@ export class Race {
     this.t = 0;              // secondi dalla partenza
     this.started = false;
     this.finished = false;
+    // arcade: scia più forte ed effetto elastico (i bot aspettano chi è indietro e spingono se sei davanti)
+    this.arcade = !!opts.arcade;
+    this.towMul = this.arcade ? TOW_LEVELS[opts.tow ?? 1] : 1;
+    this.rubber = this.arcade ? (opts.rubber ?? 1) : 0;
     const total = opts.bots + 1;
     const playerSlot = Math.min(total, Math.max(1, opts.startPos)) - 1;
     let botIdx = 0;
@@ -47,6 +52,7 @@ export class Race {
         pit: null, pitRequest: null, stops: 0, plan: [],
       };
       phys.damageMode = opts.damageMode || 'sim';
+      phys.arcade = !!opts.arcade;
       // Formula 1: piloti e scuderie veri; le scuderie di testa sono un filo più veloci
       let strength = opts.strength;
       if (!isPlayer && opts.grid && opts.grid[botIdx]) {
@@ -92,6 +98,14 @@ export class Race {
 
   progress(c) { return c.crossings * this.track.length + c.phys.prCG.s; }
 
+  // effetto elastico: più potenza e aderenza ai bot dietro di te, meno a quelli davanti
+  rubberBand(c) {
+    const gap = this.progress(c) - this.progress(this.player);       // > 0: il bot è davanti
+    const f = Math.max(-1, Math.min(1, -gap / 250));
+    c.phys.powerScale = c.ai.skill.power * (1 + 0.05 * this.rubber * f);
+    c.phys.gripScale = c.ai.skill.grip * (1 + 0.025 * this.rubber * f);
+  }
+
   // un passo di simulazione per tutte le vetture (il giocatore riceve i propri comandi)
   // scia e aria sporca: chi segue da vicino ha meno resistenza ma anche meno carico
   slipstream() {
@@ -105,9 +119,11 @@ export class Race {
         if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
         if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.8) best = g;
       }
-      const tow = best < 60 ? 1 - best / 60 : 0;
-      p.dragMul = 1 - 0.38 * tow;
-      p.downMul = best < 22 ? 1 - SPEC.dirtyAir * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
+      const reach = 60 * Math.sqrt(this.towMul);          // arcade: la scia si sente da più lontano
+      const tow = best < reach ? 1 - best / reach : 0;
+      p.dragMul = Math.max(0.35, 1 - 0.38 * this.towMul * tow);
+      const dirty = SPEC.dirtyAir * (this.arcade ? 0.4 : 1);
+      p.downMul = best < 22 ? 1 - dirty * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
       c.tow = tow;
     }
   }
@@ -131,6 +147,7 @@ export class Race {
       if (c.isPlayer) {
         c.phys.step(dt, playerCmd);
       } else {
+        if (this.rubber && running && !c.retired) this.rubberBand(c);
         const cmd = running && !c.retired ? c.ai.drive(dt, this.cars, this.t) : { throttle: 0, brake: c.retired ? 0.6 : 1, steer: 0, autoGear: true, tc: true, abs: true };
         if (cmd.needRescue && !c.retired) { c.phys.reset(c.phys.prCG.i, 0, true); c.ai.stuck = 0; c.ai.lane = c.ai.laneTarget = 0; }
         c.phys.step(dt, cmd);
