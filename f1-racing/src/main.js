@@ -5,7 +5,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { ModelScenery, loadTrackModel } from './sceneryModel.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
-import { loadGT, createGT, gtReady } from './gtModel.js';
+import { loadGT, createGT, gtReady, loadKind } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -20,6 +20,7 @@ import { TRACKS, outlinePath } from './tracks/catalog.js';
 import { CAR_CLASS, IS_F1 } from './vehicle.js';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
+import { Garage } from './garage.js';
 import { TEAMS, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -38,7 +39,7 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull', driveMode: 'sim', arcTow: 1, arcRubber: 1 }, store.get('novaf1.settings') || {});
+const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull', driveMode: 'sim', arcTow: 1, arcRubber: 1, gameType: 'race' }, store.get('novaf1.settings') || {});
 // modalità di guida: realistica (simulazione) o arcade (driveMode.js)
 const ARC = () => settings.driveMode === 'arcade';
 // arcade con la GT3 salvata (non dovrebbe succedere): si passa alla Formula 1
@@ -198,7 +199,7 @@ function clearRace() {
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
   if (sc) { sc.dispose(); sc = null; }
   $('scBadge').classList.add('hidden'); scBadgeUntil = -1;
-  race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false;
+  race = null; coolAI = null; resultsTimer = -1; lastLapWarned = false; attract = null;
   for (const k in radioSaid) delete radioSaid[k];
   audioPos = 0;
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
@@ -242,6 +243,14 @@ function startRaceGame() {
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
     else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
   };
+  spawnRaceModels();
+  // safety car (vettura gialla con barra luci)
+  const scModel = gtReady() ? makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
+  sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
+  startRaceRest();
+}
+// modelli 3D dei bot della gara (anche per la gara sullo sfondo del menu)
+function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
@@ -252,9 +261,8 @@ function startRaceGame() {
     setTyreColor(c.model, c.phys.compound);
     updateModel(c.model, c.phys, 0);
   }
-  // safety car (vettura gialla con barra luci)
-  const scModel = gtReady() ? makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
-  sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
+}
+function startRaceRest() {
   sc.onEvent = kind => {
     if (kind === 'out') { feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow'); sounds.radio('Safety car, safety car. Rallenta e resta in fila, niente sorpassi.'); }
     if (kind === 'in') { feed('SAFETY CAR RIENTRA IN QUESTO GIRO', 'yellow'); sounds.radio('La safety car rientra in questo giro. Scalda le gomme.'); }
@@ -1009,8 +1017,8 @@ function setDriveMode(m) {
   // in arcade ci sono solo le F1 cartoon: dalla GT3 si ricarica in Formula 1
   if (m === 'arcade' && !IS_F1) {
     settings.carClass = 'f1'; saveSettings();
-    const onCar = !$('menuCar').classList.contains('hidden');
-    try { sessionStorage.setItem('novaf1.next', onCar ? 'car-' + pickMode : 'menu'); } catch (e) { /* niente */ }
+    const inPlay = !$('menuCar').classList.contains('hidden') || !$('menuMode').classList.contains('hidden');
+    try { sessionStorage.setItem('novaf1.next', inPlay ? 'car' : 'menu'); } catch (e) { /* niente */ }
     location.reload();
     return;
   }
@@ -1044,8 +1052,13 @@ function refreshDriveMode() {
   const f1Card = document.querySelector('#carCards [data-class="f1"] .cTitle');
   if (f1Card) f1Card.textContent = ARC() ? 'FORMULA 1 CARTOON' : 'FORMULA 1';
 }
-document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.addEventListener('click', () => setDriveMode(b.dataset.mode)));
-$('playBtn').addEventListener('click', () => openTrackPicker('trial'));
+// GIOCA · 1: modalità (realistica / arcade), poi la vettura
+document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.addEventListener('click', () => {
+  sounds.ui && sounds.ui();
+  setDriveMode(b.dataset.mode);
+  if (!$('menuMode').classList.contains('hidden')) openCarPicker();
+}));
+$('playBtn').addEventListener('click', () => { refreshDriveMode(); showMenuPage('menuMode'); });
 $('fsBtn').addEventListener('click', goLandscape);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
 const restart = () => (gameType === 'race' ? startRaceGame() : startGame());
@@ -1056,50 +1069,51 @@ $('resAgain').addEventListener('click', startRaceGame);
 $('resMenu').addEventListener('click', () => goMenu());
 
 // --- navigazione del menu
-const MENU_PAGES = ['menuHome', 'menuTrack', 'menuCar', 'menuRace', 'menuSettings', 'menuHelp', 'menuCredits'];
-function showMenuPage(id) { MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id)); }
-$('raceMenuBtn').addEventListener('click', () => openTrackPicker('race'));
+const MENU_PAGES = ['menuHome', 'menuMode', 'menuCar', 'menuRace', 'menuGarage', 'menuSettings', 'menuHelp', 'menuCredits'];
+function showMenuPage(id) {
+  MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id));
+  if (garage) garage.active = id === 'menuGarage';
+}
 $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
 $('creditsBtn').addEventListener('click', () => showMenuPage('menuCredits'));
-['settingsBack', 'helpBack', 'creditsBack', 'trackBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
-$('raceBack').addEventListener('click', () => openCarPicker('race'));
-$('carBack').addEventListener('click', () => openTrackPicker(pickMode));
-$('raceStartBtn').addEventListener('click', startRaceGame);
+['settingsBack', 'helpBack', 'creditsBack', 'modeBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
+$('raceBack').addEventListener('click', () => openCarPicker());
+$('carBack').addEventListener('click', () => { refreshDriveMode(); showMenuPage('menuMode'); });
+$('raceStartBtn').addEventListener('click', () => (settings.gameType === 'trial' ? startGame() : startRaceGame()));
+$('garageBtn').addEventListener('click', openGarage);
+$('garageBack').addEventListener('click', () => showMenuPage('menuHome'));
+document.querySelectorAll('#typeSeg [data-type]').forEach(b => b.addEventListener('click', () => { settings.gameType = b.dataset.type; saveSettings(); refreshRaceSetup(); }));
 
-// scelta del circuito (cambiare circuito ricarica la pagina e riprende da qui)
+// circuito (cambiarlo ricarica la pagina e riprende dal pregara)
 let pickMode = 'race';
 const trackRecord = id => store.get('novaf1.best.v3' + keyOf(id) + (ARC() ? '.arc' : ''));
-function openTrackPicker(m) {
-  pickMode = m;
-  $('tStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
-  $('tStepNext').classList.toggle('hidden', m !== 'race');
+function renderTrackList() {
   const box = $('trackCards');
   box.innerHTML = '';
   for (const t of TRACKS) {
     const b = document.createElement('button');
-    b.className = 'card trackCard' + (t.id === settings.track ? ' sel' : '');
+    b.className = 'trackItem' + (t.id === settings.track ? ' sel' : '');
     b.dataset.track = t.id;
     const { d, start } = outlinePath(t, 268, 120);
     const rec = trackRecord(t.id);
-    b.innerHTML = `<span class="flag">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>
-      <svg viewBox="0 0 268 120" aria-hidden="true"><path d="${d}" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="7" stroke-linejoin="round"/>
-      <path d="${d}" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"/><circle cx="${start[0]}" cy="${start[1]}" r="5" fill="#ff8a1c"/></svg>
-      <span class="cTitle">${t.name.toUpperCase()}</span><span class="cText">${t.place} · ${t.info}</span>
-      <span class="tMeta"><span><b>${t.km} km</b>LUNGHEZZA</span><span><b>${t.corners}</b>CURVE</span><span class="tRec"><b>${rec ? fmt(rec.time) : '—'}</b>RECORD</span></span>`;
+    b.innerHTML = `<svg viewBox="-10 -10 288 140" aria-hidden="true"><path d="${d}" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="12" stroke-linejoin="round"/>
+      <path d="${d}" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/><circle cx="${start[0]}" cy="${start[1]}" r="9" fill="#ff8a1c"/></svg>
+      <span><b><span class="flagMini">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>${t.name.toUpperCase()}</b>
+      <small>${t.place} · ${t.km} km · ${t.corners} curve · record ${rec ? fmt(rec.time) : '—'}</small></span>`;
     b.addEventListener('click', () => pickTrack(t.id));
     box.appendChild(b);
   }
-  showMenuPage('menuTrack');
 }
+function openTrackPicker() { openSetup(); }
 function pickTrack(id) {
   if (id !== settings.track) {
     settings.track = id; saveSettings();
-    try { sessionStorage.setItem('novaf1.next', 'car-' + pickMode); } catch (e) { /* niente */ }
+    try { sessionStorage.setItem('novaf1.next', 'setup'); } catch (e) { /* niente */ }
     location.reload();
     return;
   }
-  openCarPicker(pickMode);
+  renderTrackList();
 }
 // opzioni del modello del giocatore: in F1 la livrea della scuderia scelta
 function playerCarOpts(extra = {}) { return IS_F1 ? { team: teamById(settings.f1Team), ...extra } : extra; }
@@ -1127,18 +1141,20 @@ function setPlayerTeam() {
   updateCarVisual(0);
 }
 // scelta della vettura: GT3 o Formula 1 (cambiare categoria ricarica la pagina)
-function openCarPicker(m) {
-  pickMode = m;
-  $('cStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
-  $('cStepNext').classList.toggle('hidden', m !== 'race');
+function openCarPicker() {
+  refreshDriveMode();
   document.querySelectorAll('#carCards .carCard').forEach(b => b.classList.toggle('sel', b.dataset.class === CAR_CLASS));
   renderTeams();
   $('carHint').textContent = IS_F1 ? 'Scegli la scuderia: la vedi subito sulla tua vettura' : 'Tocca GT3 o FORMULA 1';
   showMenuPage('menuCar');
 }
-function carContinue() {
-  if (pickMode === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
-  else startGame();
+function carContinue() { openSetup(); }
+// GIOCA · 3: pregara (tipo di sessione, circuito e opzioni)
+function openSetup() {
+  renderTrackList();
+  refreshDriveMode();
+  refreshRaceSetup();
+  showMenuPage('menuRace');
 }
 $('carNext').addEventListener('click', carContinue);
 const cycleTeam = d => {
@@ -1152,7 +1168,7 @@ document.querySelectorAll('#carCards .carCard').forEach(b => b.addEventListener(
   const cls = b.dataset.class;
   if (cls !== CAR_CLASS) {
     settings.carClass = cls; saveSettings();
-    try { sessionStorage.setItem('novaf1.next', cls === 'f1' ? 'car-' + pickMode : pickMode); } catch (e) { /* niente */ }
+    try { sessionStorage.setItem('novaf1.next', 'car'); } catch (e) { /* niente */ }
     location.reload();
     return;
   }
@@ -1176,7 +1192,11 @@ function refreshRaceSetup() {
   const km = (S.raceLaps * track.length / 1000).toFixed(1).replace('.', ',');
   $('rsLapsV').innerHTML = `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'}<small>${km} KM${S.raceLaps >= 8 ? ' · BOX' : ''}</small>`;
   $('rsBotsV').innerHTML = `${S.raceBots}<small>${S.raceBots + 1} VETTURE</small>`;
-  $('raceTitle').textContent = track.name + (IS_F1 ? ' · F1' : ' · GT3');
+  const trial = S.gameType === 'trial';
+  document.body.classList.toggle('trialSetup', trial);
+  document.querySelectorAll('#typeSeg [data-type]').forEach(b => b.classList.toggle('sel', b.dataset.type === S.gameType));
+  $('raceTitle').textContent = (trial ? 'PROVA A TEMPO' : 'GARA') + ' · ' + (ARC() ? 'ARCADE' : IS_F1 ? 'F1' : 'GT3');
+  $('setupHint').textContent = track.name + (trial ? ' · da solo contro il tuo fantasma' : ` · ${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'} contro ${S.raceBots} avversari`);
   $('teamCard').classList.toggle('hidden', !IS_F1);
   if (IS_F1) {
     const tm = teamById(settings.f1Team);
@@ -1266,6 +1286,7 @@ function goMenu() {
   gameType = 'trial';
   resetSession();
   refreshSettings();
+  startAttract();
 }
 function cycleCam() {
   camMode = (camMode + 1) % CAMS.length; settings.cam = camMode; saveSettings();
@@ -1316,6 +1337,165 @@ function updateAudio(dt) {
 }
 const tmpAudio = new THREE.Vector3();
 
+// ---------------------------------------------------------------- menu: gara sullo sfondo
+// Mentre sei nel menu i bot corrono davvero sul circuito e la regia li riprende come in TV:
+// inquadrature da dietro, di lato, da bordo pista con il teleobiettivo, dall'elicottero.
+var attract = null;
+function startAttract() {
+  if (!gtReady() || mode !== 'menu') return;
+  clearRace();
+  resetSession();
+  const bots = settings.quality === 'high' ? 9 : 5;
+  race = new Race(track, racingLine, {
+    laps: 999, bots, strength: 80, startPos: 1, playerPhys: phys, damageMode: 'cosmetic', arcade: ARC(), rubber: 0,
+    playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? f1Grid(settings.f1Team, bots) : null,
+  });
+  // in gruppo, già lanciati, a metà giro
+  const n = track.count, st = track.step, s0 = track.length * 0.35;
+  race.cars.forEach((c, k) => {
+    const i = Math.round((s0 - k * 28) / st + n) % n;
+    c.phys.reset(i, (k % 2 ? 1.4 : -1.4));
+    const smp = track.samples[i], v = Math.min(55, racingLine.speed[i] * 0.9);
+    c.phys.vx = smp.tx * v; c.phys.vz = smp.tz * v;
+    c.phys.gear = 5;
+    c.sPrev = c.phys.prCG.s;
+  });
+  spawnRaceModels();
+  attract = { ai: new AIDriver(phys, racingLine, 80, 5), shot: null, t: 0, acc: 0 };
+  attract.ai.launchDelay = 0;
+  for (const c of race.cars) if (c.ai) c.ai.launchDelay = 0;
+}
+const SHOTS = ['chase', 'tele', 'side', 'heli', 'front', 'tele', 'chase', 'low'];
+function newShot() {
+  const A = attract, cars = race.cars.filter(c => !c.gone);
+  const prev = A.shot;
+  const car = cars[Math.floor(Math.random() * cars.length)];
+  const type = SHOTS[(prev ? SHOTS.indexOf(prev.type) + 1 + Math.floor(Math.random() * 3) : 0) % SHOTS.length];
+  const shot = { type, car, t0: A.t, until: A.t + (type === 'tele' ? 6 : 5) + Math.random() * 2, side: Math.random() < 0.5 ? -1 : 1, pos: null };
+  if (type === 'tele') {
+    // telecamera fissa a bordo pista, un po' più avanti della vettura
+    const i = (car.phys.prCG.i + Math.round(110 / track.step)) % track.count, sm = track.samples[i];
+    const off = ((shot.side > 0 ? sm.hwL : sm.hwR) ?? sm.hw) + 7;
+    shot.pos = new THREE.Vector3(sm.x + sm.nx * off * shot.side, sm.y + 2.2, sm.z + sm.nz * off * shot.side);
+  }
+  A.shot = shot;
+  const fade = $('menuFade'); fade.classList.add('on'); setTimeout(() => fade.classList.remove('on'), 160);
+  const who = car.team ? `${car.name} · ${car.team.name}` : car.isPlayer ? (IS_F1 ? 'FORMULA 1' : 'GT3') : car.name;
+  $('liveText').textContent = `${track.name} · ${who}`;
+}
+function attractStep(dt) {
+  const A = attract;
+  A.acc += dt;
+  let steps = 0;
+  while (A.acc >= DT && steps < 30) { race.step(DT, A.ai.drive(DT, race.cars, race.t), true); A.acc -= DT; steps++; }
+  if (A.acc > DT * 4) A.acc = 0;
+  // una vettura ferma o fuori pista torna in gioco
+  for (const c of race.cars) if (c.phys.speed < 3 && race.t > 3) { c.stuckT = (c.stuckT || 0) + dt; if (c.stuckT > 3) { c.phys.reset(c.phys.prCG.i, 0, true); c.stuckT = 0; } } else c.stuckT = 0;
+}
+const camTmp = new THREE.Vector3(), camLook = new THREE.Vector3();
+function attractCamera(dt) {
+  const A = attract;
+  // i tagli seguono l'orologio vero, anche se il dispositivo è lento
+  const now = performance.now() / 1000;
+  A.t += Math.min(2, Math.max(dt, now - (A.wall || now))); A.wall = now;
+  if (!A.shot || A.t > A.shot.until || A.shot.car.gone) newShot();
+  const sh = A.shot, p = sh.car.phys;
+  const fx = Math.cos(p.yaw), fz = Math.sin(p.yaw), nx = -fz, nz = fx;
+  const k = (A.t - sh.t0);
+  let fov = 50;
+  switch (sh.type) {
+    case 'chase': camTmp.set(p.x - fx * 7.5, p.y + 1.9, p.z - fz * 7.5); camLook.set(p.x + fx * 6, p.y + 0.6, p.z + fz * 6); fov = 55; break;
+    case 'low': camTmp.set(p.x - fx * 4.2 + nx * 1.8 * sh.side, p.y + 0.45, p.z - fz * 4.2 + nz * 1.8 * sh.side); camLook.set(p.x + fx * 8, p.y + 0.4, p.z + fz * 8); fov = 62; break;
+    case 'side': camTmp.set(p.x + fx * (2 - k * 0.5) + nx * 4.2 * sh.side, p.y + 0.9, p.z + fz * (2 - k * 0.5) + nz * 4.2 * sh.side); camLook.set(p.x, p.y + 0.4, p.z); fov = 48; break;
+    case 'front': camTmp.set(p.x + fx * 9 + nx * 1.5 * sh.side, p.y + 1.1, p.z + fz * 9 + nz * 1.5 * sh.side); camLook.set(p.x, p.y + 0.5, p.z); fov = 45; break;
+    case 'heli': { const a = k * 0.12 * sh.side; camTmp.set(p.x - fx * 20 * Math.cos(a) + nx * 20 * Math.sin(a), p.y + 14, p.z - fz * 20 * Math.cos(a) + nz * 20 * Math.sin(a)); camLook.set(p.x + fx * 10, p.y, p.z + fz * 10); fov = 45; break; }
+    case 'tele': { camTmp.copy(sh.pos); camLook.set(p.x, p.y + 0.5, p.z); const d = camTmp.distanceTo(camLook); fov = Math.max(9, Math.min(45, 520 / Math.max(8, d))); break; }
+  }
+  // movimento morbido (le telecamere che seguono non tremano)
+  if (sh.type === 'tele' || !A.camInit || A.lastShot !== sh) { camera.position.copy(camTmp); A.camInit = true; A.lastShot = sh; A.look = camLook.clone(); }
+  else { camera.position.lerp(camTmp, 1 - Math.exp(-dt * 10)); }
+  A.look.lerp(camLook, 1 - Math.exp(-dt * 12));
+  // mai sotto il terreno
+  const g = track.samples[p.prCG.i].y;
+  if (camera.position.y < g + 0.3) camera.position.y = g + 0.3;
+  camera.up.set(0, 1, 0);
+  camera.lookAt(A.look);
+  camera.fov += (fov - camera.fov) * (A.lastFovShot === sh ? Math.min(1, dt * 4) : 1); A.lastFovShot = sh;
+  camera.updateProjectionMatrix();
+}
+
+// ---------------------------------------------------------------- garage
+var garage = null;
+const gState = { cat: 'f1', idx: 0 };
+const GT_LIVERIES = [
+  { name: 'MANTHEY #91', team: 'PORSCHE 992 GT3 R', primary: null, accent: '#ffd21e' },
+  { name: 'NOVA ARANCIO', team: 'PORSCHE 992 GT3 R', primary: 0xff8a1c, accent: '#ff8a1c', acc2: 0x16171b },
+  { name: 'BLU NOTTE', team: 'PORSCHE 992 GT3 R', primary: 0x1b3a8a, accent: '#2a6fe0', acc2: 0xffd21e },
+  { name: 'VERDE CORSA', team: 'PORSCHE 992 GT3 R', primary: 0x0a7d3e, accent: '#2ee06f', acc2: 0xffffff },
+  { name: 'ROSSO FUOCO', team: 'PORSCHE 992 GT3 R', primary: 0xd8231f, accent: '#ff3b30', acc2: 0xffffff },
+];
+const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : TEAMS);
+function openGarage() {
+  if (!gtReady()) return;
+  if (!garage) { garage = new Garage(renderer, scene.environment); }
+  garage.resize(innerWidth, innerHeight);
+  gState.cat = ARC() ? 'toon' : IS_F1 ? 'f1' : 'gt';
+  gState.idx = gState.cat === 'gt' ? 0 : Math.max(0, TEAMS.findIndex(t => t.id === settings.f1Team));
+  showMenuPage('menuGarage');
+  showGarageCar();
+}
+let gToken = 0;
+async function showGarageCar() {
+  const cat = gState.cat, kind = cat === 'gt' ? 'gt' : 'f1', tok = ++gToken;
+  document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.classList.toggle('sel', b.dataset.cat === cat));
+  const list = gList(), e = list[gState.idx];
+  $('gCount').textContent = `${gState.idx + 1} / ${list.length}`;
+  $('gLoading').classList.remove('hidden');
+  try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (err) { $('gLoading').textContent = 'VETTURA NON DISPONIBILE'; return; }
+  if (tok !== gToken) return;
+  $('gLoading').classList.add('hidden');
+  let m = kind === 'f1' ? createGT({ kind, team: e }) : createGT({ kind, ...(e.primary != null ? { primary: e.primary, accent: e.acc2 } : {}) });
+  if (cat === 'toon') m = cartoonize(m);
+  garage.setCar(m, kind === 'f1' ? e.colors[1] : e.accent);
+  // schede
+  if (kind === 'f1') {
+    $('gTeam').textContent = cat === 'toon' ? `${e.name} · CARTOON` : e.name;
+    $('gName').textContent = e.car;
+    $('gDrivers').textContent = e.drivers.join(' · ');
+  } else {
+    $('gTeam').textContent = e.team; $('gName').textContent = e.name; $('gDrivers').textContent = 'GT3 · 4,2 L boxer · 6 cilindri';
+  }
+  const st = cat === 'gt'
+    ? [['POTENZA', 0.56, '~560 CV'], ['PESO', 0.62, '1240 kg'], ['VELOCITÀ', 0.78, '~280 km/h'], ['CARICO', 0.35, 'BASSO'], ['FRENATA', 0.6, '31 kN']]
+    : [['POTENZA', 1, '~1000 CV'], ['PESO', 0.4, '798 kg'], ['VELOCITÀ', 0.97, '~340 km/h'], ['CARICO', 0.95, 'ALTO'], ['FRENATA', 0.95, '41 kN']];
+  if (cat === 'toon') st.push(['GUIDA', 1, 'ARCADE']);
+  else if (kind === 'f1') st.push(['SQUADRA', Math.min(1, 0.45 + e.tier * 0.18), ['', 'MEDIA', 'BUONA', 'TOP', 'TOP'][e.tier] || '']);
+  $('gStats').innerHTML = st.map(([l, v, t]) => `<div class="gStat"><span>${l}</span><span class="bar"><i style="width:${Math.round(v * 100)}%"></i></span><b>${t}</b></div>`).join('');
+}
+document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.addEventListener('click', () => {
+  gState.cat = b.dataset.cat;
+  gState.idx = gState.cat === 'gt' ? 0 : Math.max(0, TEAMS.findIndex(t => t.id === settings.f1Team));
+  showGarageCar();
+}));
+$('gPrev').addEventListener('click', () => { const L = gList().length; gState.idx = (gState.idx - 1 + L) % L; showGarageCar(); });
+$('gNext').addEventListener('click', () => { const L = gList().length; gState.idx = (gState.idx + 1) % L; showGarageCar(); });
+// "Guidala": modalità, categoria e scuderia della vettura che stai guardando, poi il pregara
+$('garageUse').addEventListener('click', () => {
+  const cat = gState.cat, e = gList()[gState.idx];
+  const cls = cat === 'gt' ? 'gt' : 'f1';
+  if (cls === 'f1') settings.f1Team = e.id;
+  settings.driveMode = cat === 'toon' ? 'arcade' : 'sim';
+  if (cls !== CAR_CLASS) {
+    settings.carClass = cls; saveSettings();
+    try { sessionStorage.setItem('novaf1.next', 'setup'); } catch (err) { /* niente */ }
+    location.reload();
+    return;
+  }
+  saveSettings();
+  setDriveMode(settings.driveMode);
+  openSetup();
+});
+
 // ---------------------------------------------------------------- loop principale
 let lastT = performance.now();
 function frame(now) {
@@ -1323,6 +1503,8 @@ function frame(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   const inp = input.update(dt);
+  // garage: si disegna solo lo showroom
+  if (garage && garage.active) { garage.render(dt); input.endFrame(); return; }
 
   if (input.consume('KeyM')) { sounds.setMuted(!sounds.muted); }
   if (input.consume('KeyP') || input.consume('Escape')) { if (mode === 'pause') togglePause(false); else togglePause(true); }
@@ -1330,7 +1512,7 @@ function frame(now) {
     if (input.consume('KeyC')) cycleCam();
   }
   if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
-  if (mode === 'menu' && (input.consume('Enter') || input.consume('Space'))) startGame();
+  if (mode === 'menu' && attract && race) attractStep(dt);
 
   if (mode === 'countdown') {
     countdown.t += dt;
@@ -1370,28 +1552,30 @@ function frame(now) {
   }
 
   if (mode !== 'pause') {
-    updateCarVisual(mode === 'race' ? dt : 0);
+    const live = mode === 'race' || !!attract;
+    updateCarVisual(live ? dt : 0);
     if (race) for (const c of race.cars) if (c.model) {
       c.model.root.visible = !c.gone;
       if (c.gone) continue;
-      updateModel(c.model, c.phys, mode === 'race' ? dt : 0);
+      updateModel(c.model, c.phys, live ? dt : 0);
       if (mode === 'race') detachParts(c.model, c.phys, c);
       // ombre solo per le vetture vicine
-      const near = Math.abs(c.phys.x - phys.x) + Math.abs(c.phys.z - phys.z) < 70;
+      const near = attract ? Math.abs(c.phys.x - camera.position.x) + Math.abs(c.phys.z - camera.position.z) < 90 : Math.abs(c.phys.x - phys.x) + Math.abs(c.phys.z - phys.z) < 70;
       if (c.model.shadowOn !== near) { c.model.shadowOn = near; c.model.root.traverse(o => { if (o.isMesh) o.castShadow = near; }); }
     }
     if (sc && mode === 'race') { sc.update(dt); scRules(); }
     updateEffects(mode === 'race' ? dt : dt * 0.5);
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
-    updateCamera(dt);
+    if (attract && mode === 'menu') attractCamera(dt); else updateCamera(dt);
     updateAudio(dt);
   }
   if (mode !== 'menu') updateHud(dt);
   updateTouchSteer();
 
-  // l'ombra segue la vettura
-  sun.target.position.set(phys.x, phys.y, phys.z);
+  // l'ombra segue la vettura (nel menu: quella inquadrata)
+  const fp = attract && attract.shot ? attract.shot.car.phys : phys;
+  sun.target.position.set(fp.x, fp.y, fp.z);
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 200);
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
@@ -1406,6 +1590,7 @@ function resize() {
   camera.updateProjectionMatrix();
   if (particles) particles.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (minimap) minimap.resize();
+  if (garage) garage.resize(w, h);
 }
 addEventListener('resize', () => { resize(); checkOrientation(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && (mode === 'race' || mode === 'countdown')) togglePause(true); });
@@ -1437,9 +1622,11 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   // dopo il cambio di circuito si riprende dal punto del menu in cui si era
   let next = null;
   try { next = sessionStorage.getItem('novaf1.next'); sessionStorage.removeItem('novaf1.next'); } catch (e) { /* niente */ }
-  if (next === 'race') { showMenuPage('menuRace'); refreshRaceSetup(); }
+  if (next === 'setup' || next === 'race') openSetup();
   else if (next === 'trial') startGame();
-  else if (next === 'car-race' || next === 'car-trial') openCarPicker(next.slice(4));
+  else if (next === 'car' || next === 'car-race' || next === 'car-trial') openCarPicker();
+  else if (next === 'garage') openGarage();
+  if (next !== 'trial') startAttract();
   window.__game = {
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },

@@ -82,6 +82,19 @@ export function loadGT() {
 }
 export const gtReady = () => !!templates;
 
+// Garage: si possono vedere anche le vetture dell'altra categoria (caricate solo quando servono)
+const extraJobs = {};
+export function loadKind(kind) {
+  if (kind === CAR_CLASS) return Promise.resolve(templates);
+  if (!extraJobs[kind]) {
+    const loader = new GLTFLoader();
+    loader.register(inlineImages);
+    extraJobs[kind] = fetchGLB(FILES[kind][0]).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)))
+      .then(g => { templates['x_' + kind] = prepare(g.scene, false, kind); return templates; });
+  }
+  return extraJobs[kind];
+}
+
 // materiali "da gioco": vernice lucida, vetri scuri opachi (l'abitacolo non c'è), luci che brillano
 function tuneMaterial(src) {
   const n = src.name || '';
@@ -257,7 +270,7 @@ function liveryF1(base, primary, accent, size = 1024) {
 
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
-  const tpl = opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
+  const tpl = opts.kind && opts.kind !== CAR_CLASS ? templates['x_' + opts.kind] : opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
   const ghost = !!opts.ghost;
   const ghostMat = ghost ? new THREE.MeshBasicMaterial({ color: 0x7fd8ff, transparent: true, opacity: 0.28, depthWrite: false }) : null;
   const paint = tpl.mats.get([...tpl.mats.keys()].find(k => tpl.mats.get(k).name === 'PAINT'));

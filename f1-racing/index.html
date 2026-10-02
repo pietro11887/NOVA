@@ -94,47 +94,41 @@
 </div>
 
 <div id="menu" class="overlay menuScreen">
+  <div id="menuFade"></div>
+
+  <!-- schermata iniziale: gara dei bot sullo sfondo, menu a sinistra -->
   <div class="menuPage" id="menuHome">
-    <header class="mHead">
-      <div class="logo"><span>NOVA</span> GRAND PRIX</div>
+    <div class="homeShade"></div>
+    <nav class="homeNav">
+      <div class="homeLogo"><span class="hl1">NOVA</span><span class="hl2">GRAND PRIX</span></div>
       <div class="mNow"><span id="trackName">CIRCUITO NOVA</span> · <span id="trackLen"></span> · record <b id="menuBest">—</b></div>
-    </header>
-    <div class="cards" id="homeCards">
-      <button class="card big primary" id="raceMenuBtn">
-        <span class="cIcon">🏁</span><span class="cTitle">GARA</span><span class="cText">Scegli circuito, GT3 o Formula 1 e quanti avversari, poi via dal semaforo</span>
+      <button class="navBtn primary" id="playBtn"><i class="navIc">▶</i><span><b>GIOCA</b><small>Gara o prova a tempo · realistica o arcade</small></span></button>
+      <button class="navBtn" id="garageBtn"><i class="navIc">◆</i><span><b>GARAGE</b><small>Tutte le vetture da vicino</small></span></button>
+      <button class="navBtn" id="settingsBtn"><i class="navIc">⚙</i><span><b>IMPOSTAZIONI</b><small>Aiuti, telecamera, grafica, audio</small></span></button>
+      <div class="navMini"><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button></div>
+    </nav>
+    <div class="liveTag" id="liveTag"><i></i><span id="liveText">IN PISTA</span></div>
+  </div>
+
+  <!-- GIOCA · 1: modalità -->
+  <div class="menuPage hidden" id="menuMode">
+    <header class="mHead"><div class="steps"><b class="on">MODALITÀ</b><span> › VETTURA › PREGARA</span></div><div class="logo">COME VUOI GUIDARE?</div></header>
+    <div class="modeCards" id="modeRow">
+      <button class="modeCard" data-mode="sim">
+        <span class="mcTag">SIMULAZIONE</span><b>REALISTICA</b>
+        <ul><li>GT3 Porsche 992 o Formula 1 2026</li><li>Gomme in temperatura, freni, benzina</li><li>Danni, forature e guasti veri</li><li>Giro cancellato fuori dai limiti</li></ul>
       </button>
-      <button class="card big" id="playBtn">
-        <span class="cIcon">⏱</span><span class="cTitle">PROVA A TEMPO</span><span class="cText">Da solo in pista, contro il tuo fantasma</span>
-      </button>
-      <button class="card" id="settingsBtn">
-        <span class="cIcon">⚙</span><span class="cTitle">IMPOSTAZIONI</span><span class="cText">Aiuti, telecamera, grafica, comandi</span>
-      </button>
-      <button class="card" id="helpBtn">
-        <span class="cIcon">🎮</span><span class="cTitle">COMANDI</span><span class="cText">Come si guida, box, gomme e fisica</span>
-      </button>
-      <button class="card" id="creditsBtn">
-        <span class="cIcon">★</span><span class="cTitle">CREDITI</span><span class="cText">Modello 3D e dati del circuito</span>
-      </button>
-      <button class="card touchOnly" id="fsBtn">
-        <span class="cIcon">⛶</span><span class="cTitle">SCHERMO INTERO</span><span class="cText">Gioca in orizzontale a tutto schermo</span>
+      <button class="modeCard arc" data-mode="arcade">
+        <span class="mcTag">DIVERTIMENTO</span><b>ARCADE</b>
+        <ul><li>F1 in versione cartoon</li><li>La macchina sta in strada da sola</li><li>Salute al posto dei danni, niente ritiri</li><li>Scia forte, effetto elastico, taglio pista +2 s</li></ul>
       </button>
     </div>
+    <div class="mFoot"><button class="back" id="modeBack">‹ MENU</button></div>
   </div>
 
-  <div class="menuPage hidden" id="menuTrack">
-    <header class="mHead">
-      <div class="steps"><b id="tStepMode">GARA</b> › <b class="on">CIRCUITO</b><span> › VETTURA</span><span id="tStepNext"> › GRIGLIA</span></div>
-      <div class="logo">SCEGLI IL CIRCUITO</div>
-    </header>
-    <div class="cards" id="trackCards"></div>
-    <div class="mFoot"><button class="back" id="trackBack">‹ INDIETRO</button></div>
-  </div>
-
+  <!-- GIOCA · 2: vettura e scuderia -->
   <div class="menuPage hidden" id="menuCar">
-    <header class="mHead">
-      <div class="steps"><b id="cStepMode">GARA</b> › <b>CIRCUITO</b> › <b class="on">VETTURA</b><span id="cStepNext"> › GRIGLIA</span></div>
-      <div class="logo">SCEGLI LA VETTURA</div>
-    </header>
+    <header class="mHead"><div class="steps"><b>MODALITÀ</b> › <b class="on">VETTURA</b><span> › PREGARA</span></div><div class="logo">SCEGLI LA VETTURA</div></header>
     <div class="cards" id="carCards">
       <button class="card carCard" data-class="gt">
         <svg viewBox="0 0 260 90" aria-hidden="true"><path d="M14 66 L22 50 Q60 40 92 30 Q128 18 170 22 Q200 26 222 40 L246 44 L248 58 L240 66 Z" fill="#f5c518"/><rect x="214" y="22" width="40" height="5" rx="2" fill="#222"/><rect x="228" y="26" width="4" height="16" fill="#222"/><path d="M102 32 Q130 22 160 26 L168 40 L100 42 Z" fill="#1d2633"/><circle cx="62" cy="66" r="15" fill="#15171c"/><circle cx="62" cy="66" r="8" fill="#8a9099"/><circle cx="200" cy="66" r="15" fill="#15171c"/><circle cx="200" cy="66" r="8" fill="#8a9099"/></svg>
@@ -145,78 +139,72 @@
         <span class="cTitle">FORMULA 1</span><span class="cText">Red Bull RB22 2026 · 798 kg · ~1000 CV · tanto carico aerodinamico: curve velocissime e frenate brevissime</span>
       </button>
     </div>
-    <div class="modeRow" id="modeRow">
-      <span class="modeLbl">GUIDA</span>
-      <button class="modeBtn" data-mode="sim"><b>REALISTICA</b><small>Simulazione completa: gomme in temperatura, freni, danni e guasti</small></button>
-      <button class="modeBtn" data-mode="arcade"><b>ARCADE</b><small>Guida facile come iRacing Arcade: la macchina sta in strada, taglio pista +2 s</small></button>
-    </div>
     <div class="teamRow hidden" id="teamRow"></div>
-    <div class="mFoot"><button class="back" id="carBack">‹ CIRCUITO</button><span class="carHint" id="carHint"></span><button class="go" id="carNext">AVANTI ›</button></div>
+    <div class="mFoot"><button class="back" id="carBack">‹ MODALITÀ</button><span class="carHint" id="carHint"></span><button class="go" id="carNext">AVANTI ›</button></div>
   </div>
 
+  <!-- GIOCA · 3: pregara -->
   <div class="menuPage hidden" id="menuRace">
-    <header class="mHead">
-      <div class="steps"><b>GARA</b> › <b>CIRCUITO</b> › <b>VETTURA</b> › <b class="on">GRIGLIA</b></div>
-      <div class="logo" id="raceTitle">GRIGLIA DI PARTENZA</div>
-    </header>
-    <div class="gridPreview"><div class="gpLabel"><b id="gpCount"></b> vetture in pista</div><div class="gpCars" id="gpCars"></div></div>
-    <div class="cards setup">
-      <div class="card opt">
-        <span class="cTitle">AVVERSARI</span><b class="big" id="rsBotsV"></b>
-        <div class="step"><button data-step="raceBots:-1">−</button><input id="rsBots" type="range" min="1" max="19" step="1"><button data-step="raceBots:1">+</button></div>
+    <header class="mHead"><div class="steps"><b>MODALITÀ</b> › <b>VETTURA</b> › <b class="on">PREGARA</b></div><div class="logo" id="raceTitle">PREGARA</div></header>
+    <div class="setupWrap">
+      <div class="setupLeft">
+        <div class="seg" id="typeSeg"><button data-type="race">🏁 GARA</button><button data-type="trial">⏱ PROVA A TEMPO</button></div>
+        <div class="trackList" id="trackCards"></div>
       </div>
-      <div class="card opt">
-        <span class="cTitle">GIRI</span><b class="big" id="rsLapsV"></b>
-        <div class="step"><button data-step="raceLaps:-1">−</button><input id="rsLaps" type="range" min="1" max="30" step="1"><button data-step="raceLaps:1">+</button></div>
-      </div>
-      <div class="card opt">
-        <span class="cTitle">FORZA DEI BOT</span><b class="big" id="rsStrengthV"></b>
-        <div class="step"><button data-step="raceStrength:-5">−</button><input id="rsStrength" type="range" min="1" max="110" step="1"><button data-step="raceStrength:5">+</button></div>
-      </div>
-      <div class="card opt">
-        <span class="cTitle">PARTI IN</span><b class="big" id="rsStartV"></b>
-        <div class="step"><button data-step="raceStart:-1">−</button><input id="rsStart" type="range" min="1" max="20" step="1"><button data-step="raceStart:1">+</button></div>
-      </div>
-      <div class="card opt" id="teamCard">
-        <span class="cTitle">SCUDERIA</span>
-        <div class="teamNow"><i id="rsTeamSw"></i><b class="big" id="rsTeamV"></b></div>
-        <div class="step"><button id="teamPrev">‹</button><span class="teamCar" id="rsTeamCar"></span><button id="teamNext">›</button></div>
-      </div>
-      <div class="card opt">
-        <span class="cTitle">GOMME E DANNI</span>
-        <button data-set="raceTyre" class="chip"></button>
-        <button data-set="damage" class="chip"></button>
-      </div>
-      <div class="card opt arcadeOnly hidden">
-        <span class="cTitle">ARCADE</span>
-        <button data-set="arcTow" class="chip"></button>
-        <button data-set="arcRubber" class="chip"></button>
+      <div class="setupRight">
+        <div class="gridPreview raceOnly"><div class="gpLabel"><b id="gpCount"></b> vetture in pista</div><div class="gpCars" id="gpCars"></div></div>
+        <div class="optGrid">
+          <div class="opt raceOnly"><span class="cTitle">GIRI</span><b class="big" id="rsLapsV"></b>
+            <div class="step"><button data-step="raceLaps:-1">−</button><input id="rsLaps" type="range" min="1" max="30" step="1"><button data-step="raceLaps:1">+</button></div></div>
+          <div class="opt raceOnly"><span class="cTitle">AVVERSARI</span><b class="big" id="rsBotsV"></b>
+            <div class="step"><button data-step="raceBots:-1">−</button><input id="rsBots" type="range" min="1" max="19" step="1"><button data-step="raceBots:1">+</button></div></div>
+          <div class="opt raceOnly"><span class="cTitle">FORZA DEI BOT</span><b class="big" id="rsStrengthV"></b>
+            <div class="step"><button data-step="raceStrength:-5">−</button><input id="rsStrength" type="range" min="1" max="110" step="1"><button data-step="raceStrength:5">+</button></div></div>
+          <div class="opt raceOnly"><span class="cTitle">PARTI IN</span><b class="big" id="rsStartV"></b>
+            <div class="step"><button data-step="raceStart:-1">−</button><input id="rsStart" type="range" min="1" max="20" step="1"><button data-step="raceStart:1">+</button></div></div>
+          <div class="opt" id="teamCard"><span class="cTitle">SCUDERIA</span>
+            <div class="teamNow"><i id="rsTeamSw"></i><b class="big" id="rsTeamV"></b></div>
+            <div class="step"><button id="teamPrev">‹</button><span class="teamCar" id="rsTeamCar"></span><button id="teamNext">›</button></div></div>
+          <div class="opt"><span class="cTitle">GOMME E DANNI</span>
+            <button data-set="raceTyre" class="chip"></button><button data-set="damage" class="chip"></button></div>
+          <div class="opt arcadeOnly hidden"><span class="cTitle">ARCADE</span>
+            <button data-set="arcTow" class="chip"></button><button data-set="arcRubber" class="chip"></button></div>
+        </div>
       </div>
     </div>
-    <div class="mFoot">
-      <button class="back" id="raceBack">‹ VETTURA</button>
-      <button class="go" id="raceStartBtn">VIA ALLA GARA ›</button>
-    </div>
+    <div class="mFoot"><button class="back" id="raceBack">‹ VETTURA</button><span class="carHint" id="setupHint"></span><button class="go big" id="raceStartBtn">VIA ›</button></div>
   </div>
 
+  <!-- GARAGE -->
+  <div class="menuPage hidden" id="menuGarage">
+    <div class="garagePanel">
+      <div class="steps"><b class="on">GARAGE</b></div>
+      <div class="gTabs" id="gTabs"><button data-cat="gt">GT3</button><button data-cat="f1">F1 2026</button><button data-cat="toon">F1 CARTOON</button></div>
+      <div class="gInfo">
+        <span class="gTeam" id="gTeam"></span>
+        <b class="gName" id="gName"></b>
+        <span class="gDrivers" id="gDrivers"></span>
+        <div class="gStats" id="gStats"></div>
+      </div>
+      <div class="gNav"><button id="gPrev">‹</button><span id="gCount"></span><button id="gNext">›</button></div>
+      <div class="gHint" id="gHint">Trascina per girare la vettura</div>
+      <div class="mFoot"><button class="back" id="garageBack">‹ MENU</button><button class="go" id="garageUse">GUIDALA ›</button></div>
+    </div>
+    <div class="gLoading hidden" id="gLoading">CARICAMENTO VETTURA…</div>
+  </div>
+
+  <!-- IMPOSTAZIONI -->
   <div class="menuPage hidden" id="menuSettings">
     <header class="mHead"><div class="logo">IMPOSTAZIONI</div></header>
-    <div class="settings">
-      <button data-set="line"></button>
-      <button data-set="damage"></button>
-      <button data-set="msgs"></button>
-      <button data-set="auto"></button>
-      <button data-set="tc"></button>
-      <button data-set="abs"></button>
-      <button data-set="ghost"></button>
-      <button data-set="cam"></button>
-      <button data-set="quality"></button>
-      <button data-set="audio"></button>
-      <button data-set="radio"></button>
-      <button data-set="driveMode"></button>
-      <button data-set="steer" class="touchOnly"></button>
-      <button data-set="tiltInvert" class="touchOnly"></button>
-      <button data-set="tiltSens" class="touchOnly"></button>
+    <div class="setGroups">
+      <section><h4>GUIDA</h4>
+        <button data-set="driveMode"></button><button data-set="auto"></button><button data-set="tc"></button><button data-set="abs"></button><button data-set="line"></button><button data-set="damage"></button></section>
+      <section><h4>VISUALE E GRAFICA</h4>
+        <button data-set="cam"></button><button data-set="quality"></button><button data-set="ghost"></button><button data-set="msgs"></button></section>
+      <section><h4>AUDIO</h4>
+        <button data-set="audio"></button><button data-set="radio"></button></section>
+      <section class="touchOnly"><h4>TELEFONO</h4>
+        <button data-set="steer"></button><button data-set="tiltInvert"></button><button data-set="tiltSens"></button></section>
     </div>
     <div class="mFoot"><button class="go" id="settingsBack">FATTO</button></div>
   </div>
@@ -229,7 +217,7 @@
       <p><b>Telefono (in orizzontale):</b> con "Sterzo: Frecce" sterzi con ◀ ▶ a sinistra e usi FRENO e GAS a destra. Con "Sterzo: Inclinazione" inclini il telefono come un volante, tieni premuto a destra per accelerare e a sinistra per frenare.</p>
       <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
       <p><b>Gara:</b> scegli lunghezza, numero di avversari, forza dei bot (1–110: già a 1 sono veloci; da 60 in su hanno più aderenza e potenza della tua vettura) e posizione in griglia. La griglia è sul rettilineo dopo il traguardo; i contatti tra vetture causano danni. Box nelle gare da 8 giri in su: quando vuoi fermarti, tieni il lato dei box all'imbocco della corsia (a Nova a destra sul rettilineo prima della chicane finale, a Baku a sinistra prima dell'ultima curva) ed entri in corsia box. La vettura va da sola fino alla piazzola e intanto scegli la mescola e se riparare. Il cambio gomme dura circa 2,5 s, la riparazione aggiunge tempo in base ai danni. Morbide: più aderenza ma usura rapida; medie: equilibrate; dure: durano di più. I bot in staccata, si difendono, si toccano e a volte sbagliano come piloti veri (frenate lunghe, bloccaggi, traiettorie larghe, testacoda in uscita). Più sono forti, meno sbagliano.</p>
-      <p><b>Guida arcade:</b> la scegli nella pagina della vettura. La macchina resta in strada da sola (si gira solo mettendo le ruote posteriori sull'erba), frena di più e il freno motore conta: si alza il piede più che frenare. Gomme sempre in temperatura, conta solo l'usura (grip % sul cruscotto); i danni sono una barra di salute e non ti fanno ritirare. Tagliare la pista con quattro ruote costa 2 secondi; se resti fermo fuori pista vieni rimesso in strada. Nella griglia regoli la forza della scia e l'effetto elastico (i bot ti aspettano se sei indietro e spingono se sei davanti). I record sono separati da quelli della guida realistica.</p>
+      <p><b>Guida arcade:</b> la scegli in GIOCA, al primo passo. La macchina resta in strada da sola (si gira solo mettendo le ruote posteriori sull'erba), frena di più e il freno motore conta: si alza il piede più che frenare. Gomme sempre in temperatura, conta solo l'usura (grip % sul cruscotto); i danni sono una barra di salute e non ti fanno ritirare. Tagliare la pista con quattro ruote costa 2 secondi; se resti fermo fuori pista vieni rimesso in strada. Nella griglia regoli la forza della scia e l'effetto elastico (i bot ti aspettano se sei indietro e spingono se sei davanti). I record sono separati da quelli della guida realistica.</p>
       <p><b>Fisica:</b> le gomme hanno temperatura (finestra ideale 90–110 °C), usura e spiattellamenti se blocchi le ruote; i freni si surriscaldano; la benzina si consuma e la vettura si alleggerisce; un radiatore danneggiato fa scaldare il motore; l'ala rotta da un lato fa tirare la vettura. Lo stato completo è nel menu di pausa.</p>
       <p>Il giro viene cancellato se esci con tutte e 4 le ruote oltre i cordoli. Urti contro i muri danneggiano splitter, alettone, sospensioni e motore.</p>
       </div>
