@@ -20,10 +20,12 @@ export class RacingLine {
     const R_MIN = 14;
     const lo = new Float64Array(n), hi = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      const L = lim(i), room = 1 / Math.max(1e-4, Math.abs(S[i].curv)) - R_MIN;
-      lo[i] = -L; hi[i] = L;
-      if (S[i].curv > 0) lo[i] = Math.min(L, Math.max(-L, -room));
-      else if (S[i].curv < 0) hi[i] = Math.max(-L, Math.min(L, room));
+      // bordi per lato (piste da modello) oppure simmetrici
+      const LL = Math.max(0.6, (S[i].hwL ?? S[i].hw) - margin), LR = Math.max(0.6, (S[i].hwR ?? S[i].hw) - margin);
+      const room = 1 / Math.max(1e-4, Math.abs(S[i].curv)) - R_MIN;
+      lo[i] = -LR; hi[i] = LL;
+      if (S[i].curv > 0) lo[i] = Math.min(LL, Math.max(-LR, -room));
+      else if (S[i].curv < 0) hi[i] = Math.max(-LR, Math.min(LL, room));
     }
 
     // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)

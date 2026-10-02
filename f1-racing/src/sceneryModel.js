@@ -87,6 +87,8 @@ export class ModelScenery extends Scenery {
           if (/start-lights/.test(name)) { mt.emissive = new THREE.Color(0xff1a10); mt.emissiveIntensity = 0; this.startLights.push(mt); }
           // erba del modello: texture chiara pensata per essere colorata
           if (/^GRASS/.test(name)) mt.color.setRGB(0.36, 0.52, 0.22);
+          // erba sintetica oltre i cordoli: verde pieno invece del menta chiaro della texture
+          if (/^carpet(?!-blue)/.test(name)) mt.color.setRGB(0.5, 0.62, 0.42);
           if (/^(asph|groove|road-ext)/.test(name)) { mt.roughness = 0.92; mt.metalness = 0; }
           // asfalto: grana fine in coordinate del mondo al posto della texture originale a strisce
           if (/^(asph\.|asph_new|asph_pitlane_old|asph-pitlane-old\.|road-ext)/.test(name) && !mt.userData.worldAsphalt) this.worldAsphalt(mt, /^road-ext/.test(name) ? 0.9 : 1);

@@ -234,9 +234,9 @@ export class AIDriver {
     const j = (i + la) % n, s = tr.samples[j];
     const wob = this.skill.wobble * Math.sin(this.t * 0.7 + this.seed * 3.1);
     let off = this.line.off[j] + this.lane + wob;
-    const hwJ = tr.samples[j].hw;
-    const offLim = m && m.type === 'wide' ? hwJ + 3 : hwJ - 1.3;   // l'errore può portare fuori pista
-    off = Math.max(-offLim, Math.min(offLim, off));
+    const hwJL = s.hwL ?? s.hw, hwJR = s.hwR ?? s.hw;
+    const wideErr = m && m.type === 'wide';                          // l'errore può portare fuori pista
+    off = Math.max(-(wideErr ? hwJR + 3 : hwJR - 1.3), Math.min(wideErr ? hwJL + 3 : hwJL - 1.3, off));
     const tx = s.x + s.nx * off, tz = s.z + s.nz * off;
     let ang = Math.atan2(tz - p.z, tx - p.x) - p.yaw;
     while (ang > Math.PI) ang -= 2 * Math.PI; while (ang < -Math.PI) ang += 2 * Math.PI;

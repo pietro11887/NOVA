@@ -91,7 +91,7 @@ export class Track {
       const [o0, st] = TRACK.profOff, m = p.prof.length - 1;
       // il profilo vale sulla carreggiata; oltre il bordo prosegue dal valore del bordo, a cui si
       // sommano i dislivelli di cordoli, erba e ghiaia del gioco (niente rampe sugli argini)
-      const lim = p.hw - 0.3, dd = Math.max(-lim, Math.min(lim, pr.d));
+      const dd = Math.max(-((p.hwR ?? p.hw) - 0.3), Math.min((p.hwL ?? p.hw) - 0.3, pr.d));
       const u = Math.max(0, Math.min(m, (dd - o0) / st)), k = Math.min(m - 1, Math.floor(u)), t = u - k;
       const hp = p.prof[k] + (p.prof[k + 1] - p.prof[k]) * t, hq = q.prof[k] + (q.prof[k + 1] - q.prof[k]) * t;
       out.h += hp + (hq - hp) * f;
@@ -106,7 +106,7 @@ export class Track {
     out.h = 0; out.type = SURF.ROAD;
     out.wall = left ? s.wallL : s.wallR;
     const hasKerb = left ? s.kerbL : s.kerbR;
-    const H = s.hw;
+    const H = (left ? s.hwL : s.hwR) ?? s.hw;          // piste da modello: bordi diversi per lato
     if (ad <= H + (hasKerb ? 0 : 0.6)) return out;
     if (hasKerb && ad <= H + K) {
       const u = (ad - H) / K;

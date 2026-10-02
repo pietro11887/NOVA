@@ -106,7 +106,7 @@ export function bakuTrack(data) {
 export function spaTrack(data) {
   return {
     id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 5.5, street: false, model: true, data,
-    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff,
+    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff, edges: data.edges,
     lineShift: 150,               // traguardo dopo la Bus Stop, griglia prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
@@ -476,11 +476,21 @@ export function buildTrack(points) {
       // curve strette: la carreggiata non si richiude su sé stessa e la barriera interna oltre
       // il centro della curva non esiste per la pista (taglierebbe la traiettoria)
       const R = 1 / Math.max(1e-4, Math.abs(s.curv));
-      s.hw = Math.min(s.hw, Math.max(5, 0.6 * R));
+      if (def.edges) {
+        // bordi veri, diversi a sinistra e a destra (righe bianche e cordoli del modello);
+        // i cordoli del gioco stanno dove finisce la pista, come quelli del modello
+        const u = jf, j0 = Math.floor(u) % nD, j1 = (j0 + 1) % nD, f = u - Math.floor(u);
+        const A = def.edges[j0], B = def.edges[j1];
+        s.hwL = A[0] + (B[0] - A[0]) * f; s.hwR = A[1] + (B[1] - A[1]) * f;
+        if (s.curv < 0) s.hwL = Math.min(s.hwL, Math.max(3, 0.8 * R));      // lato interno
+        if (s.curv > 0) s.hwR = Math.min(s.hwR, Math.max(3, 0.8 * R));
+        s.kerbL = !!def.edges[j][2]; s.kerbR = !!def.edges[j][3];
+        s.hw = Math.min(s.hwL, s.hwR);
+      } else s.hw = Math.min(s.hw, Math.max(5, 0.6 * R));
       let wL = d[4], wR = d[5];
       if (s.curv < 0 && wL > 0.75 * R) wL = 32;
       if (s.curv > 0 && wR > 0.75 * R) wR = 32;
-      s.wallL = Math.max(s.hw + 3, Math.min(32, wL)); s.wallR = Math.max(s.hw + 3, Math.min(32, wR));
+      s.wallL = Math.max((s.hwL ?? s.hw) + 3, Math.min(32, wL)); s.wallR = Math.max((s.hwR ?? s.hw) + 3, Math.min(32, wR));
     });
     for (let pass = 0; pass < 3; pass++) {
       const wl = samples.map((_, i) => Math.min(...[-2, -1, 0, 1, 2].map(k => samples[(i + k + count) % count].wallL)));
