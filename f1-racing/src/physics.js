@@ -174,7 +174,8 @@ export class CarPhysics {
   }
 
   // passo da GT (2,6 m): angoli più piccoli per la stessa curvatura che con il passo lungo
-  maxSteer(v) { return SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014); }
+  // in più sotto i ~55 km/h: tornanti come La Source o Monaco (raggio ~10 m) si fanno senza andare larghi
+  maxSteer(v) { return SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014) + 0.14 * Math.max(0, 1 - v / 16); }
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara

@@ -44,17 +44,31 @@ export class Track {
         if (d < bestD) { bestD = d; best = i; }
       }
     }
-    // raffinamento sul segmento
+    // raffinamento sul segmento: la normale viene interpolata lungo il segmento, così ascissa,
+    // quota e distanza dal centro sono continue anche in curva (niente scalini tra un campione e
+    // l'altro sotto le ruote)
     const a = S[best];
     let along = (x - a.x) * a.tx + (z - a.z) * a.tz;
-    let i0 = best, f = 0;
-    if (along < 0) { i0 = (best - 1 + n) % n; }
-    const p = S[i0], q = S[(i0 + 1) % n];
-    const sx = q.x - p.x, sz = q.z - p.z, sl2 = sx * sx + sz * sz;
-    f = Math.max(0, Math.min(1, ((x - p.x) * sx + (z - p.z) * sz) / sl2));
+    let i0 = along < 0 ? (best - 1 + n) % n : best, f = 0, p, q, sx, sz, sl2, nx, nz, nl;
+    for (let pass = 0; pass < 3; pass++) {
+      p = S[i0]; q = S[(i0 + 1) % n];
+      sx = q.x - p.x; sz = q.z - p.z; sl2 = sx * sx + sz * sz;
+      f = ((x - p.x) * sx + (z - p.z) * sz) / sl2;
+      for (let it = 0; it < 3; it++) {
+        const ff = Math.max(-0.5, Math.min(1.5, f));
+        nx = p.nx + (q.nx - p.nx) * ff; nz = p.nz + (q.nz - p.nz) * ff; nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;
+        const d = (x - p.x - sx * ff) * nx + (z - p.z - sz * ff) * nz;
+        f = ((x - d * nx - p.x) * sx + (z - d * nz - p.z) * sz) / sl2;
+      }
+      if (f > 1 && pass < 2) i0 = (i0 + 1) % n;
+      else if (f < 0 && pass < 2) i0 = (i0 - 1 + n) % n;
+      else break;
+    }
+    f = Math.max(0, Math.min(1, f));
+    p = S[i0]; q = S[(i0 + 1) % n]; sx = q.x - p.x; sz = q.z - p.z;
     const cx = p.x + sx * f, cz = p.z + sz * f;
-    const nx = p.nx + (q.nx - p.nx) * f, nz = p.nz + (q.nz - p.nz) * f;
-    const nl = Math.hypot(nx, nz);
+    nx = p.nx + (q.nx - p.nx) * f; nz = p.nz + (q.nz - p.nz) * f;
+    nl = Math.hypot(nx, nz);
     out.i = best;
     out.i0 = i0;
     out.f = f;

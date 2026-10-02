@@ -44,6 +44,30 @@ export function asphalt() {
   return t;
 }
 
+// asfalto da pista a grana fine per i modelli 3D (applicato in coordinate del mondo, ~9 m per ripetizione)
+export function trackAsphalt() {
+  const N = 512, [c, g] = canvas(N, N);
+  const r = rand(21);
+  const img = g.createImageData(N, N), d = img.data;
+  for (let i = 0; i < N * N; i++) {
+    // grana: ghiaietto chiaro e scuro su fondo grigio antracite
+    let v = 84 + (r() - 0.5) * 22;
+    const q = r();
+    if (q < 0.035) v += 26 + r() * 20; else if (q < 0.08) v -= 18 + r() * 10;
+    d[i * 4] = v; d[i * 4 + 1] = v + 1; d[i * 4 + 2] = v + 4; d[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  // macchie larghe appena accennate (rattoppi, usura)
+  for (let k = 0; k < 40; k++) {
+    const x = r() * N, y = r() * N, rad = 20 + r() * 70, a = 0.025 + r() * 0.04;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    const col = r() < 0.5 ? '0,0,0' : '255,255,255';
+    gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+    for (const [ox, oy] of [[0, 0], [N, 0], [-N, 0], [0, N], [0, -N]]) { g.save(); g.translate(ox, oy); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); g.restore(); }
+  }
+  return finish(c);
+}
+
 export function kerb() {
   const [c, g] = canvas(64, 256);
   g.fillStyle = '#d8231f'; g.fillRect(0, 0, 64, 128);

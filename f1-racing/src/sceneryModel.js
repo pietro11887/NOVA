@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Scenery, ENV } from './scenery.js';
+import { trackAsphalt } from './textures.js';
 
 // Ambientazione da modello 3D completo (Spa-Francorchamps di Dave Love, Sketchfab, CC BY 4.0):
 // pista, cordoli, vie di fuga, barriere, tribune, box e boschi vengono dal modello; qui si
@@ -87,6 +88,10 @@ export class ModelScenery extends Scenery {
           // erba del modello: texture chiara pensata per essere colorata
           if (/^GRASS/.test(name)) mt.color.setRGB(0.36, 0.52, 0.22);
           if (/^(asph|groove|road-ext)/.test(name)) { mt.roughness = 0.92; mt.metalness = 0; }
+          // asfalto: grana fine in coordinate del mondo al posto della texture originale a strisce
+          if (/^(asph\.|asph_new|asph_pitlane_old|asph-pitlane-old\.|road-ext)/.test(name) && !mt.userData.worldAsphalt) this.worldAsphalt(mt, /^road-ext/.test(name) ? 0.9 : 1);
+          // gomma sulla traiettoria: presente ma leggera
+          if (/^groove/.test(name)) mt.opacity = 0.5;
           // riflessi: nel modello alcuni valori sono esagerati (asfalto bianco)
           if (mt.specularColor) mt.specularColor.setRGB(1, 1, 1);
           if (mt.specularIntensity !== undefined) mt.specularIntensity = Math.min(mt.specularIntensity, 0.35);
@@ -151,6 +156,23 @@ export class ModelScenery extends Scenery {
     const disk = new THREE.Mesh(new THREE.CircleGeometry(5200, 48), new THREE.MeshLambertMaterial({ color: 0x3d6337 }));
     disk.rotation.x = -Math.PI / 2; disk.position.set(cx, y0 + 4, cz);
     this.scene.add(disk);
+  }
+
+  worldAsphalt(mt, tint) {
+    if (!this.asphaltTex) { this.asphaltTex = trackAsphalt(); this.asphaltTex.anisotropy = Math.min(8, this.aniso); }
+    mt.map = this.asphaltTex; mt.color.setScalar(tint); mt.userData.worldAsphalt = true;
+    if (mt.specularIntensity !== undefined) mt.specularIntensity = Math.min(mt.specularIntensity, 0.2);
+    mt.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+        .replace('#include <map_fragment>', `
+          vec2 wuv = vWPos.xz * 0.11;
+          vec4 aTex = texture2D(map, wuv);
+          float big = texture2D(map, vWPos.xz * 0.013 + 0.37).r;
+          diffuseColor *= aTex * (0.8 + 0.6 * big);`);
+    };
+    mt.needsUpdate = true;
   }
 
   // semaforo di partenza del modello

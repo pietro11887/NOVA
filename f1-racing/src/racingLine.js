@@ -14,6 +14,17 @@ export class RacingLine {
     this.track = track;
     const S = track.samples, n = track.count;
     const lim = i => Math.max(0.6, S[i].hw - margin);   // per campione: la larghezza cambia
+    // nei tornanti la linea non scende sotto un raggio minimo: si resta larghi invece di
+    // chiudere sul punto di corda con un raggio di pochi metri (curv > 0 = svolta a destra,
+    // interno a destra = offset negativo)
+    const R_MIN = 14;
+    const lo = new Float64Array(n), hi = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const L = lim(i), room = 1 / Math.max(1e-4, Math.abs(S[i].curv)) - R_MIN;
+      lo[i] = -L; hi[i] = L;
+      if (S[i].curv > 0) lo[i] = Math.min(L, Math.max(-L, -room));
+      else if (S[i].curv < 0) hi[i] = Math.max(-L, Math.min(L, room));
+    }
 
     // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)
     const off = new Float64Array(n);
@@ -26,7 +37,7 @@ export class RacingLine {
           const mx = (px(a) + px(b)) / 2, mz = (pz(a) + pz(b)) / 2;
           const d = (mx - S[i].x) * S[i].nx + (mz - S[i].z) * S[i].nz;
           off[i] += (d - off[i]) * 0.5;
-          off[i] = Math.max(-lim(i), Math.min(lim(i), off[i]));
+          off[i] = Math.max(lo[i], Math.min(hi[i], off[i]));
         }
       }
     }
@@ -80,11 +91,14 @@ export class RacingLine {
     const w = 0.55;
     const pos = new Float32Array((n + 1) * 2 * 3), uv = new Float32Array((n + 1) * 2 * 2);
     this.colors = new Float32Array((n + 1) * 2 * 4);
-    const idx = [];
+    const idx = [], sf = {};
     for (let k = 0; k <= n; k++) {
       const i = k % n, p = P[i];
-      const x = p[0], z = p[2], y = p[1] + 0.045;
-      pos.set([x - S[i].nx * w, y, z - S[i].nz * w, x + S[i].nx * w, y, z + S[i].nz * w], k * 6);
+      const x = p[0], z = p[2];
+      // quota della superficie ai due bordi della striscia (piste da modello: pendenza laterale vera)
+      const yA = p[1] + this.track.surface({ i, i0: i, f: 0, d: this.off[i] - w, s: S[i].s }, sf).h + 0.045;
+      const yB = p[1] + this.track.surface({ i, i0: i, f: 0, d: this.off[i] + w, s: S[i].s }, sf).h + 0.045;
+      pos.set([x - S[i].nx * w, yA, z - S[i].nz * w, x + S[i].nx * w, yB, z + S[i].nz * w], k * 6);
       const vv = k * this.track.step / 2.6;
       uv.set([0, vv, 1, vv], k * 4);
       if (k < n) { const a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
