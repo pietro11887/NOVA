@@ -31,6 +31,8 @@ Telefono (in orizzontale): ◀ ▶ a sinistra per sterzare, FRENO e GAS a destra
 Tastiera: ↑/W gas · ↓/S freno (tenuto da fermo = retromarcia) · ←→ sterzo · E/Q marce (manuale) · C telecamera · R rimetti in pista · M audio · P pausa. Supporta anche il gamepad.
 
 ## Crediti
+Circuito 3D "Circuit de Spa-Francorchamps 2022 layout" di [Dave Love](https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54) ([Sketchfab](https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54)), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): versione modificata in `assets/spa.glb`. Dati del tracciato con l'aiuto di © OpenStreetMap (ODbL).
+
 Modello 3D "2026 Red Bull Racing RB22" di [Dave Love](https://sketchfab.com/Tyler_Dave) ([Sketchfab](https://sketchfab.com/3d-models/2026-red-bull-racing-rb22-8e5a68a7991c4a46bd66a879c060b3c5)), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): versioni modificate in `assets/f1_rb22_*.glb`.
 
 Modello 3D "Porsche 992 GT3 R" di [MattDoesBlender](https://sketchfab.com/MattDoesBlender) ([Sketchfab](https://sketchfab.com/3d-models/porsche-992-gt3-r-03ea07f7972648aa9350853b2a1a942a)), licenza [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Le versioni ottimizzate in `assets/` (abitacolo rimosso, poligoni ridotti, texture WebP) sono distribuite con la stessa licenza. Progetto non commerciale. Dettagli in `assets/CREDITS.md`.

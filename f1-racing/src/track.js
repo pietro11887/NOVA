@@ -91,8 +91,9 @@ export class Track {
       out.type = SURF.SAUSAGE;
       return out;
     }
-    // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato)
-    if (this.street) { out.h = -0.01; return out; }
+    // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato); così anche le vie
+    // di fuga asfaltate delle piste moderne
+    if (this.street || (left ? s.pavedL : s.pavedR)) { out.h = -0.01; return out; }
     const gravel = left ? s.gravelL : s.gravelR;
     const edge = H + (hasKerb ? K : 0);
     out.h = -Math.min(0.08, (ad - edge) * 0.03);
@@ -105,6 +106,8 @@ export class Track {
   // ---------- mesh ----------
 
   build(renderer) {
+    // pista da modello 3D: asfalto, cordoli, muri e dintorni sono già nel modello (sceneryModel.js)
+    if (TRACK.model) return this.group;
     const aniso = renderer.capabilities.getMaxAnisotropy();
     const S = this.samples, n = this.count;
     const g = this.group;

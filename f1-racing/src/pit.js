@@ -58,6 +58,7 @@ export class PitLane {
   boxS(slot) { return PIT.boxFrom + slot * PIT.boxGap; }
 
   build(scene) {
+    if (TRACK.model) return;          // corsia e box sono già nel modello 3D
     const g = new THREE.Group();
     const asphalt = new THREE.MeshStandardMaterial({ color: 0x55595f, roughness: 0.9 });
     const white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.7 });

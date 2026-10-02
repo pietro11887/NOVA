@@ -101,6 +101,19 @@ export function bakuTrack(data) {
   };
 }
 
+// Spa-Francorchamps: pista e dintorni dal modello 3D; tracciato, larghezze, quote, cordoli,
+// vie di fuga e barriere misurati sul modello (tracks/spaData.js)
+export function spaTrack(data) {
+  return {
+    id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 5.5, street: false, model: true, data,
+    side: data.side, sideStep: 4,
+    lineShift: 150,               // traguardo dopo la Bus Stop, griglia prima della Source
+    pitPath: data.pit,
+    pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
+    grid: { pole: 140, gap: 7, lat: 2.6 },
+  };
+}
+
 // marchio sul muro a distanza s (lato +1 sinistra, -1 destra)
 export function sponsorAt(s, side) {
   for (const [a, b, l, r] of TRACK.sponsors || []) if (s >= a && s < b) return side > 0 ? l : r;
@@ -444,6 +457,30 @@ export function buildTrack(points) {
     s.sausageL = chicane && s.curv < 0;
     s.sausageR = chicane && s.curv > 0;
   });
+  // pista da modello 3D: cordoli, ghiaia, vie di fuga in asfalto e barriere come nel modello
+  if (def.side) {
+    const D = def.side, nD = D.length;
+    samples.forEach((s, i) => {
+      const j = Math.round(sOrig(i) / def.sideStep) % nD, d = D[j];
+      s.kerbL = d[0] > 0.4; s.kerbR = d[1] > 0.4;
+      s.gravelL = d[2] === 2; s.gravelR = d[3] === 2;
+      s.pavedL = d[2] === 3; s.pavedR = d[3] === 3;
+      s.sausageL = s.sausageR = false;
+      // curve strette: la carreggiata non si richiude su sé stessa e la barriera interna oltre
+      // il centro della curva non esiste per la pista (taglierebbe la traiettoria)
+      const R = 1 / Math.max(1e-4, Math.abs(s.curv));
+      s.hw = Math.min(s.hw, Math.max(5, 0.6 * R));
+      let wL = d[4], wR = d[5];
+      if (s.curv < 0 && wL > 0.75 * R) wL = 32;
+      if (s.curv > 0 && wR > 0.75 * R) wR = 32;
+      s.wallL = Math.max(s.hw + 3, Math.min(32, wL)); s.wallR = Math.max(s.hw + 3, Math.min(32, wR));
+    });
+    for (let pass = 0; pass < 3; pass++) {
+      const wl = samples.map((_, i) => Math.min(...[-2, -1, 0, 1, 2].map(k => samples[(i + k + count) % count].wallL)));
+      const wr = samples.map((_, i) => Math.min(...[-2, -1, 0, 1, 2].map(k => samples[(i + k + count) % count].wallR)));
+      samples.forEach((s, i) => { s.wallL = wl[i]; s.wallR = wr[i]; });
+    }
+  }
 
   // corsia box: il muretto box separa la pista dalla corsia, la barriera esterna (solo grafica)
   // sta oltre la corsia

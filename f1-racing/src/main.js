@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH, selectTrack, bakuTrack } from './trackData.js';
+import { ROAD_HALF_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK } from './trackData.js';
 import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
+import { ModelScenery, loadTrackModel } from './sceneryModel.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
 import { loadGT, createGT, gtReady } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
@@ -69,8 +70,15 @@ const SUN_DIR = ENV.sunDir;
 if (settings.track === 'baku') {
   try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
   catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
+} else if (settings.track === 'spa') {
+  // Spa: dati della pista e modello 3D completo del circuito
+  try {
+    const [mod] = await Promise.all([import('./tracks/spaData.js'), loadTrackModel('spa.glb')]);
+    selectTrack(spaTrack(mod.default));
+  } catch (e) { console.warn('Spa non caricata', e); settings.track = 'nova'; }
 }
-const trackKey = (settings.track === 'baku' ? '.baku' : '') + (IS_F1 ? '.f1' : '');   // record separati per circuito e categoria
+const keyOf = id => (id && id !== 'nova' ? '.' + id : '') + (IS_F1 ? '.f1' : '');
+const trackKey = keyOf(settings.track);   // record separati per circuito e categoria
 const track = new Track();
 const sounds = new Sound();
 sounds.level = settings.audio; sounds.radioOn = settings.radio;
@@ -83,7 +91,7 @@ let minimap;
 
 function build() {
   scene.add(track.build(renderer));
-  scenery = new (track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
+  scenery = new (TRACK.model ? ModelScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
 
   // riflessi ambientali generati dal cielo
@@ -952,7 +960,7 @@ $('raceStartBtn').addEventListener('click', startRaceGame);
 
 // scelta del circuito (cambiare circuito ricarica la pagina e riprende da qui)
 let pickMode = 'race';
-const trackRecord = id => store.get('novaf1.best.v3' + (id === 'baku' ? '.baku' : '') + (IS_F1 ? '.f1' : ''));
+const trackRecord = id => store.get('novaf1.best.v3' + keyOf(id));
 function openTrackPicker(m) {
   pickMode = m;
   $('tStepMode').textContent = m === 'race' ? 'GARA' : 'PROVA A TEMPO';
