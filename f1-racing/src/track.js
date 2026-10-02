@@ -68,7 +68,24 @@ export class Track {
   }
 
   // Altezza e tipo di superficie a distanza laterale d al campione i.
+  // Piste da modello 3D: l'altezza viene dal profilo trasversale vero della superficie.
   surface(pr, out = {}) {
+    this.surfaceType(pr, out);
+    const S = this.samples, p = S[pr.i0 ?? pr.i];
+    if (p.prof) {
+      const q = S[((pr.i0 ?? pr.i) + 1) % S.length], f = pr.f || 0;
+      const [o0, st] = TRACK.profOff, m = p.prof.length - 1;
+      // il profilo vale sulla carreggiata; oltre il bordo prosegue dal valore del bordo, a cui si
+      // sommano i dislivelli di cordoli, erba e ghiaia del gioco (niente rampe sugli argini)
+      const lim = p.hw - 0.3, dd = Math.max(-lim, Math.min(lim, pr.d));
+      const u = Math.max(0, Math.min(m, (dd - o0) / st)), k = Math.min(m - 1, Math.floor(u)), t = u - k;
+      const hp = p.prof[k] + (p.prof[k + 1] - p.prof[k]) * t, hq = q.prof[k] + (q.prof[k + 1] - q.prof[k]) * t;
+      out.h += hp + (hq - hp) * f;
+    }
+    return out;
+  }
+
+  surfaceType(pr, out = {}) {
     const s = this.samples[pr.i];
     const d = pr.d, ad = Math.abs(d);
     const left = d > 0;

@@ -106,7 +106,7 @@ export function bakuTrack(data) {
 export function spaTrack(data) {
   return {
     id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 5.5, street: false, model: true, data,
-    side: data.side, sideStep: 4,
+    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff,
     lineShift: 150,               // traguardo dopo la Bus Stop, griglia prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
@@ -461,7 +461,14 @@ export function buildTrack(points) {
   if (def.side) {
     const D = def.side, nD = D.length;
     samples.forEach((s, i) => {
-      const j = Math.round(sOrig(i) / def.sideStep) % nD, d = D[j];
+      const jf = sOrig(i) / length * nD;                 // in proporzione: i dati sono ogni ~4 m
+      const j = Math.round(jf) % nD, d = D[j];
+      // profilo trasversale della superficie del modello (cm rispetto al centro), interpolato lungo la pista
+      if (def.prof) {
+        const u = jf, j0 = Math.floor(u) % nD, j1 = (j0 + 1) % nD, f = u - Math.floor(u);
+        const A = def.prof[j0], B = def.prof[j1];
+        s.prof = A.map((a, q) => (a + (B[q] - a) * f) / 100);
+      }
       s.kerbL = d[0] > 0.4; s.kerbR = d[1] > 0.4;
       s.gravelL = d[2] === 2; s.gravelR = d[3] === 2;
       s.pavedL = d[2] === 3; s.pavedR = d[3] === 3;
