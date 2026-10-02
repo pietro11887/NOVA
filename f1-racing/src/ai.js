@@ -48,7 +48,10 @@ export class AIDriver {
     const t = (strength - 1) / 109;
     // arcade: più aderenza e frenate più forti anche per i bot
     const arc = this.phys.arcade;
-    const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip : 1);
+    // arcade: tu hai più aderenza e gli aiuti; i bot forti hanno anche qualche cavallo in più
+    if (arc) this.skill.power *= 1 + ARCADE.aiPower * Math.pow(Math.max(0, Math.min(1, t)), 1.6);
+    const tc = Math.max(0, Math.min(1, t));
+    const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
     const brk = Math.min(0.95, this.skill.brake * (arc ? ARCADE.brake : 1));
     this.profile = this.line.speedProfile(mu, brk, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
@@ -272,6 +275,10 @@ export class AIDriver {
     if (wrongWay) vT = Math.min(vT, 7);
     else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
     if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * SPEC.ai.pit * toPit));
+    // sottosterzo: volante a fondo e la vettura scivola verso l'esterno della curva -> si alza il piede
+    const kc = tr.samples[i].curv;
+    const outward = (p.prCG.d - (this.line.off[i] + this.lane)) * Math.sign(kc);
+    if (v > 35 && Math.abs(steer) > 0.95 && outward > 0.6 && Math.abs(kc) > 0.004 && !wrongWay) vT = Math.min(vT, v - 1 - 2.5 * Math.min(2.5, outward - 0.6));
     vT = Math.min(vT, vCap);
     if (this.sc) vT = Math.min(vT, this.sc.vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;

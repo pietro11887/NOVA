@@ -75,6 +75,15 @@ export class RacingLine {
       const k = curv[i], kk = mu * K_AERO;
       v[i] = k > kk ? Math.min(vmax, Math.sqrt(mu * G / (k - kk))) : vmax;
     }
+    // in avanti: la velocità non può salire più di quanto la vettura accelera davvero
+    // (senza questo, un breve tratto meno curvo in mezzo a una curva lunga diceva "gas" e subito dopo "frena")
+    const ACC = 16;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let j = 0; j <= 2 * n; j++) {
+        const i = j % n, nx = (i + 1) % n;
+        v[nx] = Math.min(v[nx], Math.sqrt(v[i] * v[i] + 2 * ACC * ds[i]));
+      }
+    }
     // frenata all'indietro: v_i² <= v_{i+1}² + 2·a·ds
     for (let pass = 0; pass < 2; pass++) {
       for (let j = 2 * n; j >= 0; j--) {
