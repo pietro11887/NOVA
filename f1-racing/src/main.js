@@ -19,6 +19,7 @@ import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
 import { CAR_CLASS, IS_F1 } from './vehicle.js';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
+import { cartoonize } from './cartoon.js';
 import { TEAMS, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -40,7 +41,11 @@ if (isTouch) document.body.classList.add('touch');
 const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, cam: 0, quality: isTouch ? 'low' : 'high', tiltInvert: false, tiltSens: 22, line: 'full', steer: 'buttons', raceLaps: 5, raceBots: 9, raceStrength: 60, raceStart: 10, damage: 'sim', msgs: false, raceTyre: 'M', track: 'nova', carClass: 'gt', audio: 1, radio: true, f1Team: 'redbull', driveMode: 'sim', arcTow: 1, arcRubber: 1 }, store.get('novaf1.settings') || {});
 // modalità di guida: realistica (simulazione) o arcade (driveMode.js)
 const ARC = () => settings.driveMode === 'arcade';
+// arcade con la GT3 salvata (non dovrebbe succedere): si passa alla Formula 1
+if (settings.driveMode === 'arcade' && !IS_F1) { settings.carClass = 'f1'; store.set('novaf1.settings', settings); location.reload(); }
 // in arcade i danni "simulazione" diventano una barra di salute senza forature né guasti
+// arcade: solo F1 in versione cartoon (stile iRacing Arcade)
+const makeCar = (o = {}) => { const c = createGT(o); return ARC() ? cartoonize(c, { ghost: o.ghost, outline: o.lod !== 'mid' || settings.quality === 'high' }) : c; };
 const dmMode = () => (ARC() && settings.damage === 'sim' ? 'reduced' : settings.damage);
 if (settings.quality === 'high') document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
@@ -108,9 +113,9 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
 
-  car = gtReady() ? createGT(playerCarOpts()) : createCar();
+  car = gtReady() ? makeCar(playerCarOpts()) : createCar();
   scene.add(car.root);
-  ghostCar = gtReady() ? createGT({ ghost: true }) : createCar({ ghost: true });
+  ghostCar = gtReady() ? makeCar({ ghost: true }) : createCar({ ghost: true });
   ghostCar.root.visible = false;
   scene.add(ghostCar.root);
 
@@ -239,7 +244,7 @@ function startRaceGame() {
   };
   for (const c of race.cars) {
     if (c.isPlayer) continue;
-    c.model = gtReady() ? createGT(c.team ? { team: c.team, lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.phys.hazards = p => debris.contact(p);
@@ -248,7 +253,7 @@ function startRaceGame() {
     updateModel(c.model, c.phys, 0);
   }
   // safety car (vettura gialla con barra luci)
-  const scModel = gtReady() ? createGT({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
+  const scModel = gtReady() ? makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
   sc.onEvent = kind => {
     if (kind === 'out') { feed('SAFETY CAR IN PISTA: RIMANETE IN FILA', 'yellow'); sounds.radio('Safety car, safety car. Rallenta e resta in fila, niente sorpassi.'); }
@@ -1001,15 +1006,43 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
 // cambio della modalità di guida (non serve ricaricare: vale dalla prossima partenza)
 function setDriveMode(m) {
   settings.driveMode = m; saveSettings();
+  // in arcade ci sono solo le F1 cartoon: dalla GT3 si ricarica in Formula 1
+  if (m === 'arcade' && !IS_F1) {
+    settings.carClass = 'f1'; saveSettings();
+    const onCar = !$('menuCar').classList.contains('hidden');
+    try { sessionStorage.setItem('novaf1.next', onCar ? 'car-' + pickMode : 'menu'); } catch (e) { /* niente */ }
+    location.reload();
+    return;
+  }
+  rebuildPlayerModels();
   loadRecords();
   if (phys) { phys.arcade = ARC(); phys.damageMode = dmMode(); }
   if (racingLine) racingLine.setArcade(ARC());
   refreshSettings(); refreshDriveMode();
 }
+// modelli della tua vettura e del fantasma (cartoon in arcade, veri in realistica)
+function rebuildPlayerModels() {
+  if (!gtReady() || !car) return;
+  scene.remove(car.root);
+  car = makeCar(playerCarOpts());
+  scene.add(car.root);
+  setTyreColor(car, phys.compound);
+  const vis = ghostCar.root.visible;
+  scene.remove(ghostCar.root);
+  ghostCar = makeCar({ ghost: true });
+  ghostCar.root.visible = vis;
+  scene.add(ghostCar.root);
+  updateCarVisual(0);
+}
 function refreshDriveMode() {
   document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.classList.toggle('sel', b.dataset.mode === settings.driveMode));
   document.querySelectorAll('.arcadeOnly').forEach(e => e.classList.toggle('hidden', !ARC()));
   document.body.classList.toggle('arcade', ARC());
+  // in arcade si guidano solo le F1 cartoon: la GT3 sparisce dalla scelta
+  const gtCard = document.querySelector('#carCards [data-class="gt"]');
+  if (gtCard) gtCard.classList.toggle('hidden', ARC());
+  const f1Card = document.querySelector('#carCards [data-class="f1"] .cTitle');
+  if (f1Card) f1Card.textContent = ARC() ? 'FORMULA 1 CARTOON' : 'FORMULA 1';
 }
 document.querySelectorAll('#modeRow [data-mode]').forEach(b => b.addEventListener('click', () => setDriveMode(b.dataset.mode)));
 $('playBtn').addEventListener('click', () => openTrackPicker('trial'));
@@ -1088,7 +1121,7 @@ function renderTeams() {
 function setPlayerTeam() {
   if (!IS_F1 || !gtReady() || !car) return;
   scene.remove(car.root);
-  car = createGT(playerCarOpts());
+  car = makeCar(playerCarOpts());
   scene.add(car.root);
   setTyreColor(car, phys.compound);
   updateCarVisual(0);
