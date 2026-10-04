@@ -77,7 +77,7 @@ export class RacingLine {
     }
     // in avanti: la velocità non può salire più di quanto la vettura accelera davvero
     // (senza questo, un breve tratto meno curvo in mezzo a una curva lunga diceva "gas" e subito dopo "frena")
-    const ACC = 16;
+    const ACC = 25;
     for (let pass = 0; pass < 2; pass++) {
       for (let j = 0; j <= 2 * n; j++) {
         const i = j % n, nx = (i + 1) % n;

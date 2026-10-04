@@ -14,7 +14,7 @@ export class SafetyCar {
     this.model = model;           // vettura (stessa interfaccia di createCar) o null
     this.phase = 'off';           // off | out | in (rientra in questo giro) | restart (attesa traguardo)
     this.D = 0; this.v = 0; this.t = 0;
-    this.checkT = 0; this.cleanT = 0;
+    this.checkT = 0; this.cleanT = 0; this.clock = 0;
     this.onEvent = null;
     if (model) {
       model.root.visible = false;
@@ -37,33 +37,49 @@ export class SafetyCar {
     return this.race.cars.filter(c => !c.gone && !c.retired && !c.pit && c.finishT == null).sort((a, b) => this.dist(b) - this.dist(a));
   }
 
-  // quanta "roba" c'è sulla carreggiata
-  debrisScore() {
+  // quanta "roba" c'è sulla carreggiata (minAge: solo i pezzi che ci sono da almeno tanti secondi)
+  debrisScore(minAge = 0) {
     let sc = 0;
     const pr = this._pr || (this._pr = {});
+    const seen = this._seen || (this._seen = new WeakMap());
     for (const it of this.debris.items) {
+      if (!seen.has(it)) seen.set(it, this.clock);
+      if (this.clock - seen.get(it) < minAge) continue;
       const o = it.obj.position;
       this.track.project(o.x, o.z, it.hint >= 0 ? it.hint : -1, pr);
-      if (Math.abs(pr.d) < this.track.samples[pr.i].hw + 1.5) sc += WEIGHT[it.kind] ?? 0.5;
+      if (Math.abs(pr.d) < this.track.samples[pr.i].hw + 0.5) sc += WEIGHT[it.kind] ?? 0.5;
     }
     // vetture ferme (ritirate) sulla carreggiata o appena fuori
     for (const c of this.race.cars) if (c.retired && !c.gone) {
       const d = Math.abs(c.phys.prCG.d), hw = this.track.samples[c.phys.prCG.i].hw;
-      if (d < hw + 2) sc += 3; else if (d < hw + 5) sc += 1.5;
+      if (d < hw + 2) sc += 6; else if (d < hw + 5) sc += 2;
     }
     return sc;
   }
 
   update(dt) {
     const race = this.race;
-    this.t += dt;
+    this.t += dt; this.clock = (this.clock || 0) + dt;
     if (this.phase === 'off') {
+      // commissari: i pezzetti rimasti in pista li tolgono da soli, senza safety car
+      this.marshalT = (this.marshalT || 0) + dt;
+      if (this.marshalT > 6) {
+        this.marshalT = 0;
+        const seen = this._seen || (this._seen = new WeakMap());
+        for (const it of this.debris.items) if (!seen.has(it)) seen.set(it, this.clock);
+        const it = this.debris.items.find(it => seen.has(it) && this.clock - seen.get(it) > 15 && race.cars.every(c => c.gone || Math.hypot(c.phys.x - it.obj.position.x, c.phys.z - it.obj.position.z) > 120));
+        if (it) this.debris.removeItem(it);
+      }
       this.checkT += dt;
       if (this.checkT < 1) return;
       this.checkT = 0;
       const lead = this.order()[0];
       if (!lead || race.laps - lead.crossings < 2 || race.t < 8) return;
-      if (this.debrisScore() >= 3) this.deploy(lead);
+      // come in F1: niente safety car per un contatto con qualche pezzetto. Serve una vettura ferma
+      // in pista o un incidente vero (ruote, ali, tanti rottami) che resta lì; e dopo una
+      // neutralizzazione passano almeno due giri prima della prossima
+      if (this.endLap != null && lead.crossings < this.endLap + 2) return;
+      if (this.debrisScore(6) >= 6) this.deploy(lead);
       return;
     }
     const L = this.L(), ord = this.order(), lead = ord[0];
@@ -122,6 +138,7 @@ export class SafetyCar {
 
   end() {
     this.phase = 'off'; this.checkT = -5;
+    const lead = this.order()[0]; this.endLap = lead ? lead.crossings : null;
     if (this.model) this.model.root.visible = false;
     for (const c of this.race.cars) if (c.ai) c.ai.sc = null;
     if (this.onEvent) this.onEvent('green');

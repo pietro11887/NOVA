@@ -58,6 +58,8 @@ export class AIDriver {
     this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.95, brk + 0.06), 120);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
     this.errPerLap = 0.04 + 0.5 * Math.pow(1 - Math.min(1, t), 2);
+    // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
+    this.craft = Math.max(0, Math.min(1, t));
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
     const P = this.profile, n = P.length;
     const apex = [];
@@ -116,7 +118,7 @@ export class AIDriver {
     if (this.attack && this.t > this.attack.until) this.attack = null;
 
     // --- traffico ---
-    let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -14;
+    let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -22;
     let push = 0;
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
@@ -163,12 +165,12 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
         const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
-        if (this.rand() < (covered ? 0.25 : 0.25 + 0.6 * this.aggr)) {
+        if (this.rand() < Math.min(0.95, (covered ? 0.25 : 0.3 + 0.55 * this.aggr) * (0.7 + 0.8 * this.craft))) {
           this.attack = { until: this.t + 5, side: covered ? -inside : inside };
           this.emit('attack');
         }
@@ -182,7 +184,7 @@ export class AIDriver {
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati.
       const lat = Math.abs(od - myD);
-      const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr);
+      const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       const room = Math.max(0, bestGap - 4.8 - 1.5 * (1 - this.aggr));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
@@ -201,9 +203,9 @@ export class AIDriver {
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
-    if (!this.sc && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 && chaserGap < -7 && !(chaser.ai && chaser.ai.attack)) {
+    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 - 8 * this.craft && chaserGap < -5 && !(chaser.ai && chaser.ai.attack)) {
       this.defZone = brakeIdx;
-      if (this.rand() < this.aggr * 0.7) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
+      if (this.rand() < Math.min(0.9, (0.25 + 0.6 * this.aggr) * (0.5 + this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
     }
 
     // --- errori umani ---
@@ -265,7 +267,7 @@ export class AIDriver {
     let vT = prof[(i + look) % n];
     // fuori dalla traiettoria ideale in curva c'è meno aderenza: si rallenta un po'
     const offLine = Math.abs(this.lane);
-    if (offLine > 1 && vT < 75) vT *= 1 - Math.min(0.14, 0.028 * offLine);
+    if (offLine > 1 && vT < 75) vT *= 1 - Math.min(0.14, 0.028 * offLine) * (1 - 0.5 * this.craft);
     // con la vettura danneggiata (meno carico, sospensioni storte) si va più piano
     const dm = p.damage;
     // (il profilo "danneggiato" viene ricalcolato così la frenata arriva in tempo)
