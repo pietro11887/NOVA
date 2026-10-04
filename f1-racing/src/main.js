@@ -9,6 +9,7 @@ import { loadGT, createGT, gtReady, loadKind } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
+import { PadNav } from './padNav.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
@@ -97,6 +98,11 @@ sounds.level = settings.audio; sounds.radioOn = settings.radio;
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => sounds.init(), { capture: true, passive: true });
 addEventListener('click', e => { if (e.target.closest && e.target.closest('#menu button, #pause button, #results button, .pitPanel button')) sounds.ui(); }, true);
 const input = new Input();
+// menu col controller: croce/stick per muoversi, A sceglie, B indietro
+const padNav = new PadNav({
+  garage: () => garage,
+  onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
+});
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
 let minimap;
 
@@ -1503,6 +1509,7 @@ function frame(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   const inp = input.update(dt);
+  padNav.update(dt);
   // garage: si disegna solo lo showroom
   if (garage && garage.active) { garage.render(dt); input.endFrame(); return; }
 

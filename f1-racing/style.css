@@ -551,3 +551,7 @@ body.trialSetup .raceOnly { display: none !important; }
   .setupWrap { grid-template-columns: 1fr; }
   .garagePanel { width: auto; right: 16px; top: auto; height: 58%; }
 }
+
+/* selezione col controller / frecce */
+.padFocus { outline: 3px solid #fff !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 138, 28, 0.25), 0 0 26px rgba(255, 138, 28, 0.45) !important; z-index: 2; }
+.navBtn.padFocus { transform: translateX(10px); outline-color: #fff !important; }
