@@ -675,7 +675,7 @@ const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
-  if (camMode !== 3 || IS_F1 || mode === 'menu') hideCockpit();
+  if (camMode !== 3 || (IS_F1 && ARC()) || mode === 'menu') hideCockpit();
   const cy = Math.cos(phys.yaw), sy = Math.sin(phys.yaw);
   car.helmet.forEach(h => h.visible = camMode !== 3);
   let baseFov = portrait ? 74 : 58;
@@ -712,8 +712,9 @@ function updateCamera(dt) {
     camera.position.copy(camState.pos);
     camera.up.set(0, 1, 0);
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
-  } else if (camMode === 3 && !IS_F1 && cockpitView(dt)) {
-    baseFov = window.__ckFov || (portrait ? settings.seat3.fov + 22 : settings.seat3.fov);
+  } else if (camMode === 3 && !(IS_F1 && ARC()) && cockpitView(dt)) {
+    const st = IS_F1 ? settings.seatF1 : settings.seat3;
+    baseFov = window.__ckFov || (portrait ? st.fov + 22 : st.fov);
   } else {
     car.root.updateMatrixWorld(true);
     const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
@@ -760,7 +761,7 @@ function cockpitView(dt) {
   car.root.updateMatrixWorld(true);
   // posizione di guida (come iRacing: vicino al volante, occhi bassi, campo visivo stretto)
   // regolabile in gara: I/K su-giù, J/L indietro-avanti, U/O campo visivo
-  const seat = settings.seat3 || (settings.seat3 = { x: 0.24, y: -0.06, fov: 52 });
+  const seat = IS_F1 ? settings.seatF1 || (settings.seatF1 = { x: 0, y: 0, fov: 62 }) : settings.seat3 || (settings.seat3 = { x: 0.24, y: -0.06, fov: 52 });
   const adj = (k, key, d, lo, hi) => { if (input.consume(key)) { seat[k] = Math.max(lo, Math.min(hi, +(seat[k] + d).toFixed(3))); saveSettings(); showBanner(`SEDILE  avanti ${(seat.x * 100).toFixed(0)} cm · altezza ${(seat.y * 100).toFixed(0)} cm · campo ${seat.fov}°`, 'yellow', 1.5, true); } };
   adj('y', 'KeyI', 0.01, -0.3, 0.2); adj('y', 'KeyK', -0.01, -0.3, 0.2);
   adj('x', 'KeyL', 0.01, -0.2, 0.4); adj('x', 'KeyJ', -0.01, -0.2, 0.4);
@@ -768,7 +769,7 @@ function cockpitView(dt) {
   eyeTmp.copy(ck.eye); eyeTmp.x += hs.x + seat.x; eyeTmp.y += seat.y; eyeTmp.z += hs.z;
   camera.position.copy(car.body.localToWorld(eyeTmp));
   car.body.getWorldQuaternion(qTmp);
-  qPitch.setFromAxisAngle(axZ, window.__ckPitch ?? -0.03 + (-0.1 - seat.y) * 0.4);   // sguardo sulla pista davanti, un filo in basso          // sguardo un filo verso il basso, oltre il cofano
+  qPitch.setFromAxisAngle(axZ, window.__ckPitch ?? (IS_F1 ? -0.05 - seat.y * 0.4 : -0.03 + (-0.1 - seat.y) * 0.4));   // sguardo sulla pista davanti, un filo in basso          // sguardo un filo verso il basso, oltre il cofano
   qLook.setFromAxisAngle(axY, hs.yaw);
   camera.quaternion.copy(qTmp).multiply(qLook).multiply(qYaw).multiply(qPitch);
   // volante: circa 11 gradi di volante per grado di ruota
@@ -776,7 +777,10 @@ function cockpitView(dt) {
   // led dei giri: verdi, gialli, rossi, poi tutti blu (cambiata)
   const MR = phys.maxRpm, f = (phys.rpm - 0.62 * MR) / (0.35 * MR), on = Math.round(Math.max(0, Math.min(1, f)) * ck.leds.length);
   const flash = phys.rpm > 0.975 * MR && performance.now() % 160 < 80;
-  ck.leds.forEach((m, i) => m.color.setHex(flash ? 0x2a6bff : i < on ? (i < 3 ? 0x22e05f : i < 6 ? 0xffd21a : 0xff2a2a) : 0x1a1a1a));
+  const nL = ck.leds.length, g1 = Math.round(nL * 0.38), g2 = Math.round(nL * 0.75);
+  ck.leds.forEach((m, i) => m.color.setHex(flash ? 0x2a6bff : i < on ? (i < g1 ? 0x22e05f : i < g2 ? (nL > 20 ? 0xff2a2a : 0xffd21a) : (nL > 20 ? 0x7b4dff : 0xff2a2a)) : 0x1a1a1a));
+  // F1: file di led sul volante (bandiere): gialla con la safety car, rossa vicino al limitatore, blu alla cambiata
+  if (ck.ledRows) ck.ledRows.forEach((m, i) => m.color.setHex(i === 0 ? (flash ? 0x2a6bff : 0x111111) : i === 1 ? (f > 0.92 ? 0xff2a2a : 0x111111) : (sc && sc.active ? 0xffd21a : 0x111111)));
   // braccia del pilota e specchietti
   updateArms(ck);
   renderMirrors(ck);
@@ -837,6 +841,7 @@ function virtualMirror(ck) {
   vMirror.position.set(0, hh - w * 0.16 - hh * 0.07, -d);
 }
 function drawCockpitDisplay(D) {
+  if (D.f1) return drawF1Display(D);
   const g = D.ctx, W = D.cv.width, H = D.cv.height;
   g.fillStyle = '#05070b'; g.fillRect(0, 0, W, H);
   const gear = phys.gear === -1 ? 'R' : phys.speed < 0.5 && phys.throttleOut < 0.05 ? 'N' : String(phys.gear);
@@ -867,6 +872,30 @@ function drawCockpitDisplay(D) {
     g.fillStyle = t < 80 ? '#3d7bff' : t < 90 ? '#2ec4ea' : t <= 110 ? '#2ee06f' : t <= 120 ? '#ffd21a' : '#ff3b30';
     g.fillRect(x - 28, y - 12, 56, 24); g.fillStyle = '#05070b'; g.fillText(t + '°', x, y + 1);
   });
+  D.tex.needsUpdate = true;
+}
+// display del volante F1: marcia enorme al centro, velocità, delta, tempo, batteria
+function drawF1Display(D) {
+  const g = D.ctx, W = D.cv.width, H = D.cv.height;
+  g.fillStyle = '#020305'; g.fillRect(0, 0, W, H);
+  const gear = phys.gear === -1 ? 'R' : phys.speed < 0.5 && phys.throttleOut < 0.05 ? 'N' : String(phys.gear);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff'; g.font = '900 170px Titillium Web, Arial'; g.fillText(gear, W / 2, H / 2 + 6);
+  // pannelli laterali
+  const box = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  box(10, 14, 150, 120, '#0d1626'); box(W - 160, 14, 150, 120, '#0d1626');
+  box(10, 148, 150, 134, '#0d1626'); box(W - 160, 148, 150, 134, '#0d1626');
+  g.fillStyle = '#7f8da3'; g.font = '700 22px Titillium Web, Arial';
+  g.fillText('KM/H', 85, 34); g.fillText('POS', W - 85, 34); g.fillText('GIRO', 85, 168); g.fillText('DELTA', W - 85, 168);
+  g.fillStyle = '#ffffff'; g.font = '800 60px Titillium Web, Arial';
+  g.fillText(String(Math.round(phys.speed * 3.6)), 85, 86);
+  g.fillText(race ? $('lbPos').textContent.split('/')[0].replace(/\D/g, '') || '-' : '-', W - 85, 86);
+  g.font = '800 40px Titillium Web, Arial'; g.fillText($('lbTime').textContent, 85, 222);
+  const dl = $('lbDelta').textContent;
+  g.fillStyle = !dl ? '#ffffff' : dl.startsWith('+') ? '#ff3b30' : '#2ee06f'; g.fillText(dl || '--', W - 85, 222);
+  // batteria (ERS) sotto la marcia: si scarica in accelerazione, si ricarica in frenata
+  D.ers = Math.max(0, Math.min(1, (D.ers ?? 0.8) + ((input.state.brake || 0) > 0.2 ? 0.006 : phys.throttleOut > 0.9 && phys.speed > 30 ? -0.002 : 0.0005)));
+  box(W / 2 - 80, H - 34, 160, 18, '#1b2230'); box(W / 2 - 80, H - 34, 160 * D.ers, 18, '#1fd1ff');
   D.tex.needsUpdate = true;
 }
 function hideCockpit() {

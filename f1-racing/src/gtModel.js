@@ -343,21 +343,23 @@ export function createGT(opts = {}) {
     body.add(h); helmet.push(h);
   }
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
-  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true };
+  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true, kind: tpl.kind };
 }
 
 // ---------------------------------------------------------------- abitacolo GT (visuale interna)
 // Caricato solo quando serve: volante che gira, led dei giri, display con marcia, velocità e tempi.
-let interiorTpl = null, interiorJob = null;
-export function loadInterior() {
-  if (!interiorJob) {
+// GT: abitacolo chiuso della 992 GT3 R; F1: volante, led e cinture della RB22
+const INT_FILES = { gt: 'gt3r_int.glb', f1: 'f1_rb22_int.glb' };
+const interiorTpl = {}, interiorJob = {};
+export function loadInterior(kind = CAR_CLASS) {
+  if (!interiorJob[kind]) {
     const loader = new GLTFLoader();
     loader.register(inlineImages);
-    interiorJob = fetchGLB('gt3r_int.glb').then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)))
-      .then(g => { interiorTpl = prepareInterior(g.scene); return interiorTpl; })
-      .catch(e => { interiorJob = null; throw e; });
+    interiorJob[kind] = fetchGLB(INT_FILES[kind]).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)))
+      .then(g => { interiorTpl[kind] = prepareInterior(g.scene, kind); return interiorTpl[kind]; })
+      .catch(e => { interiorJob[kind] = null; throw e; });
   }
-  return interiorJob;
+  return interiorJob[kind];
 }
 
 function interiorMaterial(src) {
@@ -387,18 +389,27 @@ function interiorMaterial(src) {
   return m;
 }
 
-function prepareInterior(scene) {
+function prepareInterior(scene, kind) {
   scene.updateMatrixWorld(true);
   const T = new THREE.Matrix4().makeRotationY(Math.PI / 2);
   T.premultiply(new THREE.Matrix4().makeTranslation(0, -(GEOM.cgHeight + 0.02) - 0.02, 0));
   const mats = new Map();
   const matFor = src => { if (!mats.has(src)) mats.set(src, interiorMaterial(src)); return mats.get(src); };
-  const out = { rest: [], steer: [], leds: [], display: null, hide: [] };
+  const out = { rest: [], steer: [], leds: [], ledRows: [], display: null, hide: [], kind };
   scene.traverse(o => {
     if (!o.isMesh) return;
     const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(T, o.matrixWorld));
     const nm = o.name || (o.parent && o.parent.name) || '';
     const item = { g, mat: matFor(o.material), name: nm };
+    if (kind === 'f1') {
+      // F1: tutto quello che sta sul volante gira con lui
+      if (/^SLCD/.test(nm)) out.display = item;
+      else if (/^LEDK_\d+/.test(nm)) out.leds[+nm.match(/\d+/)[0]] = item;
+      else if (/^LEDC_/.test(nm)) out.ledRows.push(item);
+      else if (/^(STEER|TAG)/.test(nm)) out.steer.push(item);
+      else out.rest.push(item);
+      return;
+    }
     if (/^STEER/.test(nm)) out.steer.push(item);
     else if (/^LEDRPM_\d/.test(nm)) out.leds[+nm.match(/\d/)[0]] = item;
     else if (/^DISPLAY$/.test(nm)) out.display = item;
@@ -407,7 +418,7 @@ function prepareInterior(scene) {
   });
   // volante: centro e asse del piantone (direzione con meno estensione dei vertici = normale del volante)
   const pts = [];
-  const rim = out.steer.filter(s => s.mat.name === 'INT_Steer');
+  const rim = out.steer.filter(s => s.mat.name === 'INT_Steer' || /handles|carbon/.test(s.mat.name));
   for (const s of (rim.length ? rim : out.steer)) { const P = s.g.attributes.position; for (let i = 0; i < P.count; i++) pts.push(P.getX(i), P.getY(i), P.getZ(i)); }
   const N = pts.length / 3, c = new THREE.Vector3();
   for (let i = 0; i < N; i++) c.x += pts[3 * i] / N, c.y += pts[3 * i + 1] / N, c.z += pts[3 * i + 2] / N;
@@ -419,17 +430,19 @@ function prepareInterior(scene) {
   for (let k = 0; k < 30; k++) ax.applyMatrix3(m3).normalize();
   if (ax.x < 0) ax.negate();                       // verso il muso
   // il piantone va in avanti e un po' in basso: se il calcolo non torna si usa quello tipico
-  if (ax.x < 0.7) ax.set(0.94, -0.34, 0).normalize();
+  if (ax.x < 0.7) ax.set(kind === 'f1' ? 0.99 : 0.94, kind === 'f1' ? -0.1 : -0.34, 0).normalize();
   out.steerCenter = c; out.steerAxis = ax;
-  // occhi del pilota: 55 cm dietro e 24 cm sopra il centro del volante
-  out.eye = c.clone().add(new THREE.Vector3(-0.55, 0.24, 0));
+  // occhi del pilota: GT 55 cm dietro e 24 cm sopra il volante; F1 nel casco, 32 cm dietro e 9 cm sopra
+  out.eye = c.clone().add(kind === "f1" ? new THREE.Vector3(-0.4, 0.11, 0) : new THREE.Vector3(-0.55, 0.24, 0));
   return out;
 }
 
 // aggiunge l'abitacolo a una GT già creata (vettura del giocatore)
 export function attachInterior(model) {
-  if (!interiorTpl || model.cockpit) return model.cockpit;
-  const tpl = interiorTpl, group = new THREE.Group();
+  const kind = model.kind || CAR_CLASS;
+  if (!interiorTpl[kind] || model.cockpit) return model.cockpit;
+  const tpl = interiorTpl[kind], group = new THREE.Group();
+  const F1 = kind === 'f1';
   const mk = (it, parent) => { const mesh = new THREE.Mesh(it.g, it.mat); mesh.receiveShadow = true; parent.add(mesh); return mesh; };
   for (const it of tpl.rest) mk(it, group);
   // volante su un perno lungo il piantone
@@ -437,19 +450,26 @@ export function attachInterior(model) {
   const spin = new THREE.Group(); pivot.add(spin);
   for (const it of tpl.steer) { const m = mk({ ...it, g: it.g.clone().translate(-tpl.steerCenter.x, -tpl.steerCenter.y, -tpl.steerCenter.z) }, spin); void m; }
   group.add(pivot);
-  // led dei giri
-  const leds = tpl.leds.filter(Boolean).map(it => { const mat = new THREE.MeshBasicMaterial({ color: 0x222222 }); const mesh = new THREE.Mesh(it.g, mat); group.add(mesh); return mat; });
+  // led dei giri (F1: sul volante, girano con lui)
+  const onWheel = g => F1 ? g.clone().translate(-tpl.steerCenter.x, -tpl.steerCenter.y, -tpl.steerCenter.z) : g;
+  const leds = tpl.leds.filter(Boolean).map(it => { const mat = new THREE.MeshBasicMaterial({ color: 0x222222 }); const mesh = new THREE.Mesh(onWheel(it.g), mat); (F1 ? spin : group).add(mesh); return mat; });
+  const ledRows = tpl.ledRows.map(it => { const mat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a }); spin.add(new THREE.Mesh(onWheel(it.g), mat)); return mat; });
   // display del cruscotto: disegnato su una tela
   let display = null;
   if (tpl.display) {
-    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = F1 ? 296 : 256;
     const tex = new THREE.CanvasTexture(cv); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    // le coordinate del quadro vanno da v = 1,12 a 1,89: la tela le riempie tutte
-    tex.repeat.set(1, -1 / 0.77); tex.offset.set(0, 1.89 / 0.77);   // il quadro ha le coordinate capovolte
+    if (F1) {
+      // display del volante: u 0,045-0,955 (da sinistra), v 0,234-0,766 (dall'alto)
+      tex.repeat.set(1 / 0.91, 1 / 0.532); tex.offset.set(-0.045 / 0.91, -0.234 / 0.532);
+    } else {
+      // le coordinate del quadro vanno da v = 1,12 a 1,89: la tela le riempie tutte
+      tex.repeat.set(1, -1 / 0.77); tex.offset.set(0, 1.89 / 0.77);   // il quadro ha le coordinate capovolte
+    }
     const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
-    group.add(new THREE.Mesh(tpl.display.g, mat));
-    display = { cv, ctx: cv.getContext('2d'), tex };
+    (F1 ? spin : group).add(new THREE.Mesh(onWheel(tpl.display.g), mat));
+    display = { cv, ctx: cv.getContext('2d'), tex, f1: F1 };
   }
   // ---- specchietti: superfici su cui il gioco disegna la vista posteriore (una sola ripresa
   // larga dietro la vettura: il centrale ne usa la parte centrale, i laterali i bordi, specchiati)
@@ -457,12 +477,28 @@ export function attachInterior(model) {
   const mirrors = [];
   const mirrorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.6 });
-  const MIR = [
+  const MIR = F1 ? [] : [
     // centro (x, y, z), larghezza, altezza, zona della ripresa [u0, u1] (già specchiata)
     { c: [0.232, 1.05 + yS, 0.052], w: 0.31, h: 0.05, u: [0.75, 0.25], frame: true },
     { c: [0.292, 0.875 + yS, -0.92], w: 0.15, h: 0.1, u: [1.0, 0.64] },
     { c: [0.278, 0.875 + yS, 0.917], w: 0.13, h: 0.1, u: [0.36, 0.0] },
   ];
+  if (F1) {
+    // F1: gli specchietti sono quelli del modello (materiale "mirrors"), a destra e a sinistra
+    const pts = { L: [], R: [] };
+    model.body.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(model.body.matrixWorld).invert(), v = new THREE.Vector3();
+    model.body.traverse(o => {
+      if (!o.isMesh || !o.material || o.material.name !== 'mirrors') return;
+      const P = o.geometry.attributes.position, M = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(M); (v.z < 0 ? pts.L : pts.R).push(v.clone()); }
+    });
+    for (const [side, list] of Object.entries(pts)) {
+      if (!list.length) continue;
+      const b = new THREE.Box3().setFromPoints(list), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3());
+      MIR.push({ c: [c.x, c.y, c.z], w: Math.max(0.08, Math.hypot(sz.z, sz.x) * 0.95), h: Math.max(0.04, sz.y * 0.9), u: side === 'L' ? [1.0, 0.62] : [0.38, 0.0] });
+    }
+  }
   for (const M of MIR) {
     const g = new THREE.PlaneGeometry(M.w, M.h);
     const uv = g.attributes.uv;
@@ -504,7 +540,11 @@ export function attachInterior(model) {
     const c = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.028, 0.03, 12), cuff);
     c.position.set(-0.01, -0.045, 0); h.add(c);
     // posizione sul volante (riferimento del perno): ai lati, nella parte alta delle impugnature
-    h.position.copy(lat).multiplyScalar(sd * half).addScaledVector(ax, -0.02).addScaledVector(upW, 0.045);
+    if (F1) {
+      // F1: mani a metà delle impugnature laterali, guanti più piccoli
+      h.position.copy(lat).multiplyScalar(sd * (half + 0.012)).addScaledVector(ax, -0.025).addScaledVector(upW, -0.01);
+      h.scale.setScalar(0.82);
+    } else h.position.copy(lat).multiplyScalar(sd * half).addScaledVector(ax, -0.02).addScaledVector(upW, 0.045);
     // asse lungo della mano lungo l'impugnatura, dita verso il muso
     h.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ax, upW, lat));
     spin.add(h);
@@ -512,13 +552,13 @@ export function attachInterior(model) {
   });
   const limb = (r) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, 1, 4, 10), suit); group.add(m); return m; };
   const arms = [-1, 1].map(sd => ({ sd, upper: limb(0.042), fore: limb(0.034),
-    shoulder: tpl.eye.clone().add(new THREE.Vector3(-0.1, -0.26, sd * 0.2)) }));
+    shoulder: tpl.eye.clone().add(F1 ? new THREE.Vector3(-0.08, -0.22, sd * 0.19) : new THREE.Vector3(-0.1, -0.26, sd * 0.2)) }));
   group.visible = false;
   model.body.add(group);
   // dall'interno i vetri esterni scuri non devono coprire la vista
   const outerGlass = [];
   model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive/.test(o.material.name || '')) outerGlass.push(o); });
-  model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, display, eye: tpl.eye.clone(), outerGlass, t: 0, mirrors, mirrorMat, hands, arms };
+  model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, ledRows, display, eye: tpl.eye.clone(), outerGlass, t: 0, mirrors, mirrorMat, hands, arms, kind };
   return model.cockpit;
 }
 
