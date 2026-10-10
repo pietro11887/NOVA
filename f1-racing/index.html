@@ -36,18 +36,44 @@
     <div class="row small"><span>ULTIMO</span><span id="lastTime">--:--.---</span></div>
   </div>
 
-  <!-- gara: a sinistra la classifica (distacchi, ritiri, safety car) -->
-  <div id="tower" class="tower panel hidden">
-    <div class="twHead"><span id="twLap">GIRO 1/5</span><span id="twTime"></span></div>
-    <div id="twFlag" class="twFlag green">BANDIERA VERDE</div>
+  <!-- HUD stile F1 25 -->
+  <!-- in alto a sinistra: classifica corta attorno a te -->
+  <div id="tower" class="f1Tower hidden">
+    <div class="ftHead"><b class="ftLogo">NOVA</b><span>GARA</span></div>
+    <div class="ftLap">GIRO <b id="twLap">1</b> / <span id="twLaps">1</span></div>
+    <div id="twFlag" class="twFlag hidden"></div>
     <div id="twRows" class="twRows"></div>
   </div>
-
-  <!-- a destra: integrità della vettura e sotto la pista -->
-  <div id="rightCol" class="rightCol">
-    <div class="damage panel">
-      <div class="dmgHead"><span class="lbl">INTEGRITÀ</span><b id="dmgPct">100%</b></div>
-      <div class="dmgBody">
+  <!-- in alto a destra: settori, posizione e tempo del giro -->
+  <div id="lapBox" class="lapBox">
+    <div class="lbSecs"><span>S1</span><span>S2</span><span>S3</span></div>
+    <div class="lbBars"><i id="lb0"></i><i id="lb1"></i><i id="lb2"></i></div>
+    <div class="lbRow"><span id="lbPos"></span><span id="lbTime">0.000</span></div>
+    <div id="lbDelta" class="lbDelta"></div>
+  </div>
+  <!-- in basso a sinistra: solo il pezzo di pista dove sei, con le vetture vicine -->
+  <canvas id="localMap"></canvas>
+  <!-- in basso al centro: integrità, marcia, velocità e giri -->
+  <div class="f1Dash">
+    <div class="leds" id="leds"></div>
+    <div class="fdRow">
+      <div class="fdDial">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="hpArc" class="rgArc hp" cx="50" cy="50" r="42"/></svg>
+        <div class="fdIn"><small>INTEGRITÀ</small><b id="dmgPct">100%</b></div>
+      </div>
+      <div class="fdGear"><div id="gear">N</div><div id="fdMode" class="fdMode">AUTO</div></div>
+      <div class="fdDial">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="rpmArc" class="rgArc rpm" cx="50" cy="50" r="42"/></svg>
+        <div class="fdIn"><small>KM/H</small><b id="speed">0</b><small id="rpmTxt">0</small></div>
+      </div>
+    </div>
+    <div class="fdChips">
+      <div class="tyres" id="tyres"><i id="ty0"></i><i id="ty1"></i><i id="ty2"></i><i id="ty3"></i></div>
+      <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTyre" class="tyreChip">M</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
+    </div>
+  </div>
+  <!-- (dati usati dal gioco ma non mostrati) -->
+  <div class="hudHidden" aria-hidden="true">
         <svg viewBox="0 0 60 120" width="46" height="92">
           <rect id="d_fwL" x="4" y="2" width="25" height="7" rx="2"/>
           <rect id="d_fwR" x="31" y="2" width="25" height="7" rx="2"/>
@@ -58,9 +84,7 @@
           <rect id="d_wRR" x="46" y="78" width="11" height="20" rx="3"/>
           <rect id="d_rw" x="14" y="106" width="32" height="10" rx="2"/>
         </svg>
-        <div class="dmgList" id="dmgList"></div>
-      </div>
-    </div>
+    <div id="dmgList"></div>
     <canvas id="minimap"></canvas>
   </div>
 
@@ -85,15 +109,6 @@
 
   <div id="lightsHud" class="hidden"><i></i><i></i><i></i><i></i><i></i></div>
 
-  <div class="dash panel">
-    <div class="leds" id="leds"></div>
-    <div class="dashRow">
-      <div class="gearBox"><div id="gear">N</div><div class="lbl">MARCIA</div></div>
-      <div class="speedBox"><div id="speed">0</div><div class="lbl">KM/H</div></div>
-    </div>
-    <div class="tyres" id="tyres"><i id="ty0"></i><i id="ty1"></i><i id="ty2"></i><i id="ty3"></i></div>
-    <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTyre" class="tyreChip">M</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
-  </div>
 
 
   <div id="touch">

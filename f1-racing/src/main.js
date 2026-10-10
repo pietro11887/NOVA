@@ -137,6 +137,7 @@ function build() {
   debris = new Debris(scene, track);
   phys.hazards = p => debris.contact(p);
   minimap = new Minimap($('minimap'), track);
+  localMap = new LocalMap($('localMap'), track);
 
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
   $('trackName').textContent = track.name + ' · ' + (IS_F1 ? 'FORMULA 1' : 'GT3');
@@ -765,6 +766,13 @@ function updateHud(dt) {
     if (ledEls[i].className !== c) ledEls[i].className = c;
   }
   $('leds').classList.toggle('flash', flash);
+  // anello dei giri motore e numero
+  const rf = Math.max(0, Math.min(1, phys.rpm / 12500));
+  const rk = Math.round(rf * 60);
+  if (hudCache.rpmArc !== rk) { hudCache.rpmArc = rk; $('rpmArc').style.strokeDasharray = `${(rf * 198).toFixed(1)} 264`; $('rpmArc').classList.toggle('hot', rf > 0.93); }
+  setText('rpmTxt', String(Math.round(phys.rpm / 10) * 10));
+  setText('fdMode', race && race.player.tow > 0.25 ? 'SCIA' : settings.auto ? 'AUTO' : 'MANUALE');
+  lapBoxHud();
 
   if (race) raceHud(dt);
   else if (lap && lap.active) {
@@ -819,6 +827,7 @@ function updateHud(dt) {
     hudCache.hp = hp;
     const el = $('dmgPct'); el.textContent = hp + '%';
     el.style.color = hp > 85 ? 'var(--green)' : hp > 55 ? 'var(--yellow)' : hp > 30 ? '#ff8a1c' : 'var(--red)';
+    const arc = $('hpArc'); arc.style.strokeDasharray = `${(hp / 100 * 198).toFixed(1)} 264`; arc.style.stroke = el.style.color;
   }
   const parts = [
     ['ALI', Math.max(d.fwL, d.fwR, d.rw)], ['SOSPENSIONI', Math.max(...d.susp)], ['GOMME', Math.max(...d.puncture, d.punctured.some(Boolean) ? 1 : 0)],
@@ -845,6 +854,7 @@ function updateHud(dt) {
   const tow = race && race.player.tow > 0.25;
   $('aidTow').classList.toggle('hidden', !tow);
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
+  localMap.draw(phys, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
 }
 
 function carStatusHtml() {
@@ -885,55 +895,67 @@ document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListen
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
 
-// classifica a sinistra: posizione, distacco da chi precede, ritirati, box e bandiera (safety car)
-const short = n => n.length <= 3 ? n : n.slice(0, 3);
+// classifica in alto a sinistra (stile F1 25): poche righe attorno a te, distacchi rispetto a te,
+// gomma montata, ritirati e safety car
 function towerHud(st) {
   const pl = race.player, L = race.laps;
-  const cur = Math.min(L, pl.crossings + 1);
-  setText('twLap', pl.finishT != null ? 'ARRIVATO' : mode === 'countdown' ? 'PARTENZA' : `GIRO ${cur}/${L}`);
-  setText('twTime', fmt(pl.finishT ?? race.t));
-  // bandiera
+  setText('twLap', String(Math.min(L, pl.crossings + 1)));
+  setText('twLaps', String(L));
   const lead = st[0];
-  let flag = 'BANDIERA VERDE', fc = 'green';
-  if (lead && lead.finishT != null) { flag = 'BANDIERA A SCACCHI'; fc = 'white'; }
-  else if (sc && sc.active) {
+  let flag = '', fc = '';
+  if (sc && sc.active) {
     if (sc.phase === 'out') { flag = 'SAFETY CAR'; fc = 'yellow'; }
     else if (sc.phase === 'in') { flag = 'SAFETY CAR RIENTRA'; fc = 'amber'; }
     else { flag = 'RIPARTENZA'; fc = 'amber'; }
-  } else if (mode === 'countdown') { flag = 'GIRO DI FORMAZIONE'; fc = 'white'; }
-  else if (L > 1 && lead && lead.crossings === L - 1) { flag = 'ULTIMO GIRO'; fc = 'white'; }
-  if (hudCache.flag !== flag) { hudCache.flag = flag; const el = $('twFlag'); el.textContent = flag; el.className = 'twFlag ' + fc; }
-  // quante righe ci stanno (sui telefoni in orizzontale non tutte): testa, poi attorno a te
-  const rowH = innerHeight < 500 ? 16 : 19;
-  const room = innerHeight - 80 - (document.body.classList.contains('touch') ? 120 : 30);
-  const max = Math.max(6, Math.floor(room / rowH));
-  const me = st.indexOf(pl);
-  let idx = st.map((_, k) => k);
-  if (st.length > max) {
-    const top = 3, win = max - top - 1;
-    let a = Math.max(top, Math.min(st.length - win, me - Math.floor(win / 2)));
-    idx = [0, 1, 2, -1, ...Array.from({ length: win }, (_, k) => a + k)];
-    if (a === top) idx.splice(3, 1);
-  }
+  } else if (lead && lead.finishT != null) { flag = 'BANDIERA A SCACCHI'; fc = 'white'; }
+  else if (L > 1 && lead && lead.crossings === L - 1 && mode === 'race') { flag = 'ULTIMO GIRO'; fc = 'white'; }
+  if (hudCache.flag !== flag) { hudCache.flag = flag; const el = $('twFlag'); el.textContent = flag; el.className = 'twFlag ' + fc + (flag ? '' : ' hidden'); }
+  // 5 righe: tu al centro (o in cima / in fondo se sei tra i primi o gli ultimi)
+  const me = st.indexOf(pl), N = Math.min(5, st.length);
+  const a = Math.max(0, Math.min(st.length - N, me - 2));
   let html = '';
-  for (const k of idx) {
-    if (k < 0) { html += '<div class="twSep"></div>'; continue; }
+  for (let k = a; k < a + N; k++) {
     const c = st[k];
     let g, cls = '';
     if (c.retired) { g = 'RIT'; cls = ' out'; }
-    else if (c.finishT != null) { g = k === 0 ? '🏁' : '+' + fmtGap(c.finishT - lead.finishT); cls = ' fin'; }
     else if (c.pit) { g = 'BOX'; cls = ' pit'; }
-    else if (k === 0) g = race.t > 1 ? 'LEADER' : '';
+    else if (c === pl) g = c.finishT != null ? fmt(c.finishT) : '-:--.---';
+    else if (c.finishT != null && pl.finishT != null) g = (c.finishT < pl.finishT ? '-' : '+') + Math.abs(c.finishT - pl.finishT).toFixed(3);
     else {
-      const down = Math.floor((race.progress(lead) - race.progress(c)) / track.length);
-      if (down >= 1) g = `+${down} ${down === 1 ? 'GIRO' : 'GIRI'}`;
-      else { const gg = race.gap(st[k - 1], c); g = gg != null && race.t > 1 ? '+' + fmtGap(gg) : ''; }
+      const ahead = race.progress(c) > race.progress(pl);
+      const laps = Math.floor(Math.abs(race.progress(c) - race.progress(pl)) / track.length);
+      if (laps >= 1) g = `${ahead ? '-' : '+'}${laps}G`;
+      else { const gg = ahead ? race.gap(c, pl) : race.gap(pl, c); g = gg != null && race.t > 1 ? (ahead ? '-' : '+') + gg.toFixed(3) : ''; }
     }
     const col = '#' + c.color.toString(16).padStart(6, '0');
-    html += `<div class="twRow${c.isPlayer ? ' me' : ''}${cls}"><span class="p">${k + 1}</span><i style="background:${col}"></i><span class="n">${short(c.name)}</span><span class="g">${g}</span></div>`;
+    const tc = '#' + COMPOUNDS[c.phys.compound || 'M'].color.toString(16).padStart(6, '0');
+    html += `<div class="twRow${c.isPlayer ? ' me' : ''}${cls}"><span class="p">${k + 1}</span><i style="background:${col}"></i><span class="n">${c.isPlayer ? 'TU' : c.name}</span><em style="border-color:${tc}"></em><span class="g">${g}</span></div>`;
   }
   if (hudCache.tower !== html) { hudCache.tower = html; $('twRows').innerHTML = html; }
 }
+
+// riquadro in alto a destra: settori, posizione e tempo del giro in corso
+function lapBoxHud() {
+  for (let k = 0; k < 3; k++) { const c = $('sec' + k).className; if (hudCache['lb' + k] !== c) { hudCache['lb' + k] = c; $('lb' + k).className = c; } }
+  if (race) {
+    const pl = race.player, st = race.standings();
+    const pos = `<b>${st.indexOf(pl) + 1}</b>/${st.length}`;
+    if (hudCache.lbPos !== pos) { hudCache.lbPos = pos; $('lbPos').innerHTML = pos; }
+    setText('lbTime', fmtLap(pl.finishT != null ? pl.lastLapT : race.t - pl.lapStart));
+    setText('lbDelta', '');
+  } else {
+    const t = lap && lap.active ? simTime - lap.start : 0;
+    const pos = lap && lap.active ? `GIRO <b>${lap.no}</b>` : 'GIRO DI LANCIO';
+    if (hudCache.lbPos !== pos) { hudCache.lbPos = pos; $('lbPos').innerHTML = pos; }
+    setText('lbTime', fmtLap(t));
+    const d = $('delta');
+    setText('lbDelta', d.textContent);
+    const cl = d.className.replace('delta', 'lbDelta');
+    if ($('lbDelta').className !== cl) $('lbDelta').className = cl;
+  }
+}
+// tempi come in F1: sotto il minuto solo secondi e millesimi
+const fmtLap = t => t == null ? '-:--.---' : t < 60 ? Math.max(0, t).toFixed(3) : fmt(t);
 
 function raceHud(dt) {
   const pl = race.player, L = race.laps;
@@ -981,6 +1003,45 @@ function showResults() {
   $('resSub').textContent = `${race.laps} ${race.laps === 1 ? 'GIRO' : 'GIRI'} · ${st.length} PILOTI · FORZA BOT ${settings.raceStrength}`;
   $('resTable').innerHTML = standingsHtml(true);
   $('results').classList.remove('hidden');
+}
+
+// pezzo di pista attorno alla vettura, girato nel senso di marcia (in basso a sinistra, come in F1 25)
+var localMap = null;
+class LocalMap {
+  constructor(cv, track) { this.cv = cv; this.track = track; this.ctx = cv.getContext('2d'); this.resize(); }
+  resize() {
+    const r = this.cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio);
+    this.w = Math.max(30, r.width); this.h = Math.max(60, r.height); this.dpr = dpr;
+    this.cv.width = this.w * dpr; this.cv.height = this.h * dpr;
+  }
+  draw(p, cars) {
+    const g = this.ctx, dpr = this.dpr, W = this.w * dpr, H = this.h * dpr;
+    g.clearRect(0, 0, W, H);
+    const tr = this.track, S = tr.samples, n = tr.count, i0 = p.prCG.i;
+    const ahead = 420, behind = 110, sc = H / (ahead + behind);
+    const phi = -Math.PI / 2 - p.yaw, cf = Math.cos(phi), sf = Math.sin(phi);
+    const ox = W / 2, oy = H * (ahead / (ahead + behind));
+    const map = (x, z) => { const X = x - p.x, Y = z - p.z; return [ox + (X * cf - Y * sf) * sc, oy + (X * sf + Y * cf) * sc]; };
+    const a = Math.round(behind / tr.step), b = Math.round(ahead / tr.step);
+    const path = () => { g.beginPath(); for (let k = -a; k <= b; k += 2) { const s = S[(i0 + k + n) % n]; const [x, y] = map(s.x, s.z); k === -a ? g.moveTo(x, y) : g.lineTo(x, y); } };
+    g.lineJoin = g.lineCap = 'round';
+    g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 7 * dpr; path(); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3.2 * dpr; path(); g.stroke();
+    g.strokeStyle = '#2ee06f'; g.lineWidth = 1.4 * dpr; path(); g.stroke();
+    if (cars) for (const c of cars) {
+      const [x, y] = map(c.phys.x, c.phys.z);
+      if (x < -8 || x > W + 8 || y < -8 || y > H + 8) continue;
+      g.fillStyle = '#' + c.color.toString(16).padStart(6, '0'); g.strokeStyle = '#fff'; g.lineWidth = 1.2 * dpr;
+      g.beginPath(); g.arc(x, y, 3.6 * dpr, 0, 7); g.fill(); g.stroke();
+    }
+    g.fillStyle = '#ff8a1c'; g.strokeStyle = '#000'; g.lineWidth = 1.5 * dpr;
+    g.beginPath(); g.moveTo(ox, oy - 7 * dpr); g.lineTo(ox + 5 * dpr, oy + 5 * dpr); g.lineTo(ox - 5 * dpr, oy + 5 * dpr); g.closePath(); g.fill(); g.stroke();
+    // sfumatura verso l'alto
+    g.globalCompositeOperation = 'destination-out';
+    const gr = g.createLinearGradient(0, 0, 0, H * 0.3); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H * 0.3);
+    g.globalCompositeOperation = 'source-over';
+  }
 }
 
 class Minimap {
@@ -1664,6 +1725,7 @@ function resize() {
   camera.updateProjectionMatrix();
   if (particles) particles.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (minimap) minimap.resize();
+  if (localMap) localMap.resize();
   if (garage) garage.resize(w, h);
 }
 addEventListener('resize', () => { resize(); checkOrientation(); });
