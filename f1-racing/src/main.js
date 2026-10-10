@@ -173,6 +173,7 @@ function newLap(start) {
 }
 
 function resetSession() {
+  sessBest = [null, null, null]; secHold = null; rsec = null;
   debris.restore();
   particles.clear();
   skids.clear();
@@ -420,6 +421,7 @@ function physicsStep(inp) {
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
     race.step(DT, pc, true);
     if (!coolAI) { arcadeCut(); arcadeRescue(DT); }
+    if (race.player.finishT == null) raceSectors(sPrev, phys.prCG.s);
     return;
   }
   phys.step(DT, cmd);
@@ -464,6 +466,9 @@ function timing(sPrev, sNow) {
     const tCross = simTime - DT + DT * f;
     if (lap.active && lap.sector === 2) {
       lap.sectors[2] = tCross - lap.sectorStart;
+      (lap.secCls ||= [])[2] = secClass(2, lap.sectors[2], lap.valid);
+      secHold = null; paintSectors(lap.sectors, lap.secCls, -1);
+      secHold = { until: simTime + 3.5 };
       finishLap(tCross - lap.start + (lap.penalty || 0));
     } else if (lap.active) {
       showBanner('GIRO NON COMPLETO', 'red', 2, true);
@@ -485,6 +490,7 @@ function timing(sPrev, sNow) {
       lap.sectors[k - 1] = t - lap.sectorStart;
       lap.sectorStart = t;
       lap.sector = k;
+      (lap.secCls ||= [])[k - 1] = secClass(k - 1, lap.sectors[k - 1], lap.valid);
       setSectorsHud(lap.sectors, k);
       const tSec = lap.sectors[k - 1];
       const pb = bestSectors[k - 1];
@@ -731,12 +737,53 @@ for (let i = 0; i < 15; i++) { const e = document.createElement('i'); $('leds').
 let hudCache = {};
 function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
 
-function setSectorsHud(secs, cur = 0) {
+// colori dei settori come in F1: viola = record, verde = tuo miglior settore di questa sessione,
+// giallo = più lento. Al traguardo i tre settori del giro restano accesi per qualche secondo
+var sessBest = [null, null, null], secHold = null;
+function secClass(k, t, valid = true) {
+  const rec = bestSectors[k], sb = sessBest[k];
+  const c = !valid ? 'yellow' : rec == null || t <= rec + 1e-6 ? 'purple' : sb == null || t <= sb + 1e-6 ? 'green' : 'yellow';
+  if (sb == null || t < sb) sessBest[k] = t;
+  return c;
+}
+function paintSectors(secs, cls, cur) {
   for (let k = 0; k < 3; k++) {
     const el = $('sec' + k);
-    el.className = '';
-    if (secs[k] != null) el.className = (bestSectors[k] == null || secs[k] <= bestSectors[k] + 1e-6) ? 'purple' : 'yellow';
-    else if (k === cur && lap && lap.active) el.className = 'cur';
+    el.className = secs[k] != null ? (cls[k] || 'yellow') : (k === cur ? 'cur' : '');
+  }
+}
+function setSectorsHud(secs, cur = 0) {
+  if (secHold && simTime < secHold.until) return;
+  secHold = null;
+  const L0 = race ? rsec : lap;
+  paintSectors(secs, (L0 && L0.secCls) || [], L0 && L0.active !== false ? cur : -1);
+}
+// settori anche in gara (la prova a tempo ha il suo cronometro completo)
+var rsec = null;
+function raceSectors(sPrev, sNow) {
+  const L = track.length;
+  if (sPrev > L - 80 && sNow < 80) {
+    const f = (L - sPrev) / ((L - sPrev) + sNow), t = simTime - DT + DT * f;
+    if (rsec && rsec.sector === 2) {
+      rsec.sectors[2] = t - rsec.sectorStart;
+      rsec.secCls[2] = secClass(2, rsec.sectors[2]);
+      secHold = null; paintSectors(rsec.sectors, rsec.secCls, -1);
+      secHold = { until: simTime + 3.5 };
+    }
+    rsec = { active: true, sector: 0, sectorStart: t, sectors: [null, null, null], secCls: [] };
+    setSectorsHud(rsec.sectors, 0);
+    return;
+  }
+  if (!rsec) return;
+  for (let k = 1; k <= 2; k++) {
+    const b = track.sectorIdx[k] * track.step;
+    if (rsec.sector === k - 1 && sPrev < b && sNow >= b && sNow - sPrev < 20) {
+      const t = simTime - DT + DT * (b - sPrev) / (sNow - sPrev);
+      rsec.sectors[k - 1] = t - rsec.sectorStart;
+      rsec.sectorStart = t; rsec.sector = k;
+      rsec.secCls[k - 1] = secClass(k - 1, rsec.sectors[k - 1]);
+      setSectorsHud(rsec.sectors, k);
+    }
   }
 }
 
@@ -936,6 +983,7 @@ function towerHud(st) {
 
 // riquadro in alto a destra: settori, posizione e tempo del giro in corso
 function lapBoxHud() {
+  if (secHold && simTime >= secHold.until) { const L0 = race ? rsec : lap; if (L0) setSectorsHud(L0.sectors, L0.sector); else secHold = null; }
   for (let k = 0; k < 3; k++) { const c = $('sec' + k).className; if (hudCache['lb' + k] !== c) { hudCache['lb' + k] = c; $('lb' + k).className = c; } }
   if (race) {
     const pl = race.player, st = race.standings();

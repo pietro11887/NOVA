@@ -55,13 +55,12 @@
   <canvas id="localMap"></canvas>
   <!-- in basso al centro: integrità, marcia, velocità e giri -->
   <div class="f1Dash">
-    <div class="leds" id="leds"></div>
     <div class="fdRow">
       <div class="fdDial">
         <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="hpArc" class="rgArc hp" cx="50" cy="50" r="42"/></svg>
         <div class="fdIn"><small>INTEGRITÀ</small><b id="dmgPct">100%</b></div>
       </div>
-      <div class="fdGear"><div id="gear">N</div><div id="fdMode" class="fdMode">AUTO</div></div>
+      <div class="fdGear"><div class="leds" id="leds"></div><div id="gear">N</div><div id="fdMode" class="fdMode">AUTO</div></div>
       <div class="fdDial">
         <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="rpmArc" class="rgArc rpm" cx="50" cy="50" r="42"/></svg>
         <div class="fdIn"><small>KM/H</small><b id="speed">0</b><small id="rpmTxt">0</small></div>

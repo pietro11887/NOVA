@@ -602,8 +602,8 @@ body.trialSetup .raceOnly { display: none !important; }
 
 /* in basso al centro: due quadranti e la marcia */
 #hud .f1Dash { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(8px, env(safe-area-inset-bottom)); width: 236px; text-align: center; pointer-events: none; }
-#hud .f1Dash .leds { display: flex; justify-content: center; gap: 2px; margin: 0 auto 2px; width: 70px; }
-#hud .f1Dash .leds i { width: 3px; height: 3px; flex: none; border-radius: 50%; }
+#hud .fdGear .leds { display: flex; justify-content: center; gap: 1.5px; margin: 0 0 3px; width: 58px; }
+#hud .fdGear .leds i { width: 2.4px; height: 2.4px; flex: none; border-radius: 50%; }
 .fdRow { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .fdDial { position: relative; width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle, rgba(8,10,20,0.92) 58%, rgba(8,10,20,0.6) 70%, transparent 72%); }
 .fdDial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(135deg); }
@@ -616,7 +616,7 @@ body.trialSetup .raceOnly { display: none !important; }
 .fdIn small { font-size: 7px; letter-spacing: 0.8px; color: rgba(255,255,255,0.7); font-weight: 700; }
 .fdIn b { font-size: 17px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
 #hud #dmgPct { font-size: 15px; font-style: normal; }
-.fdGear { width: 62px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(8,10,20,0.88); border-radius: 10px; }
+.fdGear { width: 66px; height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(8,10,20,0.88); border-radius: 10px; }
 #hud .fdGear #gear { font-size: 34px; font-weight: 900; line-height: 1; color: #fff; }
 .fdMode { font-size: 7px; letter-spacing: 1px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 2px; }
 .fdChips { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 3px; }
