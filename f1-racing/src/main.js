@@ -11,6 +11,7 @@ import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { PadNav } from './padNav.js';
 import { Post } from './post.js';
+import { BakuFx } from './bakuFx.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
@@ -116,7 +117,7 @@ const padNav = new PadNav({
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
-let minimap, post = null, glow = null;
+let minimap, post = null, glow = null, bakuFx = null;
 
 function build() {
   scene.add(track.build(renderer));
@@ -131,10 +132,25 @@ function build() {
   g.rotation.x = -Math.PI / 2; g.position.y = -5; envScene.add(g);
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
+  // Baku: nei riflessi (carrozzerie, asfalto) si vede la città vera, non solo il cielo
+  if (track.street && settings.quality !== 'low') {
+    try {
+      const crt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+      const cc = new THREE.CubeCamera(1, 6000, crt);
+      const s0 = track.samples[Math.round(track.count * 0.02)];
+      cc.position.set(s0.x, s0.y + 4, s0.z);
+      const envOld = scene.environment; scene.environment = null;
+      scenery.skyMesh.position.copy(cc.position);
+      cc.update(renderer, scene);
+      scene.environment = pmrem.fromCubemap(crt.texture).texture;
+      crt.dispose(); envOld.dispose();
+      scene.environmentIntensity = 0.75;
+    } catch (e) { console.warn('riflessi città non disponibili', e); }
+  }
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3 }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: track.street }); post.setSize(innerWidth, innerHeight); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
@@ -149,6 +165,7 @@ function build() {
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
   scene.add(racingLine.build());
+  if (track.street) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
   phys = new CarPhysics(track);
   phys.on('impact', onImpact);
   particles = new Particles(scene);
@@ -198,6 +215,7 @@ function resetSession() {
   debris.restore();
   particles.clear();
   if (glow) glow.clear();
+  if (bakuFx) bakuFx.clear();
   skids.clear();
   phys.reset(track.count - 6, -3.4);
   phys.damageMode = dmMode();
@@ -633,6 +651,11 @@ function updateEffects(dt) {
       if (w.slide > 0.5 && Math.random() < w.slide * dt * 40) {
         particles.emit(wx, gy + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.8, grow: 3, life: 1.4, alpha: 0.35 * w.slide, vx: phys.vx * 0.3, vy: 0.6, vz: phys.vz * 0.3, drag: 2 });
       }
+      // gomma bloccata o in derapata: nuvola di fumo bianco-azzurro più densa e lunga
+      if ((w.lock || w.spinning || w.slide > 0.75) && phys.speed > 6 && Math.random() < dt * 45) {
+        const k = w.lock ? 1 : w.slide;
+        particles.emit(wx, gy + 0.15, wz, { color: [0.9, 0.91, 0.94], size: 0.6, grow: 4.5, life: 2.4, alpha: 0.42 * k, vx: phys.vx * 0.15 + (Math.random() - 0.5) * 1.5, vy: 0.9, vz: phys.vz * 0.15 + (Math.random() - 0.5) * 1.5, drag: 1.4 });
+      }
     } else {
       skids.add(i, wx, gy, wz, Math.min(1, phys.speed / 15), false);
       if (phys.speed > 5 && Math.random() < dt * 30) {
@@ -666,12 +689,27 @@ function updateEffects(dt) {
     });
     if (p.damage.engine > 0.3 && Math.random() < dt * 30 * p.damage.engine) particles.emit(p.x - cy2 * 2.2, p.y + 0.5, p.z - sy2 * 2.2, { color: [0.3, 0.3, 0.3], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: p.vx * 0.5, vy: 1.5, vz: p.vz * 0.5, drag: 1 });
   }
+  if (bakuFx) {
+    const cars = [{ p: phys, f1: IS_F1, key: 'me' }];
+    if (race) for (const c of race.cars) {
+      if (c.isPlayer || c.gone || c.pit) continue;
+      if (Math.abs(c.phys.x - phys.x) > 160 || Math.abs(c.phys.z - phys.z) > 160) continue;
+      cars.push({ p: c.phys, f1: IS_F1, key: c });
+    }
+    camera.getWorldDirection(fxDir);
+    bakuFx.update(dt, {
+      cars, focus: mode === 'menu' && attract && attract.shot ? attract.shot.car.phys : phys, camDir: fxDir,
+      progress: race ? race.player.crossings / Math.max(1, race.laps) : 0.4,
+      countdown: mode === 'countdown', finished: !!(race && race.player.finishT != null), stands: scenery.standPos,
+    });
+  }
   particles.update(dt);
   glow.update(dt);
   debris.update(dt, phys.hint);
 }
 // F1: il fondo (pattino in titanio) tocca l'asfalto in velocità, sui dossi e sui cordoli:
 // scie di scintille che restano indietro
+const fxDir = new THREE.Vector3();
 function sparks(p, dt) {
   if (!IS_F1 || ARC() || p.speed < 48) return;
   const rate = (p.speed - 48) / 25 * (0.35 + Math.min(2, p.kerbVibe) * 2.5) * (1 + Math.max(0, -p.pitch) * 40);
@@ -790,7 +828,14 @@ function updateCamera(dt) {
   }
   // tremolio: cordoli, urti, velocità
   camState.shake = Math.max(0, camState.shake - dt * 2.5);
-  const sh = camState.shake * 0.25 + Math.min(1.5, phys.kerbVibe) * 0.018 + Math.min(1, phys.speed / 90) * 0.004;
+  // dossi e avvallamenti: la visuale sobbalza con le variazioni di velocità verticale
+  if (dt > 0) {
+    const vy = (phys.y - (camState.lastY ?? phys.y)) / dt;
+    const jolt = Math.abs(vy - (camState.lastVy ?? vy));
+    camState.lastY = phys.y; camState.lastVy = vy;
+    if (jolt > 0.6 && jolt < 30) camState.shake = Math.min(1, camState.shake + jolt * 0.012 * (camMode === 3 ? 1.6 : 1));
+  }
+  const sh = camState.shake * 0.25 + Math.min(1.5, phys.kerbVibe) * (camMode === 3 ? 0.03 : 0.018) + Math.min(1, phys.speed / 90) * (camMode === 3 ? 0.007 : 0.004);
   camera.position.x += (Math.random() - 0.5) * sh;
   camera.position.y += (Math.random() - 0.5) * sh;
   camera.position.z += (Math.random() - 0.5) * sh;
@@ -2170,6 +2215,7 @@ function frame(now) {
       [...$('lightsHud').children].forEach(e => e.classList.remove('on'));
       setTimeout(() => $('lightsHud').classList.add('hidden'), 600);
       sounds.cheerUp(0.8);
+      if (bakuFx) bakuFx.start();
       showBanner(gameType === 'race' ? 'VIA! BUONA GARA' : 'VIA! IL TEMPO PARTE AL TRAGUARDO', 'green', 2);
       mode = 'race';
       acc = 0;
@@ -2228,9 +2274,38 @@ function frame(now) {
   if (post) {
     // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
-    post.draw(dt, camera, sp);
+    post.draw(dt, camera, sp, postFx());
   } else renderer.render(scene, camera);
   input.endFrame();
+}
+
+// effetti dell'immagine: raggi di sole, obiettivo TV, aria calda dagli scarichi
+const hazeList = [];
+function postFx() {
+  const tv = (mode === 'replay' && rp && (RP_CAMS[rp.cam] === 'TV' || RP_CAMS[rp.cam] === 'ELICOTTERO')) || (mode === 'menu' && !!attract);
+  hazeList.length = 0;
+  if (track.street) {
+    const ex = (p, k) => {
+      const b = IS_F1 ? -2.45 : -2.3, cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
+      hazeList.push([p.x + cy * b, p.y + 0.55, p.z + sy * b, k]);
+    };
+    if (mode === 'race' || mode === 'countdown') {
+      if (camMode !== 3) ex(phys, 0.6 + 0.4 * (phys.throttleOut || 0));
+      if (race) {
+        // le due vetture più vicine davanti
+        const fx = Math.cos(phys.yaw), fz = Math.sin(phys.yaw);
+        const near = [];
+        for (const c of race.cars) {
+          if (c.isPlayer || c.gone) continue;
+          const dx = c.phys.x - phys.x, dz = c.phys.z - phys.z, d = Math.hypot(dx, dz);
+          if (d < 45 && dx * fx + dz * fz > 0) near.push([d, c]);
+        }
+        near.sort((a, b) => a[0] - b[0]);
+        for (const [, c] of near.slice(0, 2)) ex(c.phys, 0.9);
+      }
+    }
+  }
+  return { sunDir: SUN_DIR, lens: tv ? 1 : 0, haze: hazeList };
 }
 
 function resize() {
@@ -2240,6 +2315,7 @@ function resize() {
   camera.updateProjectionMatrix();
   if (particles) particles.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (glow) glow.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
+  if (bakuFx) bakuFx.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (minimap) minimap.resize();
   if (post) post.setSize(w, h);
   if (localMap) localMap.resize();

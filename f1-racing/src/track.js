@@ -180,8 +180,10 @@ export class Track {
           float big = texture2D(map, vWPos.xz * 0.013 + 0.37).r;
           diffuseColor *= aTex * (0.82 + 0.55 * big);`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, 0.45, 0.95);`);
+          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street ? '0.3, 0.85' : '0.45, 0.95'});`);
     };
+    // Baku: asfalto cittadino più liscio e lucido, riflette sole e palazzi controluce
+    if (this.street) { asphMat.roughness = 0.6; asphMat.envMapIntensity = 1.6; }
     void asphalt;
     g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));
     // linee bianche di bordo pista

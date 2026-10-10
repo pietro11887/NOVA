@@ -119,6 +119,8 @@ export class BakuScenery extends Scenery {
     }
   }
   isLand(x, z) { return pip(this.land, x, z) || pip(this.island, x, z); }
+  // città vecchia (İçərişəhər): stradine strette attorno alle mura
+  isOldTown(x, z) { return Math.hypot(x + 536, z - 364) < 330; }
 
   // ------------------------------------------------------------------ edifici
   setupBuildings() {
@@ -283,13 +285,24 @@ export class BakuScenery extends Scenery {
     mat.onBeforeCompile = sh => {
       sh.uniforms.uT = uT;
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW; uniform float uT;')
+      sh.uniforms.uSun = { value: ENV.sunDir.clone() };
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW; uniform float uT; uniform vec3 uSun;')
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
           vec2 q = vW.xz * 0.12;
           float w1 = sin(q.x * 1.0 + q.y * 0.6 + uT * 1.1), w2 = sin(q.x * -0.7 + q.y * 1.3 - uT * 0.9), w3 = sin((q.x + q.y) * 2.9 + uT * 1.9);
           float w4 = sin(q.x * 6.1 - q.y * 4.3 + uT * 2.7);
           vec3 wn = normalize(vec3(w1 * 0.03 + w3 * 0.014 + w4 * 0.006, 1.0, w2 * 0.03 - w3 * 0.012));
-          normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);`);
+          normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          // riflessi del sole che scintillano sul Caspio
+          vec3 Vd = normalize(cameraPosition - vW);
+          vec2 gq = vW.xz * 0.9;
+          vec3 gn = normalize(wn + vec3(sin(gq.x * 3.1 + uT * 3.3) * 0.05 + sin(gq.y * 5.3 - uT * 4.1) * 0.03, 0.0, cos(gq.y * 2.7 - uT * 2.9) * 0.05 + sin(gq.x * 4.7 + uT * 3.7) * 0.03));
+          vec3 Rf = reflect(-Vd, gn);
+          float sd = max(dot(Rf, uSun), 0.0);
+          float tw = step(0.9, fract(sin(dot(floor(vW.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453 + uT * 0.6));
+          float dist = length(cameraPosition - vW);
+          totalEmissiveRadiance += vec3(1.0, 0.78, 0.5) * (pow(sd, 90.0) * 9.0 + pow(sd, 14.0) * tw * 2.5 * (1.0 - smoothstep(200.0, 1500.0, dist)) + pow(sd, 6.0) * 0.12);`);
     };
     this.animated.push(t => { uT.value = t; });
     const m = new THREE.Mesh(g, mat);
@@ -540,6 +553,37 @@ export class BakuScenery extends Scenery {
     if (pts.length) this.flags(pts);
   }
 
+  // tribune: il pubblico salta ed esulta (ognuno a modo suo)
+  makeStand(length, rows) {
+    const g = super.makeStand(length, rows);
+    const slope = g.children[0], mat = slope.material;
+    if (!this.crowdT) { this.crowdT = { value: 0 }; this.animated.push(t => { this.crowdT.value = t; }); }
+    const uT = this.crowdT;
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uT = uT;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+        .replace('#include <map_fragment>', `
+          vec2 cu = vMapUv;
+          vec2 px = fract(cu) * vec2(512.0, 256.0);
+          vec2 cell = vec2(floor(px.x / 5.0), floor(px.y / 16.0)) + floor(cu) * 97.0;
+          float ph = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+          float jump = max(0.0, sin(uT * (5.0 + ph * 4.0) + ph * 40.0)) * step(0.45, ph);
+          cu.y -= jump * 3.0 / 256.0 * floor(1.0 + ph * 1.5);
+          vec4 sampledDiffuseColor = texture2D(map, cu);
+          diffuseColor *= sampledDiffuseColor;`);
+    };
+    return g;
+  }
+  // bandiere sulle tribune: tutte azere
+  flags(points) {
+    super.flags(points);
+    const inst = this.group.children.findLast(o => o.isInstancedMesh && o.count === points.length);
+    if (!inst) return;
+    inst.material.map = azFlagTexture();
+    for (let k = 0; k < points.length; k++) inst.setColorAt(k, new THREE.Color(0xffffff));
+    inst.instanceColor.needsUpdate = true;
+  }
+
   screen() { this.bigScreenAt(-PIT.side, 120); }
   bigScreenAt(side, at) {
     const f = this.frame(Math.round(at / this.track.step), side, 6);
@@ -680,9 +724,23 @@ export class BakuScenery extends Scenery {
       g.setAttribute('uv', new THREE.Float32BufferAttribute(o.uv, 2));
       g.setAttribute('color', new THREE.Float32BufferAttribute(o.c, 3));
       g.computeVertexNormals();
-      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+      const bm = new THREE.MeshStandardMaterial({
         map, vertexColors: true, roughness: key === 'glass' ? 0.25 : 0.85, metalness: key === 'glass' ? 0.35 : 0.02,
-      }));
+      });
+      // al tramonto si accendono le luci: finestre a caso illuminate di giallo caldo
+      const thr = key === 'glass' ? '0.42' : '0.3';
+      bm.onBeforeCompile = sh => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          {
+            float wl = dot(sampledDiffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            vec2 cell = floor(vMapUv * ${key === 'glass' ? 'vec2(2.0, 1.0)' : 'vec2(1.0)'});
+            float hr = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+            float on = step(0.58, hr) * (1.0 - smoothstep(${thr} * 0.6, ${thr}, wl));
+            vec3 wc = mix(vec3(1.0, 0.72, 0.38), vec3(1.0, 0.88, 0.7), fract(hr * 7.0));
+            totalEmissiveRadiance += wc * on * (0.55 + 0.6 * fract(hr * 13.0));
+          }`);
+      };
+      const m = new THREE.Mesh(g, bm);
       m.castShadow = true; m.receiveShadow = true;
       this.group.add(m);
     }
