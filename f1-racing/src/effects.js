@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // ---------------- Particelle (fumo, scintille, erba, ghiaia) ----------------
 export class Particles {
-  constructor(scene, max = 900) {
+  constructor(scene, max = 900, opts = {}) {
     this.max = max;
     this.pos = new Float32Array(max * 3);
     this.col = new Float32Array(max * 3);
@@ -17,7 +17,7 @@ export class Particles {
     g.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
     this.geo = g;
     const mat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false,
+      transparent: true, depthWrite: false, blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
       uniforms: { scale: { value: 500 } },
       vertexShader: `
         attribute float alpha; attribute float size; varying float vA; varying vec3 vC;

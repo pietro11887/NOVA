@@ -10,6 +10,7 @@ import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { PadNav } from './padNav.js';
+import { Post } from './post.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
@@ -93,6 +94,16 @@ if (settings.track === 'baku') {
 const keyOf = id => (id && id !== 'nova' ? '.' + id : '') + (IS_F1 ? '.f1' : '');
 const trackKey = keyOf(settings.track);   // record separati per circuito e categoria
 const track = new Track();
+// Baku: luce del tardo pomeriggio (la gara vera è al tramonto sul Caspio): sole basso e caldo,
+// ombre lunghe, cielo che sfuma nell'arancio, foschia dorata in lontananza
+if (track.street) {
+  ENV.skyTop = 0x3a6fb8; ENV.horizon = 0xf2c28c;
+  ENV.sunDir.set(0.72, 0.26, -0.64).normalize();
+  sun.color.set(0xffb36b); sun.intensity = 3.1;
+  hemi.color.set(0xb4c4e4); hemi.groundColor.set(0x6a5442); hemi.intensity = 0.95;
+  scene.fog = new THREE.Fog(0xe9c39a, 260, 2300);
+  renderer.toneMappingExposure = 1.02;
+}
 const sounds = new Sound();
 sounds.level = settings.audio; sounds.radioOn = settings.radio;
 // l'audio del browser parte solo dopo un tocco: lo si accende al primo gesto
@@ -105,7 +116,7 @@ const padNav = new PadNav({
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
-let minimap;
+let minimap, post = null, glow = null;
 
 function build() {
   scene.add(track.build(renderer));
@@ -121,6 +132,11 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
 
+  // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
+  if (settings.quality === 'high' && settings.post !== false) {
+    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3 }); post.setSize(innerWidth, innerHeight); }
+    catch (e) { console.warn('effetti non disponibili', e); post = null; }
+  }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
   scene.add(car.root);
   ghostCar = gtReady() ? makeCar({ ghost: true }) : createCar({ ghost: true });
@@ -130,10 +146,14 @@ function build() {
   pitLane = new PitLane(track);
   pitLane.build(scene);
   racingLine = new RacingLine(track);
+  // traiettoria gommata (le piste da modello 3D ce l'hanno già)
+  if (!TRACK.model) scene.add(racingLine.buildRubber());
   scene.add(racingLine.build());
   phys = new CarPhysics(track);
   phys.on('impact', onImpact);
   particles = new Particles(scene);
+  // scintille e bagliori (si sommano alla luce: con gli effetti TV brillano)
+  glow = new Particles(scene, settings.quality === 'high' ? 700 : 300, { additive: true });
   skids = new SkidMarks(scene);
   debris = new Debris(scene, track);
   phys.hazards = p => debris.contact(p);
@@ -177,6 +197,7 @@ function resetSession() {
   sessBest = [null, null, null]; secHold = null; rsec = null;
   debris.restore();
   particles.clear();
+  if (glow) glow.clear();
   skids.clear();
   phys.reset(track.count - 6, -3.4);
   phys.damageMode = dmMode();
@@ -628,10 +649,13 @@ function updateEffects(dt) {
     const dark = 0.25 + (1 - eng) * 0.4;
     particles.emit(x, phys.y + 0.5, z, { color: [dark, dark, dark], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: phys.vx * 0.5, vy: 1.5, vz: phys.vz * 0.5, drag: 1 });
   }
+  sparks(phys, dt);
+  brakeGlow();
   if (race) for (const c of race.cars) {
     if (c.isPlayer || c.gone || c.pit) continue;
     const p = c.phys;
     if (Math.abs(p.x - phys.x) > 250 || Math.abs(p.z - phys.z) > 250) continue;
+    sparks(p, dt);
     const cy2 = Math.cos(p.yaw), sy2 = Math.sin(p.yaw);
     p.wheels.forEach((w, i) => {
       const wx = p.x + cy2 * w.x - sy2 * w.y, wz = p.z + sy2 * w.x + cy2 * w.y;
@@ -643,7 +667,40 @@ function updateEffects(dt) {
     if (p.damage.engine > 0.3 && Math.random() < dt * 30 * p.damage.engine) particles.emit(p.x - cy2 * 2.2, p.y + 0.5, p.z - sy2 * 2.2, { color: [0.3, 0.3, 0.3], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: p.vx * 0.5, vy: 1.5, vz: p.vz * 0.5, drag: 1 });
   }
   particles.update(dt);
+  glow.update(dt);
   debris.update(dt, phys.hint);
+}
+// F1: il fondo (pattino in titanio) tocca l'asfalto in velocità, sui dossi e sui cordoli:
+// scie di scintille che restano indietro
+function sparks(p, dt) {
+  if (!IS_F1 || ARC() || p.speed < 48) return;
+  const rate = (p.speed - 48) / 25 * (0.35 + Math.min(2, p.kerbVibe) * 2.5) * (1 + Math.max(0, -p.pitch) * 40);
+  let n = rate * dt * 60 * (Math.random() < 0.35 ? 1 : 0.15);
+  const cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
+  while (n > 0 && (n >= 1 || Math.random() < n)) {
+    n -= 1;
+    const back = -0.4 - Math.random() * 1.6, lat = (Math.random() - 0.5) * 0.6;
+    const x = p.x + cy * back - sy * lat, z = p.z + sy * back + cy * lat;
+    const sp = 0.78 + Math.random() * 0.15, side = (Math.random() - 0.5) * 6;
+    const hot = 2.6 + Math.random() * 1.4;
+    glow.emit(x, p.y - 0.28, z, { color: [hot, hot * 0.55, hot * 0.18], size: 0.05 + Math.random() * 0.05, life: 0.18 + Math.random() * 0.3, alpha: 1,
+      vx: p.vx * sp - sy * side, vy: 0.3 + Math.random() * 2.2, vz: p.vz * sp + cy * side, grav: 9.8, drag: 0.6 });
+  }
+}
+// dischi dei freni roventi: arancio in staccata (vettura del giocatore)
+function brakeGlow() {
+  if (!car) return;
+  if (!car.discMats) {
+    car.discMats = [];
+    const seen = new Map();
+    car.root.traverse(o => {
+      if (!o.isMesh || !o.material || !/disc/i.test(o.material.name || '')) return;
+      if (!seen.has(o.material)) { const m = o.material.clone(); m.emissive = new THREE.Color(0xff4a10); m.emissiveIntensity = 0; seen.set(o.material, m); car.discMats.push(m); }
+      o.material = seen.get(o.material);
+    });
+  }
+  const k = Math.max(0, Math.min(1, (phys.brakeTemp - 520) / 420));
+  for (const m of car.discMats) m.emissiveIntensity = k * k * 4;
 }
 
 // regole in regime di safety car: chi sorpassa prende una penalità di tempo
@@ -1546,6 +1603,7 @@ const SET_LABELS = {
   tc: v => `Controllo trazione: ${v ? 'ON' : 'OFF'}`,
   abs: v => `ABS: ${v ? 'ON' : 'OFF'}`,
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
+  post: v => `Effetti TV: ${v !== false ? 'ON' : 'OFF'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
@@ -1572,6 +1630,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'audio') { settings.audio = settings.audio >= 1 ? 0.6 : settings.audio >= 0.6 ? 0.3 : settings.audio > 0 ? 0 : 1; sounds.setLevel(settings.audio); }
   else if (k === 'radio') { settings.radio = !settings.radio; sounds.radioOn = settings.radio; if (settings.radio) sounds.radio('Radio controllo.'); }
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
+  else if (k === 'post') { settings.post = settings.post === false; saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
@@ -2166,7 +2225,11 @@ function frame(now) {
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 200);
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
-  renderer.render(scene, camera);
+  if (post) {
+    // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
+    const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
+    post.draw(dt, camera, sp);
+  } else renderer.render(scene, camera);
   input.endFrame();
 }
 
@@ -2176,7 +2239,9 @@ function resize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   if (particles) particles.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
+  if (glow) glow.setScale(h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)));
   if (minimap) minimap.resize();
+  if (post) post.setSize(w, h);
   if (localMap) localMap.resize();
   if (garage) garage.resize(w, h);
 }

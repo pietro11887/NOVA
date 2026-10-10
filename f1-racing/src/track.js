@@ -167,7 +167,23 @@ export class Track {
     // Asfalto
     const asphalt = tex.asphalt(); asphalt.anisotropy = aniso;
     const E = (sd, off) => s => sd * s.hw + off;      // distanza dal centro relativa al bordo
-    g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0 }), 10, true));
+    // asfalto a grana fine in coordinate del mondo (niente ripetizioni visibili), con macchie larghe
+    // e un filo di lucentezza: col sole basso l'asfalto brilla controluce come in TV
+    const fine = tex.trackAsphalt(); fine.anisotropy = aniso;
+    const asphMat = new THREE.MeshStandardMaterial({ map: fine, roughness: 0.74, metalness: 0, color: this.street ? 0xd9d3cb : 0xffffff });
+    asphMat.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+        .replace('#include <map_fragment>', `
+          vec4 aTex = texture2D(map, vWPos.xz * 0.11);
+          float big = texture2D(map, vWPos.xz * 0.013 + 0.37).r;
+          diffuseColor *= aTex * (0.82 + 0.55 * big);`)
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, 0.45, 0.95);`);
+    };
+    void asphalt;
+    g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));
     // linee bianche di bordo pista
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.7 });
     g.add(this.ribbon([[E(1, -0.55), 0.012], [E(1, -0.05), 0.012]], null, white));

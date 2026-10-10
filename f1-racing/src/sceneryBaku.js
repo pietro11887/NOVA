@@ -760,6 +760,30 @@ export class BakuScenery extends Scenery {
       const [fx, fz] = L.flameTowers;
       const glassT = facadeTexture('glass');
       const mat = new THREE.MeshStandardMaterial({ map: glassT, color: 0x6f8fb3, roughness: 0.12, metalness: 0.75, envMapIntensity: 1.3, emissive: 0x0a1a33, emissiveIntensity: 0.3 });
+      // facciate a led: fiamme animate che salgono lungo le torri (il simbolo di Baku)
+      const uF = { value: 0 };
+      mat.onBeforeCompile = sh => {
+        sh.uniforms.uF = uF;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLoc;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLoc = position;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          varying vec3 vLoc; uniform float uF;
+          float fh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float fn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(fh(i), fh(i + vec2(1, 0)), f.x), mix(fh(i + vec2(0, 1)), fh(i + vec2(1, 1)), f.x), f.y); }`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          {
+            float a = atan(vLoc.z, vLoc.x), y = vLoc.y / 175.0;
+            vec2 q = vec2(a * 3.0, y * 9.0 - uF * 1.4);
+            float n = fn(q) * 0.6 + fn(q * 2.3 + 4.0) * 0.4;
+            float flame = smoothstep(0.35 + y * 0.45, 0.95, n) * smoothstep(1.02, 0.15, y);
+            // pixel dei led
+            vec2 px = fract(vec2(a * 40.0, vLoc.y * 0.7));
+            float dotm = smoothstep(0.5, 0.2, length(px - 0.5));
+            vec3 fc = mix(vec3(1.0, 0.25, 0.02), vec3(1.0, 0.75, 0.15), n);
+            totalEmissiveRadiance += fc * flame * (0.55 + 0.45 * dotm) * 1.6;
+          }`);
+      };
+      this.animated.push(t => { uF.value = t; });
       const towers = [[0, -38, 182, 0.2], [-36, 22, 165, 2.3], [36, 24, 161, 4.4]];
       for (const [ox, oz, H, rot] of towers) {
         const x = fx + ox, z = fz + oz, y = this.heightAt(x, z) - 2;
@@ -912,7 +936,7 @@ export class BakuScenery extends Scenery {
 
   // lampioni lungo la pista (i pali alti delle strade di Baku)
   lamps() {
-    const S = this.track.samples, n = this.track.count, st = this.track.step;
+    const S = this.track.samples, n = this.track.count, st = this.track.step, bulbs = [];
     const pole = new THREE.CylinderGeometry(0.12, 0.18, 10, 6), arm = new THREE.BoxGeometry(2.6, 0.15, 0.15), head = new THREE.BoxGeometry(0.9, 0.25, 0.45);
     let side = 1;
     for (let i = 0; i < n; i += Math.round(36 / st)) {
@@ -924,6 +948,24 @@ export class BakuScenery extends Scenery {
       const ax = -s.nx * side * 1.2, az = -s.nz * side * 1.2;
       this.batch.add(arm, this.colored, mat4(f.x + ax, f.y + 9.9, f.z + az, f.ry + Math.PI / 2), 0x3b3f46);
       this.batch.add(head, this.colored, mat4(f.x + ax * 2, f.y + 9.8, f.z + az * 2, f.ry + Math.PI / 2), 0xe9e4d4);
+      bulbs.push(f.x + ax * 2, f.y + 9.62, f.z + az * 2);
     }
+    // al tramonto i lampioni sono accesi: luce calda che con gli effetti TV fa alone
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(bulbs, 3));
+    const bm = new THREE.PointsMaterial({ color: new THREE.Color(3.2, 2.2, 1.2), size: 1.4, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, map: glowSprite(), toneMapped: false });
+    const pts = new THREE.Points(bg, bm); pts.frustumCulled = false;
+    this.group.add(pts);
   }
+}
+
+// alone rotondo per luci (lampioni)
+let glowTex = null;
+function glowSprite() {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,236,200,0.6)'); gr.addColorStop(1, 'rgba(255,200,140,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(c);
+  return glowTex;
 }

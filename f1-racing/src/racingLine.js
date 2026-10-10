@@ -181,6 +181,50 @@ export class RacingLine {
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)
   target(i) { return this.speed[i]; }
 
+  // gomma sull'asfalto: la traiettoria è più scura (più gommata) e lo è di più nelle staccate
+  buildRubber() {
+    const S = this.track.samples, n = this.track.count, P = this.points, V = this.speed;
+    const w = 1.05;
+    const pos = new Float32Array((n + 1) * 2 * 3), uv = new Float32Array((n + 1) * 2 * 2), col = new Float32Array((n + 1) * 2 * 4);
+    const idx = [], sf = {};
+    for (let k = 0; k <= n; k++) {
+      const i = k % n, p = P[i];
+      const yA = p[1] + this.track.surface({ i, i0: i, f: 0, d: this.off[i] - w, s: S[i].s }, sf).h + 0.012;
+      const yB = p[1] + this.track.surface({ i, i0: i, f: 0, d: this.off[i] + w, s: S[i].s }, sf).h + 0.012;
+      pos.set([p[0] - S[i].nx * w, yA, p[2] - S[i].nz * w, p[0] + S[i].nx * w, yB, p[2] + S[i].nz * w], k * 6);
+      const vv = k * this.track.step / 9;
+      uv.set([0, vv, 1, vv], k * 4);
+      // staccata: la velocità consigliata scende nei prossimi 60 m
+      const ahead = V[(i + 30) % n], brake = Math.max(0, Math.min(1, (V[i] - ahead) / 25));
+      const a = 0.42 + 0.45 * brake;
+      col.set([0, 0, 0, a, 0, 0, 0, a], k * 8);
+      if (k < n) { const q = k * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    geo.setIndex(idx);
+    // trama: bordi sfumati e striature lungo la direzione di marcia
+    const cv = document.createElement('canvas'); cv.width = 64; cv.height = 256;
+    const g = cv.getContext('2d'), img = g.createImageData(64, 256);
+    for (let y = 0; y < 256; y++) for (let x = 0; x < 64; x++) {
+      const u = x / 63, edge = Math.sin(Math.PI * u), streak = 0.75 + 0.25 * Math.sin(u * 47 + Math.sin(y * 0.05) * 3) * Math.sin(u * 13.7);
+      const noise = 0.8 + 0.2 * Math.sin(x * 12.9898 + y * 78.233) * Math.sin(y * 0.31 + x);
+      const v = Math.max(0, Math.min(1, Math.pow(edge, 1.6) * streak * noise));
+      const o = (y * 64 + x) * 4; img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = v * 255;
+    }
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv); tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 8;
+    const mat = new THREE.MeshBasicMaterial({ color: 0x000000, map: tex, alphaMap: null, vertexColors: true, transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, opacity: 0.55 });
+    // il canale alfa della trama fa da maschera
+    mat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb = vec3(0.0); diffuseColor.a *= sampledDiffuseColor.a;'); };
+    const m = new THREE.Mesh(geo, mat);
+    m.frustumCulled = false; m.renderOrder = 0;
+    return m;
+  }
+
   build() {
     const S = this.track.samples, n = this.track.count, P = this.points;
     const w = 0.55;
