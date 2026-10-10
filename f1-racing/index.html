@@ -36,7 +36,33 @@
     <div class="row small"><span>ULTIMO</span><span id="lastTime">--:--.---</span></div>
   </div>
 
-  <canvas id="minimap"></canvas>
+  <!-- gara: a sinistra la classifica (distacchi, ritiri, safety car) -->
+  <div id="tower" class="tower panel hidden">
+    <div class="twHead"><span id="twLap">GIRO 1/5</span><span id="twTime"></span></div>
+    <div id="twFlag" class="twFlag green">BANDIERA VERDE</div>
+    <div id="twRows" class="twRows"></div>
+  </div>
+
+  <!-- a destra: integrità della vettura e sotto la pista -->
+  <div id="rightCol" class="rightCol">
+    <div class="damage panel">
+      <div class="dmgHead"><span class="lbl">INTEGRITÀ</span><b id="dmgPct">100%</b></div>
+      <div class="dmgBody">
+        <svg viewBox="0 0 60 120" width="46" height="92">
+          <rect id="d_fwL" x="4" y="2" width="25" height="7" rx="2"/>
+          <rect id="d_fwR" x="31" y="2" width="25" height="7" rx="2"/>
+          <rect id="d_wFL" x="4" y="22" width="10" height="18" rx="3"/>
+          <rect id="d_wFR" x="46" y="22" width="10" height="18" rx="3"/>
+          <path id="d_body" d="M26 10 L34 10 L36 40 L44 50 L44 88 L36 100 L24 100 L16 88 L16 50 L24 40 Z"/>
+          <rect id="d_wRL" x="3" y="78" width="11" height="20" rx="3"/>
+          <rect id="d_wRR" x="46" y="78" width="11" height="20" rx="3"/>
+          <rect id="d_rw" x="14" y="106" width="32" height="10" rx="2"/>
+        </svg>
+        <div class="dmgList" id="dmgList"></div>
+      </div>
+    </div>
+    <canvas id="minimap"></canvas>
+  </div>
 
   <div id="topButtons">
     <button id="pauseBtn" aria-label="Pausa">❚❚</button>
@@ -69,19 +95,6 @@
     <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTyre" class="tyreChip">M</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
   </div>
 
-  <div class="damage panel">
-    <svg viewBox="0 0 60 120" width="46" height="92">
-      <rect id="d_fwL" x="4" y="2" width="25" height="7" rx="2"/>
-      <rect id="d_fwR" x="31" y="2" width="25" height="7" rx="2"/>
-      <rect id="d_wFL" x="4" y="22" width="10" height="18" rx="3"/>
-      <rect id="d_wFR" x="46" y="22" width="10" height="18" rx="3"/>
-      <path id="d_body" d="M26 10 L34 10 L36 40 L44 50 L44 88 L36 100 L24 100 L16 88 L16 50 L24 40 Z"/>
-      <rect id="d_wRL" x="3" y="78" width="11" height="20" rx="3"/>
-      <rect id="d_wRR" x="46" y="78" width="11" height="20" rx="3"/>
-      <rect id="d_rw" x="14" y="106" width="32" height="10" rx="2"/>
-    </svg>
-    <div class="lbl">DANNI</div>
-  </div>
 
   <div id="touch">
     <div id="zBrake" class="zone left"><span>FRENO</span></div>

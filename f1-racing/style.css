@@ -555,3 +555,64 @@ body.trialSetup .raceOnly { display: none !important; }
 /* selezione col controller / frecce */
 .padFocus { outline: 3px solid #fff !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 138, 28, 0.25), 0 0 26px rgba(255, 138, 28, 0.45) !important; z-index: 2; }
 .navBtn.padFocus { transform: translateX(10px); outline-color: #fff !important; }
+
+/* ---------- HUD di gara: classifica a sinistra, vettura e pista a destra, cruscotto al centro ---------- */
+body.race-mode #hud .timing { display: none; }
+#hud .tower { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); width: 212px; padding: 0 0 6px; overflow: hidden; border-radius: 10px; }
+.twHead { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 10px 5px; background: linear-gradient(90deg, rgba(255,138,28,0.28), rgba(255,138,28,0.05)); font-weight: 900; font-style: italic; letter-spacing: 0.5px; }
+#twLap { font-size: 16px; }
+#twTime { font-size: 12px; font-style: normal; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.twFlag { font-size: 11px; font-weight: 900; letter-spacing: 1.5px; padding: 3px 10px; text-align: center; color: #111; }
+.twFlag.green { background: rgba(46,224,111,0.85); }
+.twFlag.yellow { background: #f5c518; animation: scBlink 0.9s infinite; }
+.twFlag.amber { background: #f5c518; }
+.twFlag.white { background: #e9edf3; }
+.twFlag.chk { background: repeating-linear-gradient(90deg, #fff 0 8px, #111 8px 16px); color: transparent; text-shadow: none; position: relative; }
+.twRows { padding-top: 3px; }
+.twRow { display: grid; grid-template-columns: 22px 4px 1fr auto; align-items: center; gap: 6px; height: 19px; padding: 0 10px 0 6px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.twRow .p { text-align: right; color: var(--muted); font-size: 12px; }
+.twRow i { width: 4px; height: 13px; border-radius: 2px; }
+.twRow .n { letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; }
+.twRow .g { font-size: 12px; color: var(--muted); text-align: right; min-width: 52px; }
+.twRow.me { background: rgba(255,138,28,0.9); color: #111; }
+.twRow.me .p, .twRow.me .g { color: #111; }
+.twRow.out { opacity: 0.45; }
+.twRow.out .g { color: #ff8a80; }
+.twRow.pit .g { color: #8fb4ff; }
+.twRow.fin .g { color: var(--text); }
+.twSep { height: 1px; margin: 3px 10px; background: rgba(255,255,255,0.18); }
+
+#hud .rightCol { position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(14px, env(safe-area-inset-top)); width: 200px; display: flex; flex-direction: column; gap: 8px; }
+#hud .rightCol .damage { position: static; padding: 7px 10px 8px; text-align: left; }
+#hud .rightCol #minimap { position: static; width: 200px; height: 150px; }
+.dmgHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+#dmgPct { font-size: 20px; font-weight: 900; font-style: italic; color: var(--green); font-variant-numeric: tabular-nums; }
+.dmgBody { display: flex; gap: 10px; align-items: center; }
+.dmgList { flex: 1; display: grid; gap: 3px; font-size: 11px; font-weight: 700; }
+.dmgList div { display: grid; grid-template-columns: 1fr 44px; align-items: center; gap: 6px; color: var(--muted); }
+.dmgList u { display: block; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; text-decoration: none; }
+.dmgList u b { display: block; height: 100%; border-radius: 3px; }
+
+/* cruscotto in basso al centro */
+#hud .dash { left: 50%; right: auto; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); }
+body.touch #hud .dash { right: auto; bottom: max(14px, env(safe-area-inset-bottom)); }
+body.steer-buttons.touch #hud .dash { bottom: max(14px, env(safe-area-inset-bottom)); }
+body.touch #hud .rightCol, body.touch #hud .tower { z-index: 3; }
+
+@media (max-height: 500px) {
+  #hud .tower { width: 176px; }
+  .twHead { padding: 5px 8px 3px; } #twLap { font-size: 14px; }
+  .twRow { height: 16px; font-size: 12px; }
+  #hud .rightCol { width: 156px; gap: 6px; }
+  #hud .rightCol #minimap { width: 156px; height: 104px; }
+  #hud .rightCol .damage svg { width: 34px; height: 68px; }
+  .dmgList { font-size: 10px; gap: 2px; }
+  #dmgPct { font-size: 16px; }
+  body.touch #hud .dash { width: 190px; }
+}
+@media (max-width: 600px) {
+  #hud .tower { width: 160px; }
+  #hud .rightCol { width: 132px; }
+  #hud .rightCol #minimap { width: 132px; height: 100px; }
+  .dmgList { display: none; }
+}

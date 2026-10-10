@@ -211,6 +211,7 @@ function clearRace() {
   lastPos = 0; retiredSeen = new Set(); lastFeed = -99;
   document.body.classList.remove('race-mode');
   $('racePos').classList.add('hidden');
+  $('tower').classList.add('hidden'); hudCache.tower = hudCache.flag = null;
   if (phys) { phys.inPit = false; phys.compound = 'M'; setTyreColor(car, 'M'); }
   $('pitPanel').classList.add('hidden');
   $('results').classList.add('hidden');
@@ -278,6 +279,7 @@ function startRaceRest() {
   setTyreColor(car, phys.compound);
   document.body.classList.add('race-mode');
   $('racePos').classList.remove('hidden');
+  $('tower').classList.remove('hidden');
   pitUi();
   camState.init = false;
   updateCarVisual(0);
@@ -811,8 +813,22 @@ function updateHud(dt) {
     if (hudCache['ty' + i] !== t) { hudCache['ty' + i] = t; const el = $('ty' + i); el.textContent = t + '°'; el.style.background = col; }
   });
   // arcade: i danni diventano una barra di salute
-  const hl = ARC() && phys.damageMode !== 'cosmetic' ? `SALUTE ${Math.round(100 * (1 - phys.totalDamage()))}%` : 'DANNI';
-  if (hudCache.hl !== hl) { hudCache.hl = hl; document.querySelector('.damage .lbl').textContent = hl; }
+  // integrità: percentuale e voci principali
+  const hp = Math.round(100 * (1 - phys.totalDamage()));
+  if (hudCache.hp !== hp) {
+    hudCache.hp = hp;
+    const el = $('dmgPct'); el.textContent = hp + '%';
+    el.style.color = hp > 85 ? 'var(--green)' : hp > 55 ? 'var(--yellow)' : hp > 30 ? '#ff8a1c' : 'var(--red)';
+  }
+  const parts = [
+    ['ALI', Math.max(d.fwL, d.fwR, d.rw)], ['SOSPENSIONI', Math.max(...d.susp)], ['GOMME', Math.max(...d.puncture, d.punctured.some(Boolean) ? 1 : 0)],
+    ['FONDO', d.floor], ['MOTORE', Math.max(d.engine, d.radiator * 0.8)], ['CAMBIO', d.gearbox],
+  ];
+  const key = parts.map(x => Math.round(x[1] * 20)).join();
+  if (hudCache.dmgList !== key) {
+    hudCache.dmgList = key;
+    $('dmgList').innerHTML = parts.map(([n, v]) => `<div><span>${n}</span><u><b style="width:${Math.round(100 * (1 - Math.min(1, v)))}%;background:${dmgColor(v)}"></b></u></div>`).join('');
+  }
   const comp = phys.compound;
   if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
   if (race && race.player.pit) {
@@ -869,6 +885,56 @@ document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListen
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
 
+// classifica a sinistra: posizione, distacco da chi precede, ritirati, box e bandiera (safety car)
+const short = n => n.length <= 3 ? n : n.slice(0, 3);
+function towerHud(st) {
+  const pl = race.player, L = race.laps;
+  const cur = Math.min(L, pl.crossings + 1);
+  setText('twLap', pl.finishT != null ? 'ARRIVATO' : mode === 'countdown' ? 'PARTENZA' : `GIRO ${cur}/${L}`);
+  setText('twTime', fmt(pl.finishT ?? race.t));
+  // bandiera
+  const lead = st[0];
+  let flag = 'BANDIERA VERDE', fc = 'green';
+  if (lead && lead.finishT != null) { flag = 'BANDIERA A SCACCHI'; fc = 'white'; }
+  else if (sc && sc.active) {
+    if (sc.phase === 'out') { flag = 'SAFETY CAR'; fc = 'yellow'; }
+    else if (sc.phase === 'in') { flag = 'SAFETY CAR RIENTRA'; fc = 'amber'; }
+    else { flag = 'RIPARTENZA'; fc = 'amber'; }
+  } else if (mode === 'countdown') { flag = 'GIRO DI FORMAZIONE'; fc = 'white'; }
+  else if (L > 1 && lead && lead.crossings === L - 1) { flag = 'ULTIMO GIRO'; fc = 'white'; }
+  if (hudCache.flag !== flag) { hudCache.flag = flag; const el = $('twFlag'); el.textContent = flag; el.className = 'twFlag ' + fc; }
+  // quante righe ci stanno (sui telefoni in orizzontale non tutte): testa, poi attorno a te
+  const rowH = innerHeight < 500 ? 16 : 19;
+  const room = innerHeight - 80 - (document.body.classList.contains('touch') ? 120 : 30);
+  const max = Math.max(6, Math.floor(room / rowH));
+  const me = st.indexOf(pl);
+  let idx = st.map((_, k) => k);
+  if (st.length > max) {
+    const top = 3, win = max - top - 1;
+    let a = Math.max(top, Math.min(st.length - win, me - Math.floor(win / 2)));
+    idx = [0, 1, 2, -1, ...Array.from({ length: win }, (_, k) => a + k)];
+    if (a === top) idx.splice(3, 1);
+  }
+  let html = '';
+  for (const k of idx) {
+    if (k < 0) { html += '<div class="twSep"></div>'; continue; }
+    const c = st[k];
+    let g, cls = '';
+    if (c.retired) { g = 'RIT'; cls = ' out'; }
+    else if (c.finishT != null) { g = k === 0 ? '🏁' : '+' + fmtGap(c.finishT - lead.finishT); cls = ' fin'; }
+    else if (c.pit) { g = 'BOX'; cls = ' pit'; }
+    else if (k === 0) g = race.t > 1 ? 'LEADER' : '';
+    else {
+      const down = Math.floor((race.progress(lead) - race.progress(c)) / track.length);
+      if (down >= 1) g = `+${down} ${down === 1 ? 'GIRO' : 'GIRI'}`;
+      else { const gg = race.gap(st[k - 1], c); g = gg != null && race.t > 1 ? '+' + fmtGap(gg) : ''; }
+    }
+    const col = '#' + c.color.toString(16).padStart(6, '0');
+    html += `<div class="twRow${c.isPlayer ? ' me' : ''}${cls}"><span class="p">${k + 1}</span><i style="background:${col}"></i><span class="n">${short(c.name)}</span><span class="g">${g}</span></div>`;
+  }
+  if (hudCache.tower !== html) { hudCache.tower = html; $('twRows').innerHTML = html; }
+}
+
 function raceHud(dt) {
   const pl = race.player, L = race.laps;
   const cur = Math.min(L, pl.crossings + 1);
@@ -882,6 +948,7 @@ function raceHud(dt) {
   raceHudT = 0.25;
   const st = race.standings(), pos = st.indexOf(pl);
   setText('rpPos', `P${pos + 1}/${st.length}`);
+  towerHud(st);
   if (mode === 'race' && pl.finishT == null) {
     if (lastPos && pos + 1 < lastPos && simTime - lastFeed > 1) { lastFeed = simTime; showBanner(`SORPASSO! ORA SEI P${pos + 1}`, 'green', 1.6); }
   }
