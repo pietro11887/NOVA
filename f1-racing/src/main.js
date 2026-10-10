@@ -713,7 +713,7 @@ function updateCamera(dt) {
     camera.up.set(0, 1, 0);
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
   } else if (camMode === 3 && !IS_F1 && cockpitView(dt)) {
-    baseFov = window.__ckFov || (portrait ? settings.seat2.fov + 22 : settings.seat2.fov);
+    baseFov = window.__ckFov || (portrait ? settings.seat3.fov + 22 : settings.seat3.fov);
   } else {
     car.root.updateMatrixWorld(true);
     const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
@@ -760,7 +760,7 @@ function cockpitView(dt) {
   car.root.updateMatrixWorld(true);
   // posizione di guida (come iRacing: vicino al volante, occhi bassi, campo visivo stretto)
   // regolabile in gara: I/K su-giù, J/L indietro-avanti, U/O campo visivo
-  const seat = settings.seat2 || (settings.seat2 = { x: 0.24, y: -0.1, fov: 52 });
+  const seat = settings.seat3 || (settings.seat3 = { x: 0.24, y: -0.06, fov: 52 });
   const adj = (k, key, d, lo, hi) => { if (input.consume(key)) { seat[k] = Math.max(lo, Math.min(hi, +(seat[k] + d).toFixed(3))); saveSettings(); showBanner(`SEDILE  avanti ${(seat.x * 100).toFixed(0)} cm · altezza ${(seat.y * 100).toFixed(0)} cm · campo ${seat.fov}°`, 'yellow', 1.5, true); } };
   adj('y', 'KeyI', 0.01, -0.3, 0.2); adj('y', 'KeyK', -0.01, -0.3, 0.2);
   adj('x', 'KeyL', 0.01, -0.2, 0.4); adj('x', 'KeyJ', -0.01, -0.2, 0.4);
