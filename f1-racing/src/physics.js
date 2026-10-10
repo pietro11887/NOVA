@@ -476,8 +476,10 @@ export class CarPhysics {
     if (!hit) return;
     const { pen, part, px, pz, nx, nz } = hit;
     const rx = px - this.x, rz = pz - this.z;
-    // correzione di posizione
-    this.x += nx * pen; this.z += nz * pen;
+    // correzione di posizione, a piccoli passi: mai teletrasporti (finire di colpo metri più in là,
+    // con le ruote sotto terra, faceva "esplodere" le sospensioni e volare la vettura)
+    const push = Math.min(pen, 0.12);
+    this.x += nx * push; this.z += nz * push;
     // velocità del punto di contatto
     const vn = (this.vx - this.yawRate * rz) * nx + (this.vz + this.yawRate * rx) * nz;
     if (vn >= 0) return;

@@ -95,6 +95,27 @@ export class Track {
       const u = Math.max(0, Math.min(m, (dd - o0) / st)), k = Math.min(m - 1, Math.floor(u)), t = u - k;
       const hp = p.prof[k] + (p.prof[k + 1] - p.prof[k]) * t, hq = q.prof[k] + (q.prof[k + 1] - q.prof[k]) * t;
       out.h += hp + (hq - hp) * f;
+      // fuori dalla pista: il terreno vero del modello (prato in salita o in discesa, vie di fuga),
+      // raccordato al bordo in 3 m così non ci sono scalini
+      if (p.gnd) {
+        const ad = Math.abs(pr.d), H = (pr.d > 0 ? p.hwL : p.hwR) ?? p.hw;
+        const edge = H + ((pr.d > 0 ? p.kerbL : p.kerbR) ? K : 0) + 0.6;
+        if (ad > edge) {
+          const [g0, gs] = TRACK.gndOff, gm = p.gnd.length - 1;
+          // all'interno di una curva stretta i dati laterali di campioni vicini si incrociano:
+          // oltre ~0.8 R si tiene il valore lì
+          const inner = p.curv * pr.d < 0, R = 1 / Math.max(1e-4, Math.abs(p.curv));
+          const dg = inner ? Math.sign(pr.d) * Math.min(ad, Math.max(edge, 0.8 * R)) : pr.d;
+          const ug = Math.max(0, Math.min(gm, (dg - g0) / gs)), kg = Math.min(gm - 1, Math.floor(ug)), tg = ug - kg;
+          const ga = p.gnd[kg] + (p.gnd[kg + 1] - p.gnd[kg]) * tg, gb = q.gnd[kg] + (q.gnd[kg + 1] - q.gnd[kg]) * tg;
+          let gh = ga + (gb - ga) * f + (out.type === SURF.GRAVEL ? -0.04 : 0);
+          // mai pendenze brusche rispetto al bordo pista (niente trampolini)
+          const lim = 0.1 + 0.22 * (ad - edge);
+          gh = Math.max(out.h - lim, Math.min(out.h + lim, gh));
+          const t = Math.min(1, (ad - edge) / 3), w = t * t * (3 - 2 * t);
+          out.h += (gh - out.h) * w;
+        }
+      }
     }
     return out;
   }

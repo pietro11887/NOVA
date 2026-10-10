@@ -106,7 +106,7 @@ export function bakuTrack(data) {
 export function spaTrack(data) {
   return {
     id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 5.5, street: false, model: true, data,
-    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff, edges: data.edges,
+    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff, edges: data.edges, gnd: data.gnd, gndOff: data.gndOff, gwall: data.gwall,
     lineShift: 150,               // traguardo dopo la Bus Stop, griglia prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
@@ -469,6 +469,12 @@ export function buildTrack(points) {
         const A = def.prof[j0], B = def.prof[j1];
         s.prof = A.map((a, q) => (a + (B[q] - a) * f) / 100);
       }
+      // terreno vero fuori pista (prato, ghiaia, vie di fuga del modello), fino a ±30 m
+      if (def.gnd) {
+        const u = jf, j0 = Math.floor(u) % nD, j1 = (j0 + 1) % nD, f = u - Math.floor(u);
+        const A = def.gnd[j0], B = def.gnd[j1];
+        s.gnd = A.map((a, q) => (a + (B[q] - a) * f) / 100);
+      }
       s.kerbL = d[0] > 0.4; s.kerbR = d[1] > 0.4;
       s.gravelL = d[2] === 2; s.gravelR = d[3] === 2;
       s.pavedL = d[2] === 3; s.pavedR = d[3] === 3;
@@ -487,7 +493,9 @@ export function buildTrack(points) {
         s.kerbL = !!def.edges[j][2]; s.kerbR = !!def.edges[j][3];
         s.hw = Math.min(s.hwL, s.hwR);
       } else s.hw = Math.min(s.hw, Math.max(5, 0.6 * R));
+      // barriere del modello, più argini ripidi e fine del terreno
       let wL = d[4], wR = d[5];
+      if (def.gwall) { wL = Math.min(wL, def.gwall[j][0] / 10); wR = Math.min(wR, def.gwall[j][1] / 10); }
       if (s.curv < 0 && wL > 0.75 * R) wL = 32;
       if (s.curv > 0 && wR > 0.75 * R) wR = 32;
       s.wallL = Math.max((s.hwL ?? s.hw) + 3, Math.min(32, wL)); s.wallR = Math.max((s.hwR ?? s.hw) + 3, Math.min(32, wR));
@@ -530,6 +538,15 @@ export function buildTrack(points) {
       s[W] = Math.max(s[W], edge + 1.2);
     }
   });
+
+  // i muri non hanno scalini: tra un campione e l'altro la distanza cambia al massimo di 0,6 m
+  // (dove la barriera si avvicina c'è una parete inclinata, non un gradino da cui si viene sbalzati)
+  for (const W of ['wallL', 'wallR']) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 0; k < 2 * count; k++) { const i = k % count, j = (i + 1) % count; samples[j][W] = Math.min(samples[j][W], samples[i][W] + 0.6); }
+      for (let k = 2 * count; k >= 0; k--) { const i = k % count, j = (i - 1 + count) % count; samples[j][W] = Math.min(samples[j][W], samples[i][W] + 0.6); }
+    }
+  }
 
   return { samples, length, step, count, pit };
 }
