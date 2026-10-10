@@ -5,7 +5,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { ModelScenery, loadTrackModel } from './sceneryModel.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind } from './gtModel.js';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -675,6 +675,7 @@ const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
+  if (camMode !== 3 || IS_F1 || mode === 'menu') hideCockpit();
   const cy = Math.cos(phys.yaw), sy = Math.sin(phys.yaw);
   car.helmet.forEach(h => h.visible = camMode !== 3);
   let baseFov = portrait ? 74 : 58;
@@ -711,6 +712,8 @@ function updateCamera(dt) {
     camera.position.copy(camState.pos);
     camera.up.set(0, 1, 0);
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
+  } else if (camMode === 3 && !IS_F1 && cockpitView(dt)) {
+    baseFov = portrait ? 84 : 72;
   } else {
     car.root.updateMatrixWorld(true);
     const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
@@ -729,6 +732,85 @@ function updateCamera(dt) {
   camState.fov += (fov - camState.fov) * Math.min(1, dt * 3);
   camera.fov = camState.fov;
   camera.updateProjectionMatrix();
+}
+
+// ---------------------------------------------------------------- abitacolo GT (come nei simulatori)
+// Visuale dagli occhi del pilota: volante che gira, led dei giri, display con marcia e tempi,
+// testa che segue le forze G e guarda un filo verso la curva.
+let cockpitLoading = false;
+const eyeTmp = new THREE.Vector3(), qPitch = new THREE.Quaternion(), qLook = new THREE.Quaternion(), axY = new THREE.Vector3(0, 1, 0), axZ = new THREE.Vector3(0, 0, 1);
+function cockpitView(dt) {
+  if (!car.cockpit) {
+    if (!cockpitLoading) {
+      cockpitLoading = true;
+      showBanner('CARICAMENTO ABITACOLO…', 'yellow', 1.5, true);
+      loadInterior().then(() => attachInterior(car)).catch(() => { cockpitLoading = false; showBanner('ABITACOLO NON DISPONIBILE', 'red', 2, true); });
+    }
+    return false;
+  }
+  const ck = car.cockpit;
+  ck.group.visible = true;
+  ck.outerGlass.forEach(o => o.visible = false);
+  // testa: le forze G la spostano un poco (frenata in avanti, curva verso l'esterno)
+  const hs = ck.head || (ck.head = { x: 0, z: 0, yaw: 0 });
+  hs.x += (-phys.gLong * 0.018 - hs.x) * Math.min(1, dt * 6);
+  hs.z += (phys.gLat * 0.016 - hs.z) * Math.min(1, dt * 6);
+  hs.yaw += (-phys.steer * 0.35 - hs.yaw) * Math.min(1, dt * 4);
+  car.root.updateMatrixWorld(true);
+  eyeTmp.copy(ck.eye); eyeTmp.x += hs.x; eyeTmp.z += hs.z;
+  camera.position.copy(car.body.localToWorld(eyeTmp));
+  car.body.getWorldQuaternion(qTmp);
+  qPitch.setFromAxisAngle(axZ, -0.06);          // sguardo un filo verso il basso, oltre il cofano
+  qLook.setFromAxisAngle(axY, hs.yaw);
+  camera.quaternion.copy(qTmp).multiply(qLook).multiply(qYaw).multiply(qPitch);
+  // volante: circa 11 gradi di volante per grado di ruota
+  ck.steer.quaternion.setFromAxisAngle(ck.axis, phys.steer * 11);
+  // led dei giri: verdi, gialli, rossi, poi tutti blu (cambiata)
+  const MR = phys.maxRpm, f = (phys.rpm - 0.62 * MR) / (0.35 * MR), on = Math.round(Math.max(0, Math.min(1, f)) * ck.leds.length);
+  const flash = phys.rpm > 0.975 * MR && performance.now() % 160 < 80;
+  ck.leds.forEach((m, i) => m.color.setHex(flash ? 0x2a6bff : i < on ? (i < 3 ? 0x22e05f : i < 6 ? 0xffd21a : 0xff2a2a) : 0x1a1a1a));
+  // display: 10 volte al secondo
+  ck.t -= dt;
+  if (ck.display && ck.t <= 0) { ck.t = 0.1; drawCockpitDisplay(ck.display); }
+  return true;
+}
+function drawCockpitDisplay(D) {
+  const g = D.ctx, W = D.cv.width, H = D.cv.height;
+  g.fillStyle = '#05070b'; g.fillRect(0, 0, W, H);
+  const gear = phys.gear === -1 ? 'R' : phys.speed < 0.5 && phys.throttleOut < 0.05 ? 'N' : String(phys.gear);
+  const kmh = Math.round(phys.speed * 3.6);
+  // barra dei giri
+  const rf = Math.max(0, Math.min(1, phys.rpm / phys.maxRpm));
+  g.fillStyle = '#1b2230'; g.fillRect(16, 12, W - 32, 18);
+  g.fillStyle = rf > 0.95 ? '#2a6bff' : rf > 0.85 ? '#ff3b30' : rf > 0.7 ? '#ffd21a' : '#2ee06f'; g.fillRect(16, 12, (W - 32) * rf, 18);
+  // marcia al centro
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff'; g.font = '900 130px Titillium Web, Arial'; g.fillText(gear, W / 2, H / 2 + 14);
+  // velocità e giri a sinistra
+  g.textAlign = 'left'; g.font = '700 54px Titillium Web, Arial'; g.fillStyle = '#e9edf3'; g.fillText(String(kmh), 20, 88);
+  g.font = '700 20px Titillium Web, Arial'; g.fillStyle = '#8a93a3'; g.fillText('KM/H', 22, 124);
+  g.font = '700 26px Titillium Web, Arial'; g.fillStyle = '#e9edf3'; g.fillText(String(Math.round(phys.rpm / 10) * 10), 20, 168);
+  g.font = '700 20px Titillium Web, Arial'; g.fillStyle = '#8a93a3'; g.fillText('RPM', 22, 196);
+  // a destra: posizione, giro, tempo e delta
+  g.textAlign = 'right';
+  const lt = $('lbTime').textContent, pos = $('lbPos').textContent;
+  g.font = '700 22px Titillium Web, Arial'; g.fillStyle = '#8a93a3'; g.fillText(race ? 'POS ' + pos : pos, W - 20, 64);
+  g.font = '700 40px Titillium Web, Arial'; g.fillStyle = '#ffffff'; g.fillText(lt, W - 20, 108);
+  const dl = $('lbDelta').textContent;
+  if (dl) { g.font = '700 30px Titillium Web, Arial'; g.fillStyle = dl.startsWith('+') ? '#ff3b30' : '#2ee06f'; g.fillText(dl, W - 20, 150); }
+  // gomme (temperatura) in basso
+  g.textAlign = 'center'; g.font = '700 18px Titillium Web, Arial';
+  phys.wheels.forEach((w, i) => {
+    const t = Math.round(w.temp), x = W - 130 + (i % 2) * 64, y = 190 + Math.floor(i / 2) * 30;
+    g.fillStyle = t < 80 ? '#3d7bff' : t < 90 ? '#2ec4ea' : t <= 110 ? '#2ee06f' : t <= 120 ? '#ffd21a' : '#ff3b30';
+    g.fillRect(x - 28, y - 12, 56, 24); g.fillStyle = '#05070b'; g.fillText(t + '°', x, y + 1);
+  });
+  D.tex.needsUpdate = true;
+}
+function hideCockpit() {
+  if (!car || !car.cockpit) return;
+  car.cockpit.group.visible = false;
+  car.cockpit.outerGlass.forEach(o => o.visible = true);
 }
 
 // ---------------------------------------------------------------- HUD

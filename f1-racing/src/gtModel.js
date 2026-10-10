@@ -345,3 +345,100 @@ export function createGT(opts = {}) {
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
   return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true };
 }
+
+// ---------------------------------------------------------------- abitacolo GT (visuale interna)
+// Caricato solo quando serve: volante che gira, led dei giri, display con marcia, velocità e tempi.
+let interiorTpl = null, interiorJob = null;
+export function loadInterior() {
+  if (!interiorJob) {
+    const loader = new GLTFLoader();
+    loader.register(inlineImages);
+    interiorJob = fetchGLB('gt3r_int.glb').then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)))
+      .then(g => { interiorTpl = prepareInterior(g.scene); return interiorTpl; })
+      .catch(e => { interiorJob = null; throw e; });
+  }
+  return interiorJob;
+}
+
+function interiorMaterial(src) {
+  const n = src.name || '';
+  const m = new THREE.MeshStandardMaterial({ name: n, map: src.map || null, color: src.color.clone(), transparent: src.transparent, opacity: src.opacity, alphaTest: src.alphaTest, side: THREE.DoubleSide });
+  m.roughness = 0.75; m.metalness = 0.05;
+  if (src.normalMap) m.normalMap = src.normalMap;
+  if (/Windshield|Windows|Glass/.test(n)) { m.map = null; m.transparent = true; m.opacity = 0.08; m.color.set(0x9fb4c8); m.roughness = 0.05; m.metalness = 0.3; m.depthWrite = false; }
+  else if (/Carbon|CARBON/.test(n)) { m.roughness = 0.4; m.metalness = 0.25; }
+  else if (/METAL|WELDING/.test(n)) { m.roughness = 0.45; m.metalness = 0.6; }
+  else if (/ALCANTARA|FOAM|BELT|NET/.test(n)) { m.roughness = 0.95; m.metalness = 0; }
+  if (m.map) { m.map.anisotropy = 8; }
+  return m;
+}
+
+function prepareInterior(scene) {
+  scene.updateMatrixWorld(true);
+  const T = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+  T.premultiply(new THREE.Matrix4().makeTranslation(0, -(GEOM.cgHeight + 0.02) - 0.02, 0));
+  const mats = new Map();
+  const matFor = src => { if (!mats.has(src)) mats.set(src, interiorMaterial(src)); return mats.get(src); };
+  const out = { rest: [], steer: [], leds: [], display: null, hide: [] };
+  scene.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(T, o.matrixWorld));
+    const nm = o.name || (o.parent && o.parent.name) || '';
+    const item = { g, mat: matFor(o.material), name: nm };
+    if (/^STEER/.test(nm)) out.steer.push(item);
+    else if (/^LEDRPM_\d/.test(nm)) out.leds[+nm.match(/\d/)[0]] = item;
+    else if (/^DISPLAY$/.test(nm)) out.display = item;
+    else if (/^(SPEED|GEAR|LAPTIME|DELTA|LASTLAP|LAPCONT|BRAKEBIAS|FUEL|WATERTEMP|ABS|TLF|TRF|TLR|TRR|FAKE\d)/.test(nm)) out.hide.push(item);
+    else out.rest.push(item);
+  });
+  // volante: centro e asse del piantone (direzione con meno estensione dei vertici = normale del volante)
+  const pts = [];
+  for (const s of out.steer) { const P = s.g.attributes.position; for (let i = 0; i < P.count; i += 3) pts.push(P.getX(i), P.getY(i), P.getZ(i)); }
+  const N = pts.length / 3, c = new THREE.Vector3();
+  for (let i = 0; i < N; i++) c.x += pts[3 * i] / N, c.y += pts[3 * i + 1] / N, c.z += pts[3 * i + 2] / N;
+  const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < N; i++) { const d = [pts[3 * i] - c.x, pts[3 * i + 1] - c.y, pts[3 * i + 2] - c.z]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[a][b] += d[a] * d[b] / N; }
+  // autovettore del più piccolo autovalore: iterazione inversa
+  const m3 = new THREE.Matrix3().set(C[0][0] + 1e-9, C[0][1], C[0][2], C[1][0], C[1][1] + 1e-9, C[1][2], C[2][0], C[2][1], C[2][2] + 1e-9).invert();
+  let ax = new THREE.Vector3(1, 0.3, 0);
+  for (let k = 0; k < 30; k++) ax.applyMatrix3(m3).normalize();
+  if (ax.x < 0) ax.negate();                       // verso il muso
+  out.steerCenter = c; out.steerAxis = ax;
+  // occhi del pilota: dietro e un po' sopra il volante
+  out.eye = c.clone().addScaledVector(ax, -0.6).add(new THREE.Vector3(0, 0.2, 0));
+  return out;
+}
+
+// aggiunge l'abitacolo a una GT già creata (vettura del giocatore)
+export function attachInterior(model) {
+  if (!interiorTpl || model.cockpit) return model.cockpit;
+  const tpl = interiorTpl, group = new THREE.Group();
+  const mk = (it, parent) => { const mesh = new THREE.Mesh(it.g, it.mat); mesh.receiveShadow = true; parent.add(mesh); return mesh; };
+  for (const it of tpl.rest) mk(it, group);
+  // volante su un perno lungo il piantone
+  const pivot = new THREE.Group(); pivot.position.copy(tpl.steerCenter);
+  const spin = new THREE.Group(); pivot.add(spin);
+  for (const it of tpl.steer) { const m = mk({ ...it, g: it.g.clone().translate(-tpl.steerCenter.x, -tpl.steerCenter.y, -tpl.steerCenter.z) }, spin); void m; }
+  group.add(pivot);
+  // led dei giri
+  const leds = tpl.leds.filter(Boolean).map(it => { const mat = new THREE.MeshBasicMaterial({ color: 0x222222 }); const mesh = new THREE.Mesh(it.g, mat); group.add(mesh); return mat; });
+  // display del cruscotto: disegnato su una tela
+  let display = null;
+  if (tpl.display) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
+    const tex = new THREE.CanvasTexture(cv); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    // le coordinate del quadro vanno da v = 1,12 a 1,89: la tela le riempie tutte
+    tex.repeat.set(1, 1 / 0.77); tex.offset.set(0, -1.12 / 0.77);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    group.add(new THREE.Mesh(tpl.display.g, mat));
+    display = { cv, ctx: cv.getContext('2d'), tex };
+  }
+  group.visible = false;
+  model.body.add(group);
+  // dall'interno i vetri esterni scuri non devono coprire la vista
+  const outerGlass = [];
+  model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive/.test(o.material.name || '')) outerGlass.push(o); });
+  model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, display, eye: tpl.eye.clone(), outerGlass, t: 0 };
+  return model.cockpit;
+}
