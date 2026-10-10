@@ -451,11 +451,104 @@ export function attachInterior(model) {
     group.add(new THREE.Mesh(tpl.display.g, mat));
     display = { cv, ctx: cv.getContext('2d'), tex };
   }
+  // ---- specchietti: superfici su cui il gioco disegna la vista posteriore (una sola ripresa
+  // larga dietro la vettura: il centrale ne usa la parte centrale, i laterali i bordi, specchiati)
+  const yS = -(GEOM.cgHeight + 0.02) - 0.02;
+  const mirrors = [];
+  const mirrorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.6 });
+  const MIR = [
+    // centro (x, y, z), larghezza, altezza, zona della ripresa [u0, u1] (già specchiata)
+    { c: [0.232, 1.05 + yS, 0.052], w: 0.31, h: 0.05, u: [0.75, 0.25], frame: true },
+    { c: [0.292, 0.875 + yS, -0.92], w: 0.15, h: 0.1, u: [1.0, 0.64] },
+    { c: [0.278, 0.875 + yS, 0.917], w: 0.13, h: 0.1, u: [0.36, 0.0] },
+  ];
+  for (const M of MIR) {
+    const g = new THREE.PlaneGeometry(M.w, M.h);
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setX(i, M.u[0] + (M.u[1] - M.u[0]) * uv.getX(i));
+    const mesh = new THREE.Mesh(g, mirrorMat);
+    mesh.position.set(...M.c);
+    const d = tpl.eye.clone().sub(mesh.position).normalize();
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d);
+    mesh.position.addScaledVector(d, 0.006);
+    group.add(mesh); mirrors.push(mesh);
+    if (M.frame) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(M.w + 0.025, M.h + 0.02, 0.02), frameMat);
+      f.quaternion.copy(mesh.quaternion); f.position.copy(mesh.position).addScaledVector(d, -0.012);
+      group.add(f);
+    }
+  }
+  // ---- braccia e guanti del pilota: le mani stanno sul volante (girano con lui), le braccia
+  // vanno dalle spalle alle mani (gomito calcolato ogni volta)
+  const suit = new THREE.MeshStandardMaterial({ color: 0x1e2330, roughness: 0.85 });
+  const glove = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.7 });
+  const cuff = new THREE.MeshStandardMaterial({ color: 0xc8201e, roughness: 0.6 });
+  // larghezza del volante lungo il lato (asse Z del gioco)
+  let half = 0.13;
+  { let mx = 0; for (const it of tpl.steer) { const P = it.g.attributes.position; for (let i = 0; i < P.count; i++) mx = Math.max(mx, Math.abs(P.getZ(i) - tpl.steerCenter.z)); } if (mx > 0.08 && mx < 0.25) half = mx - 0.025; }
+  const ax = tpl.steerAxis.clone(), lat = new THREE.Vector3(0, 0, 1), upW = new THREE.Vector3().crossVectors(ax, lat).normalize().negate();
+  if (upW.y < 0) upW.negate();
+  const gloveW = new THREE.MeshStandardMaterial({ color: 0xe9e9ea, roughness: 0.8 });
+  const hands = [-1, 1].map(sd => {
+    const h = new THREE.Group();
+    // dorso della mano (bianco) e dita chiuse sull'impugnatura
+    const back = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.045, 4, 10), gloveW);
+    back.scale.set(1.25, 1, 0.75); back.position.set(-0.012, 0, 0); h.add(back);
+    for (let f = 0; f < 4; f++) {
+      const fin = new THREE.Mesh(new THREE.CapsuleGeometry(0.0085, 0.022, 3, 6), glove);
+      fin.position.set(0.012, 0.03 - f * 0.019, sd * 0.012); fin.rotation.z = Math.PI / 2; h.add(fin);
+    }
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.026, 3, 6), glove);
+    thumb.position.set(0.004, 0.035, -sd * 0.018); thumb.rotation.x = sd * 0.7; h.add(thumb);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.028, 0.03, 12), cuff);
+    c.position.set(-0.01, -0.045, 0); h.add(c);
+    // posizione sul volante (riferimento del perno): ai lati, nella parte alta delle impugnature
+    h.position.copy(lat).multiplyScalar(sd * half).addScaledVector(ax, -0.02).addScaledVector(upW, 0.045);
+    // asse lungo della mano lungo l'impugnatura, dita verso il muso
+    h.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ax, upW, lat));
+    spin.add(h);
+    return h;
+  });
+  const limb = (r) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, 1, 4, 10), suit); group.add(m); return m; };
+  const arms = [-1, 1].map(sd => ({ sd, upper: limb(0.042), fore: limb(0.034),
+    shoulder: tpl.eye.clone().add(new THREE.Vector3(-0.1, -0.26, sd * 0.2)) }));
   group.visible = false;
   model.body.add(group);
   // dall'interno i vetri esterni scuri non devono coprire la vista
   const outerGlass = [];
   model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive/.test(o.material.name || '')) outerGlass.push(o); });
-  model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, display, eye: tpl.eye.clone(), outerGlass, t: 0 };
+  model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, display, eye: tpl.eye.clone(), outerGlass, t: 0, mirrors, mirrorMat, hands, arms };
   return model.cockpit;
+}
+
+// braccia: dalla spalla alla mano (sul volante), gomito verso l'esterno e in basso
+const _v = { h: new THREE.Vector3(), d: new THREE.Vector3(), e: new THREE.Vector3(), b: new THREE.Vector3(), y: new THREE.Vector3(0, 1, 0), m: new THREE.Matrix4() };
+export function updateArms(ck, body) {
+  const A = 0.31, B = 0.29;
+  ck.group.updateMatrixWorld(true);
+  _v.m.copy(ck.group.matrixWorld).invert();
+  ck.arms.forEach((arm, k) => {
+    const hand = ck.hands[k];
+    // polso: un po' sotto il centro del guanto
+    _v.h.set(-0.01, -0.05, 0); hand.localToWorld(_v.h); _v.h.applyMatrix4(_v.m);
+    const S = arm.shoulder;
+    _v.d.subVectors(_v.h, S);
+    let d = _v.d.length(); const dir = _v.d.clone().divideScalar(d);
+    d = Math.min(d, A + B - 0.01);
+    const x = (A * A - B * B + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, A * A - x * x));
+    // direzione del gomito: in fuori (lato del braccio) e in basso, perpendicolare al braccio
+    _v.b.set(0, -0.6, arm.sd * 1).normalize();
+    _v.b.addScaledVector(dir, -_v.b.dot(dir)).normalize();
+    _v.e.copy(S).addScaledVector(dir, x).addScaledVector(_v.b, hh);
+    const place = (mesh, P, Q, r) => {
+      const v = Q.clone().sub(P), L = v.length();
+      mesh.position.copy(P).add(Q).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(_v.y, v.divideScalar(L));
+      mesh.scale.set(1, L / (1 + 2 * r), 1);
+    };
+    place(arm.upper, S, _v.e, 0.042);
+    place(arm.fore, _v.e, _v.h, 0.034);
+  });
+  void body;
 }

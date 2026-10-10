@@ -5,7 +5,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { ModelScenery, loadTrackModel } from './sceneryModel.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior } from './gtModel.js';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -777,10 +777,64 @@ function cockpitView(dt) {
   const MR = phys.maxRpm, f = (phys.rpm - 0.62 * MR) / (0.35 * MR), on = Math.round(Math.max(0, Math.min(1, f)) * ck.leds.length);
   const flash = phys.rpm > 0.975 * MR && performance.now() % 160 < 80;
   ck.leds.forEach((m, i) => m.color.setHex(flash ? 0x2a6bff : i < on ? (i < 3 ? 0x22e05f : i < 6 ? 0xffd21a : 0xff2a2a) : 0x1a1a1a));
+  // braccia del pilota e specchietti
+  updateArms(ck);
+  renderMirrors(ck);
   // display: 10 volte al secondo
   ck.t -= dt;
   if (ck.display && ck.t <= 0) { ck.t = 0.1; drawCockpitDisplay(ck.display); }
   return true;
+}
+// specchietti: una ripresa larga all'indietro, dal tetto, senza la propria vettura
+let mirrorRT = null, rearCam = null;
+const qBack = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2), mirTmp = new THREE.Vector3(), skyTmp = new THREE.Vector3();
+function renderMirrors(ck) {
+  if (!ck.mirrors || !ck.mirrors.length) return;
+  if (!mirrorRT) {
+    const hi = settings.quality === 'high';
+    mirrorRT = new THREE.WebGLRenderTarget(hi ? 768 : 512, hi ? 192 : 128, { samples: 0 });
+    mirrorRT.texture.colorSpace = THREE.SRGBColorSpace;
+    rearCam = new THREE.PerspectiveCamera(19, 4, 0.3, camera.far);
+  }
+  if (ck.mirrorMat.map !== mirrorRT.texture) { ck.mirrorMat.map = mirrorRT.texture; ck.mirrorMat.needsUpdate = true; }
+  ck.mf = (ck.mf || 0) + 1;
+  virtualMirror(ck);
+  if (ck.mf % 2) return;                       // metà dei fotogrammi: basta e costa poco
+  rearCam.position.copy(car.body.localToWorld(mirTmp.set(ck.eye.x - 0.25, ck.eye.y + 0.1, 0)));
+  car.body.getWorldQuaternion(qTmp);
+  rearCam.quaternion.copy(qTmp).multiply(qBack);
+  rearCam.updateMatrixWorld();
+  const vis = car.root.visible, auto = renderer.shadowMap.autoUpdate;
+  car.root.visible = false; renderer.shadowMap.autoUpdate = false;
+  const vmv = vMirror ? vMirror.visible : false; if (vMirror) vMirror.visible = false;   // mai lo specchietto dentro sé stesso
+  skyTmp.copy(scenery.skyMesh.position); scenery.skyMesh.position.copy(rearCam.position);
+  renderer.setRenderTarget(mirrorRT);
+  renderer.render(scene, rearCam);
+  renderer.setRenderTarget(null);
+  scenery.skyMesh.position.copy(skyTmp);
+  car.root.visible = vis; renderer.shadowMap.autoUpdate = auto;
+  if (vMirror) vMirror.visible = vmv;
+}
+// specchietto virtuale in alto al centro (come in iRacing): con il campo visivo stretto quelli
+// veri restano fuori dallo schermo
+let vMirror = null;
+function virtualMirror(ck) {
+  if (!vMirror) {
+    const g = new THREE.PlaneGeometry(1, 0.22), uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setX(i, 0.8 - 0.6 * uv.getX(i));   // parte centrale, specchiata
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: mirrorRT.texture, depthTest: false, depthWrite: false, toneMapped: false }));
+    const fr = new THREE.Mesh(new THREE.PlaneGeometry(1.03, 0.25), new THREE.MeshBasicMaterial({ color: 0x08090c, depthTest: false, depthWrite: false }));
+    fr.position.z = -0.001; fr.renderOrder = 998; m.renderOrder = 999;
+    vMirror = new THREE.Group(); vMirror.add(fr, m);
+    if (!camera.parent) scene.add(camera);
+    camera.add(vMirror);
+  }
+  vMirror.visible = settings.vMirror !== false;
+  // in alto al centro, largo un terzo dello schermo
+  const d = 0.5, hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d, hw = hh * camera.aspect;
+  const w = Math.min(hw * 0.62, hh * 2.2);
+  vMirror.scale.setScalar(w);
+  vMirror.position.set(0, hh - w * 0.16 - hh * 0.07, -d);
 }
 function drawCockpitDisplay(D) {
   const g = D.ctx, W = D.cv.width, H = D.cv.height;
@@ -817,6 +871,7 @@ function drawCockpitDisplay(D) {
 }
 function hideCockpit() {
   document.body.classList.remove('cockpitCam');
+  if (vMirror) vMirror.visible = false;
   if (!car || !car.cockpit) return;
   car.cockpit.group.visible = false;
   car.cockpit.outerGlass.forEach(o => o.visible = true);
