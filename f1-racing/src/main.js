@@ -713,7 +713,7 @@ function updateCamera(dt) {
     camera.up.set(0, 1, 0);
     camera.lookAt(phys.x + cy * ahead, phys.y + lookY, phys.z + sy * ahead);
   } else if (camMode === 3 && !IS_F1 && cockpitView(dt)) {
-    baseFov = portrait ? 84 : 72;
+    baseFov = window.__ckFov || (portrait ? settings.seat.fov + 22 : settings.seat.fov);
   } else {
     car.root.updateMatrixWorld(true);
     const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
@@ -728,7 +728,7 @@ function updateCamera(dt) {
   camera.position.x += (Math.random() - 0.5) * sh;
   camera.position.y += (Math.random() - 0.5) * sh;
   camera.position.z += (Math.random() - 0.5) * sh;
-  const fov = baseFov + Math.min(14, phys.speed * 0.11);
+  const fov = baseFov + (camMode === 3 && !IS_F1 ? Math.min(3, phys.speed * 0.03) : Math.min(14, phys.speed * 0.11));
   camState.fov += (fov - camState.fov) * Math.min(1, dt * 3);
   camera.fov = camState.fov;
   camera.updateProjectionMatrix();
@@ -758,10 +758,17 @@ function cockpitView(dt) {
   hs.z += (phys.gLat * 0.016 - hs.z) * Math.min(1, dt * 6);
   hs.yaw += (-phys.steer * 0.35 - hs.yaw) * Math.min(1, dt * 4);
   car.root.updateMatrixWorld(true);
-  eyeTmp.copy(ck.eye); eyeTmp.x += hs.x; eyeTmp.z += hs.z;
+  // posizione di guida (come iRacing: vicino al volante, occhi bassi, campo visivo stretto)
+  // regolabile in gara: I/K su-giù, J/L indietro-avanti, U/O campo visivo
+  const seat = settings.seat || (settings.seat = { x: 0.24, y: -0.13, fov: 52 });
+  const adj = (k, key, d, lo, hi) => { if (input.consume(key)) { seat[k] = Math.max(lo, Math.min(hi, +(seat[k] + d).toFixed(3))); saveSettings(); showBanner(`SEDILE  avanti ${(seat.x * 100).toFixed(0)} cm · altezza ${(seat.y * 100).toFixed(0)} cm · campo ${seat.fov}°`, 'yellow', 1.5, true); } };
+  adj('y', 'KeyI', 0.01, -0.3, 0.2); adj('y', 'KeyK', -0.01, -0.3, 0.2);
+  adj('x', 'KeyL', 0.01, -0.2, 0.4); adj('x', 'KeyJ', -0.01, -0.2, 0.4);
+  adj('fov', 'KeyU', -2, 36, 90); adj('fov', 'KeyO', 2, 36, 90);
+  eyeTmp.copy(ck.eye); eyeTmp.x += hs.x + seat.x; eyeTmp.y += seat.y; eyeTmp.z += hs.z;
   camera.position.copy(car.body.localToWorld(eyeTmp));
   car.body.getWorldQuaternion(qTmp);
-  qPitch.setFromAxisAngle(axZ, -0.09);          // sguardo un filo verso il basso, oltre il cofano
+  qPitch.setFromAxisAngle(axZ, window.__ckPitch ?? 0.08 + (-0.13 - seat.y) * 0.4);   // occhi bassi: sguardo un filo in su verso il parabrezza          // sguardo un filo verso il basso, oltre il cofano
   qLook.setFromAxisAngle(axY, hs.yaw);
   camera.quaternion.copy(qTmp).multiply(qLook).multiply(qYaw).multiply(qPitch);
   // volante: circa 11 gradi di volante per grado di ruota
