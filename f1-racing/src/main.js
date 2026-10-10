@@ -774,14 +774,23 @@ function raceSectors(sPrev, sNow) {
     setSectorsHud(rsec.sectors, 0);
     return;
   }
-  if (!rsec) return;
+  // primo giro: la griglia è dopo il traguardo, quindi si parte a cronometrare al via
+  if (!rsec) {
+    if (mode !== 'race') return;
+    let sec = 0; for (let k = 1; k <= 2; k++) if (sNow >= track.sectorIdx[k] * track.step) sec = k;
+    rsec = { active: true, sector: sec, sectorStart: simTime, sectors: [null, null, null], secCls: [], partial: true };
+    setSectorsHud(rsec.sectors, sec);
+    return;
+  }
   for (let k = 1; k <= 2; k++) {
     const b = track.sectorIdx[k] * track.step;
     if (rsec.sector === k - 1 && sPrev < b && sNow >= b && sNow - sPrev < 20) {
       const t = simTime - DT + DT * (b - sPrev) / (sNow - sPrev);
       rsec.sectors[k - 1] = t - rsec.sectorStart;
       rsec.sectorStart = t; rsec.sector = k;
-      rsec.secCls[k - 1] = secClass(k - 1, rsec.sectors[k - 1]);
+      // il primo settore del via è più corto (si parte dopo il traguardo): verde, ma non conta come tempo
+      rsec.secCls[k - 1] = rsec.partial ? 'green' : secClass(k - 1, rsec.sectors[k - 1]);
+      rsec.partial = false;
       setSectorsHud(rsec.sectors, k);
     }
   }
