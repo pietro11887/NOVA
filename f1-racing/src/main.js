@@ -744,12 +744,13 @@ function cockpitView(dt) {
     if (!cockpitLoading) {
       cockpitLoading = true;
       showBanner('CARICAMENTO ABITACOLO…', 'yellow', 1.5, true);
-      loadInterior().then(() => attachInterior(car)).catch(() => { cockpitLoading = false; showBanner('ABITACOLO NON DISPONIBILE', 'red', 2, true); });
+      loadInterior().then(() => { attachInterior(car); $('banner').classList.add('hidden'); bannerTimer = 0; }).catch(() => { cockpitLoading = false; showBanner('ABITACOLO NON DISPONIBILE', 'red', 2, true); });
     }
     return false;
   }
   const ck = car.cockpit;
   ck.group.visible = true;
+  document.body.classList.add('cockpitCam');
   ck.outerGlass.forEach(o => o.visible = false);
   // testa: le forze G la spostano un poco (frenata in avanti, curva verso l'esterno)
   const hs = ck.head || (ck.head = { x: 0, z: 0, yaw: 0 });
@@ -760,7 +761,7 @@ function cockpitView(dt) {
   eyeTmp.copy(ck.eye); eyeTmp.x += hs.x; eyeTmp.z += hs.z;
   camera.position.copy(car.body.localToWorld(eyeTmp));
   car.body.getWorldQuaternion(qTmp);
-  qPitch.setFromAxisAngle(axZ, -0.06);          // sguardo un filo verso il basso, oltre il cofano
+  qPitch.setFromAxisAngle(axZ, -0.09);          // sguardo un filo verso il basso, oltre il cofano
   qLook.setFromAxisAngle(axY, hs.yaw);
   camera.quaternion.copy(qTmp).multiply(qLook).multiply(qYaw).multiply(qPitch);
   // volante: circa 11 gradi di volante per grado di ruota
@@ -808,6 +809,7 @@ function drawCockpitDisplay(D) {
   D.tex.needsUpdate = true;
 }
 function hideCockpit() {
+  document.body.classList.remove('cockpitCam');
   if (!car || !car.cockpit) return;
   car.cockpit.group.visible = false;
   car.cockpit.outerGlass.forEach(o => o.visible = true);

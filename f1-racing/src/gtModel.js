@@ -365,10 +365,24 @@ function interiorMaterial(src) {
   const m = new THREE.MeshStandardMaterial({ name: n, map: src.map || null, color: src.color.clone(), transparent: src.transparent, opacity: src.opacity, alphaTest: src.alphaTest, side: THREE.DoubleSide });
   m.roughness = 0.75; m.metalness = 0.05;
   if (src.normalMap) m.normalMap = src.normalMap;
+  // nel modello originale quasi tutti i materiali dell'abitacolo non hanno texture (grigio chiaro):
+  // colori da GT vera, carbonio, alcantara e plastiche nere, roll-bar e metalli
+  const C = (hex, rough, metal) => { if (!m.map) m.color.set(hex); m.roughness = rough; m.metalness = metal; };
   if (/Windshield|Windows|Glass/.test(n)) { m.map = null; m.transparent = true; m.opacity = 0.08; m.color.set(0x9fb4c8); m.roughness = 0.05; m.metalness = 0.3; m.depthWrite = false; }
-  else if (/Carbon|CARBON/.test(n)) { m.roughness = 0.4; m.metalness = 0.25; }
-  else if (/METAL|WELDING/.test(n)) { m.roughness = 0.45; m.metalness = 0.6; }
-  else if (/ALCANTARA|FOAM|BELT|NET/.test(n)) { m.roughness = 0.95; m.metalness = 0; }
+  else if (/Steer_Carbon|Carbon|CARBON/.test(n)) C(0x1d1f23, 0.38, 0.3);
+  else if (/Occlusion/.test(n)) C(0x2a2c31, 0.6, 0.15);
+  else if (/ALCANTARA/.test(n)) C(0x101113, 0.95, 0);
+  else if (/FOAM/.test(n)) C(0x16171a, 0.95, 0);
+  else if (/METAL_PARTS/.test(n)) C(0x7a7e86, 0.4, 0.65);
+  else if (/WELDING/.test(n)) C(0xb9bcc2, 0.45, 0.5);
+  else if (/BORRACHAS/.test(n)) C(0x0e0e10, 0.85, 0);
+  else if (/DASH_PANEL|PLASTIC|STEER_PLASTIC/.test(n)) C(0x131417, 0.55, 0.05);
+  else if (/MANG_AR/.test(n)) C(0x8f1c1c, 0.6, 0.1);
+  else if (/MANGUEIRAS/.test(n)) C(0x22335c, 0.5, 0.2);
+  else if (/CABLES/.test(n)) C(0x1b1b1d, 0.6, 0);
+  else if (/ELECTRONICS|Racelogic|SAS/.test(n)) C(0x1c1d21, 0.5, 0.15);
+  else if (/BELT|NET/.test(n)) { m.roughness = 0.95; m.metalness = 0; }
+  else if (!m.map) C(0x2a2c30, 0.6, 0.1);
   if (m.map) { m.map.anisotropy = 8; }
   return m;
 }
@@ -393,7 +407,8 @@ function prepareInterior(scene) {
   });
   // volante: centro e asse del piantone (direzione con meno estensione dei vertici = normale del volante)
   const pts = [];
-  for (const s of out.steer) { const P = s.g.attributes.position; for (let i = 0; i < P.count; i += 3) pts.push(P.getX(i), P.getY(i), P.getZ(i)); }
+  const rim = out.steer.filter(s => s.mat.name === 'INT_Steer');
+  for (const s of (rim.length ? rim : out.steer)) { const P = s.g.attributes.position; for (let i = 0; i < P.count; i++) pts.push(P.getX(i), P.getY(i), P.getZ(i)); }
   const N = pts.length / 3, c = new THREE.Vector3();
   for (let i = 0; i < N; i++) c.x += pts[3 * i] / N, c.y += pts[3 * i + 1] / N, c.z += pts[3 * i + 2] / N;
   const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
@@ -403,9 +418,11 @@ function prepareInterior(scene) {
   let ax = new THREE.Vector3(1, 0.3, 0);
   for (let k = 0; k < 30; k++) ax.applyMatrix3(m3).normalize();
   if (ax.x < 0) ax.negate();                       // verso il muso
+  // il piantone va in avanti e un po' in basso: se il calcolo non torna si usa quello tipico
+  if (ax.x < 0.7) ax.set(0.94, -0.34, 0).normalize();
   out.steerCenter = c; out.steerAxis = ax;
-  // occhi del pilota: dietro e un po' sopra il volante
-  out.eye = c.clone().addScaledVector(ax, -0.6).add(new THREE.Vector3(0, 0.2, 0));
+  // occhi del pilota: 55 cm dietro e 24 cm sopra il centro del volante
+  out.eye = c.clone().add(new THREE.Vector3(-0.55, 0.24, 0));
   return out;
 }
 
@@ -429,7 +446,7 @@ export function attachInterior(model) {
     const tex = new THREE.CanvasTexture(cv); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     // le coordinate del quadro vanno da v = 1,12 a 1,89: la tela le riempie tutte
-    tex.repeat.set(1, 1 / 0.77); tex.offset.set(0, -1.12 / 0.77);
+    tex.repeat.set(1, -1 / 0.77); tex.offset.set(0, 1.89 / 0.77);   // il quadro ha le coordinate capovolte
     const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
     group.add(new THREE.Mesh(tpl.display.g, mat));
     display = { cv, ctx: cv.getContext('2d'), tex };

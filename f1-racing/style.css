@@ -640,3 +640,5 @@ body.touch #hud .f1Tower, body.touch #hud .lapBox { z-index: 3; }
   #hud .f1Tower, #hud .lapBox { width: 150px; }
   #hud .f1Dash { transform: translateX(-50%) scale(0.85); transform-origin: bottom center; }
 }
+/* visuale abitacolo: niente cruscotto dell'interfaccia sopra il volante (c'è il display vero) */
+body.cockpitCam #hud .f1Dash { display: none; }
