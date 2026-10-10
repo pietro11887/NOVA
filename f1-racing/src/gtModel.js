@@ -402,6 +402,8 @@ function prepareInterior(scene, kind) {
     const nm = o.name || (o.parent && o.parent.name) || '';
     const item = { g, mat: matFor(o.material), name: nm };
     if (kind === 'f1') {
+      // il deflettore davanti all'abitacolo (texture con trasparenza) da dentro sembrava una fila di punte
+      if (/^generics/.test(o.material.name || '')) return;
       // F1: tutto quello che sta sul volante gira con lui
       if (/^SLCD/.test(nm)) out.display = item;
       else if (/^LEDK_\d+/.test(nm)) out.leds[+nm.match(/\d+/)[0]] = item;
@@ -557,7 +559,7 @@ export function attachInterior(model) {
   model.body.add(group);
   // dall'interno i vetri esterni scuri non devono coprire la vista
   const outerGlass = [];
-  model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive/.test(o.material.name || '')) outerGlass.push(o); });
+  model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive|^glass$/.test(o.material.name || '')) outerGlass.push(o); });   // F1: il deflettore davanti ("glass") da dentro sembrava una fila di punte
   model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, ledRows, display, eye: tpl.eye.clone(), outerGlass, t: 0, mirrors, mirrorMat, hands, arms, kind };
   return model.cockpit;
 }
