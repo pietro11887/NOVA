@@ -53,6 +53,7 @@ export class AIDriver {
     const tc = Math.max(0, Math.min(1, t));
     const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
     const brk = Math.min(0.95, this.skill.brake * (arc ? ARCADE.brake : 1));
+    this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     this.profile = this.line.speedProfile(mu, brk, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
     this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.95, brk + 0.06), 120);
@@ -259,15 +260,25 @@ export class AIDriver {
     const hk = Math.round(hurt * 30);
     if (hk !== this.hurtKey) {
       this.hurtKey = hk;
-      this.dmgProfile = hk ? this.line.speedProfile(this.skill.mu * this.skill.grip * (1 - hurt), this.skill.brake * (1 - 0.4 * hurt), 120) : null;
+      this.dmgProfile = hk ? this.line.speedProfile(this.mu * (1 - hurt), this.brk * (1 - 0.4 * hurt), 120) : null;
     }
     const prof = this.dmgProfile || (this.attack ? this.attackProfile : this.profile);
-    let look = 2;
+    // si guarda un attimo avanti (i freni e le gomme non reagiscono all'istante)
+    let look = 2 + Math.round(v * 0.12 / tr.step);
     if (m && m.type === 'late') look += Math.round(m.meters / tr.step);   // frena come se la curva fosse più in là
     let vT = prof[(i + look) % n];
     // fuori dalla traiettoria ideale in curva c'è meno aderenza: si rallenta un po'
     const offLine = Math.abs(this.lane);
     if (offLine > 1 && vT < 75) vT *= 1 - Math.min(0.14, 0.028 * offLine) * (1 - 0.5 * this.craft);
+    // all'interno della traiettoria (affiancati) il raggio è più piccolo: si va più piano di conseguenza
+    {
+      const j = (i + look) % n, kl = this.line.curv[j], sgn = Math.sign(tr.samples[j].curv);
+      const inner = -this.lane * sgn;              // > 0: spostati verso l'interno della curva
+      if (kl > 0.004 && inner > 0.3) {
+        const R = 1 / kl, Rin = Math.max(R * 0.4, R - inner);
+        vT *= Math.sqrt(Rin / R);
+      }
+    }
     // con la vettura danneggiata (meno carico, sospensioni storte) si va più piano
     const dm = p.damage;
     // (il profilo "danneggiato" viene ricalcolato così la frenata arriva in tempo)
@@ -280,7 +291,21 @@ export class AIDriver {
     // sottosterzo: volante a fondo e la vettura scivola verso l'esterno della curva -> si alza il piede
     const kc = tr.samples[i].curv;
     const outward = (p.prCG.d - (this.line.off[i] + this.lane)) * Math.sign(kc);
-    if (v > 35 && Math.abs(steer) > 0.95 && outward > 0.6 && Math.abs(kc) > 0.004 && !wrongWay) vT = Math.min(vT, v - 1 - 2.5 * Math.min(2.5, outward - 0.6));
+    // (si stacca solo il gas: frenare a metà curva toglierebbe ancora più aderenza)
+    const understeer = v > 12 && Math.abs(steer) > 0.95 && outward > 0.6 && Math.abs(kc) > 0.004 && !wrongWay;
+    // la linea impara la curva (solo se si è in traiettoria, non in lotta o per un errore)
+    // (solo in ingresso e a centro curva, al limite della velocità consigliata: in uscita si allarga per il gas)
+    const atLimit = v > prof[i] - 2 && prof[(i + 15) % n] < prof[i] + 3;
+    if (understeer && atLimit && outward > 1.8 && !m && !this.attack && Math.abs(this.lane) < 0.8 && !blocker) this.line.learn(i, this.t);
+    else if (!understeer && Math.abs(steer) < 0.8 && v > 0.97 * prof[(i + look) % n]) this.line.relax(i);
+    if (this.lineVer !== this.line.version) {
+      this.lineVer = this.line.version;
+      this.profile = this.line.speedProfile(this.mu, this.brk, 120);
+      this.attackProfile = this.line.speedProfile(this.mu * 1.01, Math.min(0.95, this.brk + 0.06), 120);
+      this.hurtKey = -1;
+    }
+    const fastUs = understeer && v > 35;   // in velocità si alza il piede; nei tornanti si impara e basta
+    if (fastUs && outward > 2.2) vT = Math.min(vT, v - 2);
     vT = Math.min(vT, vCap);
     if (this.sc) vT = Math.min(vT, this.sc.vCap);
     let throttle = 0, brake = 0, tc = true, abs = true;
@@ -288,7 +313,9 @@ export class AIDriver {
     const err = vT - v;
     if (err > 1) throttle = 1;
     else if (err > -2) throttle = Math.max(0.15, Math.min(1, 0.45 + 0.3 * err));
-    else brake = Math.min(1, (-err - 1) / 4);
+    else brake = Math.min(1, (-err - 1) / 2.5);
+    if (fastUs) throttle = Math.min(throttle, outward > 1.4 ? 0 : 0.3);
+    else if (understeer && outward > 0.8) throttle = Math.min(throttle, Math.max(0.25, 1.1 - 0.3 * outward));   // uscita lenta: gas dosato
     if (m && m.type === 'lock' && brake > 0) { brake = 1; abs = false; }
     if (m && m.type === 'power') { throttle = 1; brake = 0; tc = false; }
     // partenza: tempo di reazione

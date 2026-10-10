@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROAD_HALF_WIDTH as H } from './trackData.js';
-import { CAR } from './physics.js';
+import { CAR, CarPhysics } from './physics.js';
+import { GEOM } from './carModel.js';
 import { ARCADE } from './driveMode.js';
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
@@ -9,6 +10,16 @@ import { ARCADE } from './driveMode.js';
 
 const G = 9.81;
 const K_AERO = 0.5 * 1.225 * CAR.ClA / CAR.mass;  // accelerazione da carico aerodinamico per v² (come la fisica)
+// sensibilità al carico: con tanto carico aerodinamico la gomma rende meno per ogni kg in più
+// (nella fisica: -7% per ogni "peso statico" in più sulla ruota, più il trasferimento in curva)
+const LOAD_SENS = 0.13;
+// nei tornanti il limite è lo sterzo (passo lungo): curvatura massima che si riesce a tenere
+// a fine corsa, con un po' di aiuto dall'imbardata del retrotreno
+const WB = GEOM.axleF - GEOM.axleR, STEER_C = CAR.ClA > 2 ? 1.0 : 0.8;
+const steerK = (v, arc) => STEER_C * CarPhysics.prototype.maxSteer.call({ arcade: arc }, v) / WB;
+// quanto pesa la curva sulla frenata (la F1 con tanto carico frena forte anche in appoggio)
+const FRIC = CAR.ClA > 2 ? 0.5 : 0.75;
+const loadMu = v => Math.max(0.62, 1 - LOAD_SENS * K_AERO * v * v / G);
 
 export class RacingLine {
   constructor(track, margin = 1.6) {
@@ -29,40 +40,65 @@ export class RacingLine {
       else if (S[i].curv < 0) hi[i] = Math.max(-LR, Math.min(LL, room));
     }
 
-    // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura)
+    // bordi lisci: i dati dei bordi pista hanno piccoli scalini; una linea appoggiata a bordi
+    // seghettati diventa seghettata e il calcolo della velocità vede "curve" che non esistono
+    const smoothBound = (arr, tighter) => {
+      const W = 14, m = new Float64Array(n), out = new Float64Array(n);
+      for (let i = 0; i < n; i++) { let v = arr[i]; for (let k = -W; k <= W; k++) { const x = arr[(i + k + n) % n]; v = tighter(v, x); } m[i] = v; }
+      for (let i = 0; i < n; i++) { let s = 0; for (let k = -W; k <= W; k++) s += m[(i + k + n) % n]; out[i] = s / (2 * W + 1); }
+      return out;
+    };
+    const loS = smoothBound(lo, Math.max), hiS = smoothBound(hi, Math.min);
+    for (let i = 0; i < n; i++) if (loS[i] > hiS[i]) { const c = (loS[i] + hiS[i]) / 2; loS[i] = hiS[i] = c; }
+
+    // 1) offset laterali: rilassamento verso il punto medio dei vicini (riduce la curvatura),
+    // da tratti lunghi (forma della curva) a corti (dettaglio)
     const off = new Float64Array(n);
     const px = i => S[i].x + S[i].nx * off[i];
     const pz = i => S[i].z + S[i].nz * off[i];
-    for (const span of [24, 14, 8, 4]) {
-      for (let it = 0; it < 120; it++) {
+    // curvatura minima (non strada più corta): ogni punto va verso dove la "piegatura" della linea è
+    // minima (stencil del quarto ordine), così le curve si prendono larghe-strette-larghe
+    // e il raggio è il più grande possibile
+    for (const [span, its] of [[24, 150], [14, 200], [8, 250], [4, 300], [2, 300]]) {
+      for (let it = 0; it < its; it++) {
         for (let i = 0; i < n; i++) {
-          const a = (i - span + n) % n, b = (i + span) % n;
-          const mx = (px(a) + px(b)) / 2, mz = (pz(a) + pz(b)) / 2;
+          const a2 = (i - 2 * span + n) % n, a1 = (i - span + n) % n, b1 = (i + span) % n, b2 = (i + 2 * span) % n;
+          const mx = (-px(a2) + 4 * px(a1) + 4 * px(b1) - px(b2)) / 6, mz = (-pz(a2) + 4 * pz(a1) + 4 * pz(b1) - pz(b2)) / 6;
           const d = (mx - S[i].x) * S[i].nx + (mz - S[i].z) * S[i].nz;
-          off[i] += (d - off[i]) * 0.5;
-          off[i] = Math.max(lo[i], Math.min(hi[i], off[i]));
+          off[i] += (d - off[i]) * 0.35;
+          off[i] = Math.max(loS[i], Math.min(hiS[i], off[i]));
         }
       }
     }
-    // leggera levigatura finale
-    const sm = Float64Array.from(off, (_, i) => { let s = 0; for (let j = -3; j <= 3; j++) s += off[(i + j + n) % n]; return s / 7; });
+    // levigatura finale (i bordi sono lisci, quindi resta liscia anche dopo il controllo dei limiti)
+    let sm = Float64Array.from(off);
+    for (let pass = 0; pass < 3; pass++) {
+      const t = Float64Array.from(sm, (_, i) => { let s = 0; for (let j = -3; j <= 3; j++) s += sm[(i + j + n) % n]; return s / 7; });
+      for (let i = 0; i < n; i++) t[i] = Math.max(loS[i], Math.min(hiS[i], t[i]));
+      sm = t;
+    }
     this.off = sm;
 
-    // 2) punti, distanze e curvatura della linea
+    // 2) punti, distanze e curvatura della linea (cerchio per tre punti a ±6 campioni, poi media)
     const P = [];
     for (let i = 0; i < n; i++) P.push([S[i].x + S[i].nx * sm[i], S[i].y, S[i].z + S[i].nz * sm[i]]);
     this.points = P;
-    const ds = new Float64Array(n), curv = new Float64Array(n);
+    const ds = new Float64Array(n), raw = new Float64Array(n);
     for (let i = 0; i < n; i++) { const q = P[(i + 1) % n]; ds[i] = Math.hypot(q[0] - P[i][0], q[2] - P[i][2]); }
+    const K = 6;
     for (let i = 0; i < n; i++) {
-      const a = P[(i - 4 + n) % n], b = P[i], c = P[(i + 4) % n];
-      const h1 = Math.atan2(b[2] - a[2], b[0] - a[0]), h2 = Math.atan2(c[2] - b[2], c[0] - b[0]);
-      let dh = h2 - h1; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
-      const len = Math.hypot(b[0] - a[0], b[2] - a[2]) + Math.hypot(c[0] - b[0], c[2] - b[2]);
-      curv[i] = Math.abs(dh) / Math.max(1e-3, len / 2);
+      const a = P[(i - K + n) % n], b = P[i], c = P[(i + K) % n];
+      const abx = b[0] - a[0], abz = b[2] - a[2], bcx = c[0] - b[0], bcz = c[2] - b[2], cax = a[0] - c[0], caz = a[2] - c[2];
+      const cross = abx * bcz - abz * bcx;
+      const la = Math.hypot(abx, abz), lb = Math.hypot(bcx, bcz), lc = Math.hypot(cax, caz);
+      raw[i] = Math.abs(2 * cross) / Math.max(1e-6, la * lb * lc);
     }
+    const curv = Float64Array.from(raw, (_, i) => { let s = 0; for (let j = -2; j <= 2; j++) s += raw[(i + j + n) % n]; return s / 5; });
 
     this.curv = curv; this.ds = ds;
+    // aderenza "imparata" punto per punto: dove le vetture sottosterzano la linea consiglia meno velocità
+    this.gripMap = new Float64Array(n).fill(1);
+    this.version = 0;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
     this.speed = this.speedProfile(1.3 * CAR.mu / 1.8, 0.72);
   }
@@ -72,8 +108,20 @@ export class RacingLine {
     const n = this.track.count, curv = this.curv, ds = this.ds;
     const v = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      const k = curv[i], kk = mu * K_AERO;
-      v[i] = k > kk ? Math.min(vmax, Math.sqrt(mu * G / (k - kk))) : vmax;
+      // la velocità in curva dipende dall'aderenza, che dipende dalla velocità: qualche iterazione
+      const k = curv[i], g = this.gripMap ? this.gripMap[i] : 1;
+      let vi = vmax;
+      for (let it = 0; it < 6; it++) {
+        const m = mu * g * loadMu(vi), kk = m * K_AERO;
+        vi = k > kk ? Math.min(vmax, Math.sqrt(m * G / (k - kk))) : vmax;
+      }
+      // limite dello sterzo: la velocità più alta a cui la curva si tiene ancora col volante a fondo
+      if (k > steerK(vi, this.arcadeOn)) {
+        let lo = 2, hi = vi;
+        for (let it = 0; it < 18; it++) { const mid = (lo + hi) / 2; if (k > steerK(mid, this.arcadeOn)) hi = mid; else lo = mid; }
+        vi = lo;
+      }
+      v[i] = vi;
     }
     // in avanti: la velocità non può salire più di quanto la vettura accelera davvero
     // (senza questo, un breve tratto meno curvo in mezzo a una curva lunga diceva "gas" e subito dopo "frena")
@@ -88,11 +136,39 @@ export class RacingLine {
     for (let pass = 0; pass < 2; pass++) {
       for (let j = 2 * n; j >= 0; j--) {
         const i = j % n, nx = (i + 1) % n;
-        const dec = brakeFac * mu * (G + K_AERO * v[nx] * v[nx]);
+        // cerchio di aderenza: se si sta già curvando, per frenare resta meno
+        const aMax = mu * (this.gripMap ? this.gripMap[nx] : 1) * loadMu(v[nx]) * (G + K_AERO * v[nx] * v[nx]);
+        const aLat = v[nx] * v[nx] * curv[nx];
+        const dec = brakeFac * aMax * Math.sqrt(Math.max(0.2, 1 - (FRIC * aLat / aMax) ** 2));
         v[i] = Math.min(v[i], Math.sqrt(v[nx] * v[nx] + 2 * dec * ds[i]));
       }
     }
     return v;
+  }
+
+  // una vettura col volante a fondo scivola verso l'esterno in questo punto: la curva va presa più piano.
+  // Vale per tutti (bot e colori della linea), un po' alla volta, fino a un minimo
+  learn(i, t) {
+    const n = this.track.count, gm = this.gripMap;
+    if (this.lastLearn != null && t - this.lastLearn < 0.5 && t >= this.lastLearn) return false;
+    this.lastLearn = t;
+    let changed = false;
+    for (let k = -45; k <= 25; k++) {
+      const j = (i + k + n) % n, w = k < 0 ? 1 + k / 60 : 1 - k / 35;   // di più verso l'ingresso
+      const nv = Math.max(0.8, gm[j] * (1 - 0.025 * w));
+      if (nv < gm[j]) { gm[j] = nv; changed = true; }
+    }
+    if (changed) {
+      this.version++;
+      this.speed = this.speedProfile(1.3 * CAR.mu / 1.8 * (this.arcadeOn ? ARCADE.grip : 1), 0.72 * (this.arcadeOn ? ARCADE.brake : 1));
+    }
+    return changed;
+  }
+
+  // ...e dove si passa al limite senza problemi la velocità consigliata torna su piano piano
+  relax(i) {
+    const gm = this.gripMap;
+    if (gm[i] < 1) gm[i] = Math.min(1, gm[i] + 0.0004);
   }
 
   // colori della linea per la guida arcade (più aderenza, frenate più corte) o realistica
