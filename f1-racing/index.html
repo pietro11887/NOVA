@@ -215,6 +215,7 @@
       </div>
       <div class="gNav"><button id="gPrev">‹</button><span id="gCount"></span><button id="gNext">›</button></div>
       <div class="gHint" id="gHint">Trascina per girare la vettura</div>
+      <button class="gReplay" id="garageReplay">▶ ULTIMO REPLAY</button>
       <div class="mFoot"><button class="back" id="garageBack">‹ MENU</button><button class="go" id="garageUse">GUIDALA ›</button></div>
     </div>
     <div class="gLoading hidden" id="gLoading">CARICAMENTO VETTURA…</div>
@@ -272,8 +273,26 @@
     <div id="resTable" class="resTable"></div>
     <div class="rowBtns">
       <button id="resMenu">MENU</button>
+      <button id="resReplay">▶ REPLAY</button>
       <button id="resAgain" class="primary">RIGIOCA</button>
     </div>
+  </div>
+</div>
+
+<!-- replay: rivedi la gara -->
+<div id="replayUI" class="hidden">
+  <div class="rpTop"><span class="rpTag">● REPLAY</span><span id="rpCar" class="rpCar"></span><span id="rpInfo" class="rpInfo"></span><button id="rpShow" class="rpShow">COMANDI</button></div>
+  <div class="rpBar">
+    <input id="rpSlider" type="range" min="0" max="1000" value="0">
+    <div class="rpBtns">
+      <button id="rpBack10">« 10s</button><button id="rpSlow">−</button><button id="rpPlay" class="rpPlay">❚❚</button><button id="rpFast">+</button><button id="rpFwd10">10s »</button>
+      <span id="rpSpeed" class="rpSpeed">1×</span><span id="rpTime" class="rpTimeL">0:00 / 0:00</span>
+      <span class="rpSep"></span>
+      <button id="rpPrevCar">‹</button><button id="rpCam" class="rpCamB">TV</button><button id="rpNextCar">›</button>
+      <span class="rpSep"></span>
+      <button id="rpHide">NASCONDI</button><button id="rpExit" class="primary">ESCI</button>
+    </div>
+    <div class="rpKeys">Spazio pausa · A/D ±5 s · W/S cambia vettura · C telecamera · H nascondi · telecamera LIBERA: trascina e rotella</div>
   </div>
 </div>
 

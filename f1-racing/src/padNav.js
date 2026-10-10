@@ -6,11 +6,11 @@
 const PAD_A = 0, PAD_B = 1, PAD_LB = 4, PAD_RB = 5, UP = 12, DOWN = 13, LEFT = 14, RIGHT = 15;
 
 // finestre in primo piano, dalla più importante: quella visibile comanda la navigazione
-const OVERLAYS = ['dnf', 'pause', 'results', 'pitPanel'];
+const OVERLAYS = ['replayUI', 'dnf', 'pause', 'results', 'pitPanel'];
 // pulsante "indietro" di ogni pagina
 const BACK = {
   menuMode: 'modeBack', menuCar: 'carBack', menuRace: 'raceBack', menuGarage: 'garageBack',
-  menuSettings: 'settingsBack', menuHelp: 'helpBack', menuCredits: 'creditsBack', pause: 'resumeBtn',
+  menuSettings: 'settingsBack', menuHelp: 'helpBack', menuCredits: 'creditsBack', pause: 'resumeBtn', replayUI: 'rpExit',
 };
 // LB / RB
 const PAGES = {

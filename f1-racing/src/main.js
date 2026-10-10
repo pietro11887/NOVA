@@ -10,6 +10,7 @@ import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
 import { PadNav } from './padNav.js';
+import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
@@ -204,6 +205,8 @@ function startCountdown() {
 }
 
 function clearRace() {
+  if (recorder && !recorder.stopped && recorder.frames.length > HZ_MIN_FRAMES) saveReplay(recorder.pack());
+  recorder = null;
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
   if (sc) { sc.dispose(); sc = null; }
   $('scBadge').classList.add('hidden'); scBadgeUntil = -1;
@@ -256,6 +259,11 @@ function startRaceGame() {
   // safety car (vettura gialla con barra luci)
   const scModel = gtReady() ? makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
+  // registrazione per il replay
+  recorder = new Recorder(race.cars, {
+    track: settings.track, trackName: track.name, carClass: settings.carClass, driveMode: settings.driveMode, laps: race.laps, date: Date.now(),
+    cars: race.cars.map(c => ({ name: c.name, color: c.color, accent: c.accent, teamId: c.team ? c.team.id : null, isPlayer: !!c.isPlayer })),
+  });
   startRaceRest();
 }
 // modelli 3D dei bot della gara (anche per la gara sullo sfondo del menu)
@@ -906,6 +914,206 @@ function hideCockpit() {
   car.cockpit.outerGlass.forEach(o => o.visible = true);
 }
 
+// ---------------------------------------------------------------- replay
+// Rivedi la gara: pausa, avanti/indietro, rallentatore, telecamere TV, inseguimento, elicottero,
+// a bordo o libera (si gira col mouse/dito), e scegli quale vettura seguire.
+var recorder = null, rp = null;
+var HZ_MIN_FRAMES = 15 * 20;
+const RP_SPEEDS = [0.1, 0.25, 0.5, 1, 2, 4];
+const RP_CAMS = ['TV', 'INSEGUIMENTO', 'ELICOTTERO', 'A BORDO', 'LIBERA'];
+const fakePhys = () => ({ x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, steer: 0, speed: 0, kerbVibe: 0,
+  wheels: [0, 1, 2, 3].map(() => ({ comp: 0.013, spin: 0 })), damage: { puncture: [0, 0, 0, 0], susp: [0, 0, 0, 0], rw: 0, fwL: 0, fwR: 0 } });
+const fmtClock = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+function startReplay(rep, models, scModel, fromGarage) {
+  rp = { rep, models, scModel, fromGarage, t: 0, speed: 3, playing: true, cam: 0, target: 0, shot: null,
+    poses: models.map(() => ({})), fp: models.map(() => fakePhys()), scPose: {}, focus: { x: 0, y: 0, z: 0 },
+    orbit: { yaw: 0.8, pitch: 0.35, dist: 9 }, cam3: new THREE.Vector3(), look: new THREE.Vector3(), init: false,
+    prevMode: mode, muted: sounds.muted };
+  rp.target = Math.max(0, rep.info.cars.findIndex(c => c.isPlayer));
+  sounds.setMuted(true);
+  mode = 'replay';
+  hideCockpit();
+  $('results').classList.add('hidden'); $('pause').classList.add('hidden'); $('menu').classList.add('hidden');
+  $('hud').classList.add('hidden'); $('lightsHud').classList.add('hidden');
+  $('replayUI').classList.remove('hidden'); $('replayUI').classList.remove('min');
+  document.body.classList.add('replayMode');
+  for (const m of models) if (m) m.root.visible = true;
+  if (car.helmet) car.helmet.forEach(h => h.visible = true);
+  racingLine.update(0, 0, 'off');          // niente linea ideale nel replay
+  rpUi(true);
+}
+function exitReplay() {
+  if (!rp) return;
+  sounds.setMuted(rp.muted);
+  $('replayUI').classList.add('hidden');
+  document.body.classList.remove('replayMode');
+  const fromGarage = rp.fromGarage, made = rp.made;
+  if (made) for (const m of made) scene.remove(m.root);
+  rp = null;
+  camState.init = false;
+  if (fromGarage) { car.root.visible = true; goMenu(); return; }
+  // di nuovo ai risultati della gara
+  mode = 'race';
+  $('hud').classList.remove('hidden');
+  if (race) showResults();
+}
+// replay salvato (dal Garage): stessa pista e stessa categoria, altrimenti si ricarica il gioco
+function startSavedReplay(packed) {
+  const info = packed.info;
+  if (info.track !== settings.track || info.carClass !== settings.carClass || info.driveMode !== settings.driveMode) {
+    settings.track = info.track; settings.carClass = info.carClass; settings.driveMode = info.driveMode; saveSettings();
+    try { sessionStorage.setItem('novaf1.next', 'replay'); } catch (e) { /* niente */ }
+    location.reload();
+    return;
+  }
+  if (garage) garage.active = false;
+  clearRace();
+  const made = info.cars.map(m => {
+    const model = m.teamId ? makeCar({ team: teamById(m.teamId), lod: m.isPlayer ? 'hi' : 'mid' }) : makeCar(m.isPlayer ? {} : { primary: m.color, accent: m.accent, lod: 'mid' });
+    scene.add(model.root); return model;
+  });
+  const scM = makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }); scM.root.visible = false; scene.add(scM.root);
+  made.push(scM);
+  car.root.visible = false;
+  startReplay(new Replay(packed), made.slice(0, -1), scM, true);
+  rp.made = made;
+}
+function replayFrame(dt) {
+  const R = rp.rep, dur = R.duration;
+  if (rp.playing) { rp.t += dt * RP_SPEEDS[rp.speed]; if (rp.t >= dur) { rp.t = dur; rp.playing = false; rpUi(); } }
+  const adt = rp.playing ? dt * RP_SPEEDS[rp.speed] : 0;
+  rp.models.forEach((m, k) => {
+    if (!m) return;
+    const P = R.pose(k, rp.t, rp.poses[k]);
+    m.root.visible = P.visible;
+    if (!P.visible) return;
+    const f = rp.fp[k];
+    f.x = P.x; f.y = P.y; f.z = P.z; f.yaw = P.yaw; f.pitch = P.pitch; f.roll = P.roll; f.steer = P.steer; f.speed = P.speed;
+    for (const w of f.wheels) w.spin = P.speed;
+    updateModel(m, f, adt);
+  });
+  if (rp.scModel) {
+    const S = R.sc(rp.t, rp.scPose);
+    rp.scModel.root.visible = S.visible;
+    if (S.visible) { rp.scModel.root.position.set(S.x, S.y, S.z); rp.scModel.root.rotation.set(0, S.yaw, 0); }
+  }
+  // vettura seguita (se è ritirata/sparita si passa alla prossima)
+  let T = rp.poses[rp.target];
+  if (!T || !T.visible) { const k = rp.poses.findIndex(p => p.visible); if (k >= 0) { rp.target = k; T = rp.poses[k]; } }
+  if (T && T.visible) { rp.focus.x = T.x; rp.focus.y = T.y; rp.focus.z = T.z; replayCamera(dt, T); }
+  rp.uiT = (rp.uiT || 0) - dt;
+  if (rp.uiT <= 0) { rp.uiT = 0.2; rpUi(); }
+  // scorciatoie: spazio pausa, A/D ±5 s, W/S vettura, C telecamera, H nascondi comandi
+  if (input.consume('Space')) rpToggle();
+  if (input.consume('KeyD')) rpSeek(5);
+  if (input.consume('KeyA')) rpSeek(-5);
+  if (input.consume('KeyW')) rpCar(1);
+  if (input.consume('KeyS')) rpCar(-1);
+  if (input.consume('KeyC')) rpCamNext();
+  if (input.consume('KeyH')) $('replayUI').classList.toggle('min');
+}
+const rpTmp = new THREE.Vector3(), rpLook = new THREE.Vector3();
+function replayCamera(dt, T) {
+  const fx = Math.cos(T.yaw), fz = Math.sin(T.yaw), nx = -fz, nz = fx;
+  const L = track.length, i = Math.floor((((T.prog % L) + L) % L) / track.step) % track.count;
+  const cam = RP_CAMS[rp.cam];
+  let fov = 50, snap = false;
+  if (cam === 'TV') {
+    // regia: tagli ogni 5-7 secondi (contati sul tempo del replay)
+    const sh = rp.shot;
+    if (!sh || rp.t > sh.until || rp.t < sh.from || sh.k !== rp.target) {
+      const types = ['chase', 'tele', 'side', 'heli', 'front', 'tele', 'low'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const ns = { type, from: rp.t, until: rp.t + 5 + Math.random() * 2, side: Math.random() < 0.5 ? -1 : 1, k: rp.target };
+      if (type === 'tele') {
+        const j = (i + Math.round(110 / track.step)) % track.count, sm = track.samples[j];
+        const off = ((ns.side > 0 ? sm.hwL : sm.hwR) ?? sm.hw) + 7;
+        ns.pos = new THREE.Vector3(sm.x + sm.nx * off * ns.side, sm.y + 2.2, sm.z + sm.nz * off * ns.side);
+      }
+      rp.shot = ns; snap = true;
+    }
+    const S = rp.shot, k = rp.t - S.from;
+    switch (S.type) {
+      case 'chase': rpTmp.set(T.x - fx * 7.5, T.y + 1.9, T.z - fz * 7.5); rpLook.set(T.x + fx * 6, T.y + 0.6, T.z + fz * 6); fov = 55; break;
+      case 'low': rpTmp.set(T.x - fx * 4.2 + nx * 1.8 * S.side, T.y + 0.45, T.z - fz * 4.2 + nz * 1.8 * S.side); rpLook.set(T.x + fx * 8, T.y + 0.4, T.z + fz * 8); fov = 62; break;
+      case 'side': rpTmp.set(T.x + fx * (2 - k * 0.5) + nx * 4.2 * S.side, T.y + 0.9, T.z + fz * (2 - k * 0.5) + nz * 4.2 * S.side); rpLook.set(T.x, T.y + 0.4, T.z); fov = 48; break;
+      case 'front': rpTmp.set(T.x + fx * 9 + nx * 1.5 * S.side, T.y + 1.1, T.z + fz * 9 + nz * 1.5 * S.side); rpLook.set(T.x, T.y + 0.5, T.z); fov = 45; break;
+      case 'heli': { const a = k * 0.12 * S.side; rpTmp.set(T.x - fx * 20 * Math.cos(a) + nx * 20 * Math.sin(a), T.y + 14, T.z - fz * 20 * Math.cos(a) + nz * 20 * Math.sin(a)); rpLook.set(T.x + fx * 10, T.y, T.z + fz * 10); fov = 45; break; }
+      default: { rpTmp.copy(S.pos); rpLook.set(T.x, T.y + 0.5, T.z); const d = rpTmp.distanceTo(rpLook); fov = Math.max(9, Math.min(45, 520 / Math.max(8, d))); snap = true; }
+    }
+  } else if (cam === 'INSEGUIMENTO') { rpTmp.set(T.x - fx * 8, T.y + 2.6, T.z - fz * 8); rpLook.set(T.x + fx * 5, T.y + 0.7, T.z + fz * 5); fov = 56; }
+  else if (cam === 'ELICOTTERO') { rpTmp.set(T.x - fx * 26, T.y + 22, T.z - fz * 26); rpLook.set(T.x + fx * 12, T.y, T.z + fz * 12); fov = 42; }
+  else if (cam === 'A BORDO') { rpTmp.set(T.x - fx * 0.7, T.y + 1.05, T.z - fz * 0.7); rpLook.set(T.x + fx * 12, T.y + 0.6, T.z + fz * 12); fov = 64; snap = true; }
+  else {
+    // libera: si gira attorno alla vettura trascinando, rotella o due dita per avvicinarsi
+    const o = rp.orbit;
+    rpTmp.set(T.x + Math.cos(o.yaw) * Math.cos(o.pitch) * o.dist, T.y + 0.6 + Math.sin(o.pitch) * o.dist, T.z + Math.sin(o.yaw) * Math.cos(o.pitch) * o.dist);
+    rpLook.set(T.x, T.y + 0.5, T.z); fov = 50; snap = true;
+  }
+  if (snap || !rp.init) { rp.cam3.copy(rpTmp); rp.look.copy(rpLook); rp.init = true; }
+  else { const a = 1 - Math.exp(-dt * 10); rp.cam3.lerp(rpTmp, a); rp.look.lerp(rpLook, 1 - Math.exp(-dt * 12)); }
+  // mai sotto il terreno
+  const g = track.samples[i].y;
+  if (rp.cam3.y < g + 0.3) rp.cam3.y = g + 0.3;
+  camera.position.copy(rp.cam3); camera.up.set(0, 1, 0); camera.lookAt(rp.look);
+  camera.fov = fov; camera.updateProjectionMatrix();
+}
+function rpToggle() { if (rp.t >= rp.rep.duration - 0.05) rp.t = 0; rp.playing = !rp.playing; rpUi(); }
+function rpSeek(d) { rp.t = Math.max(0, Math.min(rp.rep.duration, rp.t + d)); rp.shot = null; rp.init = false; rpUi(); }
+function rpCar(d) { const n = rp.models.length; for (let s = 1; s <= n; s++) { const k = (rp.target + d * s + n * 4) % n; if (rp.poses[k] && rp.poses[k].visible) { rp.target = k; break; } } rp.shot = null; rp.init = false; rpUi(); }
+function rpCamNext() { rp.cam = (rp.cam + 1) % RP_CAMS.length; rp.shot = null; rp.init = false; rpUi(); }
+function rpUi(force) {
+  if (!rp) return;
+  const R = rp.rep, info = R.info, c = info.cars[rp.target];
+  $('rpPlay').textContent = rp.playing ? '❚❚' : '▶';
+  $('rpSpeed').textContent = (RP_SPEEDS[rp.speed] < 1 ? RP_SPEEDS[rp.speed].toFixed(2).replace(/0$/, '') : RP_SPEEDS[rp.speed]) + '×';
+  $('rpTime').textContent = `${fmtClock(rp.t)} / ${fmtClock(R.duration)}`;
+  $('rpCam').textContent = RP_CAMS[rp.cam];
+  if (!rp.dragging) $('rpSlider').value = String(Math.round(rp.t / Math.max(0.001, R.duration) * 1000));
+  // posizione in gara di chi segui (dal progresso registrato)
+  const P = rp.poses[rp.target];
+  let pos = 1;
+  if (P && P.visible) rp.poses.forEach((q, k) => { if (k !== rp.target && q.visible && q.prog > P.prog) pos++; });
+  const lap = P && P.visible ? Math.min(info.laps, Math.max(1, Math.floor(P.prog / track.length) + 1)) : '-';
+  $('rpCar').innerHTML = `<i style="background:#${(c.color || 0xffffff).toString(16).padStart(6, '0')}"></i>${c.isPlayer ? 'TU' : c.name}`;
+  $('rpInfo').textContent = `P${pos} · GIRO ${lap}/${info.laps} · ${info.trackName || ''}`;
+  void force;
+}
+// comandi del replay
+$('rpPlay').addEventListener('click', () => rpToggle());
+$('rpBack10').addEventListener('click', () => rpSeek(-10));
+$('rpFwd10').addEventListener('click', () => rpSeek(10));
+$('rpSlow').addEventListener('click', () => { rp.speed = Math.max(0, rp.speed - 1); rpUi(); });
+$('rpFast').addEventListener('click', () => { rp.speed = Math.min(RP_SPEEDS.length - 1, rp.speed + 1); rpUi(); });
+$('rpPrevCar').addEventListener('click', () => rpCar(-1));
+$('rpNextCar').addEventListener('click', () => rpCar(1));
+$('rpCam').addEventListener('click', () => rpCamNext());
+$('rpHide').addEventListener('click', () => $('replayUI').classList.add('min'));
+$('rpShow').addEventListener('click', () => $('replayUI').classList.remove('min'));
+$('rpExit').addEventListener('click', () => exitReplay());
+$('rpSlider').addEventListener('input', e => { if (!rp) return; rp.dragging = true; rp.t = (+e.target.value / 1000) * rp.rep.duration; rp.shot = null; rp.init = false; });
+$('rpSlider').addEventListener('change', () => { if (rp) rp.dragging = false; });
+// telecamera libera: trascina per girare, rotella per avvicinarti
+{
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => { if (mode === 'replay' && rp && RP_CAMS[rp.cam] === 'LIBERA') drag = { x: e.clientX, y: e.clientY }; });
+  addEventListener('pointerup', () => { drag = null; });
+  addEventListener('pointermove', e => {
+    if (!drag || !rp) return;
+    rp.orbit.yaw -= (e.clientX - drag.x) * 0.008;
+    rp.orbit.pitch = Math.max(0.05, Math.min(1.3, rp.orbit.pitch + (e.clientY - drag.y) * 0.005));
+    drag = { x: e.clientX, y: e.clientY };
+  });
+  canvas.addEventListener('wheel', e => { if (mode === 'replay' && rp) rp.orbit.dist = Math.max(3, Math.min(60, rp.orbit.dist * (1 + e.deltaY * 0.001))); }, { passive: true });
+}
+// garage: rivedi l'ultimo replay salvato
+$('garageReplay').addEventListener('click', async () => {
+  const p = await loadReplay();
+  if (!p) { $('garageReplay').textContent = 'NESSUN REPLAY SALVATO'; setTimeout(() => { $('garageReplay').textContent = '▶ ULTIMO REPLAY'; }, 2000); return; }
+  startSavedReplay(p);
+});
+
 // ---------------------------------------------------------------- HUD
 const ledEls = [];
 for (let i = 0; i < 15; i++) { const e = document.createElement('i'); $('leds').appendChild(e); ledEls.push(e); }
@@ -1432,6 +1640,11 @@ $('restartBtn').addEventListener('click', () => { togglePause(false); restart();
 $('menuBtn').addEventListener('click', () => { goMenu(); });
 $('dnfRestart').addEventListener('click', restart);
 $('resAgain').addEventListener('click', startRaceGame);
+$('resReplay').addEventListener('click', () => {
+  if (!recorder) return;
+  if (!recorder.stopped) { recorder.stopped = true; saveReplay(recorder.pack()); }
+  startReplay(new Replay(recorder.pack()), race.cars.map(c => (c.isPlayer ? car : c.model)), sc && sc.model, false);
+});
 $('resMenu').addEventListener('click', () => goMenu());
 
 // --- navigazione del menu
@@ -1907,6 +2120,12 @@ function frame(now) {
     let steps = 0;
     while (acc >= DT && steps < 40) { physicsStep(inp); acc -= DT; steps++; }
     checkDetachments();
+    if (recorder && race && !recorder.stopped) {
+      recorder.tick(race.t, c => race.progress(c), sc);
+      // fine registrazione poco dopo il tuo arrivo: si salva per rivederla dal Garage
+      const pf = race.player.finishT;
+      if (pf != null && race.t > pf + 8) { recorder.stopped = true; saveReplay(recorder.pack()); }
+    }
     if (race) {
       if (resultsTimer > 0) { resultsTimer -= dt; if (resultsTimer <= 0) showResults(); }
       else if (!$('results').classList.contains('hidden') && Math.random() < dt * 3) $('resTable').innerHTML = standingsHtml(true);
@@ -1918,7 +2137,8 @@ function frame(now) {
     if (phys.gear === -1 && phys.speed < 1 && inp.brake > 0.5 && phys.vxl > -0.1 && Math.random() < 0.003) showBanner('RETROMARCIA', 'yellow', 1);
   }
 
-  if (mode !== 'pause') {
+  if (mode === 'replay') replayFrame(dt);
+  else if (mode !== 'pause') {
     const live = mode === 'race' || !!attract;
     updateCarVisual(live ? dt : 0);
     if (race) for (const c of race.cars) if (c.model) {
@@ -1937,11 +2157,11 @@ function frame(now) {
     if (attract && mode === 'menu') attractCamera(dt); else updateCamera(dt);
     updateAudio(dt);
   }
-  if (mode !== 'menu') updateHud(dt);
+  if (mode !== 'menu' && mode !== 'replay') updateHud(dt);
   updateTouchSteer();
 
   // l'ombra segue la vettura (nel menu: quella inquadrata)
-  const fp = attract && attract.shot ? attract.shot.car.phys : phys;
+  const fp = mode === 'replay' && rp ? rp.focus : attract && attract.shot ? attract.shot.car.phys : phys;
   sun.target.position.set(fp.x, fp.y, fp.z);
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 200);
   scenery.skyMesh.position.copy(camera.position);
@@ -1990,15 +2210,17 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   // dopo il cambio di circuito si riprende dal punto del menu in cui si era
   let next = null;
   try { next = sessionStorage.getItem('novaf1.next'); sessionStorage.removeItem('novaf1.next'); } catch (e) { /* niente */ }
-  if (next === 'setup' || next === 'race') openSetup();
+  if (next === 'replay') loadReplay().then(p => { if (p) startSavedReplay(p); else startAttract(); });
+  else if (next === 'setup' || next === 'race') openSetup();
   else if (next === 'trial') startGame();
   else if (next === 'car' || next === 'car-race' || next === 'car-trial') openCarPicker();
   else if (next === 'garage') openGarage();
-  if (next !== 'trial') startAttract();
+  if (next !== 'trial' && next !== 'replay') startAttract();
   window.__game = {
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

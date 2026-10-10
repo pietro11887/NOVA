@@ -642,3 +642,30 @@ body.touch #hud .f1Tower, body.touch #hud .lapBox { z-index: 3; }
 }
 /* visuale abitacolo: niente cruscotto dell'interfaccia sopra il volante (c'è il display vero) */
 body.cockpitCam #hud .f1Dash { display: none; }
+
+/* ---------- replay ---------- */
+#replayUI { position: fixed; inset: 0; pointer-events: none; z-index: 8; font-family: var(--font); }
+#replayUI .rpTop { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(8,10,20,0.82); border-radius: 4px; padding: 6px 12px; color: #fff; font-weight: 800; pointer-events: auto; white-space: nowrap; }
+.rpTag { color: #ff3b30; letter-spacing: 1.5px; font-size: 13px; animation: scBlink 1.4s infinite; background: none; }
+.rpCar { display: flex; align-items: center; gap: 6px; font-size: 16px; text-transform: uppercase; }
+.rpCar i { width: 4px; height: 16px; border-radius: 2px; }
+.rpInfo { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 600; }
+.rpShow { display: none; font: inherit; font-size: 11px; font-weight: 800; color: #111; background: #ff8a1c; border: 0; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+#replayUI.min .rpShow { display: inline-block; }
+#replayUI.min .rpBar { display: none; }
+.rpBar { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); width: min(860px, calc(100vw - 24px)); background: rgba(8,10,20,0.86); border-radius: 8px; padding: 10px 12px 8px; pointer-events: auto; }
+#rpSlider { width: 100%; accent-color: #ff8a1c; margin: 0 0 8px; }
+.rpBtns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.rpBtns button { font: inherit; font-weight: 800; font-size: 13px; color: #fff; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; cursor: pointer; }
+.rpBtns button:hover { background: rgba(255,255,255,0.2); }
+.rpBtns .rpPlay { background: #ff8a1c; color: #111; border-color: #ff8a1c; min-width: 52px; }
+.rpBtns .primary { background: #e10600; border-color: #e10600; }
+.rpBtns .rpCamB { min-width: 120px; }
+.rpSpeed { color: #ff8a1c; font-weight: 900; min-width: 44px; text-align: center; }
+.rpTimeL { color: rgba(255,255,255,0.8); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 92px; text-align: center; }
+.rpSep { width: 1px; height: 22px; background: rgba(255,255,255,0.2); margin: 0 4px; }
+.rpKeys { text-align: center; font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 6px; }
+body.touch .rpKeys { display: none; }
+.gReplay { display: block; width: 100%; margin: 6px 0 8px; font: inherit; font-weight: 900; letter-spacing: 1px; font-size: 13px; color: #fff; background: rgba(225,6,0,0.85); border: 0; border-radius: 6px; padding: 9px; cursor: pointer; }
+.gReplay:hover { background: #e10600; }
+@media (max-height: 500px) { .rpBar { padding: 6px 8px; } .rpBtns button { padding: 5px 8px; font-size: 12px; } #rpSlider { margin-bottom: 4px; } }
