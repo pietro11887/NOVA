@@ -421,7 +421,7 @@ export class Track {
     };
     const isTyre = s => (side > 0 ? s.gravelL || s.escL : s.gravelR || s.escR);
     const shared = s => (side > 0 ? s.sharedL : s.sharedR);
-    const barrierMat = new THREE.MeshStandardMaterial({ map: barrierT, roughness: 0.7, side: THREE.DoubleSide });
+    const barrierMat = new THREE.MeshStandardMaterial({ map: this.street ? tex.bakuWall() : barrierT, roughness: this.street ? 0.9 : 0.7, side: THREE.DoubleSide });
     const tyreMat = new THREE.MeshStandardMaterial({ map: this.street ? tecPro() : tyreT, roughness: this.street ? 0.55 : 0.9, side: THREE.DoubleSide });
     // barriere morbide: si ammaccano dove le colpisci (e restano così)
     tyreMat.onBeforeCompile = sh => {

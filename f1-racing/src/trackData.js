@@ -91,11 +91,9 @@ export function bakuTrack(data) {
     sponsors: [
       [5560, 5970, 'qatar', 'qatar'], [0, 160, 'qatar', 'qatar'],
       [160, 420, 'aramco', 'heineken'], [420, 820, 'pirelli', 'pirelli'],
-      [820, 1500, 'crypto', 'msc'], [1500, 1700, 'dhl', 'dhl'],
-      [1700, 2200, 'lenovo', 'aws'], [2200, 2600, 'salesforce', 'amex'],
-      [2600, 2950, 'lv', 'lv'], [2950, 3600, 'moet', 'tag'],
-      [3600, 4300, 'aramco', 'lenovo'], [4300, 4800, 'heineken', 'heineken'],
-      [4800, 5200, 'amex', 'crypto'], [5200, 5560, 'aws', 'qatar'],
+      // (come a Baku vera: fuori da queste zone i muri sono di cemento color sabbia)
+      [1500, 1700, 'dhl', 'dhl'], [2200, 2600, 'salesforce', null],
+      [3600, 4000, 'aramco', 'lenovo'], [4800, 5200, 'amex', null], [5300, 5560, 'aws', 'qatar'],
     ],
     pitWallBrand: 'dhl',
   };

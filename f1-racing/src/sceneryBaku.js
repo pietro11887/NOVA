@@ -343,7 +343,7 @@ export class BakuScenery extends Scenery {
     // fuori dalla zona mappata: campagna arida (con qualche quartiere finto, vedi buildings())
     const db = this.dataBox();
     const r = rand(5), c = new THREE.Color(), t2 = new THREE.Color();
-    const CITY = new THREE.Color(0xa59f92), PARK = new THREE.Color(0x5f8a43), SEA = new THREE.Color(0x6b6650), DRY = new THREE.Color(0xb4a27c);
+    const CITY = new THREE.Color(0xbdb6a7), PARK = new THREE.Color(0x5f8a43), SEA = new THREE.Color(0x6b6650), DRY = new THREE.Color(0xb4a27c);
     // distanza dalla riva (in celle) per il fondale: due passate di chamfer sulla griglia
     const W = nx + 1, dist = new Float32Array(N);
     for (let q = 0; q < N; q++) dist[q] = kind[q] === 2 ? 1e9 : 0;
@@ -697,19 +697,22 @@ export class BakuScenery extends Scenery {
         vec3 wall0 = diffuseColor.rgb;
         // da lontano (finestra di pochi pixel) i dettagli si fondono in un colore medio: niente sfarfallio
         float far = smoothstep(0.12, 0.4, max(fwidth(vFU.x), fwidth(vFU.y)));
-        if (wallF && st < 3.5) {
+        if (wallF && (st < 3.5 || st > 4.5)) {
           vec2 cell = fract(vFU), id = floor(vFU);
           vec2 idm = mod(id, 64.0); float h1 = fh(idm + vec2(sdq * 0.37, sdq * 0.11)), h2 = fh(idm * 1.7 + vec2(sdq * 0.13, sdq * 0.29) + 5.0);
-          bool shop = id.y < 0.5 && st != 2.0;
+          bool shop = id.y < 0.5 && st != 2.0 && st < 4.5;
           vec4 R; float depth, arch = 0.0;
           if (st == 2.0) { R = vec4(0.03, 0.16, 0.97, 0.98); depth = 0.08; }
           else if (st == 1.0) { R = vec4(0.32, 0.2, 0.68, 0.8); depth = 0.5; arch = 1.0; }
           else if (st == 3.0) { R = vec4(0.13, 0.28, 0.87, 0.8); depth = 0.24; }
           else { float w = 0.19 + 0.07 * fract(sd * 7.0); R = vec4(0.5 - w, 0.2, 0.5 + w, 0.84); depth = 0.34; arch = step(0.65, fract(sd * 3.0)); }
           if (shop) { R = vec4(0.07, 0.04, 0.93, 0.76); depth = 0.28; arch = 0.0; }
+          // Casa del Governo: porticato ad archi al piano terra, finestroni ad arco ai piani
+          if (st > 4.5) { if (id.y < 0.5) { R = vec4(0.1, 0.0, 0.9, 0.86); depth = 2.2; } else { R = vec4(0.3, 0.14, 0.7, 0.8); depth = 0.6; } arch = 1.0; }
           if (id.y < -0.5) R = vec4(9.0);       // sotto terra: niente finestre
-          vec2 cm = cell * vec2(3.6, 3.4);
-          vec4 Rm = R * vec4(3.6, 3.4, 3.6, 3.4);
+          vec2 cM = st > 4.5 ? vec2(4.4, 4.6) : vec2(3.6, 3.4);
+          vec2 cm = cell * cM;
+          vec4 Rm = R * vec4(cM, cM);
           vec3 V = normalize(cameraPosition - vWP);
           vec3 vt = vec3(dot(V, T), dot(V, U), dot(V, Nw));
           vec2 back = cm - vt.xy / max(vt.z, 0.06) * depth;
@@ -751,7 +754,7 @@ export class BakuScenery extends Scenery {
           // sporco che cola sotto le finestre e verso terra
           if (st != 2.0) diffuseColor.rgb *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 3.0, vFU.y * 3.4)) ;
         }
-        if (wallF && st < 3.5 && far > 0.0) {
+        if (wallF && (st < 3.5 || st > 4.5) && far > 0.0) {
           vec3 avgC = st == 2.0 ? vColor.rgb * 0.85 : wall0 * 0.62;
           diffuseColor.rgb = mix(diffuseColor.rgb, avgC, far);
           fN = normalize(mix(fN, Nw, far)); fR = mix(fR, st == 2.0 ? 0.12 : 0.8, far); if (st == 2.0) fM = mix(fM, 0.85, far); fE *= 1.0 - far * 0.6;
@@ -776,7 +779,8 @@ export class BakuScenery extends Scenery {
     const out = { stone: { p: [], uv: [], c: [], t: [], s: [] }, glass: { p: [], uv: [], c: [], t: [], s: [] } };
     const r = rand(99);
     const C = [-536, 364];
-    const add = (poly, h, kind, seedC) => {
+    const balSlab = new THREE.BoxGeometry(2.6, 0.16, 0.95), balRail = new THREE.BoxGeometry(2.6, 1.0, 0.05), balR = rand(313);
+    const add = (poly, h, kind, seedC, gov = false) => {
       // niente edifici sulla pista o sulla corsia box
       for (const [x, z] of poly) if (this.clearance(x, z).d < 0.4 || !this.isLand(x, z)) return;
       let pts = poly.slice();
@@ -785,6 +789,7 @@ export class BakuScenery extends Scenery {
       if (A > 0) pts.reverse();
       let gmin = Infinity;
       for (const [x, z] of pts) gmin = Math.min(gmin, this.heightAt(x, z));
+      const nearTrack = !this.low && pts.some(([x, z]) => this.clearance(x, z).d < 150);
       const base = gmin - 1.2, top = gmin + h;
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       const old = Math.hypot(cx - C[0], cz - C[1]) < 330 && h < 16;
@@ -793,19 +798,20 @@ export class BakuScenery extends Scenery {
       const col = glass ? GLASS[seedC % GLASS.length] : old ? OLD[seedC % OLD.length] : STONE[seedC % STONE.length];
       const roofC = old ? ROOF_OLD : ROOF;
       // stile della facciata: 0 palazzo in pietra (anni '900), 1 città vecchia (archi), 2 torre a vetri, 3 condominio moderno, 4 fascia liscia (cornicioni)
-      const style = glass ? 2 : old ? 1 : (seedC % 5 < 2 ? 3 : 0), sd = (seedC % 997) / 997;
+      const style = gov ? 5 : glass ? 2 : old ? 1 : (seedC % 5 < 2 ? 3 : 0), sd = (seedC % 997) / 997;
+      const BW = gov ? 4.4 : 3.6, FH = gov ? 4.6 : 3.4;   // campata e altezza del piano
       const vtx = (x, y, z, u, v, c, tx, tz, st) => { o.p.push(x, y, z); o.uv.push(u, v); o.c.push(c.r, c.g, c.b); o.t.push(tx, 0, tz); o.s.push(st, sd, 0); };
       let u = 0;
-      const vb = -1.2 / 3.4;
+      const vb = -1.2 / FH;
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i], b = pts[(i + 1) % pts.length];
         const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const tx = (b[0] - a[0]) / (len || 1), tz = (b[1] - a[1]) / (len || 1);
         // finestre intere: la facciata comincia e finisce con mezza campata di muro
-        const u0 = u / 3.6, u1 = (u + len) / 3.6, vt = (top - base) / 3.4 + vb;
+        const u0 = u / BW, u1 = (u + len) / BW, vt = (top - base) / FH + vb;
         vtx(a[0], base, a[1], u0, vb, col, tx, tz, style); vtx(b[0], base, b[1], u1, vb, col, tx, tz, style); vtx(b[0], top, b[1], u1, vt, col, tx, tz, style);
         vtx(a[0], base, a[1], u0, vb, col, tx, tz, style); vtx(b[0], top, b[1], u1, vt, col, tx, tz, style); vtx(a[0], top, a[1], u0, vt, col, tx, tz, style);
-        u += Math.ceil(len / 3.6) * 3.6;
+        u += Math.ceil(len / BW) * BW;
         // cornicione in cima (e marcapiano sopra il piano terra nei palazzi in pietra): fascia sporgente
         if (style !== 2 && len > 1) {
           const ox = -tz, oz = tx;   // verso l'esterno (poligono in senso orario)
@@ -824,6 +830,18 @@ export class BakuScenery extends Scenery {
           };
           band(top - 0.7, top + 0.35, style === 1 ? 0.15 : 0.32);
           if (style === 0 && h > 9) band(gmin + 3.3, gmin + 3.6, 0.18);
+          if (gov) for (let f = 1; f * FH < h - 2; f += 2) band(gmin + f * FH - 0.15, gmin + f * FH + 0.25, 0.3);
+          // balconi in ferro battuto sui palazzi in pietra vicino alla pista (Baku "barocca")
+          if (style === 0 && nearTrack && len > 4) {
+            const nb = Math.floor(len / BW);
+            for (let bi = 0; bi < nb; bi++) for (let f = 1; f * FH < h - 2.5; f++) {
+              if (balR() > 0.24) continue;
+              const t = (bi + 0.5) * BW, px = a[0] + tx * t, pz = a[1] + tz * t, yb = gmin + f * FH;
+              const ry = -Math.atan2(tz, tx);
+              this.batch.add(balSlab, this.colored, mat4(px + ox * 0.45, yb, pz + oz * 0.45, ry), col.getHex());
+              this.batch.add(balRail, this.colored, mat4(px + ox * 0.88, yb + 0.55, pz + oz * 0.88, ry), 0x2b2a28);
+            }
+          }
         }
       }
       // tetto piatto
@@ -842,7 +860,11 @@ export class BakuScenery extends Scenery {
     };
     for (const b of this.blds) {
       if (b.dead) continue;
-      add(b.p, b.h, b.k === 'glass' ? 'glass' : null, Math.floor(r() * 1000));
+      // Casa del Governo (piazza Azadliq, accanto al traguardo): monumentale, con torri
+      const cx = b.p.reduce((s2, q) => s2 + q[0], 0) / b.p.length, cz = b.p.reduce((s2, q) => s2 + q[1], 0) / b.p.length;
+      const gov = Math.hypot(cx - 795, cz + 173) < 45;
+      add(b.p, gov ? 36 : b.h, b.k === 'glass' ? 'glass' : null, Math.floor(r() * 1000), gov);
+      if (gov && !this.low) this.govTowers(b.p, cx, cz);
     }
     // quartieri fuori dalla zona mappata (solo riempitivo verso l'orizzonte)
     const db = this.dataBox(), tb = this.terrainBox;
@@ -904,10 +926,36 @@ export class BakuScenery extends Scenery {
     }
   }
 
+  // torri della Casa del Governo: torre centrale a gradoni con loggia ad archi e pinnacoli, torrette agli angoli
+  govTowers(poly, cx, cz) {
+    let gmin = Infinity; for (const [x, z] of poly) gmin = Math.min(gmin, this.heightAt(x, z));
+    const top = gmin + 36, sand = 0xdcc9a2, sand2 = 0xcdb98f;
+    // asse principale del palazzo: lato più lungo
+    let best = 0, ang = 0;
+    for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l > best) { best = l; ang = Math.atan2(b[1] - a[1], b[0] - a[0]); } }
+    const ry = -ang, ca = Math.cos(ang), sa = Math.sin(ang);
+    const tower = (ox, oz, w, h1, scale = 1) => {
+      const x = cx + ox * ca - oz * sa, z = cz + ox * sa + oz * ca;
+      this.batch.add(new THREE.BoxGeometry(w, h1, w), this.colored, mat4(x, top + h1 / 2, z, ry), sand);
+      this.batch.add(new THREE.BoxGeometry(w + 0.8, 0.6, w + 0.8), this.colored, mat4(x, top + h1 + 0.3, z, ry), sand2);
+      // loggia: più stretta, con aperture scure ad arco (scatola scura arretrata)
+      this.batch.add(new THREE.BoxGeometry(w * 0.72, h1 * 0.45, w * 0.72), this.colored, mat4(x, top + h1 + h1 * 0.225 + 0.6, z, ry), 0x2a241c);
+      for (const [px, pz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const qx = x + (px * w * 0.36) * ca - (pz * w * 0.36) * sa, qz = z + (px * w * 0.36) * sa + (pz * w * 0.36) * ca;
+        this.batch.add(new THREE.BoxGeometry(w * 0.14, h1 * 0.45, w * 0.14), this.colored, mat4(qx, top + h1 + h1 * 0.225 + 0.6, qz, ry), sand);
+      }
+      this.batch.add(new THREE.BoxGeometry(w * 0.86, 0.5, w * 0.86), this.colored, mat4(x, top + h1 * 1.45 + 0.85, z, ry), sand2);
+      this.batch.add(new THREE.ConeGeometry(w * 0.32, h1 * 0.5 * scale, 4), this.colored, mat4(x, top + h1 * 1.45 + 1.1 + h1 * 0.25 * scale, z, ry + Math.PI / 4), sand);
+    };
+    tower(0, 0, 16, 18, 1.2);
+    for (const [ox, oz] of [[-best * 0.38, 0], [best * 0.38, 0]]) tower(ox, oz, 9, 9, 0.9);
+    this.occupied.push([cx, cz, best * 0.6]);
+  }
+
   // strade e vie pedonali
   roads() {
     const pos = [], col = [];
-    const ASPH = new THREE.Color(0x4a4d52), PED = new THREE.Color(0xc2b9a7), LINE = new THREE.Color(0xd8d8d0);
+    const ASPH = new THREE.Color(0x4a4d52), PED = new THREE.Color(0xd3ccbd), LINE = new THREE.Color(0xd8d8d0);
     const quad = (a, b, w, y0, y1, c) => {
       const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
       const nx = -dz / l * w / 2, nz = dx / l * w / 2;

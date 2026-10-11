@@ -121,6 +121,21 @@ export function barrier() {
   return finish(c);
 }
 
+// muri di Baku: blocchi di cemento color sabbia, giunti ogni 2 m, segni di gomma in basso
+export function bakuWall() {
+  const [c, g] = canvas(512, 128);
+  g.fillStyle = '#d9c9a6'; g.fillRect(0, 0, 512, 128);
+  const r = rand(23);
+  for (let k = 0; k < 900; k++) { g.fillStyle = `rgba(${r() < 0.5 ? '255,250,235' : '120,100,70'},${0.04 + r() * 0.06})`; g.fillRect(r() * 512, r() * 128, 2 + r() * 6, 1 + r() * 3); }
+  // giunti tra i blocchi e smusso in cima
+  g.fillStyle = 'rgba(60,50,35,0.45)'; for (let x = 0; x < 512; x += 128) g.fillRect(x, 0, 3, 128);
+  g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, 0, 512, 4);
+  g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, 4, 512, 3);
+  // strisciate di gomma all'altezza delle ruote (parte bassa visibile del muro)
+  for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(25,22,18,${0.08 + r() * 0.18})`; g.fillRect(r() * 512, 40 + r() * 10, 20 + r() * 120, 1 + r() * 2); }
+  return finish(c);
+}
+
 export function tyreWall() {
   const [c, g] = canvas(128, 64);
   g.fillStyle = '#1a1a1a'; g.fillRect(0, 0, 128, 64);
