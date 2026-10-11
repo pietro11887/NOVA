@@ -28,7 +28,7 @@ export class AIDriver {
     this.seed = seed;
     this.rand = mulberry(seed * 7919 + 13);
     // carattere del pilota: aggressività (sorpassi, difesa, contatti)
-    this.aggr = 0.2 + 0.8 * this.rand();
+    this.aggr = 0.45 + 0.55 * this.rand();
     this.setStrength(strength);
     this.lane = 0;          // scostamento dalla linea ideale per sorpassi / difesa / errori
     this.laneTarget = 0;
@@ -166,12 +166,12 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 34 + (raceT > 25 ? 16 * this.craft : 0) && closing > -5 && closing < 12 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
         const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
-        if (this.rand() < Math.min(0.95, (covered ? 0.25 : 0.3 + 0.55 * this.aggr) * (0.7 + 0.8 * this.craft))) {
+        if (this.rand() < Math.min(0.95, (covered ? 0.45 : 0.5 + 0.5 * this.aggr) * (0.8 + 0.7 * this.craft))) {
           this.attack = { until: this.t + 5, side: covered ? -inside : inside };
           this.emit('attack');
         }
