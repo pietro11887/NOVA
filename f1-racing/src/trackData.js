@@ -99,16 +99,15 @@ export function bakuTrack(data) {
   };
 }
 
-// Spa-Francorchamps: pista e dintorni dal modello 3D; tracciato, larghezze, quote, cordoli,
-// vie di fuga e barriere misurati sul modello (tracks/spaData.js)
+// Spa-Francorchamps ricostruita da dati pubblici: tracciato, corsia box, boschi, prati, strade ed edifici
+// da OpenStreetMap, quote dal modello del terreno EU-DEM (tracks/spaData.js, generato da build_spa.py)
 export function spaTrack(data) {
   return {
-    id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 5.5, street: false, model: true, data,
-    side: data.side, sideStep: 4, prof: data.prof, profOff: data.profOff, edges: data.edges, gnd: data.gnd, gndOff: data.gndOff, gwall: data.gwall,
-    lineShift: 150,               // traguardo dopo la Bus Stop, griglia prima della Source
+    id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 6.4, street: false, data,
+    lineShift: 150,               // traguardo tra la Bus Stop e la Source, la griglia ci sta tutta prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
-    grid: { pole: 140, gap: 7, lat: 2.6 },
+    grid: { pole: 290, gap: 8, lat: 3.0 },
   };
 }
 

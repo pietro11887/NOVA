@@ -3,7 +3,7 @@ import { Track, SURF } from './track.js';
 import { ROAD_HALF_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK } from './trackData.js';
 import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
-import { ModelScenery, loadTrackModel } from './sceneryModel.js';
+import { SpaScenery } from './scenerySpa.js';
 import { createCar, mergeCar, GEOM } from './carModel.js';
 import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js';
 import { SafetyCar } from './safetyCar.js';
@@ -89,9 +89,9 @@ if (settings.track === 'baku') {
   try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
   catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
-  // Spa: dati della pista e modello 3D completo del circuito
+  // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
   try {
-    const [mod] = await Promise.all([import('./tracks/spaData.js'), loadTrackModel('spa.glb')]);
+    const mod = await import('./tracks/spaData.js');
     selectTrack(spaTrack(mod.default));
   } catch (e) { console.warn('Spa non caricata', e); settings.track = 'nova'; }
 }
@@ -136,7 +136,7 @@ function build() {
   track.quality = settings.quality;
   track.tod = settings.tod === 'sunset' ? 'sunset' : 'day';
   scene.add(track.build(renderer));
-  scenery = new (TRACK.model ? ModelScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
+  scenery = new (TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
 
   // riflessi ambientali generati dal cielo

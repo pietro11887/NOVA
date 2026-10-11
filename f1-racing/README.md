@@ -31,7 +31,7 @@ Telefono (in orizzontale): ◀ ▶ a sinistra per sterzare, FRENO e GAS a destra
 Tastiera: ↑/W gas · ↓/S freno (tenuto da fermo = retromarcia) · ←→ sterzo · E/Q marce (manuale) · C telecamera · R rimetti in pista · M audio · P pausa. Supporta anche il gamepad.
 
 ## Crediti
-Circuito 3D "Circuit de Spa-Francorchamps 2022 layout" di [Dave Love](https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54) ([Sketchfab](https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54)), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): versione modificata in `assets/spa.glb`. Dati del tracciato con l'aiuto di © OpenStreetMap (ODbL).
+Circuit de Spa-Francorchamps (tracciato, corsia box, boschi, strade, edifici): dati © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licenza ODbL; quote del terreno EU-DEM 25 m (Copernicus). Il modulo `src/tracks/spaData.js` è generato da questi dati.
 
 Modello 3D "2026 Red Bull Racing RB22" di [Dave Love](https://sketchfab.com/Tyler_Dave) ([Sketchfab](https://sketchfab.com/3d-models/2026-red-bull-racing-rb22-8e5a68a7991c4a46bd66a879c060b3c5)), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): versioni modificate in `assets/f1_rb22_*.glb`.
 
