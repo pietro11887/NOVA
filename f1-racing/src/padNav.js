@@ -6,10 +6,10 @@
 const PAD_A = 0, PAD_B = 1, PAD_LB = 4, PAD_RB = 5, UP = 12, DOWN = 13, LEFT = 14, RIGHT = 15;
 
 // finestre in primo piano, dalla più importante: quella visibile comanda la navigazione
-const OVERLAYS = ['replayUI', 'dnf', 'pause', 'results', 'pitPanel'];
+const OVERLAYS = ['introCard', 'replayUI', 'dnf', 'pause', 'results', 'pitPanel'];
 // pulsante "indietro" di ogni pagina
 const BACK = {
-  menuMode: 'modeBack', menuCar: 'carBack', menuRace: 'raceBack', menuGarage: 'garageBack',
+  menuTrack: 'trackBack', menuRace: 'raceBack', menuGarage: 'garageBack', menuHub: 'hubExit',
   menuSettings: 'settingsBack', menuHelp: 'helpBack', menuCredits: 'creditsBack', pause: 'resumeBtn', replayUI: 'rpExit',
 };
 // LB / RB
@@ -30,7 +30,7 @@ export class PadNav {
     this.keyQueue = [];
     addEventListener('keydown', e => {
       if (!this.root || this.root.id === 'pitPanel') return;   // in pista le frecce guidano
-      const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', NumpadEnter: 'ok', Escape: 'back', Backspace: 'back' };
+      const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', NumpadEnter: 'ok', Escape: 'back', Backspace: 'back', KeyQ: 'lb', KeyE: 'rb' };
       const a = map[e.code];
       if (!a) return;
       // gli slider e le caselle di testo usano le frecce da soli
@@ -55,7 +55,7 @@ export class PadNav {
 
   pickDefault(list) {
     const has = c => b => b.classList.contains(c);
-    if (this.root.id === 'menuRace' || this.root.id === 'menuGarage') return list.find(has('go')) || list[0];
+    if (['menuRace', 'menuGarage', 'menuTrack', 'menuHub'].includes(this.root.id)) return list.find(has('go')) || list[0];
     return list.find(has('primary')) || list.find(b => b.classList.contains('sel') && !b.closest('.seg')) || list.find(has('go')) || list[0];
   }
 
@@ -109,7 +109,7 @@ export class PadNav {
     else if (a === 'lb' || a === 'rb') {
       const pg = PAGES[this.root.id];
       if (pg) this.press(pg[a === 'lb' ? 0 : 1]);
-      else if (this.root.id === 'menuRace') { const seg = this.root.querySelectorAll('#typeSeg button'); seg[a === 'lb' ? 0 : 1]?.click(); }
+      else if (this.root.id === 'menuRace' && this.opts.tab) this.opts.tab(a === 'lb' ? -1 : 1);
     }
     else this.move(a);
     this.paint();
@@ -117,12 +117,12 @@ export class PadNav {
 
   // dopo un clic la pagina può ridisegnare i pulsanti (elenco piste, scuderie): si ritrova lo stesso
   refocusSoon(f) {
-    const key = f.id || f.dataset.set || f.dataset.step || f.dataset.type || f.dataset.mode || f.dataset.class || f.dataset.cat || f.textContent;
+    const key = f.id || f.dataset.r || f.dataset.tab || f.dataset.track || f.dataset.set || f.dataset.step || f.dataset.type || f.dataset.mode || f.dataset.class || f.dataset.cat || f.textContent;
     requestAnimationFrame(() => {
       if (this.focus && document.contains(this.focus) && visible(this.focus)) return;
       const root = this.findRoot(); if (!root) return;
       this.root = root;
-      const again = [...root.querySelectorAll('button')].find(b => (b.id || b.dataset.set || b.dataset.step || b.dataset.type || b.dataset.mode || b.dataset.class || b.dataset.cat || b.textContent) === key);
+      const again = [...root.querySelectorAll('button')].find(b => (b.id || b.dataset.r || b.dataset.tab || b.dataset.track || b.dataset.set || b.dataset.step || b.dataset.type || b.dataset.mode || b.dataset.class || b.dataset.cat || b.textContent) === key);
       this.setFocus(again && visible(again) ? again : this.pickDefault(this.candidates()));
     });
   }

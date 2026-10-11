@@ -123,90 +123,60 @@
 <div id="menu" class="overlay menuScreen">
   <div id="menuFade"></div>
 
-  <!-- schermata iniziale: gara dei bot sullo sfondo, menu a sinistra -->
-  <div class="menuPage" id="menuHome">
+  <!-- schermata del titolo (come all'avvio di F1 25): gara dei bot sullo sfondo, "premi un tasto" -->
+  <div class="menuPage hidden" id="menuTitle">
+    <button class="titleHit" id="titleGo" aria-label="Inizia">
+      <span class="homeLogo big"><span class="hl1">NOVA</span><span class="hl2">GRAND PRIX</span></span>
+      <span class="pressAny" id="pressAny">PREMI UN TASTO</span>
+    </button>
+  </div>
+
+  <!-- menu principale a riquadri -->
+  <div class="menuPage hidden" id="menuHome">
     <div class="homeShade"></div>
-    <nav class="homeNav">
+    <header class="homeTop">
       <div class="homeLogo"><span class="hl1">NOVA</span><span class="hl2">GRAND PRIX</span></div>
-      <div class="mNow"><span id="trackName">CIRCUITO NOVA</span> · <span id="trackLen"></span> · record <b id="menuBest">—</b></div>
-      <button class="navBtn primary" id="playBtn"><i class="navIc">▶</i><span><b>GIOCA</b><small>Gara o prova a tempo · realistica o arcade</small></span></button>
-      <button class="navBtn" id="garageBtn"><i class="navIc">◆</i><span><b>GARAGE</b><small>Tutte le vetture da vicino</small></span></button>
-      <button class="navBtn" id="settingsBtn"><i class="navIc">⚙</i><span><b>IMPOSTAZIONI</b><small>Aiuti, telecamera, grafica, audio</small></span></button>
-      <div class="navMini"><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button></div>
-    </nav>
+      <div class="topChips">
+        <span class="topChip"><small>CIRCUITO</small><b id="trackName">CIRCUITO NOVA</b></span>
+        <span class="topChip"><small>RECORD</small><b id="menuBest">—</b></span>
+        <button class="topIc" id="settingsBtn" aria-label="Impostazioni">⚙</button>
+      </div>
+    </header>
+    <span class="hidden" id="trackLen"></span>
+    <div class="tiles">
+      <button class="tile primary" id="playBtn"><span class="tTag">GIOCATORE SINGOLO</span><b>GRAN PREMIO</b><small>Scuderia, circuito, qualifica e gara contro i bot</small><i class="tArt" id="tileMap"></i></button>
+      <button class="tile" id="trialBtn"><span class="tTag">DA SOLO</span><b>PROVA A TEMPO</b><small>Il giro perfetto contro il tuo fantasma</small><i class="tIc">⏱</i></button>
+      <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
+      <button class="tile" id="settingsTile"><span class="tTag">OPZIONI</span><b>IMPOSTAZIONI</b><small>Comandi, telecamera, grafica, audio</small><i class="tIc">⚙</i></button>
+    </div>
+    <div class="navMini homeMini"><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button></div>
     <div class="liveTag" id="liveTag"><i></i><span id="liveText">IN PISTA</span></div>
   </div>
 
-  <!-- GIOCA · 1: modalità -->
-  <div class="menuPage hidden" id="menuMode">
-    <header class="mHead"><div class="steps"><b class="on">MODALITÀ</b><span> › VETTURA › PREGARA</span></div><div class="logo">COME VUOI GUIDARE?</div></header>
-    <div class="modeCards" id="modeRow">
-      <button class="modeCard" data-mode="sim">
-        <span class="mcTag">SIMULAZIONE</span><b>REALISTICA</b>
-        <ul><li>GT3 Porsche 992 o Formula 1 2026</li><li>Gomme in temperatura, freni, benzina</li><li>Danni, forature e guasti veri</li><li>Giro cancellato fuori dai limiti</li></ul>
-      </button>
-      <button class="modeCard arc" data-mode="arcade">
-        <span class="mcTag">DIVERTIMENTO</span><b>ARCADE</b>
-        <ul><li>F1 in versione cartoon</li><li>La macchina sta in strada da sola</li><li>Salute al posto dei danni, niente ritiri</li><li>Scia forte, effetto elastico, taglio pista +2 s</li></ul>
-      </button>
-    </div>
-    <div class="mFoot"><button class="back" id="modeBack">‹ MENU</button></div>
+  <!-- GRAN PREMIO · 2: circuito -->
+  <div class="menuPage hidden" id="menuTrack">
+    <header class="mHead"><div class="steps wizSteps"><b>SCUDERIA</b> › <b class="on">CIRCUITO</b><span> › IMPOSTAZIONI</span></div><div class="logo">SCEGLI IL CIRCUITO</div></header>
+    <div class="trackBig" id="trackCards"></div>
+    <div class="mFoot"><button class="back" id="trackBack">‹ SCUDERIA</button><span class="carHint" id="trackHint"></span><button class="go" id="trackNext">AVANTI ›</button></div>
   </div>
 
-  <!-- GIOCA · 2: vettura e scuderia -->
-  <div class="menuPage hidden" id="menuCar">
-    <header class="mHead"><div class="steps"><b>MODALITÀ</b> › <b class="on">VETTURA</b><span> › PREGARA</span></div><div class="logo">SCEGLI LA VETTURA</div></header>
-    <div class="cards" id="carCards">
-      <button class="card carCard" data-class="gt">
-        <svg viewBox="0 0 260 90" aria-hidden="true"><path d="M14 66 L22 50 Q60 40 92 30 Q128 18 170 22 Q200 26 222 40 L246 44 L248 58 L240 66 Z" fill="#f5c518"/><rect x="214" y="22" width="40" height="5" rx="2" fill="#222"/><rect x="228" y="26" width="4" height="16" fill="#222"/><path d="M102 32 Q130 22 160 26 L168 40 L100 42 Z" fill="#1d2633"/><circle cx="62" cy="66" r="15" fill="#15171c"/><circle cx="62" cy="66" r="8" fill="#8a9099"/><circle cx="200" cy="66" r="15" fill="#15171c"/><circle cx="200" cy="66" r="8" fill="#8a9099"/></svg>
-        <span class="cTitle">GT3</span><span class="cText">Porsche 992 GT3 R · 1240 kg · ~560 CV · poco carico: staccate lunghe, scia e tecnica per superare</span>
-      </button>
-      <button class="card carCard" data-class="f1">
-        <svg viewBox="0 0 260 90" aria-hidden="true"><path d="M8 62 L40 56 Q90 50 120 46 L140 36 Q150 30 162 34 L176 44 Q210 46 238 50 L240 64 L20 68 Z" fill="#1b2a5a"/><rect x="226" y="28" width="28" height="6" rx="2" fill="#1b2a5a"/><rect x="236" y="34" width="4" height="18" fill="#1b2a5a"/><rect x="4" y="62" width="34" height="5" rx="2" fill="#1b2a5a"/><circle cx="150" cy="34" r="8" fill="#ff8a1c"/><circle cx="60" cy="64" r="16" fill="#15171c"/><circle cx="60" cy="64" r="7" fill="#c9ced6"/><circle cx="206" cy="64" r="17" fill="#15171c"/><circle cx="206" cy="64" r="7" fill="#c9ced6"/><path d="M110 50 Q160 40 190 52" stroke="#d6202a" stroke-width="3" fill="none"/></svg>
-        <span class="cTitle">FORMULA 1</span><span class="cText">Red Bull RB22 2026 · 798 kg · ~1000 CV · tanto carico aerodinamico: curve velocissime e frenate brevissime</span>
-      </button>
-    </div>
-    <div class="teamRow hidden" id="teamRow"></div>
-    <div class="mFoot"><button class="back" id="carBack">‹ MODALITÀ</button><span class="carHint" id="carHint"></span><button class="go" id="carNext">AVANTI ›</button></div>
-  </div>
-
-  <!-- GIOCA · 3: pregara -->
+  <!-- GRAN PREMIO · 3: impostazioni (schede come nei giochi di F1: LB / RB) -->
   <div class="menuPage hidden" id="menuRace">
-    <header class="mHead"><div class="steps"><b>MODALITÀ</b> › <b>VETTURA</b> › <b class="on">PREGARA</b></div><div class="logo" id="raceTitle">PREGARA</div></header>
-    <div class="setupWrap">
-      <div class="setupLeft">
-        <div class="seg" id="typeSeg"><button data-type="race">🏁 GARA</button><button data-type="trial">⏱ PROVA A TEMPO</button></div>
-        <div class="trackList" id="trackCards"></div>
-      </div>
-      <div class="setupRight">
-        <div class="gridPreview raceOnly"><div class="gpLabel"><b id="gpCount"></b> vetture in pista</div><div class="gpCars" id="gpCars"></div></div>
-        <div class="optGrid">
-          <div class="opt raceOnly"><span class="cTitle">GIRI</span><b class="big" id="rsLapsV"></b>
-            <div class="step"><button data-step="raceLaps:-1">−</button><input id="rsLaps" type="range" min="1" max="30" step="1"><button data-step="raceLaps:1">+</button></div></div>
-          <div class="opt raceOnly"><span class="cTitle">AVVERSARI</span><b class="big" id="rsBotsV"></b>
-            <div class="step"><button data-step="raceBots:-1">−</button><input id="rsBots" type="range" min="1" max="19" step="1"><button data-step="raceBots:1">+</button></div></div>
-          <div class="opt raceOnly"><span class="cTitle">FORZA DEI BOT</span><b class="big" id="rsStrengthV"></b>
-            <div class="step"><button data-step="raceStrength:-5">−</button><input id="rsStrength" type="range" min="1" max="110" step="1"><button data-step="raceStrength:5">+</button></div></div>
-          <div class="opt raceOnly"><span class="cTitle">PARTI IN</span><b class="big" id="rsStartV"></b>
-            <div class="step"><button data-step="raceStart:-1">−</button><input id="rsStart" type="range" min="1" max="20" step="1"><button data-step="raceStart:1">+</button></div></div>
-          <div class="opt" id="teamCard"><span class="cTitle">SCUDERIA</span>
-            <div class="teamNow"><i id="rsTeamSw"></i><b class="big" id="rsTeamV"></b></div>
-            <div class="step"><button id="teamPrev">‹</button><span class="teamCar" id="rsTeamCar"></span><button id="teamNext">›</button></div></div>
-          <div class="opt"><span class="cTitle">GOMME E DANNI</span>
-            <button data-set="raceTyre" class="chip"></button><button data-set="damage" class="chip"></button></div>
-          <div class="opt arcadeOnly hidden"><span class="cTitle">ARCADE</span>
-            <button data-set="arcTow" class="chip"></button><button data-set="arcRubber" class="chip"></button></div>
-        </div>
-      </div>
+    <header class="mHead"><div class="steps wizSteps"><b>SCUDERIA</b> › <b>CIRCUITO</b> › <b class="on">IMPOSTAZIONI</b></div><div class="logo" id="raceTitle">IMPOSTAZIONI</div></header>
+    <div class="tabBar" id="tabBar"><span class="tabKey">LB</span><div class="tabs" id="setTabs"></div><span class="tabKey">RB</span></div>
+    <div class="setBody">
+      <div class="setRows" id="setRows"></div>
+      <aside class="setSide" id="setSide"></aside>
     </div>
-    <div class="mFoot"><button class="back" id="raceBack">‹ VETTURA</button><span class="carHint" id="setupHint"></span><button class="go big" id="raceStartBtn">VIA ›</button></div>
+    <div class="mFoot"><button class="back" id="raceBack">‹ CIRCUITO</button><span class="carHint" id="setupHint"></span><button class="go big" id="raceStartBtn">AVANTI ›</button></div>
   </div>
 
   <!-- GARAGE -->
   <div class="menuPage hidden" id="menuGarage">
     <div class="garagePanel">
-      <div class="steps"><b class="on">GARAGE</b></div>
-      <div class="gTabs" id="gTabs"><button data-cat="gt">GT3</button><button data-cat="f1">F1 2026</button><button data-cat="toon">F1 CARTOON</button></div>
+      <div class="steps" id="gSteps"><b class="on">GARAGE</b></div>
+      <div class="gTitle hidden" id="gTitle">SCEGLI LA SCUDERIA</div>
+      <div class="gTabs" id="gTabs"><button data-cat="f1">F1 2026</button><button data-cat="gt">GT3</button><button data-cat="toon">ARCADE</button></div>
       <div class="gInfo">
         <span class="gTeam" id="gTeam"></span>
         <b class="gName" id="gName"></b>
@@ -221,6 +191,23 @@
     <div class="gLoading hidden" id="gLoading">CARICAMENTO VETTURA…</div>
   </div>
 
+
+  <!-- box del weekend (come il garage di F1 25): la tua vettura e il programma -->
+  <div class="menuPage hidden" id="menuHub">
+    <div class="hubPanel">
+      <div class="hubEvt"><span id="hubKind">GRAN PREMIO</span><b id="hubTrack"></b><small id="hubCar"></small></div>
+      <div class="hubSched" id="hubSched"></div>
+      <div class="hubQuali hidden" id="hubQuali"></div>
+      <div class="hubBtns">
+        <button class="hubBtn go" id="hubStart">INIZIA</button>
+        <button class="hubBtn" id="hubTyre"></button>
+        <button class="hubBtn" id="hubSettings">IMPOSTAZIONI</button>
+        <button class="hubBtn back" id="hubExit">‹ ESCI DAL WEEKEND</button>
+      </div>
+    </div>
+    <div class="hubWx" id="hubWx"></div>
+  </div>
+
   <!-- IMPOSTAZIONI -->
   <div class="menuPage hidden" id="menuSettings">
     <header class="mHead"><div class="logo">IMPOSTAZIONI</div></header>
@@ -228,7 +215,7 @@
       <section><h4>GUIDA</h4>
         <button data-set="driveMode"></button><button data-set="auto"></button><button data-set="tc"></button><button data-set="abs"></button><button data-set="line"></button><button data-set="damage"></button></section>
       <section><h4>VISUALE E GRAFICA</h4>
-        <button data-set="cam"></button><button data-set="quality"></button><button data-set="post"></button><button data-set="tod"></button><button data-set="ghost"></button><button data-set="msgs"></button></section>
+        <button data-set="cam"></button><button data-set="quality"></button><button data-set="post"></button><button data-set="ghost"></button><button data-set="msgs"></button></section>
       <section><h4>AUDIO</h4>
         <button data-set="audio"></button><button data-set="radio"></button></section>
       <section class="touchOnly"><h4>TELEFONO</h4>
@@ -258,7 +245,7 @@
     <header class="mHead"><div class="logo">CREDITI</div></header>
     <div class="textPage">
       <p>Modello 3D "Porsche 992 GT3 R" di <a href="https://sketchfab.com/MattDoesBlender" target="_blank" rel="noopener">MattDoesBlender</a> (<a href="https://sketchfab.com/3d-models/porsche-992-gt3-r-03ea07f7972648aa9350853b2a1a942a" target="_blank" rel="noopener">Sketchfab</a>), licenza <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Modificato per il gioco: abitacolo rimosso, poligoni ridotti, texture compresse, colori delle squadre. Gioco non commerciale.</p>
-      <p>Circuito 3D "Circuit de Spa-Francorchamps 2022 layout" di <a href="https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54" target="_blank" rel="noopener">Dave Love</a> (<a href="https://sketchfab.com/3d-models/circuit-de-spa-francorchamps-2022-layout-ac681fbf548144498c130c3aa0adeb54" target="_blank" rel="noopener">Sketchfab</a>), licenza <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Modificato per il gioco: alberi diradati, strutture semplificate, strati sovrapposti all'asfalto rimossi, texture compresse. Traiettoria ricavata dal modello con l'aiuto di OpenStreetMap (ODbL).</p>
+      <p>Circuit de Spa-Francorchamps ricostruito da dati pubblici: tracciato, corsia box, boschi, strade ed edifici © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL); quote del terreno EU-DEM 25 m (Copernicus).</p>
       <p>Modello 3D "2026 Red Bull Racing RB22" di <a href="https://sketchfab.com/Tyler_Dave" target="_blank" rel="noopener">Dave Love</a> (<a href="https://sketchfab.com/3d-models/2026-red-bull-racing-rb22-8e5a68a7991c4a46bd66a879c060b3c5" target="_blank" rel="noopener">Sketchfab</a>), licenza <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Modificato per il gioco: volante, cinture e led dell'abitacolo rimossi, poligoni ridotti, texture compresse, livree dei bot ridipinte.</p>
       <p>Circuito di Baku, edifici, strade, parchi e costa: dati © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, licenza ODbL.</p>
       </div>
@@ -326,7 +313,14 @@
   </div>
 </div>
 
-<div id="loading" class="overlay"><div class="loader">CARICAMENTO CIRCUITO…</div></div>
+<div id="loading" class="overlay loadScr">
+  <div class="ldHead"><span class="ldFlag" id="ldFlag"></span><span class="ldKind" id="ldKind">GRAN PREMIO</span><b id="ldName">CIRCUITO</b><small id="ldPlace"></small></div>
+  <div class="ldMid"><svg id="ldMap" viewBox="-10 -10 620 420" aria-hidden="true"></svg>
+    <div class="ldStats" id="ldStats"></div></div>
+  <div class="ldFoot"><div class="ldTip" id="ldTip"></div><div class="ldBar"><i></i></div><div class="loader">CARICAMENTO</div></div>
+</div>
+<!-- presentazione del circuito prima della partenza -->
+<div id="introCard" class="hidden"><div class="icBox"><span class="icKind" id="icKind">GRAN PREMIO</span><b id="icName"></b><small id="icInfo"></small></div><button id="introSkip">SALTA ›</button></div>
 
 <script type="module" src="src/main.js"></script>
 </body>
