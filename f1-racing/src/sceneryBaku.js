@@ -760,7 +760,7 @@ export class BakuScenery extends Scenery {
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = fR;')
         .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = fM;')
         .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize((viewMatrix * vec4(fN, 0.0)).xyz);')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fE;');
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fE * ' + (ENV.sunDir.y < 0.4 ? '1.0' : '0.2') + ';');
     };
     mat.customProgramCacheKey = () => 'facade';
     return mat;
@@ -1026,7 +1026,7 @@ export class BakuScenery extends Scenery {
             vec2 px = fract(vec2(a * 40.0, vLoc.y * 0.7));
             float dotm = 1.0 - smoothstep(0.2, 0.5, length(px - 0.5));
             vec3 fc = mix(vec3(1.0, 0.25, 0.02), vec3(1.0, 0.75, 0.15), n);
-            totalEmissiveRadiance += fc * flame * (0.55 + 0.45 * dotm) * 1.2 * (1.0 - frame * 0.7);
+            totalEmissiveRadiance += fc * flame * (0.55 + 0.45 * dotm) * ${ENV.sunDir.y < 0.4 ? '1.2' : '0.45'} * (1.0 - frame * 0.7);
           }`);
       };
       mat.customProgramCacheKey = () => 'flames2';
@@ -1300,7 +1300,7 @@ export class BakuScenery extends Scenery {
     const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(bulbs, 3));
     const bm = new THREE.PointsMaterial({ color: new THREE.Color(3.2, 2.2, 1.2), size: 1.4, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, map: glowSprite(), toneMapped: false });
     const pts = new THREE.Points(bg, bm); pts.frustumCulled = false;
-    this.group.add(pts);
+    if (ENV.sunDir.y < 0.4) this.group.add(pts);   // accesi solo al tramonto
   }
 }
 

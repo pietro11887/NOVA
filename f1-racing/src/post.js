@@ -46,11 +46,12 @@ const GradeShader = {
     uWarm: { value: 0 },
     uAspect: { value: 1 },
     uLens: { value: 0 },
+    uNat: { value: 0 },
     uHaze: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime, uSpeed, uWarm, uAspect, uLens; uniform vec4 uHaze[3]; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime, uSpeed, uWarm, uAspect, uLens, uNat; uniform vec4 uHaze[3]; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       vec2 base = vUv;
@@ -81,13 +82,13 @@ const GradeShader = {
       col /= 6.0;
       // colori da trasmissione
       float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-      col = mix(vec3(l), col, 1.12);                                    // saturazione
-      col = (col - 0.5) * 1.06 + 0.5;                                  // contrasto
+      col = mix(vec3(l), col, mix(1.12, 0.97, uNat));                                    // saturazione
+      col = (col - 0.5) * mix(1.06, 1.02, uNat) + 0.5;                                  // contrasto
       vec3 shadowT = mix(vec3(0.96, 1.0, 1.05), vec3(0.98, 1.0, 1.04), uWarm);
       vec3 lightT = mix(vec3(1.03, 1.0, 0.97), vec3(1.07, 1.0, 0.92), uWarm);
       col *= mix(shadowT, lightT, smoothstep(0.1, 0.8, l));
       // vignettatura e grana
-      col *= 1.0 - (0.32 + uLens * 0.12) * smoothstep(0.45, 1.05, r);
+      col *= 1.0 - (mix(0.32, 0.14, uNat) + uLens * 0.12) * smoothstep(0.45, 1.05, r);
       col += (h(vUv * 1000.0 + uTime) - 0.5) * 0.018;
       gl_FragColor = vec4(max(col, 0.0), 1.0);
     }`,
@@ -126,6 +127,7 @@ export class Post {
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
     this.grade.uniforms.uWarm.value = opts.warm ?? 0;
+    this.grade.uniforms.uNat.value = opts.natural ? 1 : 0;   // colori naturali, come una ripresa vera
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
     this.speed = 0;

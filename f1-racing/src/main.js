@@ -100,7 +100,17 @@ const trackKey = keyOf(settings.track);   // record separati per circuito e cate
 const track = new Track();
 // Baku e Nova: luce del tramonto: sole basso e caldo, ombre lunghe, cielo che sfuma nell'arancio,
 // foschia dorata in lontananza (in campagna il terreno riflette una luce più verde e si vede più lontano)
-if (!TRACK.model) {
+const SUNSET = !TRACK.model && settings.tod === 'sunset';
+if (!TRACK.model && !SUNSET) {
+  // giorno (come F1 25): sole alto di pomeriggio, luce neutra, cielo azzurro con nuvole, asfalto chiaro
+  ENV.skyTop = 0x1d5fc4; ENV.horizon = 0xa8c6e6;
+  ENV.sunDir.set(0.55, 0.62, -0.56).normalize();
+  sun.color.set(0xfff1de); sun.intensity = 3.0;
+  hemi.color.set(0xc6dcf5); hemi.groundColor.set(track.street ? 0x7a7366 : 0x5f6b45); hemi.intensity = 1.05;
+  scene.fog = track.street ? new THREE.Fog(0xb4cbe2, 500, 3200) : new THREE.Fog(0xb4cbe2, 700, 4000);
+  renderer.toneMappingExposure = 1.0;
+}
+if (SUNSET) {
   ENV.skyTop = 0x3a6fb8; ENV.horizon = 0xf2c28c;
   ENV.sunDir.set(0.72, 0.26, -0.64).normalize();
   sun.color.set(0xffb36b); sun.intensity = 3.1;
@@ -124,6 +134,7 @@ let minimap, post = null, glow = null, bakuFx = null, wallMarks = null;
 
 function build() {
   track.quality = settings.quality;
+  track.tod = settings.tod === 'sunset' ? 'sunset' : 'day';
   scene.add(track.build(renderer));
   scenery = new (TRACK.model ? ModelScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
@@ -154,7 +165,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: !TRACK.model ? 1 : 0.3, bloom: !TRACK.model ? 0.38 : 0.3, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
@@ -784,7 +795,7 @@ function penalize(sec, why) {
 // ---------------------------------------------------------------- telecamera
 const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
-const qTcam = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.15);   // T-Cam: 8-9 gradi verso il basso
+const qTcam = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.12);   // T-Cam: 7 gradi verso il basso
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
   if (camMode !== 3 || (IS_F1 && ARC()) || mode === 'menu') hideCockpit();
@@ -804,7 +815,7 @@ function updateCamera(dt) {
   if (camMode === 1) {
     // inseguimento come in F1 25: bassa (circa 1,5 m) e vicina, la vettura grande in basso e la pista davanti.
     // Segue le curve con un piccolo ritardo; in accelerazione si allontana un po', in frenata si avvicina
-    const dist = portrait ? 8.2 : 7.0, h = portrait ? 2.3 : 1.95;
+    const dist = portrait ? 7.0 : 5.9, h = portrait ? 2.0 : 1.62;
     let target = phys.yaw;
     if (phys.speed > 5) {
       const vh = Math.atan2(phys.vz, phys.vx);
@@ -819,7 +830,7 @@ function updateCamera(dt) {
     const dd = dist + camState.dk, ccy = Math.cos(camState.yaw), csy = Math.sin(camState.yaw);
     camera.position.set(phys.x - ccy * dd, camState.cy + h, phys.z - csy * dd);
     camera.up.set(0, 1, 0);
-    camera.lookAt(phys.x + cy * 6, camState.cy + 0.55, phys.z + sy * 6);
+    camera.lookAt(phys.x + cy * 6, camState.cy + 0.32, phys.z + sy * 6);
     baseFov = portrait ? 72 : 52;
   } else if (camMode === 0) {
     // 0 = visuale TV da dietro, alta e distante (come nei giochi arcade di F1)
@@ -851,12 +862,12 @@ function updateCamera(dt) {
     car.root.updateMatrixWorld(true);
     // T-Cam (F1): la telecamera obbligatoria sulla "T" in cima alla presa d'aria, sopra la testa del pilota.
     // Fissata alla vettura (sobbalza e si inclina con lei), guarda avanti e un po' in basso: halo, muso e gomme
-    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.12, 0.9, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
+    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
     if (camMode === 2) camera.quaternion.multiply(qTcam);
-    baseFov = camMode === 2 && IS_F1 ? (portrait ? 74 : 50) : (portrait ? 80 : 66);
+    baseFov = camMode === 2 && IS_F1 ? (portrait ? 80 : 58) : (portrait ? 80 : 66);
   }
   // tremolio: cordoli, urti, velocità
   camState.shake = Math.max(0, camState.shake - dt * 2.5);
@@ -1691,6 +1702,7 @@ const SET_LABELS = {
   abs: v => `ABS: ${v ? 'ON' : 'OFF'}`,
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   post: v => `Effetti TV: ${v !== false ? 'ON' : 'OFF'}`,
+  tod: v => `Ora: ${v === 'sunset' ? 'TRAMONTO' : 'GIORNO'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
@@ -1718,6 +1730,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'radio') { settings.radio = !settings.radio; sounds.radioOn = settings.radio; if (settings.radio) sounds.radio('Radio controllo.'); }
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'post') { settings.post = settings.post === false; saveSettings(); location.reload(); return; }
+  else if (k === 'tod') { settings.tod = settings.tod === 'sunset' ? 'day' : 'sunset'; saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }

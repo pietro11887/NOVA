@@ -196,11 +196,13 @@ export class Track {
             vec3 T = normalize(cross(wn, vec3(0.0, 0.0, 1.0))), B = cross(T, wn);
             normal = normalize((viewMatrix * vec4(normalize(T * t.x + B * t.y + wn * t.z), 0.0)).xyz); }` : ''))
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street ? '0.3, 0.85' : '0.45, 0.95'});` + (photo ? `
+          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street && this.tod === 'sunset' ? '0.3, 0.85' : '0.5, 0.95'});` + (photo ? `
           roughnessFactor = clamp(roughnessFactor * (0.6 + 0.6 * texture2D(pAr, pq).g), 0.25, 0.95);` : ''));
     };
     // Baku: asfalto cittadino più liscio e lucido, riflette sole e palazzi controluce
     if (this.street) { asphMat.roughness = 0.6; asphMat.envMapIntensity = 1.6; }
+    // asfalto come in F1 25: grigio chiaro e opaco (di giorno non deve sembrare blu né bagnato)
+    if (this.hq && this.tod !== 'sunset') { asphMat.color.setRGB(1.5, 1.47, 1.42); asphMat.roughness = 0.85; asphMat.envMapIntensity = 0.55; }
     void asphalt;
     g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));
     // linee bianche di bordo pista
