@@ -784,6 +784,7 @@ function penalize(sec, why) {
 // ---------------------------------------------------------------- telecamera
 const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+const qTcam = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.15);   // T-Cam: 8-9 gradi verso il basso
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
   if (camMode !== 3 || (IS_F1 && ARC()) || mode === 'menu') hideCockpit();
@@ -800,8 +801,28 @@ function updateCamera(dt) {
     camera.fov = baseFov; camera.updateProjectionMatrix();
     return;
   }
-  if (camMode <= 1) {
-    // 0 = visuale TV da dietro, alta e distante (come nei giochi arcade di F1); 1 = più bassa e vicina
+  if (camMode === 1) {
+    // inseguimento come in F1 25: bassa (circa 1,5 m) e vicina, la vettura grande in basso e la pista davanti.
+    // Segue le curve con un piccolo ritardo; in accelerazione si allontana un po', in frenata si avvicina
+    const dist = portrait ? 8.2 : 7.0, h = portrait ? 2.3 : 1.95;
+    let target = phys.yaw;
+    if (phys.speed > 5) {
+      const vh = Math.atan2(phys.vz, phys.vx);
+      const d = Math.abs(lerpAngle(0, vh - phys.yaw, 1));
+      if (d < 1.4) target = lerpAngle(phys.yaw, vh, 0.3);
+    }
+    if (!camState.init) { camState.yaw = target; camState.dk = 0; camState.cy = phys.y; camState.init = true; }
+    camState.yaw = lerpAngle(camState.yaw, target, 1 - Math.exp(-dt * 7.5));
+    const gl = Math.max(-1, Math.min(1, (phys.gLong || 0) / 4));
+    camState.dk += (gl * 0.55 - camState.dk) * (1 - Math.exp(-dt * 3.5));
+    camState.cy += (phys.y - camState.cy) * (1 - Math.exp(-dt * 10));
+    const dd = dist + camState.dk, ccy = Math.cos(camState.yaw), csy = Math.sin(camState.yaw);
+    camera.position.set(phys.x - ccy * dd, camState.cy + h, phys.z - csy * dd);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(phys.x + cy * 6, camState.cy + 0.55, phys.z + sy * 6);
+    baseFov = portrait ? 72 : 52;
+  } else if (camMode === 0) {
+    // 0 = visuale TV da dietro, alta e distante (come nei giochi arcade di F1)
     const dist = camMode === 0 ? (portrait ? 12.5 : 12) : (portrait ? 9.5 : 8);
     const h = camMode === 0 ? (portrait ? 8 : 7.2) : (portrait ? 4.4 : 3.2);
     const ahead = camMode === 0 ? 3 : 4.5, lookY = camMode === 0 ? 0 : 0.7;
@@ -828,11 +849,14 @@ function updateCamera(dt) {
     baseFov = window.__ckFov || (portrait ? st.fov + 22 : st.fov);
   } else {
     car.root.updateMatrixWorld(true);
-    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.42, 0.95, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
+    // T-Cam (F1): la telecamera obbligatoria sulla "T" in cima alla presa d'aria, sopra la testa del pilota.
+    // Fissata alla vettura (sobbalza e si inclina con lei), guarda avanti e un po' in basso: halo, muso e gomme
+    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.12, 0.9, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
-    baseFov = portrait ? 80 : 66;
+    if (camMode === 2) camera.quaternion.multiply(qTcam);
+    baseFov = camMode === 2 && IS_F1 ? (portrait ? 74 : 50) : (portrait ? 80 : 66);
   }
   // tremolio: cordoli, urti, velocità
   camState.shake = Math.max(0, camState.shake - dt * 2.5);
@@ -847,7 +871,8 @@ function updateCamera(dt) {
   camera.position.x += (Math.random() - 0.5) * sh;
   camera.position.y += (Math.random() - 0.5) * sh;
   camera.position.z += (Math.random() - 0.5) * sh;
-  const fov = baseFov + (camMode === 3 && !IS_F1 ? Math.min(3, phys.speed * 0.03) : Math.min(14, phys.speed * 0.11));
+  // in velocità il campo visivo si allarga un po' (meno sulle telecamere fissate alla vettura)
+  const fov = baseFov + (camMode === 3 && !IS_F1 ? Math.min(3, phys.speed * 0.03) : camMode === 2 ? Math.min(4, phys.speed * 0.04) : camMode === 1 ? Math.min(7, phys.speed * 0.07) : Math.min(14, phys.speed * 0.11));
   camState.fov += (fov - camState.fov) * Math.min(1, dt * 3);
   camera.fov = camState.fov;
   camera.updateProjectionMatrix();
