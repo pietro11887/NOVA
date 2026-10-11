@@ -98,14 +98,14 @@ if (settings.track === 'baku') {
 const keyOf = id => (id && id !== 'nova' ? '.' + id : '') + (IS_F1 ? '.f1' : '');
 const trackKey = keyOf(settings.track);   // record separati per circuito e categoria
 const track = new Track();
-// Baku: luce del tardo pomeriggio (la gara vera è al tramonto sul Caspio): sole basso e caldo,
-// ombre lunghe, cielo che sfuma nell'arancio, foschia dorata in lontananza
-if (track.street) {
+// Baku e Nova: luce del tramonto: sole basso e caldo, ombre lunghe, cielo che sfuma nell'arancio,
+// foschia dorata in lontananza (in campagna il terreno riflette una luce più verde e si vede più lontano)
+if (!TRACK.model) {
   ENV.skyTop = 0x3a6fb8; ENV.horizon = 0xf2c28c;
   ENV.sunDir.set(0.72, 0.26, -0.64).normalize();
   sun.color.set(0xffb36b); sun.intensity = 3.1;
-  hemi.color.set(0xb4c4e4); hemi.groundColor.set(0x6a5442); hemi.intensity = 0.95;
-  scene.fog = new THREE.Fog(0xe9c39a, 260, 2300);
+  hemi.color.set(0xb4c4e4); hemi.groundColor.set(track.street ? 0x6a5442 : 0x5a5e3a); hemi.intensity = 0.95;
+  scene.fog = track.street ? new THREE.Fog(0xe9c39a, 260, 2300) : new THREE.Fog(0xe9c39a, 420, 3200);
   renderer.toneMappingExposure = 1.02;
 }
 const sounds = new Sound();
@@ -154,7 +154,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: !TRACK.model ? 1 : 0.3, bloom: !TRACK.model ? 0.38 : 0.3, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
