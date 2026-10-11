@@ -813,10 +813,25 @@ export class Scenery {
   // spettatori dietro le reti nelle curve lente (saltano ed esultano)
   spectators() {
     const S = this.track.samples, n = this.track.count, r = rand(29);
-    const body = mergeGeometries([
-      new THREE.CylinderGeometry(0.24, 0.28, 1.15, 5, 1, true).translate(0, 0.58, 0),
-      new THREE.IcosahedronGeometry(0.17, 0).translate(0, 1.32, 0),
-    ].map(g => { const q = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(q.attributes)) if (k !== 'position' && k !== 'normal') q.deleteAttribute(k); return q; }));
+    // persone vere (1,6-1,85 m): maglietta e braccia nel colore della maglia, gambe, testa e capelli
+    const clean = g => { const q = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(q.attributes)) if (k !== 'position' && k !== 'normal') q.deleteAttribute(k); return q; };
+    const shirtG = mergeGeometries([
+      new THREE.CylinderGeometry(0.17, 0.15, 0.58, 6).translate(0, 1.13, 0),
+      new THREE.BoxGeometry(0.08, 0.5, 0.09).translate(-0.22, 1.1, 0).rotateZ(0.08),
+      new THREE.BoxGeometry(0.08, 0.5, 0.09).translate(0.22, 1.1, 0).rotateZ(-0.08),
+    ].map(clean));
+    const colored = (g, c) => { g = clean(g); const col = new THREE.Color(c), a = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < a.length; i += 3) { a[i] = col.r; a[i + 1] = col.g; a[i + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
+    const restG = mergeGeometries([
+      colored(new THREE.BoxGeometry(0.13, 0.84, 0.15).translate(-0.08, 0.42, 0), 0x2c3a55),
+      colored(new THREE.BoxGeometry(0.13, 0.84, 0.15).translate(0.08, 0.42, 0), 0x2c3a55),
+      colored(new THREE.BoxGeometry(0.14, 0.07, 0.24).translate(-0.08, 0.035, 0.04), 0x1c1c1c),
+      colored(new THREE.BoxGeometry(0.14, 0.07, 0.24).translate(0.08, 0.035, 0.04), 0x1c1c1c),
+      colored(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 6).translate(0, 1.46, 0), 0xc99a74),
+      colored(new THREE.SphereGeometry(0.105, 10, 8).scale(1, 1.15, 1).translate(0, 1.58, 0), 0xc99a74),
+      colored(new THREE.SphereGeometry(0.11, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5).translate(0, 1.6, -0.01), 0x2a1d14),
+      colored(new THREE.BoxGeometry(0.08, 0.1, 0.09).translate(-0.24, 0.8, 0), 0xc99a74),
+      colored(new THREE.BoxGeometry(0.08, 0.1, 0.09).translate(0.24, 0.8, 0), 0xc99a74),
+    ]);
     const pts = [];
     const target = this.low ? 1600 : 3200;
     let lastI = -999;
@@ -828,27 +843,37 @@ export class Scenery {
       for (let k = 0; k < crowd; k++) {
         const f = this.frame(i + Math.round((r() - 0.5) * 36), side, 1.3 + Math.pow(r(), 1.5) * 5, (r() - 0.5) * 3);
         if (!this.free(f.x, f.z, 0.3)) continue;
-        pts.push([f.x, f.y, f.z, r()]);
+        pts.push([f.x, f.y, f.z, r(), f.ry]);
       }
     }
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
     const uT = { value: 0 };
-    mat.onBeforeCompile = sh => {
-      sh.uniforms.uT = uT;
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
-        .replace('#include <begin_vertex>', `#include <begin_vertex>
-          float ph = fract(sin(instanceMatrix[3][0] * 12.9 + instanceMatrix[3][2] * 78.2) * 43758.5);
-          transformed.y += max(0.0, sin(uT * (5.0 + ph * 3.0) + ph * 40.0)) * 0.22 * step(0.55, ph);`);
+    const jump = m => {
+      m.onBeforeCompile = sh => {
+        sh.uniforms.uT = uT;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+            float ph = fract(sin(instanceMatrix[3][0] * 12.9 + instanceMatrix[3][2] * 78.2) * 43758.5);
+            transformed.y += max(0.0, sin(uT * (5.0 + ph * 3.0) + ph * 40.0)) * 0.18 * step(0.6, ph);
+            // braccia alzate per chi esulta
+            if (abs(position.x) > 0.18 && position.y > 0.6 && ph > 0.8) transformed.y += (position.y - 0.85) * 0.9;`);
+      };
+      m.customProgramCacheKey = () => 'fans' + (m.vertexColors ? 'v' : '');
+      return m;
     };
     this.animated.push(t => { uT.value = t; });
-    const shirts = [0xe8463a, 0xf08a2a, 0xf6d24a, 0x2f6fd6, 0xffffff, 0x1f1f1f, 0xd94b8c, 0x3aa35a, 0xff7b1c, 0xc0262c, 0x6a2cd8];
-    const im = new THREE.InstancedMesh(body, mat, pts.length);
-    pts.forEach(([x, y, z, rr], q) => {
-      im.setMatrixAt(q, mat4(x, y, z, rr * 6, 1.35, 1.35 * (0.85 + rr * 0.3), 1.35));
-      im.setColorAt(q, new THREE.Color(shirts[Math.floor(rr * 97) % shirts.length]));
+    const shirts = [0xe8463a, 0xf08a2a, 0xf6d24a, 0x2f6fd6, 0xffffff, 0x1f1f1f, 0xd94b8c, 0x3aa35a, 0xff7b1c, 0xc0262c, 0x6a2cd8, 0x0b3a7a, 0xe9e2d0, 0x6b6f75];
+    const top = new THREE.InstancedMesh(shirtG, jump(new THREE.MeshStandardMaterial({ roughness: 0.85 })), pts.length);
+    const rest = new THREE.InstancedMesh(restG, jump(new THREE.MeshStandardMaterial({ roughness: 0.8, vertexColors: true })), pts.length);
+    const tint = new THREE.Color();
+    pts.forEach(([x, y, z, rr, ry], q) => {
+      const sc = 0.94 + rr * 0.12;
+      const m = mat4(x, y, z, ry + (rr - 0.5) * 1.2, sc, sc, sc);
+      top.setMatrixAt(q, m); rest.setMatrixAt(q, m);
+      top.setColorAt(q, new THREE.Color(shirts[Math.floor(rr * 997) % shirts.length]));
+      // carnagioni e jeans un po' diversi da persona a persona
+      const k = 0.7 + ((rr * 7.3) % 1) * 0.45; rest.setColorAt(q, tint.setRGB(k, k * 0.97, k * 0.94));
     });
-    im.receiveShadow = true;
-    this.group.add(im);
+    for (const im of [top, rest]) { im.receiveShadow = true; this.group.add(im); }
   }
 
   // campeggio dei tifosi nell'interno: tende, camper e falò
