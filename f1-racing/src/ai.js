@@ -12,12 +12,12 @@ export function skillParams(strength) {
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: (0.92 + 0.1 * t) * CAR.mu,   // aderenza sfruttata (prima del bonus)
-    grip: 1 + 0.14 * boost,           // 110 → +14% di aderenza
-    power: 1 + 0.2 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
-    brake: 0.86 + 0.09 * t,           // frazione della frenata massima
-    reaction: 0.35 - 0.28 * t,        // secondi di ritardo allo spegnimento dei semafori
-    wobble: 0.25 * (1 - t),            // imprecisione sulla traiettoria (m)
+    mu: (0.98 + 0.09 * t) * CAR.mu,   // aderenza sfruttata (prima del bonus)
+    grip: 1 + 0.2 * boost,            // 110 → +14% di aderenza
+    power: 1 + 0.26 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
+    brake: 0.9 + 0.07 * t,            // frazione della frenata massima
+    reaction: 0.3 - 0.25 * t,         // secondi di ritardo allo spegnimento dei semafori
+    wobble: 0.15 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
 }
 
@@ -52,13 +52,13 @@ export class AIDriver {
     if (arc) this.skill.power *= 1 + ARCADE.aiPower * Math.pow(Math.max(0, Math.min(1, t)), 1.6);
     const tc = Math.max(0, Math.min(1, t));
     const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
-    const brk = Math.min(0.95, this.skill.brake * (arc ? ARCADE.brake : 1));
+    const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1));
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     this.profile = this.line.speedProfile(mu, brk, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
     this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
-    this.errPerLap = 0.02 + 0.35 * Math.pow(1 - Math.min(1, t), 2);
+    this.errPerLap = 0.01 + 0.22 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
     this.craft = Math.max(0, Math.min(1, t));
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
@@ -138,7 +138,7 @@ export class AIDriver {
         if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < tr.samples[pr.i].hw + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along) * (spinning ? 0.25 : 0.8); }  // chi gira si fermerà presto
       }
       // una vettura lenta (testacoda) occupa più spazio in larghezza
-      const wide = c.phys.speed < v - 12 ? 5 : 3.3;
+      const wide = c.phys.speed < v - 12 ? 5 : 3.6;
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
       if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
@@ -166,12 +166,12 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 34 + (raceT > 25 ? 16 * this.craft : 0) && closing > -5 && closing < 12 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 40 + (raceT > 25 ? 18 * this.craft : 0) && closing > -6 && closing < 11 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
         const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
-        if (this.rand() < Math.min(0.95, (covered ? 0.55 : 0.6 + 0.4 * this.aggr) * (0.9 + 0.6 * this.craft))) {
+        if (this.rand() < Math.min(0.95, (covered ? 0.7 : 0.75 + 0.25 * this.aggr) * (1 + 0.5 * this.craft))) {
           this.attack = { until: this.t + 5, side: covered ? -inside : inside };
           this.emit('attack');
         }
@@ -188,7 +188,7 @@ export class AIDriver {
       const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
-      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.25);
+      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.45);
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
@@ -207,9 +207,9 @@ export class AIDriver {
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
-    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -20 - 10 * this.craft && chaserGap < -4 && !(chaser.ai && chaser.ai.attack)) {
+    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -26 - 12 * this.craft && chaserGap < -3 && !(chaser.ai && chaser.ai.attack)) {
       this.defZone = brakeIdx;
-      if (this.rand() < Math.min(0.95, (0.55 + 0.45 * this.aggr) * (0.8 + 0.6 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
+      if (this.rand() < Math.min(0.97, (0.75 + 0.25 * this.aggr) * (0.9 + 0.5 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
     }
 
     // --- errori umani ---
