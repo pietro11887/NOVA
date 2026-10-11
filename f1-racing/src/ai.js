@@ -142,7 +142,7 @@ export class AIDriver {
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
       if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
-      if (Math.abs(g) < 7 && lat < 3.1) push += -Math.sign(dd || 1) * (3.1 - lat) * (1.2 - this.aggr);
+      if (Math.abs(g) < 7 && lat < 3.1) push += -Math.sign(dd || 1) * (3.1 - lat) * (1.35 - 0.6 * this.aggr);
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
@@ -166,7 +166,7 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && raceT > 14 && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
@@ -187,10 +187,14 @@ export class AIDriver {
       const lat = Math.abs(od - myD);
       const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
-      const room = Math.max(0, bestGap - 4.8 - 1.5 * (1 - this.aggr));
+      // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
+      // primo giro: tutti in gruppo, si lascia un po' più di spazio
+      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.25 - (raceT < 20 ? 3 : 0));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
-      const vSafe = Math.sqrt(ovEff * ovEff + 2 * SPEC.ai.follow * room);
+      // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
+      const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v);
+      const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
       if (!this.attack || lat < 3.1) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
@@ -317,7 +321,9 @@ export class AIDriver {
     if (fastUs) throttle = Math.min(throttle, outward > 1.4 ? 0 : 0.3);
     else if (understeer && outward > 0.8) throttle = Math.min(throttle, Math.max(0.25, 1.1 - 0.3 * outward));   // uscita lenta: gas dosato
     if (m && m.type === 'lock' && brake > 0) { brake = 1; abs = false; }
-    if (m && m.type === 'power') { throttle = 1; brake = 0; tc = false; }
+    // troppo gas in uscita: ma mai addosso a chi è davanti
+    if (m && m.type === 'power' && !(blocker && bestGap < 30 && vT <= vCap)) { throttle = 1; brake = 0; tc = false; }
+    else if (m && m.type === 'power') tc = false;
     // partenza: tempo di reazione
     if (raceT < this.launchDelay) { throttle = 0; brake = 0; }
 
