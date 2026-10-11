@@ -12,12 +12,12 @@ export function skillParams(strength) {
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: (0.87 + 0.11 * t) * CAR.mu,   // aderenza sfruttata (prima del bonus)
+    mu: (0.92 + 0.1 * t) * CAR.mu,   // aderenza sfruttata (prima del bonus)
     grip: 1 + 0.14 * boost,           // 110 → +14% di aderenza
     power: 1 + 0.2 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
-    brake: 0.82 + 0.1 * t,            // frazione della frenata massima
+    brake: 0.86 + 0.09 * t,           // frazione della frenata massima
     reaction: 0.35 - 0.28 * t,        // secondi di ritardo allo spegnimento dei semafori
-    wobble: 0.4 * (1 - t),            // imprecisione sulla traiettoria (m)
+    wobble: 0.25 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
 }
 
@@ -56,9 +56,9 @@ export class AIDriver {
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     this.profile = this.line.speedProfile(mu, brk, 120);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
-    this.attackProfile = this.line.speedProfile(mu * 1.01, Math.min(0.95, brk + 0.06), 120);
+    this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
-    this.errPerLap = 0.04 + 0.5 * Math.pow(1 - Math.min(1, t), 2);
+    this.errPerLap = 0.02 + 0.35 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
     this.craft = Math.max(0, Math.min(1, t));
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
@@ -171,7 +171,7 @@ export class AIDriver {
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
         const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
-        if (this.rand() < Math.min(0.95, (covered ? 0.45 : 0.5 + 0.5 * this.aggr) * (0.8 + 0.7 * this.craft))) {
+        if (this.rand() < Math.min(0.95, (covered ? 0.55 : 0.6 + 0.4 * this.aggr) * (0.9 + 0.6 * this.craft))) {
           this.attack = { until: this.t + 5, side: covered ? -inside : inside };
           this.emit('attack');
         }
@@ -207,9 +207,9 @@ export class AIDriver {
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
-    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -14 - 8 * this.craft && chaserGap < -5 && !(chaser.ai && chaser.ai.attack)) {
+    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && this.defZone !== brakeIdx && chaserGap > -20 - 10 * this.craft && chaserGap < -4 && !(chaser.ai && chaser.ai.attack)) {
       this.defZone = brakeIdx;
-      if (this.rand() < Math.min(0.9, (0.25 + 0.6 * this.aggr) * (0.5 + this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
+      if (this.rand() < Math.min(0.95, (0.55 + 0.45 * this.aggr) * (0.8 + 0.6 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
     }
 
     // --- errori umani ---
@@ -304,7 +304,7 @@ export class AIDriver {
     if (this.lineVer !== this.line.version) {
       this.lineVer = this.line.version;
       this.profile = this.line.speedProfile(this.mu, this.brk, 120);
-      this.attackProfile = this.line.speedProfile(this.mu * 1.01, Math.min(0.95, this.brk + 0.06), 120);
+      this.attackProfile = this.line.speedProfile(this.mu * 1.02, Math.min(0.97, this.brk + 0.08), 120);
       this.hurtKey = -1;
     }
     const fastUs = understeer && v > 35;   // in velocità si alza il piede; nei tornanti si impara e basta
