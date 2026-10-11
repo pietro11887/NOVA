@@ -12,10 +12,10 @@ export function skillParams(strength) {
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: (0.81 + 0.1 * t) * CAR.mu,    // aderenza sfruttata (prima del bonus)
+    mu: (0.87 + 0.11 * t) * CAR.mu,   // aderenza sfruttata (prima del bonus)
     grip: 1 + 0.14 * boost,           // 110 → +14% di aderenza
     power: 1 + 0.2 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
-    brake: 0.78 + 0.08 * t,           // frazione della frenata massima
+    brake: 0.82 + 0.1 * t,            // frazione della frenata massima
     reaction: 0.35 - 0.28 * t,        // secondi di ritardo allo spegnimento dei semafori
     wobble: 0.4 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
