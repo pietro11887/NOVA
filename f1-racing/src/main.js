@@ -1053,10 +1053,19 @@ function exitReplay() {
   sounds.setMuted(rp.muted);
   $('replayUI').classList.add('hidden');
   document.body.classList.remove('replayMode');
-  const fromGarage = rp.fromGarage, made = rp.made;
+  const fromGarage = rp.fromGarage, made = rp.made, fromPause = rp.fromPause;
   if (made) for (const m of made) scene.remove(m.root);
   rp = null;
   camState.init = false;
+  if (fromPause) {
+    // tutto com'era al momento della pausa
+    for (const k of fromPause.keep) { k.m.root.position.copy(k.p); k.m.root.quaternion.copy(k.q); k.m.root.visible = k.v; }
+    camera.position.copy(fromPause.camKeep.p); camera.quaternion.copy(fromPause.camKeep.q); camera.fov = fromPause.camKeep.fov; camera.updateProjectionMatrix();
+    mode = 'pause';
+    $('hud').classList.remove('hidden');
+    $('pause').classList.remove('hidden');
+    return;
+  }
   if (fromGarage) { car.root.visible = true; goMenu(); return; }
   // di nuovo ai risultati della gara
   mode = 'race';
@@ -1753,6 +1762,20 @@ $('resReplay').addEventListener('click', () => {
   startReplay(new Replay(recorder.pack()), race.cars.map(c => (c.isPlayer ? car : c.model)), sc && sc.model, false);
 });
 $('resMenu').addEventListener('click', () => goMenu());
+// replay dalla pausa: si rivede quello che è successo finora (con tutte le telecamere e i comandi),
+// poi si torna alla pausa esattamente dove si era
+const HZ_MIN = 30;
+$('pauseReplay').addEventListener('click', () => {
+  if (!recorder || !race || mode !== 'pause') return;
+  const models = race.cars.map(c => (c.isPlayer ? car : c.model));
+  const keep = [...models, sc && sc.model].filter(Boolean).map(m => ({ m, p: m.root.position.clone(), q: m.root.quaternion.clone(), v: m.root.visible }));
+  const camKeep = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov };
+  const rep = new Replay(recorder.pack());
+  startReplay(rep, models, sc && sc.model, false);
+  rp.fromPause = { keep, camKeep };
+  rp.t = Math.max(0, rep.duration - 20);       // si parte dagli ultimi 20 secondi (la barra permette di tornare indietro)
+  rpUi();
+});
 
 // --- navigazione del menu
 const MENU_PAGES = ['menuHome', 'menuMode', 'menuCar', 'menuRace', 'menuGarage', 'menuSettings', 'menuHelp', 'menuCredits'];
@@ -1952,6 +1975,7 @@ function togglePause(on) {
     pausedFrom = mode; mode = 'pause';
     $('pause').classList.remove('hidden');
     $('carStatus').innerHTML = carStatusHtml();
+    $('pauseReplay').classList.toggle('hidden', !(race && recorder && recorder.frames.length > HZ_MIN));
     if (race) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
     else $('lapList').innerHTML = laps.length ? laps.map((l, i) => `<div class="${l.valid ? (best && l.time === best.time ? 'best' : '') : 'inv'}"><span>Giro ${i + 1}</span><span>${fmt(l.time)}</span></div>`).join('') : '<div><span>Nessun giro completato</span></div>';
     if (sounds.ctx) sounds.ctx.suspend();

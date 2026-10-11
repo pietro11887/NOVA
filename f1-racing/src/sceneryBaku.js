@@ -227,7 +227,7 @@ export class BakuScenery extends Scenery {
       this.wallMat = triplanar(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), 'oldwall', { scale: 3.2, strength: 0.95, normal: 1.3 });
     } else this.wallMat = this.colored;
     const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'timingClock', 'grandstands', 'gantry', 'screen', 'billboards',
-      'buildings', 'roads', 'landmarks', 'trackside', 'brakeBoards', 'spectators', 'cityTrees', 'lamps'];
+      'buildings', 'roads', 'landmarks', 'trackside', 'brakeBoards', 'spectators', 'cityTrees', 'lamps', 'trackDressing'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
   }
@@ -718,15 +718,15 @@ export class BakuScenery extends Scenery {
             if (inWin(back, Rm, arch) > 0.5) {
               // vetro: scuro e riflettente, con tende o luce dentro casa
               float curtain = st == 2.0 ? 0.0 : step(0.68, h2);
-              vec3 glassC = st == 2.0 ? vColor.rgb * 0.12 + 0.01 : vec3(0.025, 0.03, 0.036);
+              vec3 glassC = st == 2.0 ? vColor.rgb * 0.9 + 0.05 : vec3(0.025, 0.03, 0.036);
               vec3 cur = mix(vec3(0.42, 0.36, 0.28), vec3(0.55, 0.5, 0.44), fract(h2 * 5.0));
               diffuseColor.rgb = mix(glassC, cur * 0.45, curtain * 0.8);
-              fR = mix(0.12, 0.85, curtain); fM = 0.0;
+              fR = st == 2.0 ? 0.06 : mix(0.12, 0.85, curtain); fM = st == 2.0 ? 0.92 : 0.0;
               fN = Nw;
               // telaio centrale
               if (st != 2.0 && abs(back.x - (Rm.x + Rm.z) * 0.5) < 0.035 && !shop) { diffuseColor.rgb = vec3(0.85); fR = 0.5; fM = 0.0; }
               if (st == 2.0 && abs(cell.x - 0.5) < 0.01) { diffuseColor.rgb = vColor.rgb * 0.5; fR = 0.4; fM = 0.6; }
-              float lit = shop ? 1.0 : step(0.6, h1);
+              float lit = shop ? 1.0 : step(st == 2.0 ? 0.9 : 0.62, h1);
               vec3 warm = mix(vec3(1.0, 0.7, 0.36), vec3(1.0, 0.86, 0.68), fract(h1 * 7.0));
               fE = warm * lit * (shop ? 0.32 : 0.3 + 0.4 * fract(h1 * 13.0)) * (1.0 - curtain * 0.4);
               if (shop) diffuseColor.rgb = vec3(0.08, 0.07, 0.06);
@@ -752,9 +752,9 @@ export class BakuScenery extends Scenery {
           if (st != 2.0) diffuseColor.rgb *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 3.0, vFU.y * 3.4)) ;
         }
         if (wallF && st < 3.5 && far > 0.0) {
-          vec3 avgC = st == 2.0 ? vColor.rgb * 0.35 : wall0 * 0.62;
+          vec3 avgC = st == 2.0 ? vColor.rgb * 0.85 : wall0 * 0.62;
           diffuseColor.rgb = mix(diffuseColor.rgb, avgC, far);
-          fN = normalize(mix(fN, Nw, far)); fR = mix(fR, st == 2.0 ? 0.25 : 0.8, far); fE *= 1.0 - far * 0.6;
+          fN = normalize(mix(fN, Nw, far)); fR = mix(fR, st == 2.0 ? 0.12 : 0.8, far); if (st == 2.0) fM = mix(fM, 0.85, far); fE *= 1.0 - far * 0.6;
         }
         if (st > 3.5 && wallF) diffuseColor.rgb *= 1.08;`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = fR;')
@@ -955,52 +955,81 @@ export class BakuScenery extends Scenery {
   landmarks() {
     const L = this.data.landmarks;
     const stone = new THREE.MeshStandardMaterial({ color: 0xcdb48a, roughness: 0.9 });
-    // Torre della Vergine (Qız qalası): 29 m, cilindro con contrafforte verso il mare
+    // Torre della Vergine (Qız qalası): 29 m di calcare grigio, leggermente rastremata, con il grande
+    // contrafforte arrotondato verso il mare, fasce di pietra, feritoie, porta ad arco e parapetto in cima
     {
       const [x, z] = L.maidenTower, y = this.heightAt(x, z) - 1;
-      const g = mergeGeometries([
-        new THREE.CylinderGeometry(8.0, 8.6, 30, 28).translate(0, 15, 0),
-        new THREE.BoxGeometry(7, 30, 8).translate(8.5, 15, 0),
-        new THREE.CylinderGeometry(8.4, 8.4, 1.2, 28).translate(0, 26.5, 0),
-      ].map(q => q.index ? q.toNonIndexed() : q));
-      const m = new THREE.Mesh(g, stone);
+      const mt = this.low ? stone : triplanar(new THREE.MeshStandardMaterial({ color: 0xc9b89a, roughness: 0.95 }), 'oldwall', { scale: 2.4, strength: 0.95, normal: 1.4 });
+      // profilo: base allargata, fusto, cornice a 3/4, parapetto
+      const prof = [[0, 0], [9.2, 0], [9.0, 1.2], [8.6, 2.0], [8.4, 9], [8.25, 18], [8.15, 25.6], [8.5, 26.0], [8.5, 27.0], [8.1, 27.3], [8.05, 29.4], [8.4, 29.6], [8.4, 30.6], [7.2, 30.6], [7.2, 29.6], [0, 29.6]];
+      const lathe = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), 40);
+      // contrafforte: pianta a "D" (rettangolo + mezzo cerchio) estrusa in altezza
+      const sh = new THREE.Shape();
+      sh.moveTo(6, -4.2); sh.lineTo(11, -4.2); sh.absarc(11, 0, 4.2, -Math.PI / 2, Math.PI / 2, false); sh.lineTo(6, 4.2); sh.lineTo(6, -4.2);
+      const but = new THREE.ExtrudeGeometry(sh, { depth: 28.4, bevelEnabled: false, curveSegments: 16 });
+      but.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(mergeGeometries([lathe.toNonIndexed(), but.toNonIndexed()].map(g => { g.deleteAttribute('uv'); return g; })), mt);
       m.position.set(x, y, z); m.rotation.y = -0.6;
       m.castShadow = true; m.receiveShadow = true;
       this.group.add(m);
-      for (let q = 0; q < 16; q++) {
-        const a = q / 16 * Math.PI * 2;
-        this.batch.add(new THREE.BoxGeometry(1.4, 1.4, 0.9), this.colored, mat4(x + Math.cos(a) * 7.8, y + 30.6, z + Math.sin(a) * 7.8, -a + Math.PI / 2), 0xc4a97e);
+      // feritoie e finestrelle (scure, incassate), porta ad arco
+      const dark = 0x2a241d, ca = Math.cos(-0.6), sa = Math.sin(-0.6);
+      const loc = (lx, lz) => [x + lx * ca + lz * sa, z - lx * sa + lz * ca];
+      for (const [ang, h, w, hh] of [[2.0, 8, 0.5, 1.6], [2.6, 14, 0.5, 1.8], [3.3, 20, 0.6, 2.0], [4.0, 11, 0.5, 1.6], [1.4, 22, 0.5, 1.6], [3.7, 5, 0.45, 1.4], [2.3, 25, 0.5, 1.3]]) {
+        const [px, pz] = loc(Math.cos(ang) * 8.3, -Math.sin(ang) * 8.3);
+        this.batch.add(new THREE.BoxGeometry(w, hh, 0.6), this.colored, mat4(px, y + h, pz, -0.6 + ang + Math.PI / 2), dark);
       }
-      this.occupied.push([x, z, 14]);
+      { const [px, pz] = loc(-8.3, 0); this.batch.add(new THREE.BoxGeometry(1.8, 3.2, 0.8), this.colored, mat4(px, y + 1.6 + 1, pz, -0.6 + Math.PI / 2), 0x1d1914); }
+      // merli in cima
+      for (let q = 0; q < 24; q++) {
+        const a = q / 24 * Math.PI * 2;
+        this.batch.add(new THREE.BoxGeometry(1.3, 1.2, 0.8), this.wallMat, mat4(x + Math.cos(a) * 7.9, y + 31.2, z + Math.sin(a) * 7.9, -a + Math.PI / 2), 0xc4b291);
+      }
+      this.occupied.push([x, z, 16]);
     }
     // Flame Towers: tre fiamme di vetro sulla collina
     {
       const [fx, fz] = L.flameTowers;
-      const glassT = facadeTexture('glass');
-      const mat = new THREE.MeshStandardMaterial({ map: glassT, color: 0x6f8fb3, roughness: 0.12, metalness: 0.75, envMapIntensity: 1.3, emissive: 0x0a1a33, emissiveIntensity: 0.3 });
-      // facciate a led: fiamme animate che salgono lungo le torri (il simbolo di Baku)
+      // facciata continua di vetro a specchio con montanti d'acciaio e solette ai piani (il vetro riflette cielo e città),
+      // qualche ufficio illuminato, e le fiamme a led animate che salgono lungo le torri
+      const mat = new THREE.MeshStandardMaterial({ color: 0x8ea6be, roughness: 0.06, metalness: 0.92, envMapIntensity: 1.25 });
       const uF = { value: 0 };
       mat.onBeforeCompile = sh => {
         sh.uniforms.uF = uF;
-        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLoc;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLoc = position;');
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLoc; varying vec2 vGU; attribute vec2 guv;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLoc = position; vGU = guv;');
         sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-          varying vec3 vLoc; uniform float uF;
+          varying vec3 vLoc; varying vec2 vGU; uniform float uF;
           float fh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
           float fn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
             return mix(mix(fh(i), fh(i + vec2(1, 0)), f.x), mix(fh(i + vec2(0, 1)), fh(i + vec2(1, 1)), f.x), f.y); }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          vec2 gc = fract(vGU), gi = floor(vGU);
+          float fw = max(fwidth(vGU.x), fwidth(vGU.y));
+          float far = smoothstep(0.08, 0.3, fw);
+          float mull = (1.0 - smoothstep(0.035, 0.035 + fw * 1.5, min(gc.x, 1.0 - gc.x))) * (1.0 - far);
+          float slab = (1.0 - smoothstep(0.07, 0.07 + fw * 1.5, gc.y)) * (1.0 - far);
+          float frame = max(mull, slab);
+          float office = step(0.88, fh(gi + 0.5)) * (1.0 - frame) * (1.0 - far);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.6, 0.66), frame);
+          // leggere differenze tra un pannello e l'altro (come i vetri veri)
+          diffuseColor.rgb *= 0.92 + 0.12 * fh(gi * 1.3 + 7.0);`)
+          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.45, frame);')
+          .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.6, frame) * (1.0 - office * 0.8);')
           .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           {
+            totalEmissiveRadiance += vec3(1.0, 0.85, 0.6) * office * 0.18;
             float a = atan(vLoc.z, vLoc.x), y = vLoc.y / 175.0;
             vec2 q = vec2(a * 3.0, y * 9.0 - uF * 1.4);
             float n = fn(q) * 0.6 + fn(q * 2.3 + 4.0) * 0.4;
-            float flame = smoothstep(0.35 + y * 0.45, 0.95, n) * smoothstep(1.02, 0.15, y);
-            // pixel dei led
+            float flame = smoothstep(0.35 + y * 0.45, 0.95, n) * (1.0 - smoothstep(0.15, 1.02, y));
+            // pixel dei led (dietro il vetro)
             vec2 px = fract(vec2(a * 40.0, vLoc.y * 0.7));
-            float dotm = smoothstep(0.5, 0.2, length(px - 0.5));
+            float dotm = 1.0 - smoothstep(0.2, 0.5, length(px - 0.5));
             vec3 fc = mix(vec3(1.0, 0.25, 0.02), vec3(1.0, 0.75, 0.15), n);
-            totalEmissiveRadiance += fc * flame * (0.55 + 0.45 * dotm) * 1.6;
+            totalEmissiveRadiance += fc * flame * (0.55 + 0.45 * dotm) * 1.2 * (1.0 - frame * 0.7);
           }`);
       };
+      mat.customProgramCacheKey = () => 'flames2';
       this.animated.push(t => { uF.value = t; });
       const towers = [[0, -38, 182, 0.2], [-36, 22, 165, 2.3], [36, 24, 161, 4.4]];
       for (const [ox, oz, H, rot] of towers) {
@@ -1010,6 +1039,13 @@ export class BakuScenery extends Scenery {
         m.position.set(x, y, z); m.rotation.y = rot;
         m.castShadow = true;
         this.group.add(m);
+      }
+      // basamento comune in pietra chiara con terrazze
+      {
+        const y0 = this.heightAt(fx, fz);
+        const pm = this.low ? this.colored : this.colored;
+        this.batch.add(new THREE.CylinderGeometry(70, 74, 9, 48), pm, mat4(fx, y0 + 1.5, fz), 0xd6cbb6);
+        this.batch.add(new THREE.CylinderGeometry(64, 64, 1.2, 48), pm, mat4(fx, y0 + 6.6, fz), 0xbfb4a0);
       }
       this.occupied.push([fx, fz, 80]);
     }
@@ -1060,7 +1096,7 @@ export class BakuScenery extends Scenery {
 
   // fiamma: sezione a goccia che si stringe e si piega verso la punta
   flameGeometry(H) {
-    const ringN = 26, segN = 22, pos = [], uv = [], idx = [];
+    const ringN = 64, segN = 56, pos = [], uv = [], gu = [], idx = [];
     for (let j = 0; j <= ringN; j++) {
       const t = j / ringN;
       const R = 34 * (1 - Math.pow(t, 1.7) * 0.94) * (1 + 0.12 * Math.sin(t * Math.PI));
@@ -1071,6 +1107,8 @@ export class BakuScenery extends Scenery {
         const k = 1 + 0.45 * Math.cos(a) - 0.12 * Math.cos(2 * a);
         pos.push(Math.cos(a) * R * k * 0.62 + bend, t * H, Math.sin(a) * R * 0.55);
         uv.push(i / segN * 26, t * H / 3.6);
+        // pannelli: il numero attorno resta fisso, così si stringono verso la punta come nella realtà
+        gu.push(i / segN * 48, t * H / 3.8);
       }
     }
     for (let j = 0; j < ringN; j++) for (let i = 0; i < segN; i++) {
@@ -1080,6 +1118,7 @@ export class BakuScenery extends Scenery {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('guv', new THREE.Float32BufferAttribute(gu, 2));
     g.setIndex(idx);
     g.computeVertexNormals();
     return g;
@@ -1158,6 +1197,86 @@ export class BakuScenery extends Scenery {
       const im = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x5b4632, roughness: 1 }), trunks.length);
       trunks.forEach((m, q) => im.setMatrixAt(q, m));
       this.group.add(im);
+    }
+  }
+
+  // ------------------------------------------------------------------ bordo pista da F1
+  // striscioni sulle reti, postazioni dei commissari (arancioni, con le bandiere) e piattaforme delle telecamere TV
+  trackDressing() {
+    const S = this.track.samples, n = this.track.count, st = this.track.step, r = rand(77);
+    // striscioni: atlante con 4 grafiche (una per riga)
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    const g = c.getContext('2d');
+    const rows = [
+      ['#0a3d91', '#00b5e2', 'AZERBAIJAN GRAND PRIX', '#ffffff'],
+      ['#111111', '#2a2a2a', 'BAKU CITY CIRCUIT', '#ffd21e'],
+      ['#d0102b', '#a00b20', 'LAND OF FIRE', '#ffffff'],
+      ['#f4f4f4', '#dcdcdc', 'FORMULA 1 · BAKU', '#d0102b'],
+    ];
+    rows.forEach(([a, b, txt, fg], k) => {
+      const y = k * 128, grd = g.createLinearGradient(0, y, 1024, y + 128);
+      grd.addColorStop(0, a); grd.addColorStop(1, b);
+      g.fillStyle = grd; g.fillRect(0, y, 1024, 128);
+      // bandiera azera a sinistra (blu, rosso, verde)
+      [['#00b5e2', 0], ['#ef3340', 1], ['#509e2f', 2]].forEach(([col, q]) => { g.fillStyle = col; g.fillRect(14, y + 18 + q * 31, 70, 31); });
+      g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(0, y + 6, 1024, 4); g.fillRect(0, y + 118, 1024, 4);
+      g.fillStyle = fg; g.font = 'italic 900 70px "Titillium Web", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(txt, 560, y + 66);
+      // occhielli
+      g.fillStyle = '#ddd'; for (let q = 40; q < 1024; q += 120) { g.beginPath(); g.arc(q, y + 12, 4, 0, 7); g.arc(q, y + 116, 4, 0, 7); g.fill(); }
+    });
+    const bt = new THREE.CanvasTexture(c); bt.colorSpace = THREE.SRGBColorSpace; bt.anisotropy = this.aniso;
+    const bm = new THREE.MeshStandardMaterial({ map: bt, roughness: 0.75 });
+    let last = -999;
+    for (let i = 0; i < n; i += Math.round(10 / st)) {
+      const sm = S[i];
+      if (Math.abs(sm.curv) > 0.012 || i - last < Math.round(34 / st)) continue;
+      for (const side of [1, -1]) {
+        if (r() < 0.45) continue;
+        const f = this.frame(i, side, 0.42);
+        if (!this.isLand(f.x, f.z)) continue;
+        const k = Math.floor(r() * 4);
+        const pg = new THREE.PlaneGeometry(12, 1.5);
+        const uv = pg.attributes.uv;
+        for (let q = 0; q < uv.count; q++) uv.setY(q, (3 - k + uv.getY(q)) / 4);
+        this.batch.add(pg, bm, mat4(f.x, sm.y + 2.35, f.z, f.ry));
+        last = i;
+      }
+    }
+    // postazioni dei commissari ogni ~220 m, dietro le reti
+    const orange = 0xff7a1a;
+    for (let i = 0, k = 0; i < n; i += Math.round(220 / st), k++) {
+      const side = k % 2 ? 1 : -1;
+      const f = this.frame(i, side, 2.6);
+      if (!this.free(f.x, f.z, 2) || this.inBuilding(f.x, f.z, 2) || !this.isLand(f.x, f.z)) continue;
+      this.batch.add(new THREE.BoxGeometry(2.4, 2.4, 1.8), this.colored, mat4(f.x, f.y + 1.2, f.z, f.ry), orange);
+      this.batch.add(new THREE.BoxGeometry(2.8, 0.15, 2.2), this.colored, mat4(f.x, f.y + 2.5, f.z, f.ry), 0xf2f2f2);
+      // pannello luminoso (bandiere digitali) verso la pista
+      this.batch.add(new THREE.BoxGeometry(1.2, 0.8, 0.1), this.colored, mat4(f.x + Math.sin(f.ry) * 0.95, f.y + 1.7, f.z + Math.cos(f.ry) * 0.95, f.ry), 0x111111);
+      this.occupied.push([f.x, f.z, 2.5]);
+    }
+    // piattaforme delle telecamere TV all'esterno delle curve principali
+    let lastC = -999;
+    for (let i = 0; i < n; i += 4) {
+      if (Math.abs(S[i].curv) < 0.02 || i - lastC < Math.round(400 / st)) continue;
+      const side = S[i].curv > 0 ? -1 : 1;      // esterno curva
+      const f = this.frame(i - Math.round(40 / st), side, 3.5);
+      if (!this.free(f.x, f.z, 2.5) || this.inBuilding(f.x, f.z, 2.5) || !this.isLand(f.x, f.z)) continue;
+      lastC = i;
+      const grey = 0x8b9098;
+      for (const [ax, az] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const lx = ax * 1.1, lz = az * 1.1, cs = Math.cos(f.ry), sn = Math.sin(f.ry);
+        this.batch.add(new THREE.BoxGeometry(0.12, 4.5, 0.12), this.colored, mat4(f.x + lx * cs + lz * sn, f.y + 2.25, f.z - lx * sn + lz * cs, f.ry), grey);
+      }
+      this.batch.add(new THREE.BoxGeometry(2.6, 0.2, 2.6), this.colored, mat4(f.x, f.y + 4.5, f.z, f.ry), 0x5a5f66);
+      this.batch.add(new THREE.BoxGeometry(2.9, 0.12, 2.9), this.colored, mat4(f.x, f.y + 6.9, f.z, f.ry), 0x1f4f8f);
+      // telecamera con obiettivo lungo verso la pista, e il cameraman
+      const fx = Math.sin(f.ry), fz = Math.cos(f.ry);
+      this.batch.add(new THREE.BoxGeometry(0.5, 0.45, 0.9), this.colored, mat4(f.x + fx * 0.3, f.y + 5.6, f.z + fz * 0.3, f.ry), 0x1a1a1a);
+      this.batch.add(new THREE.CylinderGeometry(0.13, 0.16, 0.9, 10), this.colored, mat4(f.x + fx * 1.1, f.y + 5.65, f.z + fz * 1.1, f.ry, 1, 1, 1, Math.PI / 2), 0xe8e8e8);
+      this.batch.add(new THREE.CylinderGeometry(0.22, 0.26, 1.2, 8), this.colored, mat4(f.x - fx * 0.5, f.y + 5.2, f.z - fz * 0.5), 0x2b5fa8);
+      this.batch.add(new THREE.SphereGeometry(0.17, 8, 6), this.colored, mat4(f.x - fx * 0.5, f.y + 6.0, f.z - fz * 0.5), 0xd9a47a);
+      this.occupied.push([f.x, f.z, 3]);
     }
   }
 
