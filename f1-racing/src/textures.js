@@ -160,6 +160,22 @@ export function fence() {
   return finish(c);
 }
 
+// rete antidetriti vera: maglia fitta (pochi cm), quasi trasparente, palo e cavi scuri
+export function fineFence() {
+  const [c, g] = canvas(512, 512);
+  g.clearRect(0, 0, 512, 512);
+  g.strokeStyle = 'rgba(70,74,80,0.6)'; g.lineWidth = 1;
+  for (let k = -512; k < 1024; k += 7) {
+    g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 512, 512); g.stroke();
+    g.beginPath(); g.moveTo(k + 512, 0); g.lineTo(k, 512); g.stroke();
+  }
+  // palo (ogni 3 m), traversa in alto e cavi di tensione
+  g.fillStyle = '#34373c'; g.fillRect(0, 0, 9, 512);
+  g.fillStyle = '#3c3f45'; g.fillRect(0, 0, 512, 7); g.fillRect(0, 505, 512, 7);
+  g.fillStyle = 'rgba(40,42,46,0.85)'; g.fillRect(0, 170, 512, 2); g.fillRect(0, 340, 512, 2);
+  return finish(c);
+}
+
 export function checker() {
   const [c, g] = canvas(64, 256);
   const sq = 16;

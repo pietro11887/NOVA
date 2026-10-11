@@ -384,7 +384,7 @@ export class Track {
     const grp = new THREE.Group();
     const barrierT = tex.barrier(); barrierT.anisotropy = aniso;
     const tyreT = tex.tyreWall(); tyreT.anisotropy = aniso;
-    const fenceT = tex.fence(); fenceT.anisotropy = aniso;
+    const fenceT = this.quality !== 'low' && !TRACK.model ? tex.fineFence() : tex.fence(); fenceT.anisotropy = aniso;
     // sub: suddivisioni tra due campioni, hr: righe in altezza (le barriere morbide ne hanno tante per potersi ammaccare)
     const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false, flip = 1, sub = 1, hr = 1) => {
       const pos = [], uv = [], idx = [];
@@ -466,7 +466,9 @@ export class Track {
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s) && median(s)));
     } else grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
     grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s), 0, false, 1, 4, 8));
-    const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
+    const fine = this.quality !== 'low' && !TRACK.model;
+    // rete fine: semitrasparente (da lontano diventa un velo grigio, come quella vera)
+    const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: fine ? 0.02 : 0.25, depthWrite: !fine, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
     // muretto box tra pista e corsia box (dal lato dei box)
     if (side === (TRACK.pit.side || -1)) {
