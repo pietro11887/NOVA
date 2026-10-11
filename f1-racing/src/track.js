@@ -401,7 +401,7 @@ export class Track {
       };
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
-        if (mask && !mask(s)) { prev = -1; last = null; continue; }
+        if ((mask && !mask(s)) || (!pitWall && (side > 0 ? s.openL : s.openR))) { prev = -1; last = null; continue; }
         const w = (pitWall ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR)) + extrude;
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         // ss: distanza continua anche a cavallo del traguardo

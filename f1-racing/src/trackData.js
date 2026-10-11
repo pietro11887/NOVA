@@ -104,10 +104,10 @@ export function bakuTrack(data) {
 export function spaTrack(data) {
   return {
     id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 6.4, street: false, data,
-    lineShift: 150,               // traguardo tra la Bus Stop e la Source, la griglia ci sta tutta prima della Source
+    lineShift: 230,               // traguardo tra la Bus Stop e la Source, la griglia ci sta tutta prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },
-    grid: { pole: 290, gap: 8, lat: 3.0 },
+    grid: { pole: 330, gap: 8, lat: 3.0 },
   };
 }
 
@@ -418,6 +418,10 @@ export function buildTrack(points) {
     const r = 1 / Math.max(1e-5, Math.abs(s.curv));
     if (s.curv > 0) s.wallR = Math.min(s.wallR, r * 0.8); else s.wallL = Math.min(s.wallL, r * 0.8);
     const minW = street ? s.hw + 0.8 : ROAD_HALF_WIDTH + KERB_WIDTH + 2.5;
+    // tornante vero (Source di Spa): all'interno non c'è spazio per una barriera, si lascia aperto
+    // (la barriera disegnata si ripiegherebbe sull'asfalto)
+    s.openL = s.openR = false;
+    if (!street && def.pitPath && r * 0.8 < minW + 4) { if (s.curv > 0) s.openR = true; else s.openL = true; }
     s.wallL = Math.max(s.wallL, minW + (street && s.kerbL ? KERB_WIDTH : 0));
     s.wallR = Math.max(s.wallR, minW + (street && s.kerbR ? KERB_WIDTH : 0));
     if (street) {
@@ -514,8 +518,13 @@ export function buildTrack(points) {
     if (ss < PIT.entry - 5 || ss > PIT.exit + 5) return;
     // distanza laterale della corsia su questo campione (dal lato dei box)
     let dl = null;
+    // corsia vera (dati reali): il muretto solo dove corre parallela alla pista, mai in curva
+    // (alla Source di Spa la corsia passa all'interno del tornante)
+    const real = def.pitPath && !street;
+    if (real && Math.abs(s.curv) > 0.008) return;
     for (const p of pit.pts) {
       if (Math.abs(p.ss - ss) > 60) continue;
+      if (real && Math.abs(p.tx * s.tx + p.tz * s.tz) < 0.97) continue;
       const dx = p.x - s.x, dz = p.z - s.z;
       if (Math.abs(dx * s.tx + dz * s.tz) > 0.8) continue;
       const d = side * (dx * s.nx + dz * s.nz);
@@ -543,6 +552,22 @@ export function buildTrack(points) {
       for (let k = 0; k < 2 * count; k++) { const i = k % count, j = (i + 1) % count; samples[j][W] = Math.min(samples[j][W], samples[i][W] + 0.6); }
       for (let k = 2 * count; k >= 0; k--) { const i = k % count, j = (i - 1 + count) % count; samples[j][W] = Math.min(samples[j][W], samples[i][W] + 0.6); }
     }
+  }
+
+  // dati reali: dove la barriera disegnata finirebbe sull'asfalto di un altro tratto vicino
+  // (le due metà di un tornante) quel lato resta aperto
+  if (def.pitPath && !street) {
+    samples.forEach((s, i) => {
+      for (const sd of [1, -1]) {
+        const w = sd > 0 ? s.wallLVis : s.wallRVis, x = s.x + s.nx * w * sd, z = s.z + s.nz * w * sd;
+        for (let j = 0; j < count; j++) {
+          let ds = Math.abs(i - j); ds = Math.min(ds, count - ds);
+          if (ds < 3) continue;
+          const o = samples[j];
+          if (Math.abs(o.x - x) < 12 && Math.abs(o.z - z) < 12 && Math.hypot(o.x - x, o.z - z) < o.hw + 2) { if (sd > 0) s.openL = true; else s.openR = true; break; }
+        }
+      }
+    });
   }
 
   return { samples, length, step, count, pit };

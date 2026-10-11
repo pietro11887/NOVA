@@ -41,6 +41,24 @@ export class SpaScenery extends Scenery {
 
   setupLake() { this.lake = null; }
 
+  // niente oggetti sull'asfalto: un punto libero deve stare anche oltre i muri di ogni tratto di pista
+  // (nel tornante della Source e alla Bus Stop il "fuori" di un tratto è la pista dell'altro)
+  free(x, z, r) { return this.clearance(x, z).d > r + 0.5 && super.free(x, z, r); }
+
+  // tribune: come nella scenografia base, ma solo dove c'è spazio vero (mai sopra la pista)
+  place(obj, i, side, extra) {
+    for (let k = 0; k < 6; k++) {
+      const s = this.track.samples[(i + this.track.count) % this.track.count];
+      const wall = side > 0 ? (s.wallLVis ?? s.wallL) : (s.wallRVis ?? s.wallR);
+      const d = (wall + extra + k * 12) * side, x = s.x + s.nx * d, z = s.z + s.nz * d;
+      const R = (obj.userData.radius || 30) * 0.8;
+      let ok = true;
+      for (let a = 0; a < 8 && ok; a++) { const px = x + Math.cos(a * 0.785) * R * 0.7, pz = z + Math.sin(a * 0.785) * R * 0.7; if (this.clearance(px, pz).d < 3) ok = false; }
+      if (ok && this.clearance(x, z).d > 3) return super.place(obj, i, side, extra + k * 12);
+    }
+    obj.visible = false; obj.userData.flags = []; return obj;
+  }
+
   demAt(x, z) {
     const G = this.dem;
     const fx = Math.max(0, Math.min(G.nx - 1.001, (x - G.x0) / G.step)), fz = Math.max(0, Math.min(G.nz - 1.001, (z - G.z0) / G.step));
