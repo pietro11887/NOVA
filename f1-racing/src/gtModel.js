@@ -328,6 +328,9 @@ export function createGT(opts = {}) {
       band.position.z = side * (wi.width / 2 + 0.003);
       spin.add(band);
     }
+    // F1 (dal 2022): deflettore in carbonio ad arco sopra la gomma anteriore, fissato al portamozzo
+    // (sterza con la ruota ma non gira); si vede bene dalla T-Cam e dall'abitacolo
+    if (tpl.kind === 'f1' && i < 2) pivot.add(wheelArch(wi, side, ghost ? ghostMat : archMat()));
     body.add(pivot);
     return { pivot, spin, baseY: wi.center.y, x: wi.center.x, side, arms: [], angle: 0 };
   });
@@ -593,4 +596,33 @@ export function updateArms(ck, body) {
     place(arm.fore, _v.e, _v.h, 0.034);
   });
   void body;
+}
+
+let _archMat = null;
+function archMat() { return _archMat || (_archMat = new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.32, metalness: 0.35, side: THREE.DoubleSide })); }
+// arco sopra la ruota: da poco davanti alla verticale fino a dietro, sul lato interno della gomma
+function wheelArch(wi, side, mat) {
+  const R = wi.radius + 0.035, T = 0.012, W = Math.min(0.24, wi.width * 0.62);
+  const zc = -side * wi.width * 0.16;            // un po' verso l'interno (lato del condotto freni)
+  const a0 = 0.35, a1 = 2.05, N = 22;            // angoli: 0 = avanti, pi/2 = in alto
+  const pos = [], idx = [];
+  for (let k = 0; k <= N; k++) {
+    const a = a0 + (a1 - a0) * k / N, c = Math.cos(a), s = Math.sin(a);
+    for (const [r, z] of [[R, zc - W / 2], [R, zc + W / 2], [R + T, zc + W / 2], [R + T, zc - W / 2]]) pos.push(c * r, s * r, z);
+    if (k < N) {
+      const b = k * 4, n = b + 4;
+      for (const [p, q] of [[0, 1], [1, 2], [2, 3], [3, 0]]) idx.push(b + p, n + p, b + q, b + q, n + p, n + q);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const grp = new THREE.Group();
+  const m = new THREE.Mesh(g, mat); m.castShadow = true; grp.add(m);
+  // supporto: dal centro ruota (portamozzo) all'estremità posteriore dell'arco
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, R * 0.95, 0.04), mat);
+  st.position.set(Math.cos(a1) * R * 0.5, Math.sin(a1) * R * 0.5, zc - side * W * 0.3);
+  st.rotation.z = a1 - Math.PI / 2;
+  grp.add(st);
+  return grp;
 }

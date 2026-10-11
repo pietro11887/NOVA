@@ -177,6 +177,13 @@ export class Track {
     const asphMat = new THREE.MeshStandardMaterial({ map: fine, roughness: 0.74, metalness: 0, color: this.street ? 0xd9d3cb : 0xffffff });
     // materiali fotografici: Baku e le piste disegnate (le piste da modello 3D hanno già i loro)
     this.hq = this.quality !== 'low' && !TRACK.model;
+    // piste disegnate senza sponsor: un marchio per tratto (come nei circuiti veri e in F1 25)
+    if (this.hq && !this.street && !TRACK.model && !TRACK.sponsors) {
+      const pairs = [['aramco', 'aramco'], ['pirelli', 'pirelli'], ['dhl', 'heineken'], ['lenovo', 'lenovo'], ['aws', 'crypto'], ['msc', 'salesforce'], ['qatar', 'qatar'], ['amex', 'tag']];
+      const seg = 420, out = [];
+      for (let a = 0, k = 0; a < this.length; a += seg, k++) out.push([a, Math.min(this.length + 1, a + seg), ...pairs[k % pairs.length]]);
+      TRACK.sponsors = out; TRACK.autoSponsors = true;
+    }
     const photo = this.hq ? texSet('asphalt') : null;
     asphMat.onBeforeCompile = sh => {
       if (photo) Object.assign(sh.uniforms, { pAc: { value: photo.c }, pAn: { value: photo.n }, pAr: { value: photo.r }, pAavg: { value: photo.avg } });
@@ -444,8 +451,8 @@ export class Track {
     const hiQ = this.hq;
     // muri in cemento veri: grana, rilievo e sporco (anche sotto gli sponsor)
     if (hiQ) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
-    if (this.street) {
-      // città: muri rivestiti con gli sponsor (pannelli da 6 m), leggibili dalla pista;
+    if (this.street || TRACK.autoSponsors) {
+      // muri rivestiti con gli sponsor (pannelli da 6 m), leggibili dalla pista;
       // lo spartitraffico tra due carreggiate resta bianco (si vede da entrambi i lati)
       const median = s => (side > 0 ? s.clearL : s.clearR) < 2 * s.hw + 8;
       const keys = new Set(S.map(q => sponsorAt(q.s, side)).filter(Boolean));

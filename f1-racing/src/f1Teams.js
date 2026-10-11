@@ -4,7 +4,7 @@ import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js';
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.
 // Ogni livrea è una funzione del punto della vettura (posizione e normale): così i colori
 // stanno nelle zone giuste (muso, pance, cofano motore, presa d'aria, ali) come sulle vere.
-// Solo colori e forme: niente loghi degli sponsor.
+// Colori, forme e i nomi degli sponsor principali (solo testo, come scritte sulle pance e sull'ala).
 //
 // Coordinate del modello: x laterale (+ = sinistra), y in alto (da terra), z in avanti
 // (muso a +2,9 m, coda a -2,4 m). s = 'body' (carrozzeria) oppure 'wing' (ali e alette).
@@ -33,6 +33,7 @@ export const TEAMS = [
   {
     id: 'mclaren', name: 'McLaren', car: 'MCL40', drivers: ['NORRIS', 'PIASTRI'], tier: 3,
     colors: ['#ff8000', '#2e3033', '#33c1b0'],
+    decals: [{ at: 'side', text: 'Mastercard', color: '#2b2d31', y: [0.36, 0.58] }, { at: 'wing', text: 'MASTERCARD', color: '#ff8000' }],
     paint(p) {
       const P = hex('#ff8000'), K = hex('#2b2d31'), T = hex('#2ec4b6');
       if (frontWing(p)) return endplate(p) || p.y < 0.13 ? K : P;
@@ -47,6 +48,7 @@ export const TEAMS = [
   {
     id: 'ferrari', name: 'Ferrari', car: 'SF-26', drivers: ['LECLERC', 'HAMILTON'], tier: 3, gloss: true,
     colors: ['#e8001c', '#f4f4f2', '#111111'],
+    decals: [{ at: 'side', text: 'HP', color: '#f4f4f2', y: [0.34, 0.6], font: '900' }, { at: 'wing', text: 'Scuderia Ferrari HP', color: '#f4f4f2' }],
     paint(p) {
       const R = hex('#e8001c'), W = hex('#f4f4f2'), K = hex('#141414');
       if (frontWing(p)) return p.y < 0.12 ? K : (endplate(p) ? R : R);
@@ -61,6 +63,7 @@ export const TEAMS = [
   {
     id: 'mercedes', name: 'Mercedes', car: 'W17', drivers: ['RUSSELL', 'ANTONELLI'], tier: 3,
     colors: ['#0b0b0d', '#c6cbd1', '#00d7b6'],
+    decals: [{ at: 'side', text: 'PETRONAS', color: '#00d7b6', y: [0.38, 0.56] }, { at: 'wing', text: 'PETRONAS', color: '#c6cbd1' }],
     paint(p) {
       const K = hex('#0c0c0e'), S = hex('#c4c9cf'), T = hex('#00d2b4');
       if (frontWing(p)) return endplate(p) ? T : (p.y > 0.2 ? S : K);
@@ -77,6 +80,7 @@ export const TEAMS = [
   {
     id: 'aston', name: 'Aston Martin', car: 'AMR26', drivers: ['ALONSO', 'STROLL'], tier: 1,
     colors: ['#00594f', '#cedc00', '#8bc9e8'],
+    decals: [{ at: 'side', text: 'aramco', color: '#ffffff', y: [0.36, 0.58] }, { at: 'wing', text: 'ARAMCO', color: '#cedc00' }],
     paint(p) {
       const G = hex('#005a4e'), L = hex('#cedc00'), D = hex('#0c2e29'), B = hex('#8bc9e8');
       if (rearWing(p)) return endplate(p) ? G : B;                   // ala posteriore azzurra
@@ -91,6 +95,7 @@ export const TEAMS = [
   {
     id: 'alpine', name: 'Alpine', car: 'A526', drivers: ['GASLY', 'COLAPINTO'], tier: 0,
     colors: ['#0078c1', '#fd4bc7', '#0e0e14'],
+    decals: [{ at: 'side', text: 'BWT', color: '#ffffff', y: [0.34, 0.6], font: '900' }, { at: 'wing', text: 'BWT ALPINE', color: '#fd4bc7' }],
     paint(p) {
       const Bl = hex('#0078c1'), Pk = hex('#fd4bc7'), K = hex('#0e0e14');
       if (frontWing(p)) return endplate(p) ? Pk : (p.y < 0.12 ? K : Bl);
@@ -104,6 +109,7 @@ export const TEAMS = [
   {
     id: 'williams', name: 'Williams', car: 'FW48', drivers: ['ALBON', 'SAINZ'], tier: 1,
     colors: ['#00205b', '#00a3e0', '#ffffff'],
+    decals: [{ at: 'side', text: 'ATLASSIAN', color: '#ffffff', y: [0.38, 0.56] }, { at: 'wing', text: 'ATLASSIAN', color: '#00a3e0' }],
     paint(p) {
       const N = hex('#062a6e'), Lb = hex('#00a3e0'), W = hex('#f5f7fa');
       if (p.s === 'wing') return endplate(p) ? N : W;               // ali bianche
@@ -115,6 +121,7 @@ export const TEAMS = [
   {
     id: 'rb', name: 'Racing Bulls', car: 'VCARB 03', drivers: ['LAWSON', 'LINDBLAD'], tier: 1,
     colors: ['#f5f6f8', '#1d4dd8', '#e1062c'],
+    decals: [{ at: 'side', text: 'VISA', color: '#1d4dd8', y: [0.36, 0.58], font: '900' }, { at: 'wing', text: 'CASH APP', color: '#1d4dd8' }],
     paint(p) {
       const W = hex('#f4f5f7'), Bl = hex('#1d4dd8'), R = hex('#e1062c');
       if (rearWing(p)) return endplate(p) ? W : Bl;
@@ -129,6 +136,7 @@ export const TEAMS = [
   {
     id: 'audi', name: 'Audi', car: 'R26', drivers: ['HULKENBERG', 'BORTOLETO'], tier: 0,
     colors: ['#c3c9cf', '#121212', '#f50537'],
+    decals: [{ at: 'side', text: 'Revolut', color: '#121212', y: [0.36, 0.58] }, { at: 'wing', text: 'AUDI', color: '#f50537' }],
     paint(p) {
       const Ti = hex('#bfc5cc'), K = hex('#121212'), R = hex('#f50537');
       if (rearWing(p)) return endplate(p) ? R : K;
@@ -142,6 +150,7 @@ export const TEAMS = [
   {
     id: 'haas', name: 'Haas', car: 'VF-26', drivers: ['OCON', 'BEARMAN'], tier: 0,
     colors: ['#f7f7f7', '#e6002b', '#111111'],
+    decals: [{ at: 'side', text: 'TOYOTA GAZOO RACING', color: '#e6002b', y: [0.38, 0.55] }, { at: 'wing', text: 'HAAS', color: '#e6002b' }],
     paint(p) {
       const W = hex('#f7f7f7'), R = hex('#e6002b'), K = hex('#111111');
       if (rearWing(p)) return band(p.y, 0.9, 0.02) ? R : K;
@@ -155,6 +164,7 @@ export const TEAMS = [
   {
     id: 'cadillac', name: 'Cadillac', car: 'MAC-26', drivers: ['PEREZ', 'BOTTAS'], tier: 0,
     colors: ['#e9eaec', '#0e0e10', '#b59a5b'],
+    decals: [{ at: 'side', text: 'CADILLAC', color: '#0e0e10', y: [0.38, 0.56] }, { at: 'wing', text: 'CADILLAC', color: '#b59a5b' }],
     paint(p) {
       // due lati: grigio-bianco a sinistra, nero a destra, filetto oro al centro
       const W = hex('#e6e7e9'), K = hex('#0e0e10'), Au = hex('#b59a5b');
