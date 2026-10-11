@@ -12,6 +12,7 @@ import { Input } from './input.js';
 import { PadNav } from './padNav.js';
 import { Post } from './post.js';
 import { BakuFx } from './bakuFx.js';
+import { WallMarks } from './wallMarks.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
@@ -119,7 +120,7 @@ const padNav = new PadNav({
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
-let minimap, post = null, glow = null, bakuFx = null;
+let minimap, post = null, glow = null, bakuFx = null, wallMarks = null;
 
 function build() {
   track.quality = settings.quality;
@@ -175,6 +176,8 @@ function build() {
   // scintille e bagliori (si sommano alla luce: con gli effetti TV brillano)
   glow = new Particles(scene, settings.quality === 'high' ? 700 : 300, { additive: true });
   skids = new SkidMarks(scene);
+  // segni e ammaccature sui muri dopo gli urti
+  wallMarks = new WallMarks(scene, track, particles);
   debris = new Debris(scene, track);
   phys.hazards = p => debris.contact(p);
   minimap = new Minimap($('minimap'), track);
@@ -219,6 +222,7 @@ function resetSession() {
   particles.clear();
   if (glow) glow.clear();
   if (bakuFx) bakuFx.clear();
+  if (wallMarks) wallMarks.clear();
   skids.clear();
   phys.reset(track.count - 6, -3.4);
   phys.damageMode = dmMode();
@@ -368,6 +372,7 @@ function onImpact(c, bot = null) {
     else showBanner('FORATURA!', 'red', 2.5);
     return;
   }
+  if (wallMarks && c.wall) wallMarks.hit(c, bot ? bot.phys.vx : phys.vx, bot ? bot.phys.vz : phys.vz, bot ? bot.color : playerPaint());
   if (bot) {
     // urti degli avversari: scintille e suono attenuato dalla distanza
     const d = Math.hypot(c.x - phys.x, c.z - phys.z);
@@ -1825,6 +1830,8 @@ function pickTrack(id) {
   renderTrackList();
 }
 // opzioni del modello del giocatore: in F1 la livrea della scuderia scelta
+// colore della carrozzeria del giocatore (per la vernice lasciata sui muri)
+function playerPaint() { if (race && race.player && race.player.color != null && !IS_F1) return race.player.color; const t = IS_F1 && teamById(settings.f1Team); return (t && t.colors && t.colors[0]) || 0xff8a1c; }
 function playerCarOpts(extra = {}) { return IS_F1 ? { team: teamById(settings.f1Team), ...extra } : extra; }
 // scuderie (solo Formula 1): la vettura del giocatore cambia livrea subito
 function renderTeams() {
@@ -2388,7 +2395,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

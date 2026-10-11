@@ -471,7 +471,7 @@ export class CarPhysics {
       const pen = Math.abs(pr.d) - wall;
       if (pen <= 0 || (hit && pen <= hit.pen)) continue;
       const sgn = pr.d > 0 ? 1 : -1;
-      hit = { pen, part, px, pz, y: pr.y, nx: -sgn * pr.nx, nz: -sgn * pr.nz };   // normale verso la pista
+      hit = { pen, part, px, pz, y: pr.y, nx: -sgn * pr.nx, nz: -sgn * pr.nz, i: pr.i, side: sgn };   // normale verso la pista
     }
     if (!hit) return;
     const { pen, part, px, pz, nx, nz } = hit;
@@ -489,7 +489,10 @@ export class CarPhysics {
     const soft = Math.min(1, Math.max(0.3, (impact - 1) / 7));
     const Iz = this.Iz * CAR_SCALE * CAR_SCALE / soft;
     const rn = rx * nz - rz * nx;
-    const e = impact < 4 ? 0.06 : 0.18;
+    // barriere morbide (TecPro, gomme): assorbono l'urto, si rimbalza poco e la vettura si rovina meno
+    const smp = this.track.samples[hit.i];
+    const softWall = hit.side > 0 ? !!(smp.gravelL || smp.escL) : !!(smp.gravelR || smp.escR);
+    const e = softWall ? 0.04 : impact < 4 ? 0.06 : 0.18;
     const j = -(1 + e) * vn / (1 / this.mass + rn * rn / Iz);
     this.vx += j * nx / this.mass; this.vz += j * nz / this.mass;
     this.yawRate += j * rn / Iz;
@@ -502,8 +505,8 @@ export class CarPhysics {
     jt = Math.max(-maxJt, Math.min(maxJt, jt));
     this.vx += jt * tx / this.mass; this.vz += jt * tz / this.mass;
     this.yawRate += jt * rt / Iz;
-    const ev = { impact, part, x: px, z: pz, y: hit.y, nx, nz, scrape: Math.abs(vt) };
-    this.applyDamage(part, impact);
+    const ev = { impact, part, x: px, z: pz, y: hit.y, nx, nz, scrape: Math.abs(vt), wall: true, soft: softWall, i: hit.i, side: hit.side };
+    this.applyDamage(part, softWall ? impact * 0.55 : impact);
     for (const fn of this.listeners.impact) fn(ev);
   }
 

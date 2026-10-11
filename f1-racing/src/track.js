@@ -3,6 +3,9 @@ import { buildTrack, KERB_WIDTH as K, TRACK, sponsorAt } from './trackData.js';
 import * as tex from './textures.js';
 import { texSet, triplanar } from './pbr.js';
 
+// ammaccature delle barriere morbide: [x, z, profondità, raggio] e [direzione verso l'esterno x, z, quota dell'urto]
+export const DENTS = { a: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, d: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, next: 0 };
+
 export const SURF = { ROAD: 0, KERB: 1, SAUSAGE: 2, GRASS: 3, GRAVEL: 4 };
 // aderenza e resistenza al rotolamento (in g) per superficie
 export const SURF_PROPS = [
@@ -336,22 +339,30 @@ export class Track {
     const barrierT = tex.barrier(); barrierT.anisotropy = aniso;
     const tyreT = tex.tyreWall(); tyreT.anisotropy = aniso;
     const fenceT = tex.fence(); fenceT.anisotropy = aniso;
-    const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false, flip = 1) => {
+    // sub: suddivisioni tra due campioni, hr: righe in altezza (le barriere morbide ne hanno tante per potersi ammaccare)
+    const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false, flip = 1, sub = 1, hr = 1) => {
       const pos = [], uv = [], idx = [];
-      let prev = -1;
-      for (let ii = 0; ii <= n; ii++) {
-        const i = ii % n, s = S[i];
-        if (mask && !mask(s)) { prev = -1; continue; }
-        const w = (pitWall ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR)) + extrude;
-        const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
-        const row = pos.length / 6;
-        pos.push(x, s.y + h0, z, x, s.y + h1, z);
-        uv.push(flip * s.s / vs, 0, flip * s.s / vs, 1);
-        if (prev >= 0) {
-          const a = prev * 2, b = a + 1, c = row * 2, d = c + 1;
+      let prev = -1, last = null;
+      const W = hr + 1;
+      const put = (x, y, z, ss) => {
+        const row = pos.length / (3 * W);
+        for (let r = 0; r <= hr; r++) { const t = r / hr; pos.push(x, y + h0 + (h1 - h0) * t, z); uv.push(flip * ss / vs, t); }
+        if (prev >= 0) for (let r = 0; r < hr; r++) {
+          const a = prev * W + r, b = a + 1, c = row * W + r, d = c + 1;
           if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
         }
         prev = row;
+      };
+      for (let ii = 0; ii <= n; ii++) {
+        const i = ii % n, s = S[i];
+        if (mask && !mask(s)) { prev = -1; last = null; continue; }
+        const w = (pitWall ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR)) + extrude;
+        const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
+        // ss: distanza continua anche a cavallo del traguardo
+        const ss = ii === n ? s.s + this.length : s.s;
+        if (last && sub > 1) for (let k = 1; k < sub; k++) { const t = k / sub; put(last[0] + (x - last[0]) * t, last[1] + (s.y - last[1]) * t, last[2] + (z - last[2]) * t, last[3] + (ss - last[3]) * t); }
+        put(x, s.y, z, ss);
+        last = [x, s.y, z, ss];
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -366,6 +377,31 @@ export class Track {
     const shared = s => (side > 0 ? s.sharedL : s.sharedR);
     const barrierMat = new THREE.MeshStandardMaterial({ map: barrierT, roughness: 0.7, side: THREE.DoubleSide });
     const tyreMat = new THREE.MeshStandardMaterial({ map: this.street ? tecPro() : tyreT, roughness: this.street ? 0.55 : 0.9, side: THREE.DoubleSide });
+    // barriere morbide: si ammaccano dove le colpisci (e restano così)
+    tyreMat.onBeforeCompile = sh => {
+      sh.uniforms.uDentA = DENTS.a; sh.uniforms.uDentD = DENTS.d;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform vec4 uDentA[12]; uniform vec4 uDentD[12]; varying float vDent;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          vDent = 0.0;
+          { vec3 wp = (modelMatrix * vec4(transformed, 1.0)).xyz;
+            for (int k = 0; k < 12; k++) {
+              vec4 A = uDentA[k];
+              if (A.z <= 0.0) continue;
+              vec2 dd = wp.xz - A.xy;
+              float f = exp(-dot(dd, dd) / (A.w * A.w));
+              // più ammaccata all'altezza dell'urto, quasi ferma alla base
+              float ry = wp.y - uDentD[k].z;
+              float hy = smoothstep(-1.4, 0.1, ry) * (1.0 - 0.35 * smoothstep(0.4, 1.1, ry));
+              vec2 push = uDentD[k].xy * A.z * f * hy;
+              transformed.x += push.x; transformed.z += push.y;
+              transformed.y -= A.z * f * 0.12 * hy;
+              // blocchi schiacciati e spostati: pieghe irregolari
+              transformed.xz += uDentD[k].xy * A.z * f * hy * 0.35 * sin(wp.x * 3.1 + wp.z * 2.7);
+              vDent = max(vDent, A.z * f * hy);
+            } }`);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDent;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= 1.0 - min(0.5, vDent * 0.8);');
+    };
     const hiQ = this.street && this.quality !== 'low';
     // muri in cemento veri: grana, rilievo e sporco (anche sotto gli sponsor)
     if (hiQ) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
@@ -383,7 +419,7 @@ export class Track {
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !sponsorAt(s.s, side) && !isTyre(s) && !shared(s) && !median(s)));
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s) && median(s)));
     } else grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
-    grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s)));
+    grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s), 0, false, 1, 4, 8));
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
     // muretto box tra pista e corsia box (dal lato dei box)
