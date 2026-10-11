@@ -69,13 +69,20 @@ export function trackAsphalt() {
 }
 
 export function kerb() {
-  const [c, g] = canvas(64, 256);
-  g.fillStyle = '#d8231f'; g.fillRect(0, 0, 64, 128);
-  g.fillStyle = '#f5f5f5'; g.fillRect(0, 128, 64, 128);
-  // bordo interno leggermente più scuro
-  g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, 0, 6, 256);
-  // leggere nervature
-  for (let y = 0; y < 256; y += 16) { g.fillStyle = 'rgba(0,0,0,0.07)'; g.fillRect(0, y, 64, 3); }
+  // cordolo da F1: blocchi rossi e bianchi verniciati, nervature trasversali, bordo esterno più scuro
+  const [c, g] = canvas(128, 512);
+  g.fillStyle = '#c8172a'; g.fillRect(0, 0, 128, 256);
+  g.fillStyle = '#f2f2ee'; g.fillRect(0, 256, 128, 256);
+  // giunti tra i blocchi
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 0, 128, 3); g.fillRect(0, 256, 128, 3);
+  // nervature (il "dente" che fa vibrare la vettura)
+  for (let y = 0; y < 512; y += 18) { g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(0, y + 9, 128, 5); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, y + 4, 128, 3); }
+  // bordo interno smussato e bordo esterno
+  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(0, 0, 8, 512);
+  g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(120, 0, 8, 512);
+  // gomma lasciata da chi ci passa sopra (verso l'interno)
+  const r = rand(17);
+  for (let k = 0; k < 140; k++) { g.fillStyle = `rgba(20,18,16,${0.05 + r() * 0.12})`; const x = r() * 60, y = r() * 512; g.fillRect(x, y, 2 + r() * 10, 6 + r() * 40); }
   return finish(c);
 }
 

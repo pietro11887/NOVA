@@ -72,7 +72,12 @@ export function triplanar(mat, name, opts = {}) {
         vec3 gWN = normalize(cross(dFdx(vWP), dFdy(vWP)));
         vec3 tW = triW(gWN), tP = vWP * ${S};
         vec3 tCol = triTex(tTc, tP, tW).rgb / tTavg;
-        diffuseColor.rgb *= mix(vec3(1.0), clamp(tCol, 0.0, 2.2), ${K});`)
+        diffuseColor.rgb *= mix(vec3(1.0), clamp(tCol, 0.0, 2.2), ${K});` + (opts.vary ? `
+        // prato vero: zone più chiare, più scure e un po' secche (mai un verde uniforme)
+        { float zv = texture2D(tTc, vWP.xz * 0.006 + 0.13).g / tTavg.g, zd = texture2D(tTc, vWP.xz * 0.0021 + 0.57).r / tTavg.r;
+          diffuseColor.rgb *= mix(0.8, 1.15, smoothstep(0.6, 1.4, zv));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.05, 0.7), smoothstep(0.9, 1.5, zd) * 0.55);
+          float lg = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = mix(vec3(lg), diffuseColor.rgb, 0.82); }` : ''))
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = clamp(roughnessFactor * (0.55 + 0.9 * triTex(tTr, tP, tW).g), 0.05, 1.0);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -80,7 +85,7 @@ export function triplanar(mat, name, opts = {}) {
           vec3 pn = triNrm(tTn, tP, wn, triW(wn), ${NK});
           normal = normalize((viewMatrix * vec4(pn, 0.0)).xyz); }`);
   };
-  mat.customProgramCacheKey = () => 'tri-' + name + S + K + NK + (prev ? prev.toString().length : 0);
+  mat.customProgramCacheKey = () => 'tri-' + name + S + K + NK + (opts.vary ? 'v' : '') + (prev ? prev.toString().length : 0);
   mat.needsUpdate = true;
   return mat;
 }
@@ -133,7 +138,11 @@ export function meadow(mat) {
         // nei campi (gialli, arati) conta solo la grana, non il colore dell'erba
         float green = smoothstep(0.0, 0.08, vColor.g - vColor.r);
         vec3 det = mix(vec3(ml), mc, green);
-        diffuseColor.rgb *= clamp(mix(vec3(1.0), det, 0.75), 0.0, 2.2);`)
+        diffuseColor.rgb *= clamp(mix(vec3(1.0), det, 0.75), 0.0, 2.2);
+        { float zv = texture2D(mGc, mq * 0.006 + 0.13).g / mGa.g, zd = texture2D(mGc, mq * 0.0021 + 0.57).r / mGa.r;
+          diffuseColor.rgb *= mix(0.82, 1.12, smoothstep(0.6, 1.4, zv));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.15, 1.04, 0.72), smoothstep(0.9, 1.5, zd) * 0.5 * green);
+          float lg = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = mix(vec3(lg), diffuseColor.rgb, 0.85); }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         { vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
           normal = normalize((viewMatrix * vec4(flatNrm(texture2D(mGn, mq * 0.3), wn, 0.8), 0.0)).xyz); }`);

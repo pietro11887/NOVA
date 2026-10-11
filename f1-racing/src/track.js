@@ -189,7 +189,38 @@ export class Track {
           diffuseColor *= aTex * (0.82 + 0.55 * big);` + (photo ? `
           // foto dell'asfalto da gara: grana, inerti, toppe
           vec2 pq = vWPos.xz * 0.25;
-          diffuseColor.rgb *= clamp(mix(vec3(1.0), texture2D(pAc, pq).rgb / pAavg, 0.6), 0.0, 2.0);` : ''))
+          diffuseColor.rgb *= clamp(mix(vec3(1.0), texture2D(pAc, pq).rgb / pAavg, 0.6), 0.0, 2.0);
+          // strada "vissuta" (come in F1 25): coordinate lungo la pista (metri) e attraverso (0..1)
+          {
+            float along = vMapUv.y * 10.0, across = vMapUv.x;
+            float edge = min(across, 1.0 - across);
+            // grandi zone di asfalto più nuovo (scuro) e più consumato (chiaro)
+            float zn = texture2D(map, vWPos.xz * 0.0035 + 0.21).r;
+            diffuseColor.rgb *= mix(0.84, 1.1, smoothstep(0.25, 0.75, zn));
+            // toppe rettangolari di rifacimento, allineate alla strada
+            vec2 pc = vec2(floor(along / 7.0), floor(across * 3.0));
+            float ph = fract(sin(dot(pc, vec2(12.9898, 78.233))) * 43758.5453);
+            vec2 pf = vec2(fract(along / 7.0), fract(across * 3.0));
+            float patchM = step(0.84, ph) * smoothstep(0.0, 0.04, min(pf.x, 1.0 - pf.x)) * smoothstep(0.0, 0.05, min(pf.y, 1.0 - pf.y));
+            diffuseColor.rgb *= 1.0 - 0.22 * patchM;
+            // crepe sigillate col bitume (linee scure sottili e rade)
+            float cn = texture2D(map, vec2(along * 0.021, across * 0.9) + 0.6).r;
+            float crack = (1.0 - smoothstep(0.0, 0.012, abs(cn - 0.5))) * step(0.55, texture2D(map, vec2(along * 0.006, across * 0.3) + 0.3).r);
+            diffuseColor.rgb *= 1.0 - 0.45 * crack;
+            // polvere e sporco verso i bordi
+            float dust = 1.0 - smoothstep(0.015, 0.09, edge);
+            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.12, 1.0), dust * 0.6);
+            ${this.street ? `
+            // città: vecchia segnaletica di corsia, consumata, e tombini
+            float lane = (1.0 - smoothstep(0.004, 0.007, abs(across - 0.5))) * step(0.45, fract(along / 9.0));
+            float worn = smoothstep(0.3, 0.7, texture2D(map, vec2(along * 0.15, across * 4.0) + 0.1).r);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.74, 0.7), lane * 0.55 * worn);
+            float mc = floor(along / 31.0), mh = fract(sin(mc * 17.13) * 43758.5);
+            vec2 mpos = vec2((mc + 0.5) * 31.0, 0.2 + 0.6 * mh);
+            float md = length(vec2(along - mpos.x, (across - mpos.y) * 14.0));
+            diffuseColor.rgb *= 1.0 - 0.55 * (1.0 - smoothstep(0.32, 0.36, md)) * step(0.4, mh) + 0.0;
+            diffuseColor.rgb *= 1.0 + 0.25 * (smoothstep(0.30, 0.33, md) - smoothstep(0.36, 0.40, md)) * step(0.4, mh);` : ''}
+          }` : ''))
         .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + (photo ? `
           { vec3 t = texture2D(pAn, pq).xyz * 2.0 - 1.0; t.xy *= 1.4;
             vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
@@ -212,7 +243,7 @@ export class Track {
     // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
     if (!this.street) {
       const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
-      if (this.hq) { darkGrass.color.set(0x3a7433); triplanar(darkGrass, 'grass', { scale: 3, strength: 0.75, normal: 0.8 }); }
+      if (this.hq) { darkGrass.color.set(0x3b6334); triplanar(darkGrass, 'grass', { scale: 3, strength: 0.75, normal: 0.8, vary: true }); }
       g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
       g.add(this.ribbon([[E(-1, -4.5), -0.03], [E(-1, -0.6), 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
     }
@@ -220,9 +251,10 @@ export class Track {
     // Cordoli
     const kt = tex.kerb(); kt.anisotropy = aniso;
     const kerbMat = new THREE.MeshStandardMaterial({ map: kt, roughness: 0.6 });
+    if (this.hq) triplanar(kerbMat, 'concrete', { scale: 1.2, strength: 0.35, normal: 0.9 });
     const prof = [[0, 0.006], [0.35, 0.05], [K, 0.07]];
-    g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, 3.6));
-    g.add(this.ribbon(prof.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].kerbR, kerbMat, 3.6));
+    g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, 3.0));
+    g.add(this.ribbon(prof.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].kerbR, kerbMat, 3.0));
     // cordoli a salsiccia (gialli)
     const sausMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 });
     const sp = []; for (let k = 0; k <= 6; k++) sp.push([K + 0.7 * k / 6, 0.11 * Math.sin(Math.PI * k / 6)]);
@@ -237,7 +269,7 @@ export class Track {
     const gravT = tex.gravel(); gravT.anisotropy = aniso;
     const gravMat = new THREE.MeshStandardMaterial({ map: gravT, roughness: 1 });
     // erba e ghiaia fotografiche
-    if (this.hq && !this.street) { grassMat.color.set(0xb4bfa4); triplanar(grassMat, 'grass', { scale: 3, strength: 0.75, normal: 0.8 }); triplanar(gravMat, 'gravel', { scale: 1.6, strength: 0.85, normal: 1.2 }); }
+    if (this.hq && !this.street) { grassMat.color.set(0x8f9a7c); triplanar(grassMat, 'grass', { scale: 3, strength: 0.75, normal: 0.8, vary: true }); triplanar(gravMat, 'gravel', { scale: 1.6, strength: 0.85, normal: 1.2 }); }
     // lato sinistro: da bordo pista al muro
     g.add(this.sideRibbon(1, grassMat, gravMat));
     g.add(this.sideRibbon(-1, grassMat, gravMat));

@@ -222,9 +222,10 @@ export class Scenery {
           if (h > 0.0) {
             vec2 uv = d.xz / (h + 0.35) * 2.2 + vec2(time * 0.006, time * 0.002);
             float n = fbm(uv) * 0.8 + fbm(uv * 3.1 + 7.0) * 0.2;
-            float cov = smoothstep(0.52, 0.7, n) * smoothstep(0.04, 0.3, h);
-            float shade = smoothstep(0.5, 0.85, fbm(uv * 2.3 + 3.0));
-            vec3 cloud = mix(vec3(1.0, 0.995, 0.98), vec3(0.66, 0.71, 0.8), shade * 0.75);
+            // cumuli: bordi netti, pancia grigio-azzurra, cima bianca illuminata
+            float cov = smoothstep(0.5, 0.62, n) * smoothstep(0.03, 0.22, h);
+            float shade = smoothstep(0.45, 0.85, fbm(uv * 2.3 + 3.0)) * 0.7 + (1.0 - smoothstep(0.5, 0.75, n)) * 0.3;
+            vec3 cloud = mix(vec3(1.05, 1.04, 1.02), vec3(0.62, 0.68, 0.78), shade * 0.8);
             cloud += vec3(1.0, 0.86, 0.62) * pow(sd, 8.0) * 0.35;
             col = mix(col, cloud, cov * 0.95);
           }
@@ -328,7 +329,7 @@ export class Scenery {
       const cl = this.clearance(x, z).d;
       const n = Math.sin(x * 0.05) * Math.cos(z * 0.04) * 0.5 + 0.5;
       // prato curato vicino alla pista
-      c.setHSL(0.27 + n * 0.035, 0.48 + r() * 0.06, 0.34 + n * 0.05 + r() * 0.025);
+      c.setHSL(0.25 + n * 0.035, 0.34 + r() * 0.06, 0.31 + n * 0.05 + r() * 0.025);
       // campi coltivati più lontano
       const f = this.field(x, z);
       t2.copy(FIELD[f.type]).offsetHSL((f.h - 0.5) * 0.03, 0, (r() - 0.5) * 0.04);
