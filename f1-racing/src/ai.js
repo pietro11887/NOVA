@@ -6,13 +6,14 @@ import { ARCADE } from './driveMode.js';
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
 
-export function skillParams(strength) {
+// street: Baku resta com'era; sulle altre piste i bot non vanno mai oltre il limite della vettura in curva
+export function skillParams(strength, street = false) {
   const t = Math.max(0, Math.min(1, (strength - 1) / 109));
   const boost = Math.pow(t, 1.6);
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: Math.min(0.985, 0.95 + 0.06 * t) * CAR.mu,   // mai oltre il limite vero della vettura   // aderenza sfruttata (prima del bonus)
+    mu: (street ? 0.98 + 0.09 * t : Math.min(0.985, 0.95 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
     grip: 1 + 0.2 * boost,            // 110 → +14% di aderenza
     power: 1 + 0.26 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
     brake: 0.9 + 0.07 * t,            // frazione della frenata massima
@@ -44,7 +45,8 @@ export class AIDriver {
 
   setStrength(strength) {
     this.strength = strength;
-    this.skill = skillParams(strength);
+    this.street = !!this.line.track.street;
+    this.skill = skillParams(strength, this.street);
     const t = (strength - 1) / 109;
     // arcade: più aderenza e frenate più forti anche per i bot
     const arc = this.phys.arcade;
@@ -76,7 +78,7 @@ export class AIDriver {
     // chicane: subito dopo la corda la curva cambia verso (S): lì non si attacca, l'interno diventa l'esterno
     const S0 = this.line.track.samples;
     this.chicane = new Uint8Array(n);
-    for (const a of apex) {
+    if (!this.street) for (const a of apex) {
       const sg = Math.sign(S0[a].curv);
       for (let k = 4; k < Math.round(70 / this.line.track.step); k++) if (Math.sign(S0[(a + k) % n].curv) === -sg && Math.abs(S0[(a + k) % n].curv) > 0.012) { this.chicane[a] = 1; break; }
     }
@@ -125,7 +127,7 @@ export class AIDriver {
     if (this.sc) { this.attack = null; if (this.mistake && this.mistake.type !== 'late') this.mistake = null; if (this.mistake) this.mistake = null; }
     if (this.attack && this.t > this.attack.until) this.attack = null;
     // passata la corda l'attacco è finito: si torna sulla traiettoria (e non si taglia la strada in uscita)
-    if (this.attack && this.attack.apex != null) { const past = (i - this.attack.apex + n) % n; if (past > 2 && past < n / 2) this.attack = null; }
+    if (this.attack && this.attack.apex != null && !this.street) { const past = (i - this.attack.apex + n) % n; if (past > 2 && past < n / 2) this.attack = null; }
 
     // --- traffico ---
     let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -22;
@@ -134,10 +136,11 @@ export class AIDriver {
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
     // distanza laterale misurata rispetto alla traiettoria (nelle esse la linea passa da un lato all'altro:
     // due vetture in fila sulla stessa linea hanno "d" diverse ma sono una dietro l'altra)
-    const myLD = myD - this.line.off[i];
+    const myLD = this.street ? myD : myD - this.line.off[i];
+    const lineOff = j => (this.street ? 0 : this.line.off[j]);
     for (const c of cars) {
       if (c.phys === p || c.gone || c.phys.inPit) continue;   // le vetture ritirate in pista sono ostacoli
-      const g = gapTo(c), dd = (c.phys.prCG.d - this.line.off[c.phys.prCG.i]) - myLD, lat = Math.abs(dd);
+      const g = gapTo(c), dd = (c.phys.prCG.d - lineOff(c.phys.prCG.i)) - myLD, lat = Math.abs(dd);
       if (g > -4 && g < hazGap) {
         const cp = c.phys, pr = cp.prCG;
         const along = cp.vx * pr.tx + cp.vz * pr.tz;             // velocità lungo la pista
@@ -196,7 +199,7 @@ export class AIDriver {
       }
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati.
-      const lat = Math.abs((od - this.line.off[blocker.phys.prCG.i]) - myLD);
+      const lat = Math.abs((od - lineOff(blocker.phys.prCG.i)) - myLD);
       const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
