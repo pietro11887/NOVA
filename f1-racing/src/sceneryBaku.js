@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Scenery, ENV } from './scenery.js';
 import { PIT, TRACK } from './trackData.js';
+import { texSet, triplanar, ground, addWorldPos, setAniso } from './pbr.js';
+import { buildTrees } from './trees.js';
+const _hsl = {};
 
 // Baku City Circuit: la città vera intorno alla pista, dai dati OpenStreetMap
 // (© OpenStreetMap contributors, ODbL). Edifici estrusi con le loro forme e altezze,
@@ -217,6 +220,12 @@ export class BakuScenery extends Scenery {
   }
 
   build() {
+    // materiali fotografici (con grafica media e alta)
+    setAniso(this.aniso);
+    if (!this.low) {
+      triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 });
+      this.wallMat = triplanar(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), 'oldwall', { scale: 3.2, strength: 0.95, normal: 1.3 });
+    } else this.wallMat = this.colored;
     const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'timingClock', 'grandstands', 'gantry', 'screen', 'billboards',
       'buildings', 'roads', 'landmarks', 'trackside', 'brakeBoards', 'spectators', 'cityTrees', 'lamps'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
@@ -401,7 +410,9 @@ export class BakuScenery extends Scenery {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+    const tmat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
+    if (!this.low) ground(tmat);
+    const mesh = new THREE.Mesh(geo, tmat);
     mesh.receiveShadow = true;
     this.group.add(mesh);
   }
@@ -492,13 +503,13 @@ export class BakuScenery extends Scenery {
       if (len < 0.1) continue;
       const ry = Math.atan2(-(b.z - a.z), b.x - a.x);
       const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, y = this.heightAt(mx, mz);
-      this.batch.add(new THREE.BoxGeometry(len + 0.3, H + 3, T), this.colored, mat4(mx, y + H / 2 - 1.5, mz, ry), k % 3 ? stone : stone2);
+      this.batch.add(new THREE.BoxGeometry(len + 0.3, H + 3, T), this.wallMat, mat4(mx, y + H / 2 - 1.5, mz, ry), k % 3 ? stone : stone2);
       // merli
       for (let q = 0; q < len; q += 2.2) {
         const f = (q + 0.6) / len;
         if (f > 1) break;
         const px = a.x + (b.x - a.x) * f, pz = a.z + (b.z - a.z) * f;
-        this.batch.add(merlon, this.colored, mat4(px, y + H + 0.55, pz, ry), stone);
+        this.batch.add(merlon, this.wallMat, mat4(px, y + H + 0.55, pz, ry), stone);
       }
       acc += len;
       // torri semicircolari ogni ~38 m, sporgenti verso la pista
@@ -508,10 +519,10 @@ export class BakuScenery extends Scenery {
         const sg = run[k].side, s = run[k].s;
         const cx = b.x + s.nx * sg * 2.0, cz = b.z + s.nz * sg * 2.0;
         const th = H + 2.5;
-        this.batch.add(new THREE.CylinderGeometry(3.0, 3.3, th + 2, 14), this.colored, mat4(cx, y + th / 2 - 1, cz), stone2);
+        this.batch.add(new THREE.CylinderGeometry(3.0, 3.3, th + 2, 14), this.wallMat, mat4(cx, y + th / 2 - 1, cz), stone2);
         for (let q = 0; q < 10; q++) {
           const ang = q / 10 * Math.PI * 2;
-          this.batch.add(merlon, this.colored, mat4(cx + Math.cos(ang) * 2.7, y + th + 0.55, cz + Math.sin(ang) * 2.7, -ang + Math.PI / 2), stone);
+          this.batch.add(merlon, this.wallMat, mat4(cx + Math.cos(ang) * 2.7, y + th + 0.55, cz + Math.sin(ang) * 2.7, -ang + Math.PI / 2), stone);
         }
         this.occupied.push([cx, cz, 5]);
       }
@@ -642,6 +653,119 @@ export class BakuScenery extends Scenery {
   }
 
   // ------------------------------------------------------------------ città
+  // facciate vere: finestre incassate (si vede lo spessore del muro da ogni angolazione), vetri che riflettono
+  // la città, davanzali, luci accese dentro casa, negozi al piano terra; pietra calcarea e cemento fotografici
+  facadeMaterial() {
+    if (this.low) return null;
+    const L = texSet('limestone'), C = texSet('concrete');
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+    mat.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, {
+        tLc: { value: L.c }, tLn: { value: L.n }, tLr: { value: L.r }, tLavg: { value: L.avg },
+        tCc: { value: C.c }, tCn: { value: C.n }, tCr: { value: C.r }, tCavg: { value: C.avg },
+      });
+      addWorldPos(sh);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 fuv; attribute vec3 tang; attribute vec3 bst; varying vec2 vFU; varying vec3 vT; varying vec3 vBS;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFU = fuv; vT = tang; vBS = bst;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        uniform sampler2D tLc, tLn, tLr, tCc, tCn, tCr; uniform vec3 tLavg, tCavg;
+        varying vec2 vFU; varying vec3 vT; varying vec3 vBS;
+        float inWin(vec2 p, vec4 R, float arch){
+          if (p.x < R.x || p.x > R.z || p.y < R.y || p.y > R.w) return 0.0;
+          float aR = (R.z - R.x) * 0.5;
+          if (arch > 0.5 && p.y > R.w - aR) return step(length(p - vec2((R.x + R.z) * 0.5, R.w - aR)), aR);
+          return 1.0;
+        }
+        float fh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+        float st = floor(vBS.x + 0.5), sdq = floor(vBS.y * 997.0 + 0.5), sd = sdq / 997.0;   // valori esatti (niente rumore dall'interpolazione)
+        bool wallF = length(vT) > 0.5;
+        vec3 Nw = normalize((vec4(vNormal, 0.0) * viewMatrix).xyz);
+        vec3 T = wallF ? normalize(vT) : vec3(1.0, 0.0, 0.0), U = vec3(0.0, 1.0, 0.0);
+        vec2 mUV = wallF ? vec2(vFU.x * 3.6, vFU.y * 3.4) : vWP.xz;
+        float isC = (st > 1.5 && st < 3.5) || !wallF ? 1.0 : 0.0;
+        vec2 tuv = mUV / mix(2.4, 3.2, isC);
+        vec3 texC = mix(texture2D(tLc, tuv).rgb / tLavg, texture2D(tCc, tuv).rgb / tCavg, isC);
+        vec4 texN = mix(texture2D(tLn, tuv), texture2D(tCn, tuv), isC);
+        float texR = mix(texture2D(tLr, tuv).g, texture2D(tCr, tuv).g, isC);
+        diffuseColor.rgb *= clamp(mix(vec3(1.0), texC, 0.75), 0.0, 2.2);
+        vec3 tn = texN.xyz * 2.0 - 1.0;
+        vec3 Bt = wallF ? U : normalize(cross(T, Nw));
+        vec3 fN = normalize(T * tn.x + Bt * tn.y + Nw * max(0.2, tn.z));
+        float fR = clamp(0.55 + 0.45 * texR, 0.0, 1.0), fM = 0.0;
+        vec3 fE = vec3(0.0);
+        vec3 wall0 = diffuseColor.rgb;
+        // da lontano (finestra di pochi pixel) i dettagli si fondono in un colore medio: niente sfarfallio
+        float far = smoothstep(0.12, 0.4, max(fwidth(vFU.x), fwidth(vFU.y)));
+        if (wallF && st < 3.5) {
+          vec2 cell = fract(vFU), id = floor(vFU);
+          vec2 idm = mod(id, 64.0); float h1 = fh(idm + vec2(sdq * 0.37, sdq * 0.11)), h2 = fh(idm * 1.7 + vec2(sdq * 0.13, sdq * 0.29) + 5.0);
+          bool shop = id.y < 0.5 && st != 2.0;
+          vec4 R; float depth, arch = 0.0;
+          if (st == 2.0) { R = vec4(0.03, 0.16, 0.97, 0.98); depth = 0.08; }
+          else if (st == 1.0) { R = vec4(0.32, 0.2, 0.68, 0.8); depth = 0.5; arch = 1.0; }
+          else if (st == 3.0) { R = vec4(0.13, 0.28, 0.87, 0.8); depth = 0.24; }
+          else { float w = 0.19 + 0.07 * fract(sd * 7.0); R = vec4(0.5 - w, 0.2, 0.5 + w, 0.84); depth = 0.34; arch = step(0.65, fract(sd * 3.0)); }
+          if (shop) { R = vec4(0.07, 0.04, 0.93, 0.76); depth = 0.28; arch = 0.0; }
+          if (id.y < -0.5) R = vec4(9.0);       // sotto terra: niente finestre
+          vec2 cm = cell * vec2(3.6, 3.4);
+          vec4 Rm = R * vec4(3.6, 3.4, 3.6, 3.4);
+          vec3 V = normalize(cameraPosition - vWP);
+          vec3 vt = vec3(dot(V, T), dot(V, U), dot(V, Nw));
+          vec2 back = cm - vt.xy / max(vt.z, 0.06) * depth;
+          if (inWin(cm, Rm, arch) > 0.5) {
+            vec3 wallCol = diffuseColor.rgb;
+            if (inWin(back, Rm, arch) > 0.5) {
+              // vetro: scuro e riflettente, con tende o luce dentro casa
+              float curtain = st == 2.0 ? 0.0 : step(0.68, h2);
+              vec3 glassC = st == 2.0 ? vColor.rgb * 0.12 + 0.01 : vec3(0.025, 0.03, 0.036);
+              vec3 cur = mix(vec3(0.42, 0.36, 0.28), vec3(0.55, 0.5, 0.44), fract(h2 * 5.0));
+              diffuseColor.rgb = mix(glassC, cur * 0.45, curtain * 0.8);
+              fR = mix(0.12, 0.85, curtain); fM = 0.0;
+              fN = Nw;
+              // telaio centrale
+              if (st != 2.0 && abs(back.x - (Rm.x + Rm.z) * 0.5) < 0.035 && !shop) { diffuseColor.rgb = vec3(0.85); fR = 0.5; fM = 0.0; }
+              if (st == 2.0 && abs(cell.x - 0.5) < 0.01) { diffuseColor.rgb = vColor.rgb * 0.5; fR = 0.4; fM = 0.6; }
+              float lit = shop ? 1.0 : step(0.6, h1);
+              vec3 warm = mix(vec3(1.0, 0.7, 0.36), vec3(1.0, 0.86, 0.68), fract(h1 * 7.0));
+              fE = warm * lit * (shop ? 0.32 : 0.3 + 0.4 * fract(h1 * 13.0)) * (1.0 - curtain * 0.4);
+              if (shop) diffuseColor.rgb = vec3(0.08, 0.07, 0.06);
+            } else {
+              // spessore del muro (spallette, davanzale, architrave): luce diversa per ogni lato
+              vec3 cx = Rm.xyz; float ao = 0.62;
+              if (back.y < Rm.y) { fN = U; ao = 0.85; }
+              else if (back.y > Rm.w) { fN = -U; ao = 0.45; }
+              else if (back.x < Rm.x) { fN = T; ao = 0.6; }
+              else { fN = -T; ao = 0.6; }
+              diffuseColor.rgb = wallCol * ao;
+              fR = 0.9;
+            }
+          } else if (!shop && st != 2.0 && cm.y < Rm.y && cm.y > Rm.y - 0.14 && cm.x > Rm.x - 0.12 && cm.x < Rm.z + 0.12) {
+            // davanzale sporgente
+            diffuseColor.rgb *= 1.12; fN = normalize(Nw + U * 0.6); fR = 0.7;
+          } else if (!shop && st != 2.0 && cm.y > Rm.y - 0.3 && cm.y < Rm.y - 0.14 && cm.x > Rm.x - 0.12 && cm.x < Rm.z + 0.12) {
+            diffuseColor.rgb *= 0.7;           // ombra sotto il davanzale
+          } else if (st == 0.0 && cell.y < 0.05) {
+            diffuseColor.rgb *= 0.88; fN = normalize(Nw - U * 0.4);   // marcapiano a ogni piano
+          }
+          // sporco che cola sotto le finestre e verso terra
+          if (st != 2.0) diffuseColor.rgb *= 1.0 - 0.12 * (1.0 - smoothstep(0.0, 3.0, vFU.y * 3.4)) ;
+        }
+        if (wallF && st < 3.5 && far > 0.0) {
+          vec3 avgC = st == 2.0 ? vColor.rgb * 0.35 : wall0 * 0.62;
+          diffuseColor.rgb = mix(diffuseColor.rgb, avgC, far);
+          fN = normalize(mix(fN, Nw, far)); fR = mix(fR, st == 2.0 ? 0.25 : 0.8, far); fE *= 1.0 - far * 0.6;
+        }
+        if (st > 3.5 && wallF) diffuseColor.rgb *= 1.08;`)
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = fR;')
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = fM;')
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize((viewMatrix * vec4(fN, 0.0)).xyz);')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fE;');
+    };
+    mat.customProgramCacheKey = () => 'facade';
+    return mat;
+  }
+
   buildings() {
     const stoneT = facadeTexture('stone'), glassT = facadeTexture('glass');
     stoneT.anisotropy = glassT.anisotropy = this.aniso;
@@ -649,7 +773,7 @@ export class BakuScenery extends Scenery {
     const OLD = [0xc9a978, 0xbf9f6e, 0xd1b487].map(h => new THREE.Color(h));
     const GLASS = [0x7d95aa, 0x8aa3b8, 0x6c8499, 0x9db0bf].map(h => new THREE.Color(h));
     const ROOF = new THREE.Color(0x9c9284), ROOF_OLD = new THREE.Color(0xa88f6c);
-    const out = { stone: { p: [], uv: [], c: [] }, glass: { p: [], uv: [], c: [] } };
+    const out = { stone: { p: [], uv: [], c: [], t: [], s: [] }, glass: { p: [], uv: [], c: [], t: [], s: [] } };
     const r = rand(99);
     const C = [-536, 364];
     const add = (poly, h, kind, seedC) => {
@@ -668,16 +792,39 @@ export class BakuScenery extends Scenery {
       const o = glass ? out.glass : out.stone;
       const col = glass ? GLASS[seedC % GLASS.length] : old ? OLD[seedC % OLD.length] : STONE[seedC % STONE.length];
       const roofC = old ? ROOF_OLD : ROOF;
+      // stile della facciata: 0 palazzo in pietra (anni '900), 1 città vecchia (archi), 2 torre a vetri, 3 condominio moderno, 4 fascia liscia (cornicioni)
+      const style = glass ? 2 : old ? 1 : (seedC % 5 < 2 ? 3 : 0), sd = (seedC % 997) / 997;
+      const vtx = (x, y, z, u, v, c, tx, tz, st) => { o.p.push(x, y, z); o.uv.push(u, v); o.c.push(c.r, c.g, c.b); o.t.push(tx, 0, tz); o.s.push(st, sd, 0); };
       let u = 0;
       const vb = -1.2 / 3.4;
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i], b = pts[(i + 1) % pts.length];
         const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const tx = (b[0] - a[0]) / (len || 1), tz = (b[1] - a[1]) / (len || 1);
+        // finestre intere: la facciata comincia e finisce con mezza campata di muro
         const u0 = u / 3.6, u1 = (u + len) / 3.6, vt = (top - base) / 3.4 + vb;
-        o.p.push(a[0], base, a[1], b[0], base, b[1], b[0], top, b[1], a[0], base, a[1], b[0], top, b[1], a[0], top, a[1]);
-        o.uv.push(u0, vb, u1, vb, u1, vt, u0, vb, u1, vt, u0, vt);
-        for (let q = 0; q < 6; q++) o.c.push(col.r, col.g, col.b);
-        u += len;
+        vtx(a[0], base, a[1], u0, vb, col, tx, tz, style); vtx(b[0], base, b[1], u1, vb, col, tx, tz, style); vtx(b[0], top, b[1], u1, vt, col, tx, tz, style);
+        vtx(a[0], base, a[1], u0, vb, col, tx, tz, style); vtx(b[0], top, b[1], u1, vt, col, tx, tz, style); vtx(a[0], top, a[1], u0, vt, col, tx, tz, style);
+        u += Math.ceil(len / 3.6) * 3.6;
+        // cornicione in cima (e marcapiano sopra il piano terra nei palazzi in pietra): fascia sporgente
+        if (style !== 2 && len > 1) {
+          const ox = -tz, oz = tx;   // verso l'esterno (poligono in senso orario)
+          const band = (y0, y1, d) => {
+            const A2 = [a[0] + ox * d, a[1] + oz * d], B2 = [b[0] + ox * d, b[1] + oz * d];
+            const L2 = len + d * 2, ex = tx * d, ez = tz * d;
+            A2[0] -= ex; A2[1] -= ez; B2[0] += ex; B2[1] += ez;
+            const cc = col;
+            vtx(A2[0], y0, A2[1], 0, 0, cc, tx, tz, 4); vtx(B2[0], y0, B2[1], L2 / 3.6, 0, cc, tx, tz, 4); vtx(B2[0], y1, B2[1], L2 / 3.6, 0.3, cc, tx, tz, 4);
+            vtx(A2[0], y0, A2[1], 0, 0, cc, tx, tz, 4); vtx(B2[0], y1, B2[1], L2 / 3.6, 0.3, cc, tx, tz, 4); vtx(A2[0], y1, A2[1], 0, 0.3, cc, tx, tz, 4);
+            // sotto e sopra (orizzontali)
+            vtx(a[0], y0, a[1], 0, 0, cc, 0, 0, 4); vtx(B2[0], y0, B2[1], 0, 0, cc, 0, 0, 4); vtx(b[0], y0, b[1], 0, 0, cc, 0, 0, 4);
+            vtx(a[0], y0, a[1], 0, 0, cc, 0, 0, 4); vtx(A2[0], y0, A2[1], 0, 0, cc, 0, 0, 4); vtx(B2[0], y0, B2[1], 0, 0, cc, 0, 0, 4);
+            vtx(a[0], y1, a[1], 0, 0, cc, 0, 0, 4); vtx(b[0], y1, b[1], 0, 0, cc, 0, 0, 4); vtx(B2[0], y1, B2[1], 0, 0, cc, 0, 0, 4);
+            vtx(a[0], y1, a[1], 0, 0, cc, 0, 0, 4); vtx(B2[0], y1, B2[1], 0, 0, cc, 0, 0, 4); vtx(A2[0], y1, A2[1], 0, 0, cc, 0, 0, 4);
+          };
+          band(top - 0.7, top + 0.35, style === 1 ? 0.15 : 0.32);
+          if (style === 0 && h > 9) band(gmin + 3.3, gmin + 3.6, 0.18);
+        }
       }
       // tetto piatto
       const tri = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
@@ -685,7 +832,7 @@ export class BakuScenery extends Scenery {
         const p0 = pts[i0], p1 = pts[i1], p2 = pts[i2];
         const ny = (p1[1] - p0[1]) * (p2[0] - p0[0]) - (p1[0] - p0[0]) * (p2[1] - p0[1]);
         const order = ny >= 0 ? [p0, p1, p2] : [p0, p2, p1];
-        for (const p of order) { o.p.push(p[0], top, p[1]); o.uv.push(0.1, 0.9); o.c.push(roofC.r, roofC.g, roofC.b); }
+        for (const p of order) vtx(p[0], top, p[1], 0.1, 0.9, roofC, 0, 0, 4);
       }
       // parapetto e qualche impianto sul tetto degli edifici alti
       if (h > 14 && r() < 0.6) {
@@ -716,14 +863,25 @@ export class BakuScenery extends Scenery {
         add(poly, h, null, Math.floor(r() * 1000));
       }
     }
-    for (const [key, map] of [['stone', stoneT], ['glass', glassT]]) {
+    const facade = this.facadeMaterial();
+    for (const key of ['stone', 'glass']) {
       const o = out[key];
       if (!o.p.length) continue;
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(o.p, 3));
-      g.setAttribute('uv', new THREE.Float32BufferAttribute(o.uv, 2));
+      g.setAttribute('fuv', new THREE.Float32BufferAttribute(o.uv, 2));
       g.setAttribute('color', new THREE.Float32BufferAttribute(o.c, 3));
+      g.setAttribute('tang', new THREE.Float32BufferAttribute(o.t, 3));
+      g.setAttribute('bst', new THREE.Float32BufferAttribute(o.s, 3));
       g.computeVertexNormals();
+      if (facade) {
+        const m = new THREE.Mesh(g, facade);
+        m.castShadow = true; m.receiveShadow = true;
+        this.group.add(m);
+        continue;
+      }
+      g.setAttribute('uv', g.attributes.fuv);
+      const map = key === 'glass' ? glassT : stoneT;
       const bm = new THREE.MeshStandardMaterial({
         map, vertexColors: true, roughness: key === 'glass' ? 0.25 : 0.85, metalness: key === 'glass' ? 0.35 : 0.02,
       });
@@ -781,7 +939,9 @@ export class BakuScenery extends Scenery {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    const rmat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    if (!this.low) ground(rmat);
+    const m = new THREE.Mesh(g, rmat);
     m.receiveShadow = true;
     this.group.add(m);
   }
@@ -976,6 +1136,15 @@ export class BakuScenery extends Scenery {
         if (!pip(o.p, x, z)) continue;
         if (put(x, z, pick())) k++;
       }
+    }
+    if (!this.low) {
+      // alberi veri: chioma di foglie fotografiche, corteccia, vento
+      const tint = (col, sp) => { const h = new THREE.Color(); col.getHSL(_hsl); h.setHSL(_hsl.h, 0.22 + (sp === 0 ? 0.08 : 0), sp === 0 ? 0.78 + (_hsl.l - 0.25) * 1.2 : 0.62 + (_hsl.l - 0.18) * 1.5); return h; };
+      const L = { broad: [], pine: [], cypress: [] };
+      lists.forEach((arr, sp) => arr.forEach(([m, col]) => L[['broad', 'pine', 'cypress'][sp]].push([m, tint(col, sp)])));
+      const T = buildTrees(this.group, L);
+      this.animated.push(t => T.update(t));
+      return;
     }
     const fMat = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
     lists.forEach((arr, sp) => {

@@ -23,3 +23,14 @@ File `f1_rb22_hi.glb`, `f1_rb22_mid.glb` = versioni modificate per il gioco: vol
 dell'abitacolo rimossi (nella versione per i bot anche sospensioni e freni), poligoni ridotti
 (meshoptimizer), texture ridimensionate e convertite in WebP. Nel gioco le livree dei bot sono
 ridipinte con altri colori.
+
+## Texture fotografiche (Baku)
+Da [Poly Haven](https://polyhaven.com), licenza **CC0** (pubblico dominio), ridimensionate e ricompresse:
+- `tex/asphalt_*` — "Asphalt Track"
+- `tex/limestone_*` — "Seaworn Sandstone Brick"
+- `tex/oldwall_*` — "White Sandstone Blocks 02"
+- `tex/concrete_*` — "Concrete Wall 008"
+- `tex/pavers_*` — "Concrete Pavers 02"
+- `tex/grass_*` — "Leafy Grass"
+- `tex/bark_*` — "Bark Platanus"
+- `tex/leaves.webp` — ciuffi di foglie composti dalle foto delle foglie di "Island Tree 01"

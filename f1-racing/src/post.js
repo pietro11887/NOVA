@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 
 // Effetti "da ripresa TV" sull'immagine finale (solo con grafica alta):
 // - bagliore sulle luci forti (sole, scintille, freni roventi, led)
@@ -102,6 +103,22 @@ export class Post {
     this.composer = new EffectComposer(renderer, rt);
     this.render = new RenderPass(scene, camera);
     this.composer.addPass(this.render);
+    // occlusione ambientale: ombre morbide negli angoli, sotto le vetture, tra i palazzi (a metà risoluzione)
+    if (opts.ao) {
+      const ao = new GTAOPass(scene, camera, size.x / 2, size.y / 2);
+      ao.output = GTAOPass.OUTPUT.Default;
+      ao.blendIntensity = 1.0;
+      ao.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.6, thickness: 2.5, scale: 1.15, samples: 12 });
+      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+      const ss = ao.setSize.bind(ao);
+      ao.setSize = (w, h) => ss(Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(h / 2)));
+      // le chiome degli alberi (foglie ritagliate) non devono fare "ombra quadrata"
+      const ov = ao.overrideVisibility.bind(ao);
+      // e nemmeno gli strati trasparenti appoggiati sull'asfalto (gomma, segni di frenata, linea guida)
+      ao.overrideVisibility = () => { ov(); scene.traverse(o => { if (o.userData.noAO || (o.material && o.material.transparent)) o.visible = false; }); };
+      this.ao = ao;
+      this.composer.addPass(ao);
+    }
     this.rays = new ShaderPass(RaysShader);
     this.rays.enabled = !!opts.rays;
     this.composer.addPass(this.rays);
@@ -123,6 +140,7 @@ export class Post {
   // fx: { sunDir, lens 0..1, haze: [[x, y, z, forza], ...] posizioni nel mondo degli scarichi }
   draw(dt, camera, speed = 0, fx = {}) {
     this.render.camera = camera;
+    if (this.ao) this.ao.camera = camera;
     const g = this.grade.uniforms;
     g.uLens.value += ((fx.lens || 0) - g.uLens.value) * Math.min(1, dt * 4);
     const hz = fx.haze || [];

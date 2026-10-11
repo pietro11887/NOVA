@@ -73,11 +73,13 @@ const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
-const shadowSize = settings.quality === 'low' ? 1024 : 2048;
+const shadowSize = settings.quality === 'low' ? 1024 : settings.quality === 'high' ? 4096 : 2048;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
-Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 400 });
+// con grafica alta l'ombra copre molto più spazio (palazzi e alberi lontani) con la stessa nitidezza
+const SHR = settings.quality === 'high' ? 140 : 70;
+Object.assign(sun.shadow.camera, { left: -SHR, right: SHR, top: SHR, bottom: -SHR, near: 1, far: 800 });
 sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = 0.04;
+sun.shadow.normalBias = settings.quality === 'high' ? 0.12 : 0.06;
 scene.add(sun, sun.target);
 const SUN_DIR = ENV.sunDir;
 
@@ -120,6 +122,7 @@ let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
 let minimap, post = null, glow = null, bakuFx = null;
 
 function build() {
+  track.quality = settings.quality;
   scene.add(track.build(renderer));
   scenery = new (TRACK.model ? ModelScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
@@ -150,7 +153,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: track.street }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: track.street, ao: true }); post.setSize(innerWidth, innerHeight); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
@@ -2268,7 +2271,7 @@ function frame(now) {
   // l'ombra segue la vettura (nel menu: quella inquadrata)
   const fp = mode === 'replay' && rp ? rp.focus : attract && attract.shot ? attract.shot.car.phys : phys;
   sun.target.position.set(fp.x, fp.y, fp.z);
-  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 200);
+  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 350);
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
   if (post) {

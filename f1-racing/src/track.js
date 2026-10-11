@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildTrack, KERB_WIDTH as K, TRACK, sponsorAt } from './trackData.js';
 import * as tex from './textures.js';
+import { texSet, triplanar } from './pbr.js';
 
 export const SURF = { ROAD: 0, KERB: 1, SAUSAGE: 2, GRASS: 3, GRAVEL: 4 };
 // aderenza e resistenza al rotolamento (in g) per superficie
@@ -171,16 +172,27 @@ export class Track {
     // e un filo di lucentezza: col sole basso l'asfalto brilla controluce come in TV
     const fine = tex.trackAsphalt(); fine.anisotropy = aniso;
     const asphMat = new THREE.MeshStandardMaterial({ map: fine, roughness: 0.74, metalness: 0, color: this.street ? 0xd9d3cb : 0xffffff });
+    const photo = this.street && this.quality !== 'low' ? texSet('asphalt') : null;
     asphMat.onBeforeCompile = sh => {
+      if (photo) Object.assign(sh.uniforms, { pAc: { value: photo.c }, pAn: { value: photo.n }, pAr: { value: photo.r }, pAavg: { value: photo.avg } });
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
         .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;' + (photo ? '\nuniform sampler2D pAc, pAn, pAr; uniform vec3 pAavg;' : ''))
         .replace('#include <map_fragment>', `
           vec4 aTex = texture2D(map, vWPos.xz * 0.11);
           float big = texture2D(map, vWPos.xz * 0.013 + 0.37).r;
-          diffuseColor *= aTex * (0.82 + 0.55 * big);`)
+          diffuseColor *= aTex * (0.82 + 0.55 * big);` + (photo ? `
+          // foto dell'asfalto da gara: grana, inerti, toppe
+          vec2 pq = vWPos.xz * 0.25;
+          diffuseColor.rgb *= clamp(mix(vec3(1.0), texture2D(pAc, pq).rgb / pAavg, 0.6), 0.0, 2.0);` : ''))
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + (photo ? `
+          { vec3 t = texture2D(pAn, pq).xyz * 2.0 - 1.0; t.xy *= 1.4;
+            vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+            vec3 T = normalize(cross(wn, vec3(0.0, 0.0, 1.0))), B = cross(T, wn);
+            normal = normalize((viewMatrix * vec4(normalize(T * t.x + B * t.y + wn * t.z), 0.0)).xyz); }` : ''))
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street ? '0.3, 0.85' : '0.45, 0.95'});`);
+          roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street ? '0.3, 0.85' : '0.45, 0.95'});` + (photo ? `
+          roughnessFactor = clamp(roughnessFactor * (0.6 + 0.6 * texture2D(pAr, pq).g), 0.25, 0.95);` : ''));
     };
     // Baku: asfalto cittadino più liscio e lucido, riflette sole e palazzi controluce
     if (this.street) { asphMat.roughness = 0.6; asphMat.envMapIntensity = 1.6; }
@@ -353,7 +365,10 @@ export class Track {
     const isTyre = s => (side > 0 ? s.gravelL || s.escL : s.gravelR || s.escR);
     const shared = s => (side > 0 ? s.sharedL : s.sharedR);
     const barrierMat = new THREE.MeshStandardMaterial({ map: barrierT, roughness: 0.7, side: THREE.DoubleSide });
-    const tyreMat = new THREE.MeshStandardMaterial({ map: tyreT, roughness: 0.9, side: THREE.DoubleSide });
+    const tyreMat = new THREE.MeshStandardMaterial({ map: this.street ? tecPro() : tyreT, roughness: this.street ? 0.55 : 0.9, side: THREE.DoubleSide });
+    const hiQ = this.street && this.quality !== 'low';
+    // muri in cemento veri: grana, rilievo e sporco (anche sotto gli sponsor)
+    if (hiQ) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
     if (this.street) {
       // città: muri rivestiti con gli sponsor (pannelli da 6 m), leggibili dalla pista;
       // lo spartitraffico tra due carreggiate resta bianco (si vede da entrambi i lati)
@@ -362,6 +377,7 @@ export class Track {
       for (const key of keys) {
         const spT = tex.sponsorWall(key); spT.anisotropy = aniso;
         const spMat = new THREE.MeshStandardMaterial({ map: spT, roughness: 0.6, side: THREE.DoubleSide });
+        if (hiQ) triplanar(spMat, 'concrete', { scale: 2, strength: 0.25, normal: 0.5 });
         grp.add(make(-1.5, 1.05, spMat, 6, s => sponsorAt(s.s, side) === key && !isTyre(s) && !shared(s) && !median(s), 0, false, side > 0 ? 1 : -1));
       }
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !sponsorAt(s.s, side) && !isTyre(s) && !shared(s) && !median(s)));
@@ -453,4 +469,27 @@ export class Track {
       }
     }
   }
+}
+
+// barriere TecPro (blocchi di schiuma nelle vie di fuga dei circuiti cittadini): blocchi rossi e bianchi con cinghie
+function tecPro() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 4; i++) {
+    const x = i * 64;
+    const grd = g.createLinearGradient(0, 0, 0, 128);
+    const red = i % 2 === 0;
+    grd.addColorStop(0, red ? '#d11f26' : '#f2f2f0'); grd.addColorStop(1, red ? '#a3161b' : '#cfcfcc');
+    g.fillStyle = grd; g.fillRect(x, 0, 64, 128);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, 0, 2, 128); g.fillRect(x + 62, 0, 2, 128);
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x + 3, 4, 58, 6);
+    // cinghie orizzontali
+    g.fillStyle = '#222'; g.fillRect(x, 30, 64, 7); g.fillRect(x, 92, 64, 7);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, 120, 64, 8);
+  }
+  g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = 'bold 22px Arial'; g.textAlign = 'center';
+  g.fillText('TECPRO', 32, 72); g.fillStyle = 'rgba(200,20,30,0.9)'; g.fillText('TECPRO', 96, 72);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
 }
