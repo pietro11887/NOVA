@@ -166,7 +166,7 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && raceT > 14 && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && bestGap < 28 + (raceT > 25 ? 14 * this.craft : 0) && closing > -3 && closing < 10 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
@@ -188,8 +188,7 @@ export class AIDriver {
       const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
-      // primo giro: tutti in gruppo, si lascia un po' più di spazio
-      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.25 - (raceT < 20 ? 3 : 0));
+      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.25);
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
