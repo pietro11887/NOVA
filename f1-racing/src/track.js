@@ -175,7 +175,9 @@ export class Track {
     // e un filo di lucentezza: col sole basso l'asfalto brilla controluce come in TV
     const fine = tex.trackAsphalt(); fine.anisotropy = aniso;
     const asphMat = new THREE.MeshStandardMaterial({ map: fine, roughness: 0.74, metalness: 0, color: this.street ? 0xd9d3cb : 0xffffff });
-    const photo = this.street && this.quality !== 'low' ? texSet('asphalt') : null;
+    // materiali fotografici: Baku e le piste disegnate (le piste da modello 3D hanno già i loro)
+    this.hq = this.quality !== 'low' && !TRACK.model;
+    const photo = this.hq ? texSet('asphalt') : null;
     asphMat.onBeforeCompile = sh => {
       if (photo) Object.assign(sh.uniforms, { pAc: { value: photo.c }, pAn: { value: photo.n }, pAr: { value: photo.r }, pAavg: { value: photo.avg } });
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
@@ -208,6 +210,7 @@ export class Track {
     // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
     if (!this.street) {
       const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
+      if (this.hq) { darkGrass.color.set(0x3a7433); triplanar(darkGrass, 'grass', { scale: 3, strength: 0.75, normal: 0.8 }); }
       g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
       g.add(this.ribbon([[E(-1, -4.5), -0.03], [E(-1, -0.6), 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
     }
@@ -231,6 +234,8 @@ export class Track {
       : new THREE.MeshStandardMaterial({ map: grassT, roughness: 1 });
     const gravT = tex.gravel(); gravT.anisotropy = aniso;
     const gravMat = new THREE.MeshStandardMaterial({ map: gravT, roughness: 1 });
+    // erba e ghiaia fotografiche
+    if (this.hq && !this.street) { grassMat.color.set(0xb4bfa4); triplanar(grassMat, 'grass', { scale: 3, strength: 0.75, normal: 0.8 }); triplanar(gravMat, 'gravel', { scale: 1.6, strength: 0.85, normal: 1.2 }); }
     // lato sinistro: da bordo pista al muro
     g.add(this.sideRibbon(1, grassMat, gravMat));
     g.add(this.sideRibbon(-1, grassMat, gravMat));
@@ -402,7 +407,7 @@ export class Track {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDent;')
         .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= 1.0 - min(0.5, vDent * 0.8);');
     };
-    const hiQ = this.street && this.quality !== 'low';
+    const hiQ = this.hq;
     // muri in cemento veri: grana, rilievo e sporco (anche sotto gli sponsor)
     if (hiQ) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
     if (this.street) {

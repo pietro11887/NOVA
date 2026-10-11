@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 const AVG = {
   asphalt: [0.017, 0.013, 0.012], limestone: [0.261, 0.191, 0.122], oldwall: [0.463, 0.384, 0.294],
-  concrete: [0.266, 0.238, 0.163], pavers: [0.171, 0.118, 0.082], grass: [0.319, 0.236, 0.106], bark: [0.099, 0.068, 0.049],
+  concrete: [0.266, 0.238, 0.163], pavers: [0.171, 0.118, 0.082], grass: [0.319, 0.236, 0.106], bark: [0.099, 0.068, 0.049], gravel: [0.425, 0.402, 0.349],
 };
 const cache = {};
 let aniso = 8;
@@ -114,6 +114,31 @@ export function ground(mat) {
           normal = normalize((viewMatrix * vec4(flatNrm(tn, wn, 1.0), 0.0)).xyz); }`);
   };
   mat.customProgramCacheKey = () => 'ground';
+  mat.needsUpdate = true;
+  return mat;
+}
+
+// prati e campi (piste in campagna): erba fotografica su tutto, a due scale per non vedere ripetizioni
+export function meadow(mat) {
+  const G = texSet('grass');
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, { mGc: { value: G.c }, mGn: { value: G.n }, mGa: { value: G.avg } });
+    addWorldPos(sh);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D mGc, mGn; uniform vec3 mGa;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 mq = vWP.xz;
+        vec3 mc = texture2D(mGc, mq * 0.3).rgb / mGa * 0.6 + texture2D(mGc, mq * 0.043 + 0.3).rgb / mGa * 0.4;
+        float ml = dot(mc, vec3(0.2126, 0.7152, 0.0722));
+        // nei campi (gialli, arati) conta solo la grana, non il colore dell'erba
+        float green = smoothstep(0.0, 0.08, vColor.g - vColor.r);
+        vec3 det = mix(vec3(ml), mc, green);
+        diffuseColor.rgb *= clamp(mix(vec3(1.0), det, 0.75), 0.0, 2.2);`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        { vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+          normal = normalize((viewMatrix * vec4(flatNrm(texture2D(mGn, mq * 0.3), wn, 0.8), 0.0)).xyz); }`);
+  };
+  mat.customProgramCacheKey = () => 'meadow';
   mat.needsUpdate = true;
   return mat;
 }

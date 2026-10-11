@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as tex from './textures.js';
 import { sponsorAt } from './trackData.js';
+import { setAniso, triplanar, meadow } from './pbr.js';
+import { buildTrees } from './trees.js';
 
 // Ambientazione attorno al circuito: cielo con nuvole e sole, montagne all'orizzonte,
 // campagna a campi coltivati, lago, boschi, tribune con bandiere, paddock, paese,
@@ -186,6 +188,8 @@ export class Scenery {
   }
 
   build() {
+    // materiali fotografici (grafica media e alta)
+    if (!this.low) { setAniso(this.aniso); triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 }); }
     const steps = ['sky', 'mountains', 'terrain', 'water', 'pitBuilding', 'grandstands', 'gantry', 'billboards', 'bigScreen',
       'bridge', 'paddock', 'trackside', 'brakeBoards', 'spectators', 'campsite', 'village', 'windFarm', 'balloons', 'trees', 'bushes'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
@@ -349,7 +353,9 @@ export class Scenery {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true }));
+    const tm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: this.low });
+    if (!this.low) meadow(tm);
+    const mesh = new THREE.Mesh(geo, tm);
     mesh.receiveShadow = true;
     this.group.add(mesh);
   }
@@ -1027,6 +1033,18 @@ export class Scenery {
       trunks[near].push(m);
       k++;
     }
+    if (!this.low) {
+      // alberi veri: abeti, latifoglie e pioppi (cipressi) con foglie fotografiche; ombre solo per i vicini
+      const tint = (col, sp) => { const hsl = {}; col.getHSL(hsl); return new THREE.Color().setHSL(hsl.h, sp === 1 ? 0.3 : 0.24, sp === 1 ? 0.62 + (hsl.l - 0.26) * 1.2 : 0.55 + (hsl.l - 0.18) * 1.4); };
+      const KIND = ['pine', 'broad', 'cypress'];
+      for (const near of [0, 1]) {
+        const L2 = { broad: [], pine: [], cypress: [] };
+        lists.forEach((pair, sp) => pair[near].forEach(([m, col]) => L2[KIND[sp]].push([m, tint(col, sp)])));
+        const T = buildTrees(this.group, L2, { shadows: near === 0 });
+        if (near === 0) this.animated.push(t => T.update(t));
+      }
+      return;
+    }
     lists.forEach((pair, sp) => pair.forEach((arr, near) => {
       if (!arr.length) return;
       const im = new THREE.InstancedMesh(species[sp], fMat, arr.length);
@@ -1055,6 +1073,17 @@ export class Scenery {
       if (!this.free(f.x, f.z, 1.5)) continue;
       const s = 0.9 + r() * 1.4;
       mats.push([mat4(f.x, f.y + s * 0.4, f.z, r() * 6, s * 1.3, s * 0.8, s), new THREE.Color().setHSL(0.25 + r() * 0.07, 0.45 + r() * 0.2, 0.22 + r() * 0.1)]);
+    }
+    if (!this.low) {
+      // cespugli veri: piccole chiome di foglie fotografiche
+      const list = mats.map(([m, c]) => {
+        const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); m.decompose(p, q, sc);
+        const k = sc.x * 0.26;
+        const hsl = {}; c.getHSL(hsl);
+        return [new THREE.Matrix4().compose(p.setY(p.y - k * 5.6), q, sc.set(k * 1.1, k * 0.85, k * 1.1)), new THREE.Color().setHSL(hsl.h, 0.3, 0.6 + (hsl.l - 0.27) * 1.2)];
+      });
+      buildTrees(this.group, { broad: list }, { shadows: false, noTrunk: true });
+      return;
     }
     const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true }), mats.length);
     mats.forEach(([m, c], q) => { im.setMatrixAt(q, m); im.setColorAt(q, c); });

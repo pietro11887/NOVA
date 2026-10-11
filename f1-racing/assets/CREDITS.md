@@ -34,3 +34,4 @@ Da [Poly Haven](https://polyhaven.com), licenza **CC0** (pubblico dominio), ridi
 - `tex/grass_*` — "Leafy Grass"
 - `tex/bark_*` — "Bark Platanus"
 - `tex/leaves.webp` — ciuffi di foglie composti dalle foto delle foglie di "Island Tree 01"
+- `tex/gravel_*` — "Gravel Floor 02" (Poly Haven, CC0)

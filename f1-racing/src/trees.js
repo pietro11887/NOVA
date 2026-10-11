@@ -135,6 +135,7 @@ export function buildTrees(group, list, opts = {}) {
       ci.castShadow = opts.shadows !== false; ci.receiveShadow = true;
       ci.userData.noAO = true;
       group.add(ci); out.push(ci);
+      if (opts.noTrunk) continue;
       const tg = trunk(kind, 3 + vr * 17);
       const ti = new THREE.InstancedMesh(tg, M.bark, sub.length);
       sub.forEach(([m], q) => ti.setMatrixAt(q, m));

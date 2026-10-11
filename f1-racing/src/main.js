@@ -137,7 +137,7 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
   // Baku: nei riflessi (carrozzerie, asfalto) si vede la città vera, non solo il cielo
-  if (track.street && settings.quality !== 'low') {
+  if (!TRACK.model && settings.quality !== 'low') {
     try {
       const crt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
       const cc = new THREE.CubeCamera(1, 6000, crt);
@@ -154,7 +154,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: track.street, ao: true }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: track.street ? 1 : 0.3, bloom: track.street ? 0.38 : 0.3, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
@@ -169,7 +169,7 @@ function build() {
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
   scene.add(racingLine.build());
-  if (track.street) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
+  if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
   phys = new CarPhysics(track);
   phys.on('impact', onImpact);
   particles = new Particles(scene);
@@ -2318,7 +2318,7 @@ const hazeList = [];
 function postFx() {
   const tv = (mode === 'replay' && rp && (RP_CAMS[rp.cam] === 'TV' || RP_CAMS[rp.cam] === 'ELICOTTERO')) || (mode === 'menu' && !!attract);
   hazeList.length = 0;
-  if (track.street) {
+  if (!TRACK.model) {
     const ex = (p, k) => {
       const b = IS_F1 ? -2.45 : -2.3, cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
       hazeList.push([p.x + cy * b, p.y + 0.55, p.z + sy * b, k]);
