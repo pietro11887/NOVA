@@ -867,3 +867,34 @@ body.touch .tabKey { display: none; }
   .ldMid { grid-template-columns: 1fr; }
   .hubPanel { width: auto; right: 16px; top: auto; height: 62%; }
 }
+
+/* --- classifica finale: punti, giro più veloce, penalità --- */
+.resTable .pts { font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+.resTable .bl.fl { color: #c48bff; font-weight: 800; }
+.resTable .pen { font-style: normal; margin-left: 6px; font-size: 10.5px; font-weight: 900; color: #fff; background: #e8322b; padding: 1px 5px; border-radius: 3px; }
+
+/* --- podio --- */
+#podium { position: fixed; inset: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px;
+  padding: 0 16px max(22px, env(safe-area-inset-bottom)); background: linear-gradient(0deg, rgba(5,6,10,0.85), transparent 55%); pointer-events: auto; }
+#podium.hidden { display: none; }
+.podHead { position: absolute; top: max(22px, env(safe-area-inset-top)); left: max(30px, env(safe-area-inset-left)); border-left: 6px solid var(--accent); padding: 8px 18px;
+  background: linear-gradient(90deg, rgba(8,10,16,0.9), rgba(8,10,16,0.4)); }
+.podHead span { display: block; font-size: 11px; font-weight: 800; letter-spacing: 4px; color: var(--accent); }
+.podHead b { font-size: clamp(24px, 3.4vw, 40px); font-weight: 900; font-style: italic; }
+.podSteps { display: flex; align-items: flex-end; gap: 10px; }
+.pod { width: min(24vw, 210px); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; animation: podUp .7s ease-out both; }
+.pod.p1 { animation-delay: .5s; } .pod.p2 { animation-delay: .25s; }
+.pod .pn { font-size: clamp(16px, 2vw, 24px); font-weight: 900; font-style: italic; }
+.pod.me .pn { color: var(--accent); }
+.pod small { font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,0.7); min-height: 14px; }
+.pod .blk { width: 100%; display: grid; place-items: center; border-radius: 4px 4px 0 0; border-top: 5px solid var(--tc);
+  background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pod .blk b { font-size: clamp(30px, 4vw, 54px); font-weight: 900; font-style: italic; }
+.pod.p1 .blk { height: 22vh; } .pod.p2 .blk { height: 15vh; } .pod.p3 .blk { height: 10vh; }
+.pod.p1 .blk b { color: #ffd166; }
+@keyframes podUp { from { transform: translateY(40px); opacity: 0; } }
+.podFl { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #c48bff; }
+.podFl b { color: #fff; }
+#podNext { font-family: var(--font); font-weight: 900; font-size: 17px; letter-spacing: 1px; padding: 12px 30px; border-radius: 6px; border: 0; background: var(--accent); color: #141414; cursor: pointer; }
+@media (max-height: 500px) { .pod.p1 .blk { height: 18vh; } .pod.p2 .blk { height: 12vh; } .pod.p3 .blk { height: 8vh; } .podSteps { gap: 6px; } #podNext { padding: 8px 22px; font-size: 14px; } }
+.resTable .r:has(.pts) { grid-template-columns: 34px 14px 1fr auto auto 48px; }

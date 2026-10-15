@@ -19,7 +19,7 @@ import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS } from './race.js';
-import { PitLane } from './pit.js';
+import { PitLane, PitStop } from './pit.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
@@ -293,6 +293,7 @@ function startCountdown() {
 }
 
 function clearRace() {
+  podium = null; $('podium').classList.add('hidden');
   if (recorder && !recorder.stopped && recorder.frames.length > HZ_MIN_FRAMES) saveReplay(recorder.pack());
   recorder = null;
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
@@ -506,6 +507,12 @@ function physicsStep(inp) {
   };
   inp.shiftUp = inp.shiftDown = false;
   simTime += DT;
+  if (quali && race) {
+    race.step(DT, cmd, true);
+    qualiStep(sPrev);
+    arcadeRescue(DT);
+    return;
+  }
   if (gameType === 'race') {
     // dopo la bandiera a scacchi il giro di rientro lo guida il computer
     if (race.player.finishT != null && !coolAI) {
@@ -1328,7 +1335,7 @@ function paintSectors(secs, cls, cur) {
 function setSectorsHud(secs, cur = 0) {
   if (secHold && simTime < secHold.until) return;
   secHold = null;
-  const L0 = race ? rsec : lap;
+  const L0 = race && !quali ? rsec : lap;
   paintSectors(secs, (L0 && L0.secCls) || [], L0 && L0.active !== false ? cur : -1);
 }
 // settori anche in gara (la prova a tempo ha il suo cronometro completo)
@@ -1403,7 +1410,7 @@ function updateHud(dt) {
   setText('fdMode', race && race.player.tow > 0.25 ? 'SCIA' : settings.auto ? 'AUTO' : 'MANUALE');
   lapBoxHud();
 
-  if (race) raceHud(dt);
+  if (race && !quali) raceHud(dt);
   else if (lap && lap.active) {
     const t = simTime - lap.start;
     setText('lapTime', fmt(t));
@@ -1423,7 +1430,7 @@ function updateHud(dt) {
     setText('lapLabel', mode === 'countdown' ? 'PARTENZA' : 'GIRO DI LANCIO');
     setText('delta', '');
   }
-  if (!race) setText('bestTime', fmt(best && best.time));
+  if (!race || quali) setText('bestTime', fmt(best && best.time));
   // danni
   const d = phys.damage;
   const map = { fwL: d.fwL, fwR: d.fwR, rw: d.rw, wFL: d.susp[0], wFR: d.susp[1], wRL: d.susp[2], wRR: d.susp[3], body: Math.max(d.engine, d.floor * 0.6, d.radiator * 0.8, d.gearbox * 0.7) };
@@ -1565,9 +1572,9 @@ function towerHud(st) {
 
 // riquadro in alto a destra: settori, posizione e tempo del giro in corso
 function lapBoxHud() {
-  if (secHold && simTime >= secHold.until) { const L0 = race ? rsec : lap; if (L0) setSectorsHud(L0.sectors, L0.sector); else secHold = null; }
+  if (secHold && simTime >= secHold.until) { const L0 = race && !quali ? rsec : lap; if (L0) setSectorsHud(L0.sectors, L0.sector); else secHold = null; }
   for (let k = 0; k < 3; k++) { const c = $('sec' + k).className; if (hudCache['lb' + k] !== c) { hudCache['lb' + k] = c; $('lb' + k).className = c; } }
-  if (race) {
+  if (race && !quali) {
     const pl = race.player, st = race.standings();
     const pos = `<b>${st.indexOf(pl) + 1}</b>/${st.length}`;
     if (hudCache.lbPos !== pos) { hudCache.lbPos = pos; $('lbPos').innerHTML = pos; }
@@ -1575,7 +1582,7 @@ function lapBoxHud() {
     setText('lbDelta', '');
   } else {
     const t = lap && lap.active ? simTime - lap.start : 0;
-    const pos = lap && lap.active ? `GIRO <b>${lap.no}</b>` : 'GIRO DI LANCIO';
+    const pos = lap && lap.active ? (quali ? 'GIRO <b>BUONO</b>' : `GIRO <b>${lap.no}</b>`) : quali && phys.inPit ? 'AI BOX' : 'GIRO DI LANCIO';
     if (hudCache.lbPos !== pos) { hudCache.lbPos = pos; $('lbPos').innerHTML = pos; }
     setText('lbTime', fmtLap(t));
     const d = $('delta');
@@ -1612,8 +1619,14 @@ function raceHud(dt) {
   if (hudCache.rpGaps !== html) { hudCache.rpGaps = html; $('rpGaps').innerHTML = html; }
 }
 
+const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+function fastestLap() {
+  let f = null;
+  for (const c of race.cars) if (c.bestLap != null && (!f || c.bestLap < f.bestLap)) f = c;
+  return f;
+}
 function standingsHtml(full) {
-  const st = race.standings(), leader = st[0];
+  const st = race.standings(), leader = st[0], fl = full ? fastestLap() : null;
   return st.map((c, i) => {
     let t;
     if (c.retired) t = 'RITIRATO';
@@ -1623,14 +1636,51 @@ function standingsHtml(full) {
       t = lapsDown >= 1 ? `+${lapsDown} ${lapsDown === 1 ? 'giro' : 'giri'}` : (full ? 'in pista' : '+' + fmtGap(race.gap(leader, c)));
     }
     const col = '#' + c.color.toString(16).padStart(6, '0');
-    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}</span><span>${t}</span><span class="bl">${c.bestLap ? fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span></div>`;
+    const pen = c.penalty ? `<em class="pen">+${c.penalty} s</em>` : '';
+    const isFl = fl === c;
+    const pts = full ? (c.retired ? 0 : (POINTS[i] || 0) + (isFl && i < 10 ? 1 : 0)) : null;
+    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}${pen}</span><span>${t}</span><span class="bl${isFl ? ' fl' : ''}">${c.bestLap ? (isFl ? '⏱ ' : '') + fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span>${full ? `<span class="pts">${pts ? pts + ' PT' : ''}</span>` : ''}</div>`;
   }).join('');
 }
 
+// podio: i primi tre sui gradini, la telecamera gira attorno al vincitore
+let podium = null;
+function showPodium() {
+  const st = race.standings().filter(c => !c.retired).slice(0, 3), fl = fastestLap();
+  const step = (c, k) => {
+    if (!c) return '<div class="pod"></div>';
+    const col = '#' + c.color.toString(16).padStart(6, '0');
+    const gap = k === 0 ? fmt(c.finishT) : c.finishT != null ? '+' + fmtGap(c.finishT - st[0].finishT) : '';
+    return `<div class="pod p${k + 1}${c.isPlayer ? ' me' : ''}"><span class="pn">${c.isPlayer ? 'TU' : c.name}</span><small>${c.team ? c.team.name : ''} ${gap}</small><div class="blk" style="--tc:${col}"><b>${k + 1}</b></div></div>`;
+  };
+  $('podSteps').innerHTML = step(st[1], 1) + step(st[0], 0) + step(st[2], 2);
+  $('podTrack').textContent = track.name.toUpperCase();
+  $('podFl').innerHTML = fl ? `⏱ GIRO PIÙ VELOCE · <b>${fl.isPlayer ? 'TU' : fl.name}</b> ${fmt(fl.bestLap)}` : '';
+  $('podium').classList.remove('hidden');
+  $('hud').classList.add('hidden');
+  podium = { car: st[0], t: 0 };
+  sounds.cheerUp && sounds.cheerUp(1);
+}
+function podiumCamera(dt) {
+  podium.t += dt;
+  const c = podium.car, m = c.isPlayer ? car : c.model, p = c.phys;
+  const a = podium.t * 0.25, R = 7.5;
+  camera.position.set(p.x + Math.cos(a) * R, p.y + 2.2, p.z + Math.sin(a) * R);
+  camera.up.set(0, 1, 0); camera.lookAt(p.x, p.y + 0.5, p.z);
+  camera.fov = 45; camera.updateProjectionMatrix();
+  void m;
+}
+$('podNext').addEventListener('click', () => {
+  $('podium').classList.add('hidden'); podium = null; camState.init = false;
+  $('hud').classList.remove('hidden');
+  showResults();
+});
+
 function showResults() {
-  const st = race.standings(), pos = st.indexOf(race.player) + 1;
+  if (!race.podiumShown && race.standings().some(c => c.finishT != null)) { race.podiumShown = true; showPodium(); return; }
+  const st = race.standings(), pos = st.indexOf(race.player) + 1, fl = fastestLap();
   $('resTitle').textContent = pos === 1 ? 'HAI VINTO!' : `${pos}° POSTO`;
-  $('resSub').textContent = `${race.laps} ${race.laps === 1 ? 'GIRO' : 'GIRI'} · ${st.length} PILOTI · FORZA BOT ${settings.raceStrength}`;
+  $('resSub').textContent = `${race.laps} ${race.laps === 1 ? 'GIRO' : 'GIRI'} · ${st.length} PILOTI · IA ${settings.raceStrength}${fl ? ` · GIRO PIÙ VELOCE ${fl.isPlayer ? 'TU' : fl.name} ${fmt(fl.bestLap)}` : ''}`;
   $('resTable').innerHTML = standingsHtml(true);
   $('results').classList.remove('hidden');
 }
@@ -2113,78 +2163,126 @@ $('hubStart').addEventListener('click', () => {
 // Intanto gli avversari fanno il loro giro (ognuno da solo, simulato in sottofondo) e alla fine
 // la classifica decide la griglia.
 let quali = null;
+let qualiTref = 0;
+const qualiLapRef = () => { if (!qualiTref) for (let i = 0; i < track.count; i++) qualiTref += track.step / racingLine.speed[i]; return qualiTref; };
 function startQuali() {
   introNext = false;
   gameType = 'trial';
   clearRace();
   prepareStart();
-  const n = track.count, st = track.step;
-  phys.reset(Math.round((track.length - 380) / st) % n, 0);
-  phys.fitTyres('S'); setTyreColor(car, 'S');
-  // avversari: stessa forza e stesse scuderie della gara
-  const bots = [];
-  const i0 = Math.round((track.length - 260) / st) % n, s0 = track.samples[i0];
-  for (let b = 0; b < settings.raceBots; b++) {
-    const e = wk.grid && wk.grid[b];
-    const strength = e ? Math.max(1, Math.min(110, settings.raceStrength + (e.team.tier - 1.5) * 4)) : settings.raceStrength;
-    const p = new CarPhysics(track);
-    p.damageMode = 'cosmetic'; p.arcade = ARC();
-    p.fitTyres('S'); p.fuel = 10; p.mass = p.baseMass + p.fuel;
-    p.reset(i0, 0);
-    const v = racingLine.speed[i0] * 0.85; p.vx = s0.tx * v; p.vz = s0.tz * v; p.gear = 4;
-    const ai = new AIDriver(p, racingLine, strength, b + 1); ai.launchDelay = 0;
-    bots.push({ b, p, ai, self: [{ phys: p }], t: 0, start: null, time: null, sPrev: p.prCG.s, done: false,
-      name: e ? e.name : DRIVERS[b % DRIVERS.length][0], col: e ? e.team.colors[0] : '#' + DRIVERS[b % DRIVERS.length][1].toString(16).padStart(6, '0') });
-  }
-  quali = { bots, acc: 0, end: null };
+  fbReset();
+  // tutta la griglia in pista: chi è ai box, chi esce, chi fa il giro di lancio, chi quello buono
+  race = new Race(track, racingLine, {
+    laps: 999, bots: settings.raceBots, strength: settings.raceStrength, startPos: 1, playerPhys: phys, damageMode: dmMode(),
+    arcade: ARC(), rubber: 0, playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: wk.grid, pitLane, startCompound: 'S',
+  });
+  spawnRaceModels();
+  const L = track.length, n = track.count, st = track.step, r = Math.random;
+  const onTrack = race.cars.filter(c => !c.isPlayer && r() < 0.5);
+  race.cars.forEach(c => {
+    c.plan = []; c.phys.fitTyres('S'); c.phys.fuel = 8; c.phys.mass = c.phys.baseMass + c.phys.fuel;
+    c.phys.inPit = false; c.halfway = false; c.crossings = 0; c.pass = [];
+    if (c.ai) c.ai.launchDelay = 0;
+    if (c.model) setTyreColor(c.model, 'S');
+  });
+  // in pista: sparsi lungo il giro (lontano dalla corsia box), già lanciati
+  onTrack.forEach((c, k) => {
+    const s0 = ((k + 0.3 + r() * 0.4) / onTrack.length * 0.8 + 0.1) * L, i = Math.round(s0 / st) % n, sm = track.samples[i];
+    c.phys.reset(i, (r() - 0.5) * 2);
+    const v = racingLine.speed[i] * 0.75; c.phys.vx = sm.tx * v; c.phys.vz = sm.tz * v; c.phys.gear = 4;
+    c.sPrev = c.phys.prCG.s; c.halfway = s0 > L * 0.6;
+    c.q = { st: 'out', c0: 0 };
+  });
+  // ai box: escono uno alla volta nei primi secondi
+  const garage = race.cars.filter(c => !c.isPlayer && !c.q);
+  garage.forEach((c, k) => { boxPark(c, 3 + k * (24 / Math.max(1, garage.length)) + r() * 4); c.q = { st: 'garage' }; });
+  boxPark(race.player, 4);
+  setTyreColor(car, 'S');
+  race.onEvent = (c, kind) => {
+    if (kind === 'pitOut' && c.isPlayer) { showBanner('GIRO DI LANCIO · SCALDA LE GOMME', 'yellow', 3, true); sounds.radio('Sei in pista. Giro di lancio: scalda gomme e freni.'); }
+    if (kind === 'pitIn' && c.isPlayer) { c.pit.serviceTotal = 1e9; if (!quali.end) endQuali(null); }
+    if (kind === 'retired') feed(`${c.name} SI FERMA IN PISTA`, 'red');
+  };
+  quali = { end: null, dist: 0, armed: false, t: 0 };
+  for (const c of race.cars) c.phys.powerScale = c.ai ? c.ai.skill.power * (c.q.st === 'fly' ? 1 : 0.82) : 1;
   mode = 'race'; acc = 0;
-  showBanner('QUALIFICA SECCA · UN SOLO GIRO LANCIATO', 'yellow', 3.5, true);
-  sounds.radio('Qualifica secca. Hai un giro di lancio, poi un solo giro buono. Fai attenzione ai limiti della pista.');
+  updateCarVisual(0);
+  camState.init = false;
+  showBanner('QUALIFICA SECCA · USCITA DAI BOX', 'yellow', 3.5, true);
+  sounds.radio('Qualifica secca. Esci dai box, fai il giro di lancio e poi hai un solo giro buono. Attento ai limiti della pista.');
 }
-// un passo di simulazione degli avversari (più veloce del tempo vero: finiscono prima di te)
-function qualiBots(dt, budgetMs = 6) {
-  const t0 = performance.now(), L = track.length;
-  quali.acc += dt;
-  while (quali.acc >= DT) {
-    let any = false;
-    for (const q of quali.bots) {
-      if (q.done) continue;
-      any = true;
-      const cmd = q.ai.drive(DT, q.self, q.t);
-      if (cmd.needRescue) { q.p.reset(q.p.prCG.i, 0, true); q.ai.stuck = 0; }
-      q.p.step(DT, cmd);
-      q.t += DT;
-      const s = q.p.prCG.s;
-      if (q.sPrev > L - 60 && s < 60) { if (q.start == null) q.start = q.t; else { q.time = q.t - q.start; q.done = true; } }
-      q.sPrev = s;
-      if (q.t > 420) q.done = true;          // giro rovinato: nessun tempo
-    }
-    quali.acc -= DT;
-    if (!any || performance.now() - t0 > budgetMs) break;
+// vettura ferma nel suo box (esce dopo "wait" secondi)
+function boxPark(c, wait) {
+  const P = new PitStop(pitLane, c, { compound: null, repair: false });
+  P.phase = 'service'; P.p = P.boxP; P.v = 0; P.service = 0; P.serviceTotal = wait;
+  c.pit = P; P.apply(0);
+}
+// programma di ogni avversario: box › giro di lancio › giro buono › rientro ai box
+function qualiProgram() {
+  for (const c of race.cars) {
+    if (c.isPlayer || !c.q) continue;
+    const q = c.q;
+    if (c.retired && q.st !== 'done') { q.st = 'done'; q.time = null; continue; }
+    if (q.st === 'garage' && !c.pit) { q.st = 'out'; q.c0 = c.crossings; }
+    else if (q.st === 'out' && c.crossings > q.c0) { q.st = 'fly'; q.c1 = c.crossings; }
+    else if (q.st === 'fly' && c.crossings > q.c1) {
+      q.st = 'in'; q.time = c.lastLapT;
+      c.pitRequest = { compound: null, repair: false };
+      const pos = qualiOrder().findIndex(x => x.c === c) + 1;
+      feed(`${c.name} ${fmt(q.time)} · ${pos}°`, pos === 1 ? 'green' : 'yellow');
+    } else if (q.st === 'in' && c.pit && c.pit.phase === 'service') { c.pit.serviceTotal = 1e9; q.st = 'done'; }
+    if (c.ai) c.phys.powerScale = c.ai.skill.power * (q.st === 'fly' ? 1 : 0.82);
   }
-  return quali.bots.every(q => q.done);
+}
+// classifica provvisoria (solo chi ha già un tempo)
+function qualiOrder() {
+  const L = race.cars.filter(c => !c.isPlayer && c.q && c.q.time).map(c => ({ c, time: c.q.time }));
+  if (quali && quali.end && quali.end.time) L.push({ c: race.player, time: quali.end.time });
+  return L.sort((a, b) => a.time - b.time);
+}
+function qualiStep(sPrev) {
+  const s = phys.prCG.s, L = track.length;
+  if (!phys.inPit) {
+    let ds = s - sPrev; if (ds < -L / 2) ds += L; if (ds > L / 2) ds -= L;
+    if (ds > 0) quali.dist += ds;
+    // il giro buono parte al primo passaggio sul traguardo dopo almeno mezzo giro di lancio
+    if (!quali.armed && quali.dist > L * 0.5) quali.armed = true;
+    if (quali.armed && !quali.end) timing(sPrev, s);
+  }
 }
 function endQuali(time) {
   if (!quali || quali.end) return;
   quali.end = { time, t: performance.now() };
-  showBanner(time ? `GIRO DI QUALIFICA ${fmt(time)}` : 'GIRO CANCELLATO: NESSUN TEMPO', time ? 'green' : 'red', 3, true);
+  showBanner(time ? `GIRO DI QUALIFICA ${fmt(time)}` : 'NESSUN TEMPO VALIDO', time ? 'green' : 'red', 3, true);
 }
-// a giro finito (dopo un paio di secondi) si aspettano i tempi degli altri e si torna al box
-function qualiTick(dt) {
-  if (!quali) return;
-  const done = qualiBots(quali.end ? dt * 40 : dt * 1.6, quali.end ? 25 : 6);
-  if (!quali.end || performance.now() - quali.end.t < 2500) return;
-  if (!done) { showBanner('IN ATTESA DEI TEMPI DEGLI AVVERSARI…', 'yellow', 0.5, true); return; }
+// a giro finito, dopo qualche secondo, fine della sessione: chi non ha ancora finito il giro
+// ha il tempo che stava facendo (o quello del suo passo), poi si torna al box con i risultati
+function qualiTick() {
+  if (!quali || !race) return;
+  qualiProgram();
+  if (!quali.end || performance.now() - quali.end.t < 3500) return;
+  const ref = qualiLapRef(), L = track.length;
+  const done = race.cars.filter(c => c.q && c.q.time);
+  const ratios = done.map(c => c.q.time / ref).sort((a, b) => a - b);
+  const med = ratios.length ? ratios[Math.floor(ratios.length / 2)] : 1.04;
   const tm = IS_F1 ? teamById(settings.f1Team) : null;
-  const res = quali.bots.map(q => ({ name: q.name, col: q.col, time: q.time, b: q.b }));
+  const res = race.cars.filter(c => !c.isPlayer).map(c => {
+    let t = c.q && c.q.time;
+    if (!t && !c.retired) {
+      const prog = c.q && c.q.st === 'fly' ? c.phys.prCG.s / L : 0;
+      t = prog > 0.2 ? (race.t - c.lapStart) / prog : ref * med * (1 + (r2() - 0.5) * 0.012) * (1 + (settings.raceStrength - c.ai.strength) * 0.0006);
+    }
+    const bi = race.cars.filter(x => !x.isPlayer).indexOf(c);
+    return { name: c.name, col: c.team ? c.team.colors[0] : '#' + c.color.toString(16).padStart(6, '0'), time: t || null, b: bi };
+  });
   res.push({ name: 'TU', me: true, col: tm ? tm.colors[0] : '#ff8a1c', time: quali.end.time });
   res.sort((a, b) => (a.time || 1e9) - (b.time || 1e9));
-  const pos = res.findIndex(r => r.me) + 1;
+  const pos = res.findIndex(x => x.me) + 1;
   wk.quali = { results: res, pos, time: quali.end.time };
   wk.startPos = pos;
-  wk.botOrder = res.filter(r => !r.me).map(r => r.b);
+  wk.botOrder = res.filter(x => !x.me).map(x => x.b);
   quali = null;
-  // di nuovo al box con i risultati
+  clearRace();
   mode = 'menu';
   $('hud').classList.add('hidden'); $('pause').classList.add('hidden'); $('dnf').classList.add('hidden');
   $('menu').classList.remove('hidden');
@@ -2192,6 +2290,7 @@ function qualiTick(dt) {
   showLoading(openHub, 900);
   sounds.radio(pos === 1 ? 'Pole position! Giro incredibile.' : `Partiamo dalla posizione ${pos}.`);
 }
+const r2 = Math.random;
 
 // ---------------- presentazione del circuito prima del via (si salta toccando o con un tasto)
 let introNext = false, intro = null;
@@ -2302,7 +2401,7 @@ function togglePause(on) {
     $('carStatus').innerHTML = carStatusHtml();
     $('pauseReplay').classList.toggle('hidden', !(race && recorder && recorder.frames.length > HZ_MIN));
     $('pauseFlash').classList.toggle('hidden', !fbAvailable());
-    if (race) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
+    if (race && !quali) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
     else $('lapList').innerHTML = laps.length ? laps.map((l, i) => `<div class="${l.valid ? (best && l.time === best.time ? 'best' : '') : 'inv'}"><span>Giro ${i + 1}</span><span>${fmt(l.time)}</span></div>`).join('') : '<div><span>Nessun giro completato</span></div>';
     if (sounds.ctx) sounds.ctx.suspend();
   } else if (!on && mode === 'pause') {
@@ -2366,7 +2465,7 @@ function updateAudio(dt) {
   if (ph === 'service' && audioPitPhase !== 'service') sounds.pitService(pit.serviceTotal);
   audioPitPhase = ph;
   // sorpassi davanti al pubblico
-  if (race && mode === 'race') {
+  if (race && !quali && mode === 'race') {
     const pos = race.standings().indexOf(race.player) + 1;
     if (audioPos && pos < audioPos && dmin < 140) sounds.cheerUp(0.35);
     audioPos = pos;
@@ -2587,7 +2686,7 @@ function frame(now) {
     let steps = 0;
     while (acc >= DT && steps < 40) { physicsStep(inp); acc -= DT; steps++; }
     checkDetachments();
-    if (quali) qualiTick(dt);
+    if (quali) qualiTick();
     if (race && gameType === 'race') fbTick();
     if (recorder && race && !recorder.stopped) {
       recorder.tick(race.t, c => race.progress(c), sc);
@@ -2623,7 +2722,7 @@ function frame(now) {
     updateEffects(mode === 'race' ? dt : dt * 0.5);
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
-    if (attract && mode === 'menu') attractCamera(dt); else if (mode === 'intro' && intro) introCamera(dt); else updateCamera(dt);
+    if (attract && mode === 'menu') attractCamera(dt); else if (mode === 'intro' && intro) introCamera(dt); else if (podium && race) podiumCamera(dt); else updateCamera(dt);
     updateAudio(dt);
   }
   if (mode !== 'menu' && mode !== 'replay' && mode !== 'intro') updateHud(dt);
@@ -2729,7 +2828,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
-    endQuali(t) { endQuali(t); }, get quali() { return quali; }, get wk() { return wk; },
+    endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
     replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
