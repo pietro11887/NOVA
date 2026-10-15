@@ -13,6 +13,7 @@ import { PadNav } from './padNav.js';
 import { Post } from './post.js';
 import { BakuFx } from './bakuFx.js';
 import { WallMarks } from './wallMarks.js';
+import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
@@ -311,6 +312,7 @@ function clearRace() {
 
 function startRaceGame() {
   gameType = 'race';
+  fbReset();
   prepareStart();
   clearRace();
   race = new Race(track, racingLine, {
@@ -1122,6 +1124,7 @@ function startReplay(rep, models, scModel, fromGarage) {
 }
 function exitReplay() {
   if (!rp) return;
+  $('rpFlash').classList.add('hidden');
   sounds.setMuted(rp.muted);
   $('replayUI').classList.add('hidden');
   document.body.classList.remove('replayMode');
@@ -1167,6 +1170,7 @@ function startSavedReplay(packed) {
 }
 function replayFrame(dt) {
   const R = rp.rep, dur = R.duration;
+  if (rp.flash && rp.t < rp.flash.min) { rp.t = rp.flash.min; rp.playing = false; }
   if (rp.playing) { rp.t += dt * RP_SPEEDS[rp.speed]; if (rp.t >= dur) { rp.t = dur; rp.playing = false; rpUi(); } }
   const adt = rp.playing ? dt * RP_SPEEDS[rp.speed] : 0;
   rp.models.forEach((m, k) => {
@@ -1844,6 +1848,55 @@ $('pauseReplay').addEventListener('click', () => {
   rpUi();
 });
 
+// ---------------- flashback: fino a 10 secondi indietro, poi si riparte da lì
+let fbSnaps = [], fbNext = 0;
+const fbExtra = () => ({ simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid, retired: [...retiredSeen] });
+function fbTick() {
+  if (!race || race.finished || race.player.finishT != null || mode !== 'race') return;
+  if (race.t < fbNext) return;
+  fbNext = race.t + FB_EVERY;
+  fbSnaps.push(snapRace(race, sc, debris, fbExtra()));
+  while (fbSnaps.length && fbSnaps[0].t < race.t - FB_KEEP) fbSnaps.shift();
+}
+function fbReset() { fbSnaps = []; fbNext = 0; }
+const fbAvailable = () => !!(race && gameType === 'race' && recorder && fbSnaps.length > 1 && race.player.finishT == null && dnfTimer < 0);
+$('pauseFlash').addEventListener('click', () => {
+  if (!fbAvailable() || mode !== 'pause') return;
+  $('pauseReplay').click();
+  if (!rp) return;
+  const t0 = rp.rep.t0;
+  rp.flash = { min: Math.max(0, fbSnaps[0].t - t0), max: rp.rep.duration };
+  rp.t = Math.max(rp.flash.min, rp.rep.duration - 3); rp.playing = false;
+  $('rpFlash').classList.remove('hidden');
+  rpUi();
+});
+$('rpFlash').addEventListener('click', () => {
+  if (!rp || !rp.flash) return;
+  const target = rp.rep.t0 + rp.t;
+  let S = fbSnaps[0];
+  for (const x of fbSnaps) if (x.t <= target + 0.01) S = x;
+  exitReplay();                                   // di nuovo nella pausa, poi si ripristina
+  const E = restoreRace(S, race, sc, debris, scene);
+  ({ simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid } = E);
+  if (race.player.pit) pitChoice = race.player.pit.plan;
+  retiredSeen = new Set(E.retired);
+  fbSnaps = fbSnaps.filter(x => x.t <= S.t); fbNext = S.t + FB_EVERY;
+  // il replay riprende da questo istante
+  if (recorder) { recorder.frames = recorder.frames.filter(f => f[0] <= S.t); recorder.next = S.t; recorder.stopped = false; }
+  for (const c of race.cars) { c.gone = !!c.gone; if (c.model) { setTyreColor(c.model, c.phys.compound); updateModel(c.model, c.phys, 0); } }
+  setTyreColor(car, phys.compound);
+  updateCarVisual(0);
+  $('pitPanel').classList.toggle('hidden', !(race.player.pit));
+  pitUi();
+  skids.cut && skids.cut();
+  camState.init = false;
+  $('invalid').classList.toggle('hidden', !lap || lap.valid !== false);
+  $('dnf').classList.add('hidden');
+  togglePause(false);
+  acc = 0;
+  showBanner('FLASHBACK', 'purple', 1.6, true);
+});
+
 // --- navigazione del menu (come F1 25: titolo › menu a riquadri › scuderia › circuito › impostazioni › caricamento › box › gara)
 const MENU_PAGES = ['menuTitle', 'menuHome', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits'];
 function showMenuPage(id) {
@@ -2248,6 +2301,7 @@ function togglePause(on) {
     $('pause').classList.remove('hidden');
     $('carStatus').innerHTML = carStatusHtml();
     $('pauseReplay').classList.toggle('hidden', !(race && recorder && recorder.frames.length > HZ_MIN));
+    $('pauseFlash').classList.toggle('hidden', !fbAvailable());
     if (race) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
     else $('lapList').innerHTML = laps.length ? laps.map((l, i) => `<div class="${l.valid ? (best && l.time === best.time ? 'best' : '') : 'inv'}"><span>Giro ${i + 1}</span><span>${fmt(l.time)}</span></div>`).join('') : '<div><span>Nessun giro completato</span></div>';
     if (sounds.ctx) sounds.ctx.suspend();
@@ -2534,6 +2588,7 @@ function frame(now) {
     while (acc >= DT && steps < 40) { physicsStep(inp); acc -= DT; steps++; }
     checkDetachments();
     if (quali) qualiTick(dt);
+    if (race && gameType === 'race') fbTick();
     if (recorder && race && !recorder.stopped) {
       recorder.tick(race.t, c => race.progress(c), sc);
       // fine registrazione poco dopo il tuo arrivo: si salva per rivederla dal Garage
