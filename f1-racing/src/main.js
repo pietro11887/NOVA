@@ -1376,20 +1376,28 @@ function raceSectors(sPrev, sNow) {
   }
 }
 
+// avvisi: riquadri piccoli a destra sotto il tempo del giro (mai davanti alla pista)
 function showBanner(text, color = 'yellow', time = 2, essential = false) {
   // avvisi secondari (sorpassi, contatti, cronaca...) solo se richiesti nelle impostazioni
   if (!essential && !settings.msgs) return;
-  $('bannerText').textContent = text;
-  const b = $('banner');
-  b.className = 'banner ' + color;
-  void b.offsetWidth;
-  bannerTimer = time;
+  const box = $('notes');
+  // lo stesso avviso già visibile si rinnova soltanto
+  for (const n of box.children) if (n.dataset.t === text) { n.dataset.until = performance.now() + time * 1000; return; }
+  const n = document.createElement('div');
+  n.className = 'note ' + color; n.dataset.t = text; n.dataset.until = performance.now() + Math.max(1.2, time) * 1000;
+  n.textContent = text;
+  box.prepend(n);
+  while (box.children.length > 3) box.lastChild.remove();
+}
+function updateNotes() {
+  const now = performance.now();
+  for (const n of [...$('notes').children]) if (now > +n.dataset.until && !n.classList.contains('out')) { n.classList.add('out'); setTimeout(() => n.remove(), 300); }
 }
 
 const dmgColor = v => v >= 0.999 ? '#555' : v < 0.15 ? '#2ee06f' : v < 0.45 ? '#f5c518' : v < 0.75 ? '#ff8a1c' : '#ff3b30';
 
 function updateHud(dt) {
-  if (bannerTimer > 0) { bannerTimer -= dt; if (bannerTimer <= 0) $('banner').classList.add('hidden'); }
+  updateNotes();
   const kmh = Math.round(phys.speed * 3.6);
   setText('speed', String(kmh));
   setText('gear', phys.gear === -1 ? 'R' : (phys.speed < 0.5 && phys.throttleOut < 0.05 ? 'N' : String(phys.gear)));

@@ -898,3 +898,15 @@ body.touch .tabKey { display: none; }
 #podNext { font-family: var(--font); font-weight: 900; font-size: 17px; letter-spacing: 1px; padding: 12px 30px; border-radius: 6px; border: 0; background: var(--accent); color: #141414; cursor: pointer; }
 @media (max-height: 500px) { .pod.p1 .blk { height: 18vh; } .pod.p2 .blk { height: 12vh; } .pod.p3 .blk { height: 8vh; } .podSteps { gap: 6px; } #podNext { padding: 8px 22px; font-size: 14px; } }
 .resTable .r:has(.pts) { grid-template-columns: 34px 14px 1fr auto auto 48px; }
+
+/* avvisi in gara: riquadri piccoli a destra, sotto il tempo del giro (la pista resta libera) */
+.notes { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 58px); width: 168px;
+  display: flex; flex-direction: column; gap: 4px; pointer-events: none; z-index: 2; }
+.note { background: rgba(11,11,13,0.82); border-left: 4px solid var(--yellow); border-radius: 3px; padding: 5px 8px; font-size: 11px; font-weight: 800; letter-spacing: .3px;
+  line-height: 1.25; color: #fff; text-transform: uppercase; box-shadow: 0 2px 8px rgba(0,0,0,0.35); animation: noteIn .2s ease-out; transition: opacity .3s, transform .3s; }
+.note.purple { border-left-color: var(--purple); } .note.red { border-left-color: var(--red); } .note.green { border-left-color: var(--green); }
+.note.out { opacity: 0; transform: translateX(16px); }
+@keyframes noteIn { from { opacity: 0; transform: translateX(16px); } }
+#banner { display: none !important; }
+body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
+@media (max-height: 500px) { .notes { width: 150px; } .note { font-size: 10px; padding: 4px 7px; } }
