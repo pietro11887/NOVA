@@ -78,17 +78,18 @@ export class SafetyCar {
       // come in F1: niente safety car per un contatto con qualche pezzetto. Serve una vettura ferma
       // in pista o un incidente vero (ruote, ali, tanti rottami) che resta lì; e dopo una
       // neutralizzazione passano almeno due giri prima della prossima
-      if (this.endLap != null && lead.crossings < this.endLap + 2) return;
-      if (this.debrisScore(6) >= 6) this.deploy(lead);
+      // (più rara: solo per incidenti grossi, e almeno tre giri tra una e l'altra)
+      if (this.endLap != null && lead.crossings < this.endLap + 3) return;
+      if (this.debrisScore(6) >= 10) this.deploy(lead);
       return;
     }
     const L = this.L(), ord = this.order(), lead = ord[0];
     if (!lead) { this.end(); return; }
     // pulizia: un pezzo alla volta, lontano dalle vetture
     this.cleanT += dt;
-    if (this.cleanT > (this.t < 12 ? 99 : 2.5)) {
+    if (this.cleanT > (this.t < 6 ? 99 : 1.2)) {
       this.cleanT = 0;
-      const far = (x, z, self) => race.cars.every(c => c === self || c.gone || c.retired || Math.hypot(c.phys.x - x, c.phys.z - z) > 70);
+      const far = (x, z, self) => race.cars.every(c => c === self || c.gone || c.retired || Math.hypot(c.phys.x - x, c.phys.z - z) > 45);
       // prima le vetture ferme (carro attrezzi), poi i rottami
       const wreck = race.cars.find(c => c.retired && !c.gone && far(c.phys.x, c.phys.z, c));
       if (wreck) { wreck.gone = true; if (this.onEvent) this.onEvent('towed', wreck); }
@@ -107,15 +108,15 @@ export class SafetyCar {
       if (gapLead > 60) vT = Math.min(vT, 26);
       this.v += Math.max(-12 * dt, Math.min(6 * dt, vT - this.v));
       this.D += this.v * dt;
-      // rientro: dopo almeno un giro e con la pista pulita
-      if (this.phase === 'out' && this.t > 40 && lead.crossings > this.startLap && this.debrisScore() < 0.5) {
+      // rientro: appena la pista è pulita (dopo almeno 20 secondi)
+      if (this.phase === 'out' && this.t > 20 && this.debrisScore() < 0.5) {
         this.phase = 'in'; this.inLap = lead.crossings;
         if (this.onEvent) this.onEvent('in');
       }
       // in questo giro entra in corsia box (all'imbocco sparisce)
       if (this.phase === 'in') {
         const ss = s > L / 2 ? s - L : s;
-        if (lead.crossings === this.inLap && ss > PIT.entry - 15 && ss < PIT.entry + 15) { this.phase = 'restart'; if (this.model) this.model.root.visible = false; }
+        if (ss > PIT.entry - 15 && ss < PIT.entry + 15) { this.phase = 'restart'; this.inLap = lead.crossings; if (this.model) this.model.root.visible = false; }
       }
       this.pose(dt);
     }
