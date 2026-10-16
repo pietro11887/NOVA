@@ -2043,6 +2043,7 @@ function setRows() {
   const S = settings, trial = S.gameType === 'trial', R = [];
   const km = (S.raceLaps * track.length / 1000).toFixed(1).replace('.', ',');
   if (setTab === 'sess') {
+    if (!trial) R.push({ l: 'QUALIFICA', v: S.weekend === 'osq' ? 'SÌ · QUALIFICA SECCA' : 'NO · SOLO GARA', s: S.weekend === 'osq' ? 'un giro lanciato decide la griglia' : 'scegli tu la posizione di partenza', f: () => { S.weekend = S.weekend === 'osq' ? 'race' : 'osq'; } });
     if (!trial) {
       R.push({ l: 'DURATA GARA', v: `${S.raceLaps} ${S.raceLaps === 1 ? 'GIRO' : 'GIRI'}`, s: `${km} km${S.raceLaps >= 8 ? ' · con soste ai box' : ''}`, f: d => clampS('raceLaps', S.raceLaps + d, 1, 30) });
       R.push({ l: 'AVVERSARI', v: String(S.raceBots), s: `${S.raceBots + 1} vetture in griglia`, f: d => { clampS('raceBots', S.raceBots + d, 1, 19); S.raceStart = Math.min(S.raceStart, S.raceBots + 1); } });
@@ -2143,6 +2144,8 @@ async function openHub() {
       + row(!osq || !!q, 'GARA', `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'} · ${S.raceBots + 1} vetture · IA ${S.raceStrength}`);
   $('hubStart').textContent = trial ? 'INIZIA SESSIONE ›' : osq && !q ? 'INIZIA QUALIFICA ›' : 'INIZIA GARA ›';
   $('hubTyre').classList.toggle('hidden', trial);
+  $('hubQualiToggle').classList.toggle('hidden', trial || !!q);
+  $('hubQualiToggle').textContent = osq ? 'Salta la qualifica (parti dalla posizione scelta)' : 'Fai la qualifica secca';
   $('hubTyre').textContent = `Gomme di partenza: ${COMPOUNDS[S.raceTyre].name}`;
   $('hubQuali').classList.toggle('hidden', !q);
   if (q) $('hubQuali').innerHTML = '<div class="hqHead">RISULTATI QUALIFICA</div>' + q.results.map((r, k) => `<div class="hq${r.me ? ' me' : ''}"><span>${k + 1}</span><i style="background:${r.col}"></i><b>${r.name}</b><em>${r.time ? fmt(r.time) : 'NESSUN TEMPO'}</em></div>`).join('');
@@ -2157,6 +2160,7 @@ async function openHub() {
 }
 $('hubTyre').addEventListener('click', () => { settings.raceTyre = cyc(['S', 'M', 'H'], settings.raceTyre, 1); saveSettings(); openHub(); });
 $('hubSettings').addEventListener('click', openSetup);
+$('hubQualiToggle').addEventListener('click', () => { settings.weekend = settings.weekend === 'osq' ? 'race' : 'osq'; saveSettings(); sounds.ui && sounds.ui(); openHub(); });
 $('hubExit').addEventListener('click', () => { wk = null; goMenu(); });
 $('hubStart').addEventListener('click', () => {
   const trial = settings.gameType === 'trial';
