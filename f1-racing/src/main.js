@@ -1490,9 +1490,10 @@ function updateHud(dt) {
     const key = (on ? 'a' : 'n') + (ot ? 'o' + Math.ceil(o.energy) : '') + Math.round(bat * 60);
     if (hudCache.ot !== key) {
       hudCache.ot = key;
-      $('leftLbl').textContent = ot ? 'OVERTAKE' : 'BATTERIA';
-      $('dmgPct').textContent = ot ? 'OT' : 'BOOST';
-      $('otSec').textContent = Math.round(bat * 100) + '%' + (ot ? ` · ${Math.ceil(o.energy)}s` : '');
+      // grande la carica in percentuale, sotto piccolo "BATTERIA"; sopra l'Overtake quando c'è
+      $('leftLbl').textContent = ot ? `OT ${Math.ceil(o.energy)}s` : on ? 'BOOST' : '';
+      $('dmgPct').textContent = Math.round(bat * 100) + '%';
+      $('otSec').textContent = 'BATTERIA';
       const col = ot ? '#2ee06f' : bat > 0.25 ? '#ffd23f' : '#ff8a1c';
       $('dmgPct').style.color = on ? '#0b0b0d' : ot ? '#2ee06f' : '#fff';
       const arc = $('hpArc'); arc.style.strokeDasharray = `${(bat * 198).toFixed(1)} 264`; arc.style.stroke = col;

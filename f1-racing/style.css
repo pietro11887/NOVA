@@ -940,7 +940,7 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 #hud .fdDial.otDial.avail { box-shadow: 0 0 14px rgba(46,224,111,0.35); }
 #hud .fdDial.otDial.act { background: radial-gradient(circle, #2ee06f 58%, rgba(46,224,111,0.5) 70%, transparent 72%); animation: otPulse .6s ease-in-out infinite alternate; border-radius: 50%; }
 #hud .fdDial.otDial.act small { color: #0b0b0d; }
-#hud .fdDial.otDial b { font-size: 19px; font-weight: 900; letter-spacing: 1px; }
+#hud .fdDial.otDial b { font-size: 18px; font-weight: 900; letter-spacing: 0; }
 #hud .fdDial.otDial.act.bst { background: radial-gradient(circle, #ffd23f 58%, rgba(255,210,63,0.5) 70%, transparent 72%); }
 #hud .fdDial.otDial #otSec { font-size: 8px; color: rgba(255,255,255,0.75); }
 #hud .fdDial.otDial.act #otSec { color: #0b0b0d; }
