@@ -246,16 +246,24 @@ export class CarPhysics {
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
     const dfx = this.fx;
-    // batteria: Boost = spinta elettrica in più finché c'è carica (circa 11 s da piena);
-    // l'Overtake aggiunge ancora un po' sopra (e non consuma la batteria: è energia in più)
-    this.ersOn = this.hasErs && this.deploy && this.battery > 0 && throttle > 0.5 && this.gear > 0 ? 1 : 0;
-    if (this.ersOn) this.battery = Math.max(0, this.battery - dt / 11 * throttle);
-    if (this.hasErs && this.battery < 1) {
-      // recupero: in frenata (fino a ~9 s di frenate forti per riempirla) e un filo in rilascio
-      const v = Math.abs(vxl), k = Math.min(1, v / 35);
-      this.battery = Math.min(1, this.battery + (brake * 0.11 + (throttle < 0.05 ? 0.02 : 0)) * k * dt);
+    // batteria (F1 2026: 4 MJ utili, MGU-K fino a 350 kW). Come nelle F1 vere:
+    // - guidando, il motore elettrico spinge sempre un po' (fa parte della potenza normale) e la carica
+    //   scende piano a gas aperto; oltre ~290 km/h la spinta elettrica si riduce e quasi non consuma;
+    // - in frenata e in rilascio si recupera (in un giro si recupera circa quanto si spende);
+    // - scarica del tutto, si perde la parte elettrica della potenza (circa -9%);
+    // - il Boost (tuo o dei bot) dà potenza in più (al massimo +150 kW) e consuma di più:
+    //   da piena dura circa 18 s di gas a fondo.
+    let eMul = 1;
+    this.ersOn = 0;
+    if (this.hasErs) {
+      const v = Math.abs(vxl), k = Math.min(1, v / 35), fast = v > 80;
+      const full = throttle > 0.5 && this.gear > 0;
+      this.ersOn = this.deploy && this.battery > 0 && full ? 1 : 0;
+      if (full && this.battery > 0) this.battery = Math.max(0, this.battery - dt * throttle * ((fast ? 0.008 : 1 / 32) + (this.ersOn ? 1 / 42 : 0)));
+      if (this.battery < 1) this.battery = Math.min(1, this.battery + (brake * 0.13 + (throttle < 0.05 ? 0.03 : 0)) * k * dt);
+      if (this.battery <= 0) eMul = 0.91;
     }
-    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
+    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * eMul * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045) * (A ? ARCADE.engineBrake : 1);
