@@ -1,12 +1,17 @@
 import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE } from './carModel.js';
-import { SPEC } from './vehicle.js';
+import { SPEC, IS_F1 } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
 import { TOW_LEVELS } from './driveMode.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
+
+// Overtake Mode (F1 2026, al posto del DRS): chi passa sul traguardo a 1 secondo o meno da chi lo
+// precede ha, per tutto il giro dopo, energia elettrica in più (0,5 MJ) da usare quando vuole:
+// tutta insieme o un po' alla volta. Qui: circa 7 secondi di spinta piena.
+export const OT_GAP = 1.0, OT_ENERGY = 7;
 
 export const DRIVERS = [
   ['ROSSI', 0xd8231f, 0xffd21e], ['BIANCHI', 0x1b3a8a, 0xff2d55], ['VERDI', 0x0a7d3e, 0xffffff],
@@ -29,6 +34,8 @@ export class Race {
     this.pitLane = opts.laps >= 8 ? opts.pitLane : null;
     this.cars = [];
     this.street = !!track.street;
+    this.otOn = IS_F1;           // solo le Formula 1
+    this.noOT = false;          // con la safety car in pista non vale
     this.t = 0;              // secondi dalla partenza
     this.started = false;
     this.finished = false;
@@ -186,6 +193,22 @@ export class Race {
     }
     this.collideCars();
     if (running) for (const c of this.cars) if (!c.gone) this.lapLogic(c, dt);
+    if (running && this.otOn) this.overtakeMode(dt);
+  }
+
+  // Overtake Mode: i bot lo usano sul dritto quando sono vicini a chi sta davanti; il giocatore col tasto
+  overtakeMode(dt) {
+    for (const c of this.cars) {
+      const o = c.ot, p = c.phys;
+      if (!o || o.energy <= 0 || c.pit || c.retired || this.noOT) { p.otBoost = 0; if (o) o.active = false; continue; }
+      if (c.ai) {
+        const g = c.ai.blockGap ?? 999, straight = c.ai.profile[(p.prCG.i + 40) % this.track.count] > p.speed + 4;
+        o.active = straight && g < 45 && p.speed > 30;
+      }
+      p.otBoost = o.active && p.throttleOut > 0.5 ? 1 : 0;
+      if (p.otBoost) o.energy = Math.max(0, o.energy - dt);
+      if (o.energy <= 0) o.active = false;
+    }
   }
 
   // decide e gestisce l'ingresso ai box
@@ -238,6 +261,17 @@ export class Race {
       c.lapStart = tc;
       c.crossings++;
       c.halfway = false;
+      // rilevamento dell'Overtake Mode sul traguardo: vale per il giro che comincia
+      if (this.otOn) {
+        c.ot = null;
+        if (!this.noOT && c.crossings >= 1 && c.crossings < this.laps) {
+          const st = this.standings(), k = st.indexOf(c), ahead = k > 0 ? st[k - 1] : null;
+          if (ahead && !ahead.retired && ahead.finishT == null) {
+            const b = Math.floor(this.progress(c) / 10), ta = ahead.pass[b];
+            if (ta != null && tc - ta <= OT_GAP) { c.ot = { energy: OT_ENERGY, active: false, lap: c.crossings }; if (this.onEvent) this.onEvent(c, 'ot'); }
+          }
+        }
+      }
       if (c.crossings >= this.laps) c.finishT = tc + (c.penalty || 0);   // penalità in secondi
     }
     // tempi di passaggio ogni 10 m (per i distacchi)

@@ -69,6 +69,7 @@ export class CarPhysics {
     this.idleRpm = 4000;
     this.peakTorque = CAR.torque;
     this.powerScale = 1;
+    this.otBoost = 0;         // F1 2026: Overtake Mode attivo (energia elettrica in più)
     this.gripScale = 1;
     this.gearLong = 1;
     this.compound = 'M';
@@ -240,7 +241,7 @@ export class CarPhysics {
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
     const dfx = this.fx;
-    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * throttle * (1 - dmg.engine * 0.6 * dfx);
+    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * (1 + 0.16 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045) * (A ? ARCADE.engineBrake : 1);

@@ -910,3 +910,12 @@ body.touch .tabKey { display: none; }
 #banner { display: none !important; }
 body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 @media (max-height: 500px) { .notes { width: 150px; } .note { font-size: 10px; padding: 4px 7px; } }
+
+/* Overtake Mode (F1 2026) */
+.aids .ot { opacity: .35; }
+.aids .ot.avail { opacity: 1; color: #2ee06f; border-color: #2ee06f; box-shadow: 0 0 0 1px #2ee06f inset; }
+.aids .ot.act { opacity: 1; background: #2ee06f; color: #0b0b0d; animation: otPulse .6s ease-in-out infinite alternate; }
+@keyframes otPulse { to { box-shadow: 0 0 14px #2ee06f; } }
+#topButtons #otBtn { width: auto; padding: 0 12px; font-weight: 900; letter-spacing: 1px; font-size: 14px; }
+#topButtons #otBtn.avail { color: #2ee06f; border-color: #2ee06f; }
+#topButtons #otBtn.act { background: #2ee06f; color: #0b0b0d; border-color: #2ee06f; }

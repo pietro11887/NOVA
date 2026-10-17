@@ -341,6 +341,7 @@ function startRaceGame() {
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
     if (kind === 'pitOut' && c.isPlayer) { $('pitPanel').classList.add('hidden'); pitUi(); }
+    if (kind === 'ot' && c.isPlayer) { showBanner('OVERTAKE DISPONIBILE · PREMI B / OT', 'green', 3, true); if (!radioSaid.ot) { radioSaid.ot = true; sounds.radio('Sei entro un secondo: hai l\'overtake in questo giro. Usalo sul rettilineo.'); } }
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
     else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
@@ -1504,6 +1505,12 @@ function updateHud(dt) {
   $('warnBrk').classList.toggle('hidden', ARC() || phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
   $('aidTow').classList.toggle('hidden', !tow);
+  {
+    const o = race && !quali && race.otOn ? race.player.ot : null, on = !!(o && o.energy > 0);
+    const txt = on ? (o.active ? `OT ${Math.ceil(o.energy)}s` : 'OT') : 'OT';
+    const cls = 'ot' + (on ? (o.active ? ' act' : ' avail') : '') + (race && race.otOn && !quali ? '' : ' hidden');
+    if (hudCache.ot !== cls + txt) { hudCache.ot = cls + txt; const el = $('aidOT'); el.className = cls; el.textContent = txt; $('otBtn').className = on ? (o.active ? 'act' : 'avail') : 'hidden'; }
+  }
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
   localMap.draw(phys, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
 }
@@ -2445,6 +2452,14 @@ function goMenu() {
   refreshSettings();
   startAttract();
 }
+// Overtake Mode: si accende e si spegne quando vuoi (finché c'è energia)
+function toggleOT() {
+  const o = race && !quali && race.player.ot;
+  if (!o || o.energy <= 0) return;
+  o.active = !o.active;
+  sounds.beep(o.active ? 1180 : 760, 0.08, 0.12);
+}
+$('otBtn').addEventListener('click', toggleOT);
 function cycleCam() {
   camMode = (camMode + 1) % CAMS.length; settings.cam = camMode; saveSettings();
   camState.init = false;
@@ -2678,6 +2693,8 @@ function frame(now) {
     if (input.consume('KeyC')) cycleCam();
   }
   if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
+  if (input.consume('KeyB') && mode === 'race') toggleOT();
+  if (race && race.otOn) race.noOT = !!(sc && sc.active);
   if (mode === 'menu' && attract && race) attractStep(dt);
 
   if (mode === 'countdown') {
