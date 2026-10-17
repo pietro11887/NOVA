@@ -198,13 +198,20 @@ export class Race {
 
   // Overtake Mode: i bot lo usano sul dritto quando sono vicini a chi sta davanti; il giocatore col tasto
   overtakeMode(dt) {
+    // Boost dei bot: in attacco sul dritto, in difesa con uno vicino dietro, o per non sprecare la carica piena
+    for (const c of this.cars) {
+      if (!c.ai || !c.phys.hasErs) continue;
+      const p = c.phys, ai = c.ai, n = this.track.count;
+      const straight = ai.profile[(p.prCG.i + 40) % n] > p.speed + 4 && ai.profile[(p.prCG.i + 15) % n] > p.speed;
+      const attack = (ai.blockGap ?? 999) < 45, defend = ai.chaserNear;
+      const want = straight && p.speed > 30 && !this.noOT && (attack ? p.battery > 0.05 : defend ? p.battery > 0.3 : p.battery > 0.85);
+      p.deploy = want;
+    }
     for (const c of this.cars) {
       const o = c.ot, p = c.phys;
       if (!o || o.energy <= 0 || c.pit || c.retired || this.noOT) { p.otBoost = 0; if (o) o.active = false; continue; }
-      if (c.ai) {
-        const g = c.ai.blockGap ?? 999, straight = c.ai.profile[(p.prCG.i + 40) % this.track.count] > p.speed + 4;
-        o.active = straight && g < 45 && p.speed > 30;
-      }
+      if (c.ai) o.active = !!p.deploy;                 // il bot usa l'Overtake insieme al Boost
+      else o.active = !!p.deploy;                       // il giocatore: un solo tasto (Boost + Overtake)
       p.otBoost = o.active && p.throttleOut > 0.5 ? 1 : 0;
       if (p.otBoost) o.energy = Math.max(0, o.energy - dt);
       if (o.energy <= 0) o.active = false;

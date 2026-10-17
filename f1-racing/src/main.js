@@ -18,7 +18,7 @@ import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './rep
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
-import { Race, DRIVERS, OT_ENERGY } from './race.js';
+import { Race, DRIVERS } from './race.js';
 import { PitLane, PitStop } from './pit.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
@@ -272,6 +272,7 @@ function resetSession() {
   racingLine.setArcade(ARC());
   arcOffT = 0;
   phys.fuel = 10; phys.mass = phys.baseMass + phys.fuel;
+  phys.battery = 1; phys.deploy = false;
   lap = { active: false, sector: -1, valid: true };
   laps = [];
   lastLap = null;
@@ -341,7 +342,7 @@ function startRaceGame() {
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
     if (kind === 'pitOut' && c.isPlayer) { $('pitPanel').classList.add('hidden'); pitUi(); }
-    if (kind === 'ot' && c.isPlayer) { showBanner('OVERTAKE DISPONIBILE · PREMI B / OT', 'green', 3, true); if (!radioSaid.ot) { radioSaid.ot = true; sounds.radio('Sei entro un secondo: hai l\'overtake in questo giro. Usalo sul rettilineo.'); } }
+    if (kind === 'ot' && c.isPlayer) { showBanner('OVERTAKE DISPONIBILE · TOCCA LA BATTERIA O B', 'green', 3, true); if (!radioSaid.ot) { radioSaid.ot = true; sounds.radio('Sei entro un secondo: hai l\'overtake in questo giro. Usalo sul rettilineo.'); } }
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
     else if (kind === 'retired') { lastFeed = -99; feed(`${c.name} SI RITIRA · ${c.retireWhy}`, 'red'); }
@@ -1483,18 +1484,19 @@ function updateHud(dt) {
       $('gearRing').classList.remove('hidden');
       const r = $('gearHp'); r.style.strokeDasharray = `${hp} 100`; r.style.stroke = hpCol;
     }
-    const o = race && !quali && race.otOn ? race.player.ot : null, on = !!(o && o.energy > 0);
-    const frac = on ? o.energy / OT_ENERGY : 0;
-    const key = (on ? (o.active ? 'a' : 'v') : 'n') + Math.ceil(frac * 50);
+    // a sinistra: la batteria (anello) e il Boost; "OT" verde quando c'è anche l'Overtake
+    const o = race && !quali && race.otOn ? race.player.ot : null, ot = !!(o && o.energy > 0);
+    const bat = phys.battery, on = !!phys.deploy;
+    const key = (on ? 'a' : 'n') + (ot ? 'o' + Math.ceil(o.energy) : '') + Math.round(bat * 60);
     if (hudCache.ot !== key) {
       hudCache.ot = key;
-      $('leftLbl').textContent = 'OVERTAKE';
-      $('dmgPct').textContent = 'OT';
-      $('otSec').textContent = on ? Math.ceil(o.energy) + ' s' : '—';
-      const col = on ? '#2ee06f' : 'rgba(255,255,255,0.35)';
-      $('dmgPct').style.color = on && !o.active ? '#2ee06f' : on ? '#0b0b0d' : 'rgba(255,255,255,0.45)';
-      const arc = $('hpArc'); arc.style.strokeDasharray = `${(frac * 198).toFixed(1)} 264`; arc.style.stroke = col;
-      $('leftDial').className = 'fdDial otDial' + (on ? (o.active ? ' act' : ' avail') : '');
+      $('leftLbl').textContent = ot ? 'OVERTAKE' : 'BATTERIA';
+      $('dmgPct').textContent = ot ? 'OT' : 'BOOST';
+      $('otSec').textContent = Math.round(bat * 100) + '%' + (ot ? ` · ${Math.ceil(o.energy)}s` : '');
+      const col = ot ? '#2ee06f' : bat > 0.25 ? '#ffd23f' : '#ff8a1c';
+      $('dmgPct').style.color = on ? '#0b0b0d' : ot ? '#2ee06f' : '#fff';
+      const arc = $('hpArc'); arc.style.strokeDasharray = `${(bat * 198).toFixed(1)} 264`; arc.style.stroke = col;
+      $('leftDial').className = 'fdDial otDial' + (on ? ' act' + (ot ? '' : ' bst') : ot ? ' avail' : '');
     }
   } else if (hudCache.hp !== hp) {
     hudCache.hp = hp;
@@ -2467,14 +2469,12 @@ function goMenu() {
   refreshSettings();
   startAttract();
 }
-// Overtake Mode: si accende e si spegne quando vuoi (finché c'è energia)
+// Boost (batteria) e Overtake: un solo tasto, si accende e si spegne quando vuoi
 function toggleOT() {
-  const o = race && !quali && race.player.ot;
-  if (!o || o.energy <= 0) return;
-  o.active = !o.active;
-  sounds.beep(o.active ? 1180 : 760, 0.08, 0.12);
+  if (!phys.hasErs || quali && phys.inPit) return;
+  phys.deploy = !phys.deploy;
+  sounds.beep(phys.deploy ? 1180 : 760, 0.08, 0.12);
 }
-// pointerdown (non click): funziona anche con un altro dito sul gas o sullo sterzo
 $('leftDial').addEventListener('pointerdown', e => { if (!IS_F1) return; e.preventDefault(); e.stopPropagation(); toggleOT(); });
 $('leftDial').addEventListener('contextmenu', e => e.preventDefault());
 function cycleCam() {

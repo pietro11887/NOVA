@@ -166,6 +166,7 @@ export class AIDriver {
 
     const brakeIdx = this.nextBrake(i, v, 90);
     this.blockGap = blocker ? bestGap : 999;      // per l'Overtake Mode
+    this.chaserNear = !!chaser && chaserGap > -20;
     // reazione al pericolo: si frena per potersi fermare prima e si cerca il lato libero
     if (hazard) {
       const hp = hazard.phys, hd = hp.prCG.d;

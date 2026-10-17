@@ -1,5 +1,5 @@
 import { GEOM, CAR_SCALE } from './carModel.js';
-import { SPEC } from './vehicle.js';
+import { SPEC, IS_F1 } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
 
@@ -70,6 +70,11 @@ export class CarPhysics {
     this.peakTorque = CAR.torque;
     this.powerScale = 1;
     this.otBoost = 0;         // F1 2026: Overtake Mode attivo (energia elettrica in più)
+    // batteria (F1 2026): si ricarica in frenata e in rilascio, si spende col Boost quando vuoi
+    this.hasErs = IS_F1;
+    this.battery = 1;         // carica 0..1 (4 MJ)
+    this.deploy = false;      // Boost richiesto (tasto del giocatore o decisione del bot)
+    this.ersOn = 0;           // Boost che sta davvero spingendo
     this.gripScale = 1;
     this.gearLong = 1;
     this.compound = 'M';
@@ -241,7 +246,16 @@ export class CarPhysics {
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
     const dfx = this.fx;
-    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * (1 + 0.16 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
+    // batteria: Boost = spinta elettrica in più finché c'è carica (circa 11 s da piena);
+    // l'Overtake aggiunge ancora un po' sopra (e non consuma la batteria: è energia in più)
+    this.ersOn = this.hasErs && this.deploy && this.battery > 0 && throttle > 0.5 && this.gear > 0 ? 1 : 0;
+    if (this.ersOn) this.battery = Math.max(0, this.battery - dt / 11 * throttle);
+    if (this.hasErs && this.battery < 1) {
+      // recupero: in frenata (fino a ~9 s di frenate forti per riempirla) e un filo in rilascio
+      const v = Math.abs(vxl), k = Math.min(1, v / 35);
+      this.battery = Math.min(1, this.battery + (brake * 0.11 + (throttle < 0.05 ? 0.02 : 0)) * k * dt);
+    }
+    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045) * (A ? ARCADE.engineBrake : 1);
