@@ -3,6 +3,11 @@ import { ROAD_HALF_WIDTH as H } from './trackData.js';
 import { CAR, CarPhysics } from './physics.js';
 import { GEOM } from './carModel.js';
 import { ARCADE } from './driveMode.js';
+import { IS_F1 } from './vehicle.js';
+
+// linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
+// (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
+const LINE_MU = IS_F1 ? 1.0 : 1.3 / 1.8, LINE_BRK = IS_F1 ? 0.9 : 0.72, LINE_HS = IS_F1 ? 0.35 : 0;
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
 // Il colore di ogni tratto dipende dalla velocità attuale della vettura:
@@ -100,7 +105,7 @@ export class RacingLine {
     this.gripMap = new Float64Array(n).fill(1);
     this.version = 0;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
-    this.speed = this.speedProfile(1.3 * CAR.mu / 1.8, 0.72);
+    this.speed = this.speedProfile(LINE_MU * CAR.mu, LINE_BRK, 95, LINE_HS);
   }
 
   // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
@@ -118,7 +123,8 @@ export class RacingLine {
     return (this._elev = { kv, sl });
   }
 
-  speedProfile(mu, brakeFac, vmax = 95) {
+  // hs: aderenza in più nelle curve veloci (carico aerodinamico che il modello semplice sottostima, solo F1)
+  speedProfile(mu, brakeFac, vmax = 95, hs = 0) {
     const n = this.track.count, curv = this.curv, ds = this.ds;
     const { kv, sl } = this.elevation();
     const v = new Float64Array(n);
@@ -128,8 +134,8 @@ export class RacingLine {
       let vi = vmax;
       for (let it = 0; it < 6; it++) {
         // in discesa il carico va sull'avantreno e il retrotreno si alleggerisce: la curva si fa più piano
-        const m = mu * g * loadMu(vi) * (1 + 1.5 * Math.min(0, sl[i])), kk = m * (K_AERO + Math.min(0, kv[i]));
-        vi = k > kk ? Math.min(vmax, Math.sqrt(m * G / (k - kk))) : vmax;
+        const m = mu * g * loadMu(vi) * (1 + hs * Math.max(0, Math.min(1, (vi - 50) / 30))), mG = m * (1 + 1.5 * Math.min(0, sl[i])), kk = m * (K_AERO + Math.min(0, kv[i]));
+        vi = k > kk ? Math.min(vmax, Math.sqrt(mG * G / (k - kk))) : vmax;
       }
       // limite dello sterzo: la velocità più alta a cui la curva si tiene ancora col volante a fondo
       if (k > steerK(vi, this.arcadeOn)) {
@@ -176,7 +182,7 @@ export class RacingLine {
     }
     if (changed) {
       this.version++;
-      this.speed = this.speedProfile(1.3 * CAR.mu / 1.8 * (this.arcadeOn ? ARCADE.grip : 1), 0.72 * (this.arcadeOn ? ARCADE.brake : 1));
+      this.speed = this.speedProfile(LINE_MU * CAR.mu * (this.arcadeOn ? ARCADE.grip : 1), LINE_BRK * (this.arcadeOn ? ARCADE.brake : 1), 95, LINE_HS);
     }
     return changed;
   }
@@ -191,7 +197,7 @@ export class RacingLine {
   setArcade(on) {
     if (this.arcadeOn === on) return;
     this.arcadeOn = on;
-    this.speed = this.speedProfile(1.3 * CAR.mu / 1.8 * (on ? ARCADE.grip : 1), 0.72 * (on ? ARCADE.brake : 1));
+    this.speed = this.speedProfile(LINE_MU * CAR.mu * (on ? ARCADE.grip : 1), LINE_BRK * (on ? ARCADE.brake : 1), 95, LINE_HS);
   }
 
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)

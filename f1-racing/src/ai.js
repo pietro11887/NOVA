@@ -1,6 +1,6 @@
 import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
 import { CAR } from './physics.js';
-import { SPEC } from './vehicle.js';
+import { SPEC, IS_F1 } from './vehicle.js';
 import { ARCADE } from './driveMode.js';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -57,9 +57,11 @@ export class AIDriver {
     const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
     const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1));
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
-    this.profile = this.line.speedProfile(mu, brk, 120);
+    // F1: nelle curve veloci il carico aerodinamico permette di più (Eau Rouge in pieno)
+    this.hs = IS_F1 ? 0.35 : 0;
+    this.profile = this.line.speedProfile(mu, brk, 120, this.hs);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
-    this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120);
+    this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120, this.hs);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
     this.errPerLap = 0.01 + 0.22 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
@@ -313,7 +315,7 @@ export class AIDriver {
     const hk = Math.round(hurt * 30);
     if (hk !== this.hurtKey) {
       this.hurtKey = hk;
-      this.dmgProfile = hk ? this.line.speedProfile(this.mu * (1 - hurt), this.brk * (1 - 0.4 * hurt), 120) : null;
+      this.dmgProfile = hk ? this.line.speedProfile(this.mu * (1 - hurt), this.brk * (1 - 0.4 * hurt), 120, this.hs) : null;
     }
     const prof = this.dmgProfile || (this.attack ? this.attackProfile : this.profile);
     // si guarda un attimo avanti (i freni e le gomme non reagiscono all'istante)
@@ -354,8 +356,8 @@ export class AIDriver {
     else if (!understeer && Math.abs(steer) < 0.8 && v > 0.97 * prof[(i + look) % n]) this.line.relax(i);
     if (this.lineVer !== this.line.version) {
       this.lineVer = this.line.version;
-      this.profile = this.line.speedProfile(this.mu, this.brk, 120);
-      this.attackProfile = this.line.speedProfile(this.mu * 1.02, Math.min(0.97, this.brk + 0.08), 120);
+      this.profile = this.line.speedProfile(this.mu, this.brk, 120, this.hs);
+      this.attackProfile = this.line.speedProfile(this.mu * 1.02, Math.min(0.97, this.brk + 0.08), 120, this.hs);
       this.hurtKey = -1;
     }
     const fastUs = understeer && v > 35;   // in velocità si alza il piede; nei tornanti si impara e basta
