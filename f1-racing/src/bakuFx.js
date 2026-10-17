@@ -270,20 +270,21 @@ export class BakuFx {
     const yawRate = prev ? angDiff(p.yaw, prev.yaw) / Math.max(1e-3, dt) : 0;
     const lat = Math.abs(yawRate * p.speed);
     // scie d'aria dalle punte degli alettoni: in curva veloce (carico alto) si condensa l'umidità
-    const tips = c.f1 ? [[-2.55, 0.95, 0.5], [-2.55, 0.95, -0.5], [2.45, 0.18, 0.98], [2.45, 0.18, -0.98]] : [[-2.25, 1.15, 0.85], [-2.25, 1.15, -0.85]];
-    const k = Math.max(0, Math.min(1, (p.speed - 40) / 30)) * Math.max(0, Math.min(1, (lat - 9) / 18));
+    // (solo le punte dell'alettone posteriore, solo in curva davvero veloce: una scia sottile, non una nuvola)
+    const tips = c.f1 ? [[-2.55, 0.95, 0.5], [-2.55, 0.95, -0.5]] : [[-2.25, 1.15, 0.85], [-2.25, 1.15, -0.85]];
+    const k = Math.max(0, Math.min(1, (p.speed - 55) / 25)) * Math.max(0, Math.min(1, (lat - 14) / 18)) * (c.key === 'me' ? 1 : 0.5);
     const now = tips.map(([b, h, l]) => [p.x + cy * b - sy * l, p.y + h, p.z + sy * b + cy * l]);
     if (prev && k > 0.02 && dt > 0) {
       now.forEach((q, j) => {
         const o = prev.tips[j];
         const dist = Math.hypot(q[0] - o[0], q[2] - o[2]);
         if (dist > 8) return;
-        const cnt = Math.min(10, Math.ceil(dist / 0.3));
+        const cnt = Math.min(3, Math.ceil(dist / 0.9));
         const front = j >= 2;
         for (let s = 0; s < cnt; s++) {
           const t = (s + Math.random()) / cnt;
           this.mist.emit(o[0] + (q[0] - o[0]) * t, o[1] + (q[1] - o[1]) * t, o[2] + (q[2] - o[2]) * t,
-            { color: [0.95, 0.96, 0.98], size: front ? 0.08 : 0.11, grow: 0.25, life: 0.35 + Math.random() * 0.3, alpha: k * (front ? 0.3 : 0.45), drag: 0.5, vy: 0.05 });
+            { color: [0.95, 0.96, 0.98], size: front ? 0.07 : 0.09, grow: 0.2, life: 0.25 + Math.random() * 0.2, alpha: k * 0.3, drag: 0.5, vy: 0.05 });
         }
       });
     }
@@ -306,10 +307,11 @@ export class BakuFx {
         vx: p.vx * 0.35 + (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 3, vz: p.vz * 0.35 + (Math.random() - 0.5) * 4, grav: 2.2, drag: 1.1 });
     }
     // partenza: fumo delle gomme posteriori mentre si scatta da fermi
-    if (this.startT >= 0 && this.time - this.startT < 3 && p.speed < 28) {
-      for (const l of [-0.75, 0.75]) if (Math.random() < dt * 30) {
+    // (poco: un velo dietro le ruote motrici, non una nuvola su tutta la griglia)
+    if (this.startT >= 0 && this.time - this.startT < 1.6 && p.speed < 20 && (c.key === 'me' || Math.random() < 0.35)) {
+      for (const l of [-0.75, 0.75]) if (Math.random() < dt * 6) {
         const b = c.f1 ? -1.7 : -1.4;
-        this.mist.emit(p.x + cy * b - sy * l, p.y + 0.25, p.z + sy * b + cy * l, { color: [0.88, 0.88, 0.9], size: 1.0, grow: 3.5, life: 2.2, alpha: 0.3,
+        this.mist.emit(p.x + cy * b - sy * l, p.y + 0.25, p.z + sy * b + cy * l, { color: [0.88, 0.88, 0.9], size: 0.8, grow: 2.5, life: 1.4, alpha: 0.14,
           vx: -cy * 3 + (Math.random() - 0.5) * 2, vy: 0.6, vz: -sy * 3 + (Math.random() - 0.5) * 2, drag: 1.2 });
       }
     }

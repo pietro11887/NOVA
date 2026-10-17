@@ -707,13 +707,13 @@ function updateEffects(dt) {
     if (w.fz <= 0) { skids.add(i, wx, gy, wz, 0); return; }
     if (t === SURF.ROAD || t === SURF.KERB) {
       skids.add(i, wx, gy, wz, w.slide);
-      if (w.slide > 0.5 && Math.random() < w.slide * dt * 40) {
-        particles.emit(wx, gy + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.8, grow: 3, life: 1.4, alpha: 0.35 * w.slide, vx: phys.vx * 0.3, vy: 0.6, vz: phys.vz * 0.3, drag: 2 });
+      if (w.slide > 0.6 && phys.speed > 4 && Math.random() < w.slide * dt * 14) {
+        particles.emit(wx, gy + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.7, grow: 2.5, life: 1.1, alpha: 0.22 * w.slide, vx: phys.vx * 0.3, vy: 0.6, vz: phys.vz * 0.3, drag: 2 });
       }
       // gomma bloccata o in derapata: nuvola di fumo bianco-azzurro più densa e lunga
-      if ((w.lock || w.spinning || w.slide > 0.75) && phys.speed > 6 && Math.random() < dt * 45) {
+      if ((w.lock || w.slide > 0.8 || (w.spinning && phys.speed > 12)) && phys.speed > 6 && Math.random() < dt * 14) {
         const k = w.lock ? 1 : w.slide;
-        particles.emit(wx, gy + 0.15, wz, { color: [0.9, 0.91, 0.94], size: 0.6, grow: 4.5, life: 2.4, alpha: 0.42 * k, vx: phys.vx * 0.15 + (Math.random() - 0.5) * 1.5, vy: 0.9, vz: phys.vz * 0.15 + (Math.random() - 0.5) * 1.5, drag: 1.4 });
+        particles.emit(wx, gy + 0.15, wz, { color: [0.9, 0.91, 0.94], size: 0.6, grow: 3.5, life: 1.8, alpha: 0.3 * k, vx: phys.vx * 0.15 + (Math.random() - 0.5) * 1.5, vy: 0.9, vz: phys.vz * 0.15 + (Math.random() - 0.5) * 1.5, drag: 1.4 });
       }
     } else {
       skids.add(i, wx, gy, wz, Math.min(1, phys.speed / 15), false);
@@ -743,8 +743,8 @@ function updateEffects(dt) {
       const wx = p.x + cy2 * w.x - sy2 * w.y, wz = p.z + sy2 * w.x + cy2 * w.y;
       const onRoad = w.sf.type <= SURF.KERB;
       skids.add(c.skidKey + i, wx, w.ground + 0.03, wz, w.fz > 0 ? (onRoad ? w.slide : Math.min(1, p.speed / 15)) : 0, onRoad);
-      if (onRoad && w.slide > 0.5 && Math.random() < w.slide * dt * 25) particles.emit(wx, w.ground + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.8, grow: 3, life: 1.2, alpha: 0.3 * w.slide, vx: p.vx * 0.3, vy: 0.6, vz: p.vz * 0.3, drag: 2 });
-      if (!onRoad && p.speed > 5 && Math.random() < dt * 15) particles.emit(wx, w.ground + 0.1, wz, { color: w.sf.type === SURF.GRAVEL ? [0.8, 0.72, 0.52] : [0.35, 0.55, 0.25], size: 0.25, life: 0.8, vx: p.vx * 0.4, vy: 2 + Math.random() * 3, vz: p.vz * 0.4, grav: 9.8, drag: 0.5 });
+      if (onRoad && w.slide > 0.7 && p.speed > 8 && Math.random() < w.slide * dt * 6) particles.emit(wx, w.ground + 0.2, wz, { color: [0.85, 0.85, 0.87], size: 0.7, grow: 2.5, life: 1, alpha: 0.2 * w.slide, vx: p.vx * 0.3, vy: 0.6, vz: p.vz * 0.3, drag: 2 });
+      if (!onRoad && p.speed > 5 && Math.random() < dt * 8) particles.emit(wx, w.ground + 0.1, wz, { color: w.sf.type === SURF.GRAVEL ? [0.8, 0.72, 0.52] : [0.35, 0.55, 0.25], size: 0.25, life: 0.8, vx: p.vx * 0.4, vy: 2 + Math.random() * 3, vz: p.vz * 0.4, grav: 9.8, drag: 0.5 });
     });
     if (p.damage.engine > 0.3 && Math.random() < dt * 30 * p.damage.engine) particles.emit(p.x - cy2 * 2.2, p.y + 0.5, p.z - sy2 * 2.2, { color: [0.3, 0.3, 0.3], size: 0.8, grow: 3, life: 2, alpha: 0.45, vx: p.vx * 0.5, vy: 1.5, vz: p.vz * 0.5, drag: 1 });
   }
@@ -772,7 +772,7 @@ const fxDir = new THREE.Vector3();
 function sparks(p, dt) {
   if (!IS_F1 || ARC() || p.speed < 48) return;
   const rate = (p.speed - 48) / 25 * (0.35 + Math.min(2, p.kerbVibe) * 2.5) * (1 + Math.max(0, -p.pitch) * 40);
-  let n = rate * dt * 60 * (Math.random() < 0.35 ? 1 : 0.15);
+  let n = rate * dt * 25 * (Math.random() < 0.35 ? 1 : 0.15) * (p === phys ? 1 : 0.5);
   const cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
   while (n > 0 && (n >= 1 || Math.random() < n)) {
     n -= 1;
