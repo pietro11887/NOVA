@@ -516,14 +516,14 @@ export class CarPhysics {
   // urto contro barriere
   applyDamage(part, impact) {
     const d = this.damage;
-    const amt = Math.max(0, impact - 3.5) / 22 * this.dmgScale;   // sotto ~13 km/h di velocità d'urto è una strisciata
+    const amt = Math.max(0, impact - 4.2) / 25 * this.dmgScale;   // sotto ~15 km/h di velocità d'urto è una strisciata
     if (amt <= 0) return;
     const add = (k, v) => { d[k] = Math.min(1, d[k] + v); };
     const susp = (i, v) => { d.susp[i] = Math.min(1, d.susp[i] + v); };
     switch (part) {
-      case 'fwL': add('fwL', amt * 1.8); susp(0, amt * 0.3); break;
-      case 'fwR': add('fwR', amt * 1.8); susp(1, amt * 0.3); break;
-      case 'nose': add('fwL', amt * 1.5); add('fwR', amt * 1.5); break;
+      case 'fwL': add('fwL', amt * 1.5); susp(0, amt * 0.3); break;
+      case 'fwR': add('fwR', amt * 1.5); susp(1, amt * 0.3); break;
+      case 'nose': add('fwL', amt * 1.25); add('fwR', amt * 1.25); break;
       case 'wFL': susp(0, amt * 1.1); add('fwL', amt * 0.5); this.maybePuncture(0, impact, 0.04); break;
       case 'wFR': susp(1, amt * 1.1); add('fwR', amt * 0.5); this.maybePuncture(1, impact, 0.04); break;
       case 'sideL': susp(0, amt * 0.4); susp(2, amt * 0.4); add('floor', amt * 0.8); add('radiator', amt * 1.2); break;
@@ -541,10 +541,10 @@ export class CarPhysics {
     const add = (key, v) => { if (v > 0) d[key] = Math.min(1, d[key] + v * k); };
     const susp = (i, v) => { if (v > 0) d.susp[i] = Math.min(1, d.susp[i] + v * k); };
     switch (part) {
-      // sotto ~4 m/s (15 km/h di differenza) è un tocco: nessun danno
-      case 'fwL': add('fwL', (impact - 4) / 12); break;
-      case 'fwR': add('fwR', (impact - 4) / 12); break;
-      case 'nose': add('fwL', (impact - 4) / 13); add('fwR', (impact - 4) / 13); break;
+      // sotto ~4,6 m/s (17 km/h di differenza) è un tocco: nessun danno
+      case 'fwL': add('fwL', (impact - 4.6) / 14); break;
+      case 'fwR': add('fwR', (impact - 4.6) / 14); break;
+      case 'nose': add('fwL', (impact - 4.6) / 16); add('fwR', (impact - 4.6) / 16); break;
       case 'rw': add('rw', (impact - 4.5) / 13); add('floor', (impact - 4.5) / 18); add('gearbox', (impact - 6) / 20); break;
       case 'sideL': case 'sideR': add('floor', (impact - 4.5) / 16); add('radiator', (impact - 4.5) / 12); break;
       case 'wFL': case 'wFR': case 'wRL': case 'wRR': {
