@@ -772,7 +772,15 @@ export class BakuScenery extends Scenery {
           diffuseColor.rgb = mix(diffuseColor.rgb, avgC, far);
           fN = normalize(mix(fN, Nw, far)); fR = mix(fR, st == 2.0 ? 0.12 : 0.8, far); if (st == 2.0) fM = mix(fM, 0.85, far); fE *= 1.0 - far * 0.6;
         }
-        if (st > 3.5 && wallF) diffuseColor.rgb *= 1.08;`)
+        if (st > 3.5 && wallF) diffuseColor.rgb *= 1.08;
+        // palazzi "vissuti": ognuno un po' diverso, colature sotto le finestre, sporco del traffico in basso
+        if (wallF && st != 2.0) {
+          float wx = vFU.x * 3.6, wy = vFU.y * 3.4;
+          float drip = smoothstep(0.55, 1.0, fh(vec2(floor(wx * 2.5), sdq))) * (1.0 - fract(wy / 3.4)) * smoothstep(0.0, 0.3, fract(wy / 3.4));
+          diffuseColor.rgb *= 1.0 - 0.13 * drip * (1.0 - far);
+          diffuseColor.rgb *= 1.0 - 0.2 * (1.0 - smoothstep(0.0, 1.8, wy));
+          diffuseColor.rgb *= 0.9 + 0.14 * fh(vec2(sdq, 3.0));
+        }`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = fR;')
         .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = fM;')
         .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize((viewMatrix * vec4(fN, 0.0)).xyz);')

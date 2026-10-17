@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK } from './trackData.js';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK } from './trackData.js';
+import { buildTrackDetail } from './trackDetail.js';
 import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { SpaScenery } from './scenerySpa.js';
@@ -131,14 +132,29 @@ const track = new Track();
 // Baku e Nova: luce del tramonto: sole basso e caldo, ombre lunghe, cielo che sfuma nell'arancio,
 // foschia dorata in lontananza (in campagna il terreno riflette una luce più verde e si vede più lontano)
 const SUNSET = !TRACK.model && settings.tod === 'sunset';
+// "look" di ogni pista di giorno, come le riprese TV: luce più contrastata (sole forte, ombre più
+// profonde), foschia dello stesso colore del cielo all'orizzonte e correzione colore propria
+const LOOKS = {
+  // Spa: Ardenne, aria umida, cielo chiaro velato, verdi profondi e poco saturi
+  spa: { top: 0x3a6db0, hor: 0xbfcad3, sunC: 0xfff3e2, sun: 3.4, sky: 0xbfd2e6, gnd: 0x4a5536, hemi: 0.82, fog: [0xc3ccd3, 380, 3000], exp: 1.0,
+    grade: { sat: 0.88, con: 1.07, lift: 0.012, shadow: [0.95, 1.0, 1.05], high: [1.03, 1.01, 0.97] } },
+  // Baku: luce calda del Caspio, polvere chiara nell'aria, pietra calcarea luminosa
+  baku: { top: 0x3f7cc4, hor: 0xd3d0c6, sunC: 0xffeed4, sun: 3.4, sky: 0xc8d8ea, gnd: 0x7d7466, hemi: 0.85, fog: [0xd2cfc5, 420, 2900], exp: 0.98,
+    grade: { sat: 0.95, con: 1.08, lift: 0.01, shadow: [0.96, 1.0, 1.05], high: [1.05, 1.0, 0.94] } },
+  // Nova: pomeriggio limpido
+  nova: { top: 0x2c68bf, hor: 0xb6cbe0, sunC: 0xfff1de, sun: 3.3, sky: 0xc6dcf5, gnd: 0x5c6844, hemi: 0.9, fog: [0xb8cbdf, 600, 3800], exp: 1.0,
+    grade: { sat: 0.94, con: 1.06, lift: 0.008, shadow: [0.96, 1.0, 1.05], high: [1.04, 1.0, 0.96] } },
+};
+const LOOK = !SUNSET ? LOOKS[TRACK.id] || LOOKS.nova : null;
 if (!TRACK.model && !SUNSET) {
-  // giorno (come F1 25): sole alto di pomeriggio, luce neutra, cielo azzurro con nuvole, asfalto chiaro
-  ENV.skyTop = 0x1d5fc4; ENV.horizon = 0xa8c6e6;
+  // giorno (come F1 25): sole alto di pomeriggio, cielo azzurro con nuvole
+  const L = LOOK;
+  ENV.skyTop = L.top; ENV.horizon = L.hor;
   ENV.sunDir.set(0.55, 0.62, -0.56).normalize();
-  sun.color.set(0xfff1de); sun.intensity = 3.0;
-  hemi.color.set(0xc6dcf5); hemi.groundColor.set(track.street ? 0x7a7366 : 0x5f6b45); hemi.intensity = 1.05;
-  scene.fog = track.street ? new THREE.Fog(0xb4cbe2, 500, 3200) : new THREE.Fog(0xb4cbe2, 700, 4000);
-  renderer.toneMappingExposure = 1.0;
+  sun.color.set(L.sunC); sun.intensity = L.sun;
+  hemi.color.set(L.sky); hemi.groundColor.set(L.gnd); hemi.intensity = L.hemi;
+  scene.fog = new THREE.Fog(L.fog[0], L.fog[1], L.fog[2]);
+  renderer.toneMappingExposure = L.exp;
 }
 if (SUNSET) {
   ENV.skyTop = 0x3a6fb8; ENV.horizon = 0xf2c28c;
@@ -196,7 +212,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); }
+    try { post = new Post(renderer, scene, camera, { warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); if (LOOK) post.setLook(LOOK.grade); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
@@ -210,6 +226,8 @@ function build() {
   racingLine = new RacingLine(track);
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
+  // asfalto e bordi "vissuti": gomma sporca, segni di frenata, terra fuori pista (grafica alta)
+  if (!TRACK.model && settings.quality !== 'low') scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
   scene.add(racingLine.build());
   if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
   phys = new CarPhysics(track);

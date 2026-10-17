@@ -103,7 +103,7 @@ export class SpaScenery extends Scenery {
     const XS = axis(tb.x0, tb.x1), ZS = axis(tb.z0, tb.z1), nx = XS.length - 1, nz = ZS.length - 1;
     const pos = new Float32Array((nx + 1) * (nz + 1) * 3), col = new Float32Array((nx + 1) * (nz + 1) * 3);
     const c = new THREE.Color(), r = rand(5);
-    const GRASS = new THREE.Color(0x6a8f4a), FOREST = new THREE.Color(0x3c4e2c), MEADOW = new THREE.Color(0x7a9a52), FAR = new THREE.Color(0x34482c);
+    const GRASS = new THREE.Color(0x667f4c), FOREST = new THREE.Color(0x3d4a30), MEADOW = new THREE.Color(0x728a52), FAR = new THREE.Color(0x3a4733);   // verdi delle Ardenne: profondi, poco saturi
     const hills = (x, z) => 70 + 60 * Math.sin(x * 0.0011 + 0.7) * Math.cos(z * 0.0009 + 1.1) + 35 * Math.sin(x * 0.0031 + z * 0.0024) + 12 * Math.sin(x * 0.009 - z * 0.007);
     let k = 0;
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++, k++) {
@@ -269,7 +269,7 @@ export class SpaScenery extends Scenery {
     const max = this.low ? 3500 : this.quality === 'high' ? 14000 : 8000;
     const L = { pine: [[], []], broad: [[], []] };
     let count = 0;
-    const tint = sp => sp === 'broad' ? new THREE.Color().setHSL(0.24 + r() * 0.05, 0.3, 0.55 + r() * 0.15) : new THREE.Color().setHSL(0.31 + r() * 0.04, 0.22, 0.36 + r() * 0.12);
+    const tint = sp => sp === 'broad' ? new THREE.Color().setHSL(0.21 + r() * 0.06, 0.24, 0.5 + r() * 0.16) : new THREE.Color().setHSL(0.3 + r() * 0.05, 0.16, 0.3 + r() * 0.12);
     const put = (x, z, cl, sp) => {
       const s1 = sp === 'pine' ? 1.5 + r() * 0.9 : 1.0 + r() * 0.6;
       L[sp][cl < 90 ? 0 : 1].push([mat4(x, this.heightAt(x, z) - 0.3, z, r() * 6.28, s1 * (0.9 + r() * 0.2), s1 * (1 + r() * 0.35), s1), tint(sp)]);
@@ -311,7 +311,7 @@ export class SpaScenery extends Scenery {
       const g = this.heightAt(x, z);
       const inF = this.inForest(x, z) && this.clearance(x, z).d > 150;
       const y = inF ? g + 15 + r() * 6 + 3 * Math.sin(x * 0.07) * Math.cos(z * 0.06) : g - 8;
-      c.setHSL(0.3 + r() * 0.05, 0.3, 0.13 + r() * 0.07);
+      c.setHSL(0.28 + r() * 0.06, 0.2, 0.12 + r() * 0.08);
       pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
       col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
     }
