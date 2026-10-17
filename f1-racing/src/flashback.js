@@ -46,7 +46,7 @@ export function restoreInst(s, refs = []) {
 const CAR_REFS = ['phys', 'ai', 'model', 'team', 'pit'];
 const PIT_REFS = ['lane', 'car', 'plan'];
 const PHYS_REFS = ['track', 'hazards', 'listeners', '_listeners', 'events', 'handlers'];
-const AI_REFS = ['phys', 'line', 'track', 'chicane', 'nextApex'];
+const AI_REFS = ['phys', 'line', 'track', 'chicane', 'nextApex', 'pass'];
 const SC_REFS = ['race', 'track', 'line', 'debris', 'scene', 'model', 'onEvent', 'lightMat', '_seen'];
 const RACE_REFS = ['track', 'line', 'cars', 'pitLane', 'onEvent', 'player'];
 

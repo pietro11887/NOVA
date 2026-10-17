@@ -40,6 +40,7 @@ export class AIDriver {
     this.exitZone = -1;
     this.mistake = null;    // { type, until, ... }
     this.attack = null;     // tentativo di sorpasso in staccata
+    this.yield = null;      // cede all'interno in staccata (poi incrocia)
     this.onEvent = null;    // callback per il cronista
   }
 
@@ -134,6 +135,7 @@ export class AIDriver {
     let push = 0;
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
+    const along = [];
     // distanza laterale misurata rispetto alla traiettoria (nelle esse la linea passa da un lato all'altro:
     // due vetture in fila sulla stessa linea hanno "d" diverse ma sono una dietro l'altra)
     const myLD = this.street ? myD : myD - this.line.off[i];
@@ -158,6 +160,8 @@ export class AIDriver {
       if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
       if (Math.abs(g) < 7 && lat < 3.1) push += -Math.sign(dd || 1) * (3.1 - lat) * (1.35 - 0.6 * this.aggr);
+      // affiancate (per la regola dello spazio e per cedere all'interno)
+      if (g > -6.5 && g < 6.5 && lat < 4.6) along.push({ c, g, d: c.phys.prCG.d });
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
@@ -191,16 +195,16 @@ export class AIDriver {
           this.emit('attack');
         }
       }
-      // 2) sul dritto: scia e poi fuori
+      // 2) sul dritto: in scia e poi fuori, dalla parte libera (meglio l'interno della curva dopo)
       const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
       if (!this.sc && !hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.2)) - this.line.off[i];
       }
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
-      // Anche in attacco finché non si è affiancati.
+      // Anche in attacco finché non si è affiancati. In scia, pronti a uscire, si sta più vicini.
       const lat = Math.abs((od - lineOff(blocker.phys.prCG.i)) - myLD);
-      const want = 6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft);
+      const want = (6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft));
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
       const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.45);
@@ -216,6 +220,26 @@ export class AIDriver {
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.4)) - this.line.off[i];
       }
     }
+    const nA = this.nextApex[i], distBrake = nA >= 0 ? ((nA - i + n) % n) * tr.step : 999;
+    // 3b) difesa sul rettilineo: chi è davanti, con uno in scia, fa una sola mossa verso l'interno
+    // della curva successiva (come in F1: niente zig-zag)
+    if (!this.street && !this.sc && raceT > 20 && !this.attack && !this.mistake && chaser && chaserGap > -18 && distBrake > 150 && this.defStraight !== nA) {
+      this.defStraight = nA;
+      const cl = chaser.phys.speed - v, clat = Math.abs(chaser.phys.prCG.d - myD);
+      if (cl > 0.5 && clat < 2 && this.rand() < 0.12 * (0.5 + this.aggr) * (0.7 + 0.5 * this.craft)) {
+        this.mistake = { type: 'defend', until: this.t + Math.min(6, distBrake / Math.max(20, v)), side: nA >= 0 ? this.insideAt(nA) : 1 };
+      }
+    }
+    // switchback: chi viene attaccato all'interno in staccata cede un po' (niente porta chiusa),
+    // tiene l'esterno e poi incrocia in uscita, dove ha più trazione, per riprovarci sul dritto
+    if (!this.street && !this.sc && !this.attack && brakeIdx >= 0 && distBrake < 90 && this.aggr < 0.85) {
+      const ins = this.insideAt(brakeIdx);
+      for (const a of along) {
+        const rel = (a.d - myD) * ins;                      // > 0: è dalla parte interna
+        if (rel > 1.8 && a.g > -3.5) { this.yield = { until: this.t + 1.8, apex: brakeIdx, side: -ins }; break; }
+      }
+    }
+    if (this.yield && this.t > this.yield.until) this.yield = null;
     // senza traffico, o prima di una staccata, si torna sulla traiettoria ideale
     if (!hazard && !this.attack && (!blocker || brakeIdx >= 0)) this.laneTarget *= Math.max(0, 1 - dt * (brakeIdx >= 0 ? 2.5 : 0.4));
     if (this.attack) this.laneTarget = this.attack.side * (lim - 0.3) - this.line.off[i];
@@ -255,6 +279,15 @@ export class AIDriver {
     const m = this.mistake;
     if (m && m.type === 'wide') laneT += m.side * m.amount;
     if (m && m.type === 'defend') laneT = m.side * (lim - 0.5) - this.line.off[i];
+    if (this.yield) laneT = Math.max(-lim, Math.min(lim, this.yield.side * 1.5 + this.line.off[i] * 0.5)) - this.line.off[i];
+    // regola dello spazio: con una vettura affiancata non ci si sposta verso di lei
+    // (le si lascia la larghezza di una macchina), salvo pericolo davanti
+    if (!hazard && !this.street) for (const a of along) {
+      if (Math.abs(a.g) > 3.2) continue;
+      const mine = laneT + this.line.off[i];
+      if (a.d > myD + 0.8) laneT = Math.min(mine, a.d - 2.9) - this.line.off[i];
+      else if (a.d < myD - 0.8) laneT = Math.max(mine, a.d + 2.9) - this.line.off[i];
+    }
     this.lane += Math.max(-dt * 2.6, Math.min(dt * 2.6, laneT - this.lane));
 
     // --- sterzo: inseguimento di un punto sulla traiettoria ---
@@ -297,6 +330,7 @@ export class AIDriver {
         vT *= Math.sqrt(Rin / R);
       }
     }
+    if (this.yield && ((this.yield.apex - i + n) % n) < 60) vT *= 0.95;
     // con la vettura danneggiata (meno carico, sospensioni storte) si va più piano
     const dm = p.damage;
     // (il profilo "danneggiato" viene ricalcolato così la frenata arriva in tempo)

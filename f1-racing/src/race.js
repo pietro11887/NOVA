@@ -28,6 +28,7 @@ export class Race {
     // box solo nelle gare lunghe (da 8 giri)
     this.pitLane = opts.laps >= 8 ? opts.pitLane : null;
     this.cars = [];
+    this.street = !!track.street;
     this.t = 0;              // secondi dalla partenza
     this.started = false;
     this.finished = false;
@@ -114,18 +115,23 @@ export class Race {
     const L = this.track.length;
     for (const c of this.cars) {
       const p = c.phys;
-      let best = 1e9;
+      let best = 1e9, bestDirty = 1e9;
       for (const o of this.cars) {
         if (o === c || o.gone || o.pit) continue;
         let g = o.phys.prCG.s - p.prCG.s;
         if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
-        if (g > 3 && g < best && Math.abs(o.phys.prCG.d - p.prCG.d) < 2.8) best = g;
+        if (g <= 3) continue;
+        const lat = Math.abs(o.phys.prCG.d - p.prCG.d);
+        // la scia è più larga dell'aria sporca: uscendo per sorpassare se ne sente ancora un po',
+        // mentre il carico si perde solo stando proprio dietro
+        if (lat < (this.street ? 2.8 : 3.6) && g < best) best = g + Math.max(0, lat - 2.8) * 25;
+        if (lat < 2.8 && g < bestDirty) bestDirty = g;
       }
       const reach = 60 * Math.sqrt(this.towMul);          // arcade: la scia si sente da più lontano
       const tow = best < reach ? 1 - best / reach : 0;
       p.dragMul = Math.max(0.35, 1 - 0.38 * this.towMul * tow);
       const dirty = SPEC.dirtyAir * (this.arcade ? 0.4 : 1);
-      p.downMul = best < 22 ? 1 - dirty * (1 - best / 22) : 1;   // poco carico: l'aria sporca conta poco
+      p.downMul = bestDirty < 22 ? 1 - dirty * (1 - bestDirty / 22) : 1;   // poco carico: l'aria sporca conta poco
       c.tow = tow;
     }
   }
