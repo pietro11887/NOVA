@@ -18,7 +18,7 @@ import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './rep
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
-import { Race, DRIVERS } from './race.js';
+import { Race, DRIVERS, OT_ENERGY } from './race.js';
 import { PitLane, PitStop } from './pit.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
@@ -1475,10 +1475,31 @@ function updateHud(dt) {
   // arcade: i danni diventano una barra di salute
   // integrità: percentuale e voci principali
   const hp = Math.round(100 * (1 - phys.totalDamage()));
-  if (hudCache.hp !== hp) {
+  const hpCol = hp > 85 ? 'var(--green)' : hp > 55 ? 'var(--yellow)' : hp > 30 ? '#ff8a1c' : 'var(--red)';
+  if (IS_F1) {
+    // F1: l'integrità è la linea attorno al riquadro della marcia; a sinistra la batteria dell'Overtake
+    if (hudCache.hp !== hp) {
+      hudCache.hp = hp;
+      $('gearRing').classList.remove('hidden');
+      const r = $('gearHp'); r.style.strokeDasharray = `${hp} 100`; r.style.stroke = hpCol;
+    }
+    const o = race && !quali && race.otOn ? race.player.ot : null, on = !!(o && o.energy > 0);
+    const frac = on ? o.energy / OT_ENERGY : 0;
+    const key = (on ? (o.active ? 'a' : 'v') : 'n') + Math.ceil(frac * 50);
+    if (hudCache.ot !== key) {
+      hudCache.ot = key;
+      $('leftLbl').textContent = 'OVERTAKE';
+      $('dmgPct').textContent = 'OT';
+      $('otSec').textContent = on ? Math.ceil(o.energy) + ' s' : '—';
+      const col = on ? '#2ee06f' : 'rgba(255,255,255,0.35)';
+      $('dmgPct').style.color = on && !o.active ? '#2ee06f' : on ? '#0b0b0d' : 'rgba(255,255,255,0.45)';
+      const arc = $('hpArc'); arc.style.strokeDasharray = `${(frac * 198).toFixed(1)} 264`; arc.style.stroke = col;
+      $('leftDial').className = 'fdDial otDial' + (on ? (o.active ? ' act' : ' avail') : '');
+    }
+  } else if (hudCache.hp !== hp) {
     hudCache.hp = hp;
     const el = $('dmgPct'); el.textContent = hp + '%';
-    el.style.color = hp > 85 ? 'var(--green)' : hp > 55 ? 'var(--yellow)' : hp > 30 ? '#ff8a1c' : 'var(--red)';
+    el.style.color = hpCol;
     const arc = $('hpArc'); arc.style.strokeDasharray = `${(hp / 100 * 198).toFixed(1)} 264`; arc.style.stroke = el.style.color;
   }
   const parts = [
@@ -1505,12 +1526,6 @@ function updateHud(dt) {
   $('warnBrk').classList.toggle('hidden', ARC() || phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
   $('aidTow').classList.toggle('hidden', !tow);
-  {
-    const o = race && !quali && race.otOn ? race.player.ot : null, on = !!(o && o.energy > 0);
-    const txt = on ? (o.active ? `OT ${Math.ceil(o.energy)}s` : 'OT') : 'OT';
-    const cls = 'ot' + (on ? (o.active ? ' act' : ' avail') : '') + (race && race.otOn && !quali ? '' : ' hidden');
-    if (hudCache.ot !== cls + txt) { hudCache.ot = cls + txt; const el = $('aidOT'); el.className = cls; el.textContent = txt; $('otBtn').className = 'otDash ' + (on ? (o.active ? 'act' : 'avail') : (race && race.otOn && !quali ? 'off' : 'hidden')); $('otSec').textContent = on ? Math.ceil(o.energy) + 's' : ''; }
-  }
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
   localMap.draw(phys, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
 }
@@ -2460,8 +2475,8 @@ function toggleOT() {
   sounds.beep(o.active ? 1180 : 760, 0.08, 0.12);
 }
 // pointerdown (non click): funziona anche con un altro dito sul gas o sullo sterzo
-$('otBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toggleOT(); });
-$('otBtn').addEventListener('contextmenu', e => e.preventDefault());
+$('leftDial').addEventListener('pointerdown', e => { if (!IS_F1) return; e.preventDefault(); e.stopPropagation(); toggleOT(); });
+$('leftDial').addEventListener('contextmenu', e => e.preventDefault());
 function cycleCam() {
   camMode = (camMode + 1) % CAMS.length; settings.cam = camMode; saveSettings();
   camState.init = false;

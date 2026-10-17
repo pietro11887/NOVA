@@ -53,16 +53,15 @@
   </div>
   <!-- in basso a sinistra: solo il pezzo di pista dove sei, con le vetture vicine -->
   <canvas id="localMap"></canvas>
-  <!-- Overtake Mode: tasto accanto alla marcia (si preme anche tenendo gas o sterzo) -->
-  <button id="otBtn" class="otDash hidden" aria-label="Overtake Mode"><b>OT</b><small id="otSec"></small></button>
   <!-- in basso al centro: integrità, marcia, velocità e giri -->
   <div class="f1Dash">
     <div class="fdRow">
-      <div class="fdDial">
+      <!-- a sinistra: integrità (GT) oppure batteria dell'Overtake Mode (F1), da toccare per accenderlo -->
+      <div class="fdDial" id="leftDial">
         <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="hpArc" class="rgArc hp" cx="50" cy="50" r="42"/></svg>
-        <div class="fdIn"><small>INTEGRITÀ</small><b id="dmgPct">100%</b></div>
+        <div class="fdIn"><small id="leftLbl">INTEGRITÀ</small><b id="dmgPct">100%</b><small id="otSec"></small></div>
       </div>
-      <div class="fdGear"><div class="leds" id="leds"></div><div id="gear">N</div><div id="fdMode" class="fdMode">AUTO</div></div>
+      <div class="fdGear"><svg class="gearRing hidden" id="gearRing" viewBox="0 0 66 68" aria-hidden="true"><rect class="grBg" x="1.5" y="1.5" width="63" height="65" rx="9" pathLength="100"/><rect id="gearHp" class="grArc" x="1.5" y="1.5" width="63" height="65" rx="9" pathLength="100"/></svg><div class="leds" id="leds"></div><div id="gear">N</div><div id="fdMode" class="fdMode">AUTO</div></div>
       <div class="fdDial">
         <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rgBg" cx="50" cy="50" r="42"/><circle id="rpmArc" class="rgArc rpm" cx="50" cy="50" r="42"/></svg>
         <div class="fdIn"><small>KM/H</small><b id="speed">0</b><small id="rpmTxt">0</small></div>
@@ -70,7 +69,7 @@
     </div>
     <div class="fdChips">
       <div class="tyres" id="tyres"><i id="ty0"></i><i id="ty1"></i><i id="ty2"></i><i id="ty3"></i></div>
-      <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTyre" class="tyreChip">M</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="aidOT" class="ot hidden">OT</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
+      <div class="aids"><span id="aidTc">TC</span><span id="aidAbs">ABS</span><span id="aidGear">AUTO</span><span id="aidTyre" class="tyreChip">M</span><span id="aidTow" class="on tow hidden">SCIA</span><span id="warnEng" class="warn hidden">MOTORE CALDO</span><span id="warnBrk" class="warn hidden">FRENI</span></div>
     </div>
   </div>
   <!-- (dati usati dal gioco ma non mostrati) -->
