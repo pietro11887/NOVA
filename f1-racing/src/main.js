@@ -1177,7 +1177,12 @@ function startSavedReplay(packed) {
 }
 function replayFrame(dt) {
   const R = rp.rep, dur = R.duration;
-  if (rp.flash && rp.t < rp.flash.min) { rp.t = rp.flash.min; rp.playing = false; }
+  if (rp.flash) {
+    // flashback: si riavvolge all'indietro (come in F1) finché non scegli il punto
+    if (rp.flash.rev) { rp.playing = false; rp.t -= dt * 1.5; if (rp.t <= rp.flash.min) { rp.t = rp.flash.min; rp.flash.rev = false; } rpUi(); }
+    if (rp.t < rp.flash.min) { rp.t = rp.flash.min; rp.playing = false; }
+    if (rp.t > rp.flash.max) { rp.t = rp.flash.max; rp.playing = false; }
+  }
   if (rp.playing) { rp.t += dt * RP_SPEEDS[rp.speed]; if (rp.t >= dur) { rp.t = dur; rp.playing = false; rpUi(); } }
   const adt = rp.playing ? dt * RP_SPEEDS[rp.speed] : 0;
   rp.models.forEach((m, k) => {
@@ -1256,8 +1261,8 @@ function replayCamera(dt, T) {
   camera.position.copy(rp.cam3); camera.up.set(0, 1, 0); camera.lookAt(rp.look);
   camera.fov = fov; camera.updateProjectionMatrix();
 }
-function rpToggle() { if (rp.t >= rp.rep.duration - 0.05) rp.t = 0; rp.playing = !rp.playing; rpUi(); }
-function rpSeek(d) { rp.t = Math.max(0, Math.min(rp.rep.duration, rp.t + d)); rp.shot = null; rp.init = false; rpUi(); }
+function rpToggle() { if (rp.flash) { rp.flash.rev = false; if (rp.t >= rp.flash.max - 0.05) rp.t = rp.flash.min; } else if (rp.t >= rp.rep.duration - 0.05) rp.t = 0; rp.playing = !rp.playing; rpUi(); }
+function rpSeek(d) { if (rp.flash) rp.flash.rev = false; rp.t = Math.max(0, Math.min(rp.rep.duration, rp.t + d)); rp.shot = null; rp.init = false; rpUi(); }
 function rpCar(d) { const n = rp.models.length; for (let s = 1; s <= n; s++) { const k = (rp.target + d * s + n * 4) % n; if (rp.poses[k] && rp.poses[k].visible) { rp.target = k; break; } } rp.shot = null; rp.init = false; rpUi(); }
 function rpCamNext() { rp.cam = (rp.cam + 1) % RP_CAMS.length; rp.shot = null; rp.init = false; rpUi(); }
 function rpUi(force) {
@@ -1267,7 +1272,9 @@ function rpUi(force) {
   $('rpSpeed').textContent = (RP_SPEEDS[rp.speed] < 1 ? RP_SPEEDS[rp.speed].toFixed(2).replace(/0$/, '') : RP_SPEEDS[rp.speed]) + '×';
   $('rpTime').textContent = `${fmtClock(rp.t)} / ${fmtClock(R.duration)}`;
   $('rpCam').textContent = RP_CAMS[rp.cam];
-  if (!rp.dragging) $('rpSlider').value = String(Math.round(rp.t / Math.max(0.001, R.duration) * 1000));
+  const lo = rp.flash ? rp.flash.min : 0, hi = rp.flash ? rp.flash.max : R.duration;
+  if (!rp.dragging) $('rpSlider').value = String(Math.round((rp.t - lo) / Math.max(0.001, hi - lo) * 1000));
+  if (rp.flash) $('rpTime').textContent = `−${(hi - rp.t).toFixed(1)} s`;
   // posizione in gara di chi segui (dal progresso registrato)
   const P = rp.poses[rp.target];
   let pos = 1;
@@ -1289,7 +1296,7 @@ $('rpCam').addEventListener('click', () => rpCamNext());
 $('rpHide').addEventListener('click', () => $('replayUI').classList.add('min'));
 $('rpShow').addEventListener('click', () => $('replayUI').classList.remove('min'));
 $('rpExit').addEventListener('click', () => exitReplay());
-$('rpSlider').addEventListener('input', e => { if (!rp) return; rp.dragging = true; rp.t = (+e.target.value / 1000) * rp.rep.duration; rp.shot = null; rp.init = false; });
+$('rpSlider').addEventListener('input', e => { if (!rp) return; rp.dragging = true; const lo = rp.flash ? rp.flash.min : 0, hi = rp.flash ? rp.flash.max : rp.rep.duration; rp.t = lo + (+e.target.value / 1000) * (hi - lo); if (rp.flash) rp.flash.rev = false; rp.shot = null; rp.init = false; });
 $('rpSlider').addEventListener('change', () => { if (rp) rp.dragging = false; });
 // telecamera libera: trascina per girare, rotella per avvicinarti
 {
@@ -1923,8 +1930,10 @@ $('pauseFlash').addEventListener('click', () => {
   $('pauseReplay').click();
   if (!rp) return;
   const t0 = rp.rep.t0;
-  rp.flash = { min: Math.max(0, fbSnaps[0].t - t0), max: rp.rep.duration };
-  rp.t = Math.max(rp.flash.min, rp.rep.duration - 3); rp.playing = false;
+  rp.flash = { min: Math.max(0, fbSnaps[0].t - t0), max: rp.rep.duration, rev: true };
+  rp.t = rp.rep.duration; rp.playing = false;
+  // inquadratura da dietro la tua vettura, come il flashback di F1
+  rp.cam = RP_CAMS.indexOf('INSEGUIMENTO'); rp.target = Math.max(0, rp.rep.info.cars.findIndex(c => c.isPlayer)); rp.shot = null; rp.init = false;
   $('rpFlash').classList.remove('hidden');
   rpUi();
 });

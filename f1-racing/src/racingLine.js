@@ -104,15 +104,31 @@ export class RacingLine {
   }
 
   // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
+  // dislivelli: pendenza (in discesa si frena in più spazio) e curvatura verticale
+  // (su un dosso la vettura si alleggerisce e ha meno aderenza, in compressione ne ha di più)
+  elevation() {
+    if (this._elev) return this._elev;
+    const S = this.track.samples, n = this.track.count, st = this.track.step, h = Math.max(1, Math.round(12 / st));
+    const kv = new Float64Array(n), sl = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = S[(i - h + n) % n].y, b = S[i].y, c = S[(i + h) % n].y;
+      kv[i] = Math.max(-0.02, Math.min(0.02, (a - 2 * b + c) / ((h * st) ** 2)));
+      sl[i] = Math.max(-0.25, Math.min(0.25, (c - a) / (2 * h * st)));
+    }
+    return (this._elev = { kv, sl });
+  }
+
   speedProfile(mu, brakeFac, vmax = 95) {
     const n = this.track.count, curv = this.curv, ds = this.ds;
+    const { kv, sl } = this.elevation();
     const v = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       // la velocità in curva dipende dall'aderenza, che dipende dalla velocità: qualche iterazione
       const k = curv[i], g = this.gripMap ? this.gripMap[i] : 1;
       let vi = vmax;
       for (let it = 0; it < 6; it++) {
-        const m = mu * g * loadMu(vi), kk = m * K_AERO;
+        // in discesa il carico va sull'avantreno e il retrotreno si alleggerisce: la curva si fa più piano
+        const m = mu * g * loadMu(vi) * (1 + 1.5 * Math.min(0, sl[i])), kk = m * (K_AERO + Math.min(0, kv[i]));
         vi = k > kk ? Math.min(vmax, Math.sqrt(m * G / (k - kk))) : vmax;
       }
       // limite dello sterzo: la velocità più alta a cui la curva si tiene ancora col volante a fondo
@@ -129,7 +145,7 @@ export class RacingLine {
     for (let pass = 0; pass < 2; pass++) {
       for (let j = 0; j <= 2 * n; j++) {
         const i = j % n, nx = (i + 1) % n;
-        v[nx] = Math.min(v[nx], Math.sqrt(v[i] * v[i] + 2 * ACC * ds[i]));
+        v[nx] = Math.min(v[nx], Math.sqrt(v[i] * v[i] + 2 * Math.max(5, ACC - G * sl[i]) * ds[i]));
       }
     }
     // frenata all'indietro: v_i² <= v_{i+1}² + 2·a·ds
@@ -137,9 +153,9 @@ export class RacingLine {
       for (let j = 2 * n; j >= 0; j--) {
         const i = j % n, nx = (i + 1) % n;
         // cerchio di aderenza: se si sta già curvando, per frenare resta meno
-        const aMax = mu * (this.gripMap ? this.gripMap[nx] : 1) * loadMu(v[nx]) * (G + K_AERO * v[nx] * v[nx]);
+        const aMax = mu * (this.gripMap ? this.gripMap[nx] : 1) * loadMu(v[nx]) * (G + (K_AERO + Math.min(0, kv[nx])) * v[nx] * v[nx]);
         const aLat = v[nx] * v[nx] * curv[nx];
-        const dec = brakeFac * aMax * Math.sqrt(Math.max(0.2, 1 - (FRIC * aLat / aMax) ** 2));
+        const dec = Math.max(2, brakeFac * aMax * Math.sqrt(Math.max(0.2, 1 - (FRIC * aLat / aMax) ** 2)) + G * sl[nx]);
         v[i] = Math.min(v[i], Math.sqrt(v[nx] * v[nx] + 2 * dec * ds[i]));
       }
     }
