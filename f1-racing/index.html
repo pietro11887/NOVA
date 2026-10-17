@@ -53,6 +53,8 @@
   </div>
   <!-- in basso a sinistra: solo il pezzo di pista dove sei, con le vetture vicine -->
   <canvas id="localMap"></canvas>
+  <!-- Overtake Mode: tasto accanto alla marcia (si preme anche tenendo gas o sterzo) -->
+  <button id="otBtn" class="otDash hidden" aria-label="Overtake Mode"><b>OT</b><small id="otSec"></small></button>
   <!-- in basso al centro: integrità, marcia, velocità e giri -->
   <div class="f1Dash">
     <div class="fdRow">
@@ -90,7 +92,6 @@
   <div id="topButtons">
     <button id="pauseBtn" aria-label="Pausa">❚❚</button>
     <button id="camBtn" aria-label="Cambia telecamera">🎥</button>
-    <button id="otBtn" class="hidden" aria-label="Overtake Mode">OT</button>
     <div id="scBadge" class="scBadge hidden" aria-live="polite"></div>
   </div>
 

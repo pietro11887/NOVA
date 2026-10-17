@@ -1509,7 +1509,7 @@ function updateHud(dt) {
     const o = race && !quali && race.otOn ? race.player.ot : null, on = !!(o && o.energy > 0);
     const txt = on ? (o.active ? `OT ${Math.ceil(o.energy)}s` : 'OT') : 'OT';
     const cls = 'ot' + (on ? (o.active ? ' act' : ' avail') : '') + (race && race.otOn && !quali ? '' : ' hidden');
-    if (hudCache.ot !== cls + txt) { hudCache.ot = cls + txt; const el = $('aidOT'); el.className = cls; el.textContent = txt; $('otBtn').className = on ? (o.active ? 'act' : 'avail') : 'hidden'; }
+    if (hudCache.ot !== cls + txt) { hudCache.ot = cls + txt; const el = $('aidOT'); el.className = cls; el.textContent = txt; $('otBtn').className = 'otDash ' + (on ? (o.active ? 'act' : 'avail') : (race && race.otOn && !quali ? 'off' : 'hidden')); $('otSec').textContent = on ? Math.ceil(o.energy) + 's' : ''; }
   }
   minimap.draw(phys, ghostCar.root.visible ? ghostCar.root.position : null, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
   localMap.draw(phys, race ? race.cars.filter(c => !c.isPlayer && !c.gone) : null);
@@ -2459,7 +2459,9 @@ function toggleOT() {
   o.active = !o.active;
   sounds.beep(o.active ? 1180 : 760, 0.08, 0.12);
 }
-$('otBtn').addEventListener('click', toggleOT);
+// pointerdown (non click): funziona anche con un altro dito sul gas o sullo sterzo
+$('otBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toggleOT(); });
+$('otBtn').addEventListener('contextmenu', e => e.preventDefault());
 function cycleCam() {
   camMode = (camMode + 1) % CAMS.length; settings.cam = camMode; saveSettings();
   camState.init = false;
