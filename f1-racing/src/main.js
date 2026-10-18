@@ -2834,33 +2834,10 @@ function frame(now) {
   input.endFrame();
 }
 
-// effetti dell'immagine: raggi di sole, obiettivo TV, aria calda dagli scarichi
-const hazeList = [];
+// effetti dell'immagine: raggi di sole, obiettivo TV
 function postFx() {
   const tv = (mode === 'replay' && rp && (RP_CAMS[rp.cam] === 'TV' || RP_CAMS[rp.cam] === 'ELICOTTERO')) || (mode === 'menu' && !!attract);
-  hazeList.length = 0;
-  if (!TRACK.model) {
-    const ex = (p, k) => {
-      const b = IS_F1 ? -2.45 : -2.3, cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
-      hazeList.push([p.x + cy * b, p.y + 0.55, p.z + sy * b, k]);
-    };
-    if (mode === 'race' || mode === 'countdown') {
-      if (camMode !== 3) ex(phys, 0.6 + 0.4 * (phys.throttleOut || 0));
-      if (race) {
-        // le due vetture più vicine davanti
-        const fx = Math.cos(phys.yaw), fz = Math.sin(phys.yaw);
-        const near = [];
-        for (const c of race.cars) {
-          if (c.isPlayer || c.gone) continue;
-          const dx = c.phys.x - phys.x, dz = c.phys.z - phys.z, d = Math.hypot(dx, dz);
-          if (d < 45 && dx * fx + dz * fz > 0) near.push([d, c]);
-        }
-        near.sort((a, b) => a[0] - b[0]);
-        for (const [, c] of near.slice(0, 2)) ex(c.phys, 0.9);
-      }
-    }
-  }
-  return { sunDir: SUN_DIR, lens: tv ? 1 : 0, haze: hazeList };
+  return { sunDir: SUN_DIR, lens: tv ? 1 : 0 };
 }
 
 function resize() {

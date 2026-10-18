@@ -49,26 +49,16 @@ const GradeShader = {
     uNat: { value: 0 },
     // "look" della pista (come la correzione colore di una ripresa TV): saturazione, contrasto, tinte
     uSat: { value: 0.97 }, uCon: { value: 1.02 }, uShadow: { value: new THREE.Vector3(0.98, 1.0, 1.04) }, uHigh: { value: new THREE.Vector3(1.03, 1.0, 0.97) }, uLift: { value: 0 },
-    uHaze: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime, uSpeed, uWarm, uAspect, uLens, uNat, uSat, uCon, uLift; uniform vec3 uShadow, uHigh; uniform vec4 uHaze[3]; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime, uSpeed, uWarm, uAspect, uLens, uNat, uSat, uCon, uLift; uniform vec3 uShadow, uHigh; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       vec2 base = vUv;
       // obiettivo TV: leggera distorsione a barile
       vec2 c0 = base - 0.5;
       base = 0.5 + c0 * (1.0 - uLens * 0.045 * dot(c0 * vec2(uAspect, 1.0), c0 * vec2(uAspect, 1.0)) - uLens * 0.012);
-      // aria calda dello scarico: l'immagine tremola sopra e dietro la vettura
-      for (int i = 0; i < 3; i++) {
-        vec4 H = uHaze[i];
-        if (H.w <= 0.0) continue;
-        vec2 q = (base - H.xy) * vec2(uAspect, 1.0) / H.z;
-        q.y -= 0.6;                                     // sale verso l'alto
-        float f = exp(-dot(q * vec2(1.0, 0.7), q * vec2(1.0, 0.7)) * 1.6) * H.w;
-        base += vec2(sin(base.y * 260.0 - uTime * 28.0 + base.x * 40.0), cos(base.x * 210.0 + uTime * 23.0)) * 0.0016 * f;
-      }
       vec2 c = base - 0.5;
       float r = length(c * vec2(uAspect, 1.0));
       // sfocatura radiale in velocità: solo verso i bordi, il centro resta nitido
@@ -152,22 +142,12 @@ export class Post {
     this.rays.uniforms.uAspect.value = w / h;
   }
   // speed: 0..1 (quanto si vede la sfocatura in velocità)
-  // fx: { sunDir, lens 0..1, haze: [[x, y, z, forza], ...] posizioni nel mondo degli scarichi }
+  // fx: { sunDir, lens 0..1 }
   draw(dt, camera, speed = 0, fx = {}) {
     this.render.camera = camera;
     if (this.ao) this.ao.camera = camera;
     const g = this.grade.uniforms;
     g.uLens.value += ((fx.lens || 0) - g.uLens.value) * Math.min(1, dt * 4);
-    const hz = fx.haze || [];
-    for (let i = 0; i < 3; i++) {
-      const H = g.uHaze.value[i], e = hz[i];
-      H.w = 0;
-      if (!e) continue;
-      _v.set(e[0], e[1], e[2]).project(camera);
-      const dist = camera.position.distanceTo(_w.set(e[0], e[1], e[2]));
-      if (_v.z > 1 || Math.abs(_v.x) > 1.2 || Math.abs(_v.y) > 1.2 || dist > 60) continue;
-      H.set(_v.x * 0.5 + 0.5, _v.y * 0.5 + 0.5, Math.min(0.25, 1.1 / Math.max(2, dist)), e[3] * Math.min(1, (60 - dist) / 20));
-    }
     if (this.rays.enabled && fx.sunDir) {
       _w.copy(fx.sunDir).multiplyScalar(3000).add(camera.position);
       _v.copy(_w).project(camera);
