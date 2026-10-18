@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Dettagli della pista "vissuta" (grafica alta): come nelle riprese vere l'asfalto non è mai uniforme.
 // - gomma sporca (marbles) fuori traiettoria vicino ai bordi
@@ -101,7 +102,7 @@ export function buildTrackDetail(track, line, kerbW) {
   for (const side of [1, -1]) {
     const m = strip(track, 0, n,
       i => side * (S[i].hw - (street ? 1.0 : 1.7)), i => side * (S[i].hw - 0.15),
-      i => { const far = Math.abs(side * S[i].hw - off[i]); return (street ? 0.35 : 0.6) * smooth(2.5, 6, far); },
+      i => { const far = Math.abs(side * S[i].hw - off[i]); return (street ? 0.6 : 0.8) * smooth(2.5, 6, far); },
       () => 0.004, 14, marbles);
     if (m) g.add(m);
   }
@@ -119,7 +120,7 @@ export function buildTrackDetail(track, line, kerbW) {
     const passes = 4 + Math.floor(r() * 4);
     for (let p = 0; p < passes; p++) {
       const a = i + Math.floor(r() * len * 0.4), b = Math.min(end, a + Math.floor((0.35 + 0.55 * r()) * len));
-      const jit = (r() - 0.5) * 1.6, drift = (r() - 0.5) * 0.8, strength = 0.25 + 0.4 * r();
+      const jit = (r() - 0.5) * 1.6, drift = (r() - 0.5) * 0.8, strength = 0.4 + 0.45 * r();
       for (const w of [-0.78, 0.78]) {
         const m = strip(track, a, b,
           (k, kk) => off[k] + jit + drift * (kk - a) / Math.max(1, b - a) + w - 0.13,
@@ -145,7 +146,7 @@ export function buildTrackDetail(track, line, kerbW) {
       const kerbOf = i => (side > 0 ? S[i].kerbL : S[i].kerbR) ? kerbW : 0;
       const m = strip(track, 0, n,
         i => side * (S[i].hw + 0.55 + kerbOf(i)), i => side * (S[i].hw + 3.6 + kerbOf(i) + 2.5 * exitF[i]),
-        i => ((side > 0 ? S[i].gravelL : S[i].gravelR) ? 0 : 0.45 + 0.4 * exitF[i]),
+        i => ((side > 0 ? S[i].gravelL : S[i].gravelR) ? 0 : 0.6 + 0.4 * exitF[i]),
         (i, u) => -0.03 * u + 0.012, 11, dust);
       if (m) g.add(m);
     }
@@ -155,9 +156,16 @@ export function buildTrackDetail(track, line, kerbW) {
     for (const side of [1, -1]) {
       const m = strip(track, 0, n,
         i => side * (S[i].hw + 0.6), i => side * (S[i].hw - 0.6),
-        () => 0.35, () => 0.008, 11, grime);
+        () => 0.55, () => 0.008, 11, grime);
       if (m) g.add(m);
     }
   }
-  return g;
+  // un solo oggetto per materiale (pochi disegni anche sul telefono)
+  const out = new THREE.Group(), by = new Map();
+  for (const m of g.children) { if (!by.has(m.material)) by.set(m.material, []); by.get(m.material).push(m.geometry); }
+  for (const [mat, geos] of by) {
+    const mesh = new THREE.Mesh(geos.length > 1 ? mergeGeometries(geos) : geos[0], mat);
+    mesh.receiveShadow = true; mesh.renderOrder = 1; out.add(mesh);
+  }
+  return out;
 }

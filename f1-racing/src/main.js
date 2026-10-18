@@ -146,6 +146,22 @@ const LOOKS = {
     grade: { sat: 0.94, con: 1.06, lift: 0.008, shadow: [0.96, 1.0, 1.05], high: [1.04, 1.0, 0.96] } },
 };
 const LOOK = !SUNSET ? LOOKS[TRACK.id] || LOOKS.nova : null;
+function gradeToneMapping(G) {
+  const v = a => `vec3(${a.map(x => x.toFixed(3)).join(',')})`;
+  THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
+    'vec3 CustomToneMapping( vec3 color ) { return color; }',
+    `vec3 CustomToneMapping( vec3 color ) {
+      vec3 c = ACESFilmicToneMapping( color );
+      vec3 s = sqrt( max( c, 0.0 ) );
+      float l = dot( s, vec3( 0.2126, 0.7152, 0.0722 ) );
+      s = mix( vec3( l ), s, ${G.sat.toFixed(3)} );
+      s = mix( s, s * s * ( 3.0 - 2.0 * s ), ${((G.con - 1) * 2.6).toFixed(3)} );
+      s *= mix( ${v(G.shadow)}, ${v(G.high)}, smoothstep( 0.2, 0.8, l ) );
+      s += ${G.lift.toFixed(3)} * ( 1.0 - s );
+      return s * s;
+    }`);
+  renderer.toneMapping = THREE.CustomToneMapping;
+}
 if (!TRACK.model && !SUNSET) {
   // giorno (come F1 25): sole alto di pomeriggio, cielo azzurro con nuvole
   const L = LOOK;
@@ -215,6 +231,8 @@ function build() {
     try { post = new Post(renderer, scene, camera, { warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); if (LOOK) post.setLook(LOOK.grade); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
+  // senza effetti (grafica leggera) i colori della pista si applicano direttamente nella resa finale, senza costi
+  if (!post && LOOK) gradeToneMapping(LOOK.grade);
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
   scene.add(car.root);
   ghostCar = gtReady() ? makeCar({ ghost: true }) : createCar({ ghost: true });
@@ -226,8 +244,8 @@ function build() {
   racingLine = new RacingLine(track);
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
-  // asfalto e bordi "vissuti": gomma sporca, segni di frenata, terra fuori pista (grafica alta)
-  if (!TRACK.model && settings.quality !== 'low') scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
+  // asfalto e bordi "vissuti": gomma sporca, segni di frenata, terra fuori pista
+  if (!TRACK.model) scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
   scene.add(racingLine.build());
   if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
   phys = new CarPhysics(track);

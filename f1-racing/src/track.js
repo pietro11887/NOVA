@@ -258,16 +258,24 @@ export class Track {
     // Cordoli
     const kt = tex.kerb(); kt.anisotropy = aniso;
     const kerbMat = new THREE.MeshStandardMaterial({ map: kt, roughness: 0.6 });
-    if (this.hq) {
+    {
       // cordoli consumati: gomma nera e polvere a chiazze (non vernice nuova)
+      const hq = this.hq;
       kerbMat.onBeforeCompile = sh => {
+        // con grafica leggera manca la posizione nel mondo (la dà il triplanare): la si calcola qui
+        if (!hq) {
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+            .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+          sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;');
+        }
         sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nfloat kh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }\nfloat kn(vec2 q){ vec2 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f); return mix(mix(kh(i), kh(i + vec2(1.0, 0.0)), f.x), mix(kh(i + vec2(0.0, 1.0)), kh(i + 1.0), f.x), f.y); }')
           .replace('#include <color_fragment>', `#include <color_fragment>
             { float nz = kn(vWP.xz * 0.8) * 0.65 + kn(vWP.xz * 3.1) * 0.35;
               diffuseColor.rgb *= 1.0 - 0.42 * smoothstep(0.42, 0.85, nz);
               diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.38, 0.33) * dot(diffuseColor.rgb, vec3(0.33)), 0.25 * smoothstep(0.5, 0.9, kn(vWP.xz * 0.35 + 7.0))); }`);
       };
-      triplanar(kerbMat, 'concrete', { scale: 1.2, strength: 0.35, normal: 0.9 });
+      kerbMat.customProgramCacheKey = () => 'kerbwear' + hq;
+      if (hq) triplanar(kerbMat, 'concrete', { scale: 1.2, strength: 0.35, normal: 0.9 });
     }
     const prof = [[0, 0.006], [0.35, 0.05], [K, 0.07]];
     g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, 3.0));
