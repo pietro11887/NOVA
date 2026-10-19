@@ -245,23 +245,29 @@ body.hq::after { content: ""; position: fixed; inset: 0; pointer-events: none; b
 #topButtons #pitBtn { width: auto; padding: 0 12px; font-weight: 900; letter-spacing: 1px; font-size: 14px; color: var(--yellow); border-color: rgba(245,197,24,0.5); }
 #topButtons #pitBtn.active { background: var(--yellow); color: #111; }
 .pitInfo { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); background: #0b0b0d; border: 2px solid var(--yellow); border-radius: 6px; padding: 6px 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pitPanel { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(16px, env(safe-area-inset-top)) + 54px); width: min(520px, calc(100vw - 32px)); padding: 10px 12px; pointer-events: auto; z-index: 4; }
-.pitTitle { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 8px; }
-.pitComps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.pitPanel button { font-family: var(--font); font-weight: 900; font-size: 14px; color: var(--text); background: rgba(255,255,255,0.07); border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 8px 6px; cursor: pointer; }
-.pitPanel button small { display: block; font-size: 10px; font-weight: 600; color: var(--muted); margin-top: 2px; }
-.pitComps .c-s { border-color: #e8322b; } .pitComps .c-m { border-color: #f5c518; } .pitComps .c-h { border-color: #f2f2f2; }
-.pitPanel button.sel { background: rgba(255,255,255,0.22); }
-.pitRow { display: grid; grid-template-columns: 1fr 1.3fr auto; gap: 8px; margin-top: 8px; }
-.pitRow .go { background: var(--yellow); color: #111; border-color: var(--yellow); }
+.pitInfo.go { border-color: var(--green); color: var(--green); }
+/* strategia box (come il menu MFD di F1 25): a sinistra sotto la classifica, non davanti */
+.pitPanel { position: absolute; left: max(12px, env(safe-area-inset-left)); top: calc(max(16px, env(safe-area-inset-top)) + 150px); width: 236px; padding: 8px 10px; pointer-events: auto; z-index: 4; background: rgba(8,10,20,0.82); border-left: 3px solid var(--yellow); border-radius: 4px; }
+.pitTitle { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 4px; }
+.pitTitle b { color: var(--text); }
+.pitTitle #pitCount { color: var(--yellow); }
+.pitPredict { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 6px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.pitPredict em { font-style: normal; color: var(--muted); font-weight: 600; }
+.pitComps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.pitPanel button { font-family: var(--font); font-weight: 900; font-size: 11px; color: var(--text); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 5px 3px; cursor: pointer; }
+.pitComps button i { display: block; width: 18px; height: 18px; margin: 0 auto 3px; border-radius: 50%; border: 4px solid currentColor; background: #111; }
+.pitComps .c-s i { color: #e8322b; } .pitComps .c-m i { color: #f5c518; } .pitComps .c-h i { color: #f2f2f2; }
+.pitPanel button small { display: block; font-size: 8px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.pitPanel button.sel { background: rgba(255,255,255,0.2); border-color: var(--text); }
+.pitRow { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 5px; }
 .pitRow #pitRepair.sel { border-color: var(--green); color: var(--green); }
+#pitCancel { color: var(--muted); }
 .aids span.tyreChip { border: 2px solid #f5c518; background: rgba(255,255,255,0.08); color: var(--text); padding: 0 6px; }
-/* il pannello box deve ricevere i tocchi anche sul telefono (sopra le zone dei comandi) */
 body #hud > #pitPanel, body.touch #hud > #pitPanel.pitPanel { pointer-events: auto; z-index: 6; }
 #pitPanel.locked .pitComps, #pitPanel.locked .pitRow { opacity: 0.55; pointer-events: none; }
-.pitRow { grid-template-columns: 1fr; }
-.pitPanel { top: calc(max(16px, env(safe-area-inset-top)) + 96px); }
-@media (max-height: 500px) { .pitPanel { top: calc(max(12px, env(safe-area-inset-top)) + 92px); padding: 8px 10px; } .pitPanel button { padding: 6px 4px; font-size: 13px; } .pitPanel button small { display: none; } }
+#hud #topButtons #pitBtn { width: auto; padding: 0 8px; font-weight: 900; letter-spacing: 1px; color: var(--yellow); border-color: rgba(245,197,24,0.5); }
+#hud #topButtons #pitBtn.active { background: var(--yellow); color: #111; }
+@media (max-height: 500px) { .pitPanel { top: calc(max(10px, env(safe-area-inset-top)) + 118px); width: 210px; } .pitPanel button small { display: none; } }
 
 /* safety car: quadratino accanto a pausa e telecamera */
 .scBadge { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; letter-spacing: 0.02em; color: #111; background: #f5c518; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.35); pointer-events: none; }

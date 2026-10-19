@@ -105,6 +105,10 @@ export class Input {
       if (edge(1)) this.pressed.add('KeyC');
       if (edge(9)) this.pressed.add('Escape');
       if (edge(8) || edge(10)) this.pressed.add('KeyB');   // Overtake Mode
+      if (edge(12)) this.pressed.add('KeyX');            // box
+      if (edge(14)) this.pressed.add('PadLeft');
+      if (edge(15)) this.pressed.add('PadRight');
+      if (edge(13)) this.pressed.add('PadDown');
       this.padPrev = p.buttons.map(b => b.pressed);
       break;
     }

@@ -30,8 +30,9 @@ export class Race {
     this.track = track;
     this.line = line;
     this.laps = opts.laps;
-    // box solo nelle gare lunghe (da 8 giri)
-    this.pitLane = opts.laps >= 8 ? opts.pitLane : null;
+    // box sempre aperti (non c'è l'obbligo di fermarsi); i bot hanno una strategia nelle gare da 8 giri
+    this.pitLane = opts.pitLane || null;
+    this.playerPlan = null;     // strategia del giocatore: { compound, repair } (dal menu box)
     this.cars = [];
     this.street = !!track.street;
     this.otOn = IS_F1;           // solo le Formula 1
@@ -83,7 +84,7 @@ export class Race {
     for (const c of this.cars) {
       c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : 'M');
       c.phys.inPit = false;
-      if (!c.isPlayer && this.pitLane) {
+      if (!c.isPlayer && this.pitLane && this.laps >= 8) {
         const stops = this.laps >= 20 ? 2 : 1;
         for (let k = 1; k <= stops; k++) {
           const lap = Math.round(this.laps * k / (stops + 1) + (Math.random() - 0.5) * this.laps * 0.2);
@@ -153,7 +154,7 @@ export class Race {
         if (!running) continue;
         const wasService = c.pit.phase === 'service';
         const out = c.pit.step(dt);
-        if (wasService && c.pit.phase === 'out' && this.onEvent) this.onEvent(c, 'serviced', c.pit);
+        if (wasService && c.pit.phase !== 'service' && this.onEvent) this.onEvent(c, 'serviced', c.pit);
         if (out) { c.stops++; if (this.onEvent) this.onEvent(c, 'pitOut', c.pit); c.pit = null; }
         continue;
       }
@@ -243,10 +244,13 @@ export class Race {
     // il giocatore entra quando vuole: basta passare dall'imbocco tenendo la destra.
     // Gomme e riparazione le sceglie mentre la vettura va da sola verso la piazzola.
     const hwHere = this.track.samples[c.phys.prCG.i].hw, dSide = c.phys.prCG.d * PIT.side;   // >0 = verso i box
-    if (c.isPlayer && crossing && !c.retired && c.finishT == null && dSide > hwHere * 0.45) {
-      c.pitRequest = { compound: c.phys.compound, repair: false };
+    // Con il box chiamato (come in F1 25) basta passare dall'imbocco: la vettura entra da sola.
+    if (c.isPlayer && crossing && !c.retired && c.finishT == null && (dSide > hwHere * 0.45 || (c.boxCall && dSide > -hwHere * 0.6))) {
+      const P = this.playerPlan;
+      c.pitRequest = { compound: P ? P.compound : c.phys.compound, repair: P ? !!P.repair : false };
+      c.boxCall = false;
     }
-    if (c.pitRequest && !c.retired && c.finishT == null && crossing && dSide > -hwHere * 0.2) {
+    if (c.pitRequest && !c.retired && c.finishT == null && crossing && dSide > -hwHere * (c.isPlayer ? 0.6 : 0.2)) {
       c.pit = new PitStop(this.pitLane, c, c.pitRequest);
       c.pitRequest = null;
       if (c.ai) c.ai.pitting = false;

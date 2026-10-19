@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK } from './trackData.js';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK, PIT } from './trackData.js';
 import { buildTrackDetail } from './trackDetail.js';
 import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
@@ -21,6 +21,7 @@ import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS } from './race.js';
 import { PitLane, PitStop } from './pit.js';
+import { PitCrew } from './pitCrew.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
@@ -63,7 +64,7 @@ const TIPS = [
   'In qualifica secca hai un solo giro: quattro ruote oltre i cordoli e il tempo viene cancellato.',
   'Le gomme danno il massimo tra 90 e 110 °C: nel giro di lancio scaldale con accelerate e frenate decise.',
   "Alla partenza tieni il gas a metà: troppo e le ruote pattinano, poco e il motore si spegne di giri.",
-  'Nelle gare da 8 giri in su si va ai box: tieni il lato della corsia all\'imbocco ed entri da solo.',
+  'Ai box puoi andare in ogni gara e in ogni giro: chiama BOX (tasto X), scegli le gomme e all\'imbocco la vettura entra da sola.',
   'Il livello IA va da 0 a 110 come in F1 25: già a 60 i bot sono più veloci di molti piloti.',
   "La scia è forte sui rettilinei lunghi: stai dietro fino alla staccata e poi esci all'interno.",
   'Con i danni in simulazione un urto può rompere ala, sospensioni o radiatore: guarda lo stato nel menu di pausa.',
@@ -192,7 +193,7 @@ const padNav = new PadNav({
   tab: d => cycleTab(d),
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
-let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane;
+let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null;
 
 function build() {
@@ -241,6 +242,7 @@ function build() {
 
   pitLane = new PitLane(track);
   pitLane.build(scene);
+  pitCrew = new PitCrew(scene);
   racingLine = new RacingLine(track);
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
@@ -345,6 +347,7 @@ function clearRace() {
   $('tower').classList.add('hidden'); hudCache.tower = hudCache.flag = null;
   if (phys) { phys.inPit = false; phys.compound = 'M'; setTyreColor(car, 'M'); }
   $('pitPanel').classList.add('hidden');
+  $('pitBtn').classList.add('hidden'); $('pitBtn').classList.remove('active');
   $('results').classList.add('hidden');
 }
 
@@ -360,13 +363,14 @@ function startRaceGame() {
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? (wk && wk.grid) || f1Grid(settings.f1Team, settings.raceBots) : null,
     pitLane, startCompound: settings.raceTyre,
   });
+  // strategia del box: gomme consigliate in base ai giri che mancano (si cambia dal menu BOX)
+  pitChoice = { compound: suggestCompound(race.laps), repair: false };
+  race.playerPlan = pitChoice;
   race.onEvent = (c, kind, pit) => {
     const model = c.isPlayer ? car : c.model;
     if (kind === 'pitIn' && c.isPlayer) {
-      sounds.radio('Ok, box box. Scegli le gomme.');
-      const left = race.laps - race.player.crossings;
-      pit.plan.compound = left >= 12 ? 'H' : left >= 5 ? 'M' : 'S';
-      pit.plan.repair = phys.repairTime() > 0.5;
+      if (!pitCalled) sounds.radio('Ok, box box. Scegli le gomme.');
+      pitCalled = false;
       pitChoice = pit.plan;
       $('pitPanel').classList.remove('hidden');
       pitUi();
@@ -374,10 +378,17 @@ function startRaceGame() {
     if (kind === 'serviced') {
       setTyreColor(model, c.phys.compound);
       if (pit.repaired && model) debris.restoreFor(model.root);
-      if (c.isPlayer) showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true);
+      if (c.isPlayer) { showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true); sounds.radio('Vai, vai, vai!'); }
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
-    if (kind === 'pitOut' && c.isPlayer) { $('pitPanel').classList.add('hidden'); pitUi(); }
+    if (kind === 'pitOut' && c.isPlayer) {
+      $('pitPanel').classList.add('hidden');
+      pitChoice = { compound: suggestCompound(race.laps - race.player.crossings), repair: false }; race.playerPlan = pitChoice;
+      if (pit.relTime != null) feed(`PARTENZA DAL BOX: ${pit.relTime.toFixed(2)} s`, pit.relTime < 0.6 ? 'green' : 'yellow');
+      const pos = race.standings().indexOf(race.player) + 1;
+      setTimeout(() => sounds.radio(`Sei uscito P${pos}. Attento alle gomme fredde nel primo giro.`), 1500);
+      pitUi();
+    }
     if (kind === 'ot' && c.isPlayer) { showBanner('OVERTAKE DISPONIBILE · TOCCA LA BATTERIA O B', 'green', 3, true); if (!radioSaid.ot) { radioSaid.ot = true; sounds.radio('Sei entro un secondo: hai l\'overtake in questo giro. Usalo sul rettilineo.'); } }
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
     else if (kind === 'gearbox') feed(`${c.name}: PROBLEMA AL CAMBIO`, 'yellow');
@@ -418,6 +429,7 @@ function startRaceRest() {
   document.body.classList.add('race-mode');
   $('racePos').classList.remove('hidden');
   $('tower').classList.remove('hidden');
+  $('pitBtn').classList.toggle('hidden', !race.pitLane);
   pitUi();
   camState.init = false;
   updateCarVisual(0);
@@ -874,6 +886,19 @@ function penalize(sec, why) {
 const CAMS = ['TV', 'INSEGUIMENTO', 'T-CAM', 'ABITACOLO'];
 const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 const qTcam = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.12);   // T-Cam: 7 gradi verso il basso
+// pit stop come in TV: inquadratura di tre quarti dal lato della corsia mentre cambiano le gomme
+function pitCamera() {
+  const pit = race && race.player.pit;
+  if (!pit || (pit.phase !== 'service' && pit.phase !== 'release') || mode !== 'race') return false;
+  hideCockpit();
+  const P = pit.lane.pts[Math.min(pit.lane.pts.length - 1, Math.round(pit.boxP))];
+  const fx = Math.cos(phys.yaw), fz = Math.sin(phys.yaw), side = -PIT.side;     // lato opposto ai garage
+  camera.position.set(phys.x + fx * 6.2 + P.nx * side * 4.6, phys.y + 1.7, phys.z + fz * 6.2 + P.nz * side * 4.6);
+  camera.lookAt(phys.x - fx * 0.6, phys.y + 0.2, phys.z - fz * 0.6);
+  camera.fov = camera.aspect < 0.85 ? 72 : 52; camera.updateProjectionMatrix();
+  camState.init = false;
+  return true;
+}
 function updateCamera(dt) {
   const portrait = camera.aspect < 0.85;
   if (camMode !== 3 || (IS_F1 && ARC()) || mode === 'menu') hideCockpit();
@@ -882,6 +907,7 @@ function updateCamera(dt) {
   let baseFov = portrait ? 74 : 58;
   const ov = window.__camOverride;
   if (ov) { camera.position.set(...ov.pos); camera.lookAt(...ov.look); camera.fov = ov.fov || 60; camera.updateProjectionMatrix(); return; }
+  if (pitCamera()) return;
   if (mode === 'menu') {
     const t = performance.now() / 1000 * 0.12;
     const d = portrait ? 11 : 8.5;
@@ -1554,13 +1580,26 @@ function updateHud(dt) {
   if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
   if (race && race.player.pit) {
     const pit = race.player.pit;
-    setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} / ${pit.serviceTotal.toFixed(1)} s` : 'LIMITATORE 80');
+    setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} s` : pit.phase === 'release' ? 'VERDE · GAS!' : 'LIMITATORE 80');
+    $('pitInfo').classList.toggle('go', pit.phase === 'release');
   }
   $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
   if (race && race.player.pit && race.player.pit.phase === 'in') {
     const pit = race.player.pit;
-    setText('pitCount', `ARRIVO ALLA PIAZZOLA TRA ${Math.max(0, (pit.boxP - pit.p) / Math.max(8, pit.v)).toFixed(0)} s`);
-  } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'INTERVENTI IN CORSO' : 'RIPARTENZA');
+    setText('pitCount', `PIAZZOLA TRA ${Math.max(0, (pit.boxP - pit.p) / Math.max(8, pit.v)).toFixed(0)} s`);
+  } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'CAMBIO GOMME' : 'RIPARTENZA');
+  if (race) race.playerPlan = pitChoice;
+  // previsione del rientro e stato delle gomme montate (4 volte al secondo)
+  if (race && race.pitLane && !quali && (race.player.boxCall || race.player.pit) && (hudCache.pitT = (hudCache.pitT || 0) - dt) <= 0) {
+    hudCache.pitT = 0.25;
+    const wear = phys.wheels.reduce((a, w) => a + (w.wear || 0), 0) / 4;
+    let html = `<em>GOMME:</em> ${COMPOUNDS[phys.compound].name} · ${Math.round(wear * 100)}% usura`;
+    if (!race.player.pit) {
+      const R = pitRejoin();
+      html += `<br><em>RIENTRO PREVISTO:</em> P${R.pos}${R.behind ? ` dietro ${R.behind.name} (+${R.gap.toFixed(1)} s)` : ''}<br><em>TEMPO PERSO:</em> ~${R.loss.toFixed(0)} s`;
+    }
+    if (hudCache.pitHtml !== html) { hudCache.pitHtml = html; $('pitPredict').innerHTML = html; }
+  }
   $('warnEng').classList.toggle('hidden', ARC() || phys.engTemp < 120);
   $('warnBrk').classList.toggle('hidden', ARC() || phys.brakeTemp < 950);
   const tow = race && race.player.tow > 0.25;
@@ -1591,19 +1630,68 @@ function setTyreColor(model, compound) {
 }
 
 // ---------------------------------------------------------------- box
-let pitChoice = { compound: 'M', repair: false };
+let pitChoice = { compound: 'M', repair: false }, pitCalled = false;
+// gomme consigliate per il resto della gara
+const suggestCompound = left => left >= 14 ? 'H' : left >= 6 ? 'M' : 'S';
+// tempo perso con una sosta (corsia a 80 km/h + cambio gomme) rispetto a un passaggio in pista
+let pitLossC = null, lapRefC = null;
+function pitLossEst() {
+  if (pitLossC != null) return pitLossC;
+  const L = track.length, st = track.step, n = track.count, V = racingLine.speed;
+  const at = ss => Math.floor((((ss % L) + L) % L) / st) % n;
+  let tTrack = 0;
+  for (let ss = PIT.entry; ss < PIT.exit; ss += st) tTrack += st / Math.max(10, V[at(ss)]);
+  lapRefC = 0; for (let i = 0; i < n; i++) lapRefC += st / Math.max(10, V[i]);
+  const tLane = pitLane.length / PIT.speed + 3.5;       // frenata prima del limitatore e ripartenza
+  return (pitLossC = Math.max(8, tLane + 2.6 - tTrack));
+}
+// posizione al rientro in pista se ti fermi adesso (come la previsione del menu box di F1 25)
+function pitRejoin() {
+  const loss = pitLossEst() + (pitChoice.repair ? phys.repairTime() : 0);
+  const v = track.length / lapRefC, me = race.progress(race.player);
+  let pos = 1, behind = null, gapB = 1e9;
+  for (const c of race.cars) {
+    if (c.isPlayer || c.gone || c.retired) continue;
+    const g = (race.progress(c) - me) / v + (c.pit ? 15 : 0);     // >0: davanti di g secondi
+    if (g > -loss) { pos++; const after = g + loss; if (after < gapB) { gapB = after; behind = c; } }
+  }
+  return { pos, loss, behind, gap: gapB };
+}
+// chiamata al box (tasto BOX / X): si entra al prossimo imbocco della corsia
+function pitCall(on = !race.player.boxCall) {
+  if (!race || !race.pitLane || mode !== 'race' || quali || race.player.pit || race.player.finishT != null || dnfTimer >= 0) return;
+  race.player.boxCall = on;
+  pitCalled = on;
+  race.playerPlan = pitChoice;
+  if (on) { sounds.radio('Box, box. Confermato, rientra in questo giro.'); feed('BOX CHIAMATO', 'yellow'); }
+  else sounds.radio('Ricevuto, restiamo fuori.');
+  pitUi();
+}
+$('pitBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pitCall(); });
+$('pitCancel').addEventListener('click', () => pitCall(false));
 function pitUi() {
-  const can = !!(race && race.pitLane) && mode !== 'menu';
+  const can = !!(race && race.pitLane) && mode !== 'menu' && !quali;
   if (!can) { $('pitPanel').classList.add('hidden'); return; }
   const pit = race.player.pit;
+  $('pitPanel').classList.toggle('hidden', !(pit || race.player.boxCall));
+  $('pitBtn').classList.toggle('active', !!(pit || race.player.boxCall));
+  $('pitCancel').classList.toggle('hidden', !!pit);
+  if (!pit) setText('pitCount', 'BOX CHIAMATO');
   document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
   const rt = phys.repairTime();
-  $('pitRepair').textContent = `RIPARA: ${pitChoice.repair ? 'SÌ' : 'NO'}${rt > 0 ? ` (+${rt.toFixed(1)} s)` : ' (nessun danno)'}`;
+  $('pitRepair').textContent = `RIPARA: ${pitChoice.repair ? 'SÌ' : 'NO'}${rt > 0 ? ` (+${rt.toFixed(1)} s)` : ''}`;
   $('pitRepair').classList.toggle('sel', pitChoice.repair);
   const locked = pit && pit.phase !== 'in';
   $('pitPanel').classList.toggle('locked', !!locked);
 }
-document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => { if (race && race.player.pit && race.player.pit.phase !== 'in') return; pitChoice.compound = b.dataset.comp; pitUi(); }));
+document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => pitSet(b.dataset.comp)));
+$('pitRepair').addEventListener('click', () => pitSet(null, true));
+function pitSet(comp, repairToggle) {
+  if (race && race.player.pit && race.player.pit.phase !== 'in') return;
+  if (comp) pitChoice.compound = comp;
+  if (repairToggle) pitChoice.repair = !pitChoice.repair;
+  pitUi();
+}
 
 const fmtGap = g => g == null ? '' : (g < 60 ? g.toFixed(1) : fmt(g));
 
@@ -2748,6 +2836,17 @@ function frame(now) {
   }
   if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
   if (input.consume('KeyB') && mode === 'race') toggleOT();
+  // box: X chiama/annulla, 1-2-3 gomme, 4 riparazione (croce del pad: su, sinistra/destra, giù)
+  if (input.consume('KeyX')) pitCall();
+  if (race && (race.player.boxCall || race.player.pit)) {
+    const order = ['S', 'M', 'H'], k = order.indexOf(pitChoice.compound);
+    if (input.consume('Digit1')) pitSet('S'); if (input.consume('Digit2')) pitSet('M'); if (input.consume('Digit3')) pitSet('H');
+    if (input.consume('PadLeft')) pitSet(order[Math.max(0, k - 1)]);
+    if (input.consume('PadRight')) pitSet(order[Math.min(2, k + 1)]);
+    if (input.consume('Digit4') || input.consume('PadDown')) pitSet(null, true);
+  }
+  // semaforo verde al box: riparti dando gas
+  if (race && race.player.pit && race.player.pit.phase === 'release' && inp.throttle > 0.4) race.player.pit.go = true;
   if (race && race.otOn) race.noOT = !!(sc && sc.active);
   if (mode === 'menu' && attract && race) attractStep(dt);
 
@@ -2815,6 +2914,7 @@ function frame(now) {
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
     if (attract && mode === 'menu') attractCamera(dt); else if (mode === 'intro' && intro) introCamera(dt); else if (podium && race) podiumCamera(dt); else updateCamera(dt);
+    if (pitCrew) pitCrew.update(mode === 'menu' ? null : race, camera, dt);
     updateAudio(dt);
   }
   if (mode !== 'menu' && mode !== 'replay' && mode !== 'intro') updateHud(dt);
@@ -2898,7 +2998,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

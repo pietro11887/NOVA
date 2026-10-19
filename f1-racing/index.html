@@ -91,18 +91,20 @@
   <div id="topButtons">
     <button id="pauseBtn" aria-label="Pausa">❚❚</button>
     <button id="camBtn" aria-label="Cambia telecamera">🎥</button>
+    <button id="pitBtn" class="hidden" aria-label="Chiama il box">BOX</button>
     <div id="scBadge" class="scBadge hidden" aria-live="polite"></div>
   </div>
 
   <div id="pitInfo" class="pitInfo hidden"></div>
   <div id="pitPanel" class="pitPanel panel hidden">
-    <div class="pitTitle">AI BOX · <span id="pitCount">SCEGLI GLI INTERVENTI</span></div>
+    <div class="pitTitle"><b>STRATEGIA BOX</b> <span id="pitCount">BOX CHIAMATO</span></div>
+    <div class="pitPredict" id="pitPredict"></div>
     <div class="pitComps">
-      <button data-comp="S" class="c-s">MORBIDE<small>più veloci, durano poco</small></button>
-      <button data-comp="M" class="c-m">MEDIE<small>equilibrate</small></button>
-      <button data-comp="H" class="c-h">DURE<small>più lente, durano tanto</small></button>
+      <button data-comp="S" class="c-s"><i></i>MORBIDE<small>veloci, durano poco</small></button>
+      <button data-comp="M" class="c-m"><i></i>MEDIE<small>equilibrate</small></button>
+      <button data-comp="H" class="c-h"><i></i>DURE<small>lente, durano tanto</small></button>
     </div>
-    <div class="pitRow"><button id="pitRepair">RIPARA: NO</button></div>
+    <div class="pitRow"><button id="pitRepair">RIPARA: NO</button><button id="pitCancel">ANNULLA</button></div>
   </div>
 
   <div id="banner" class="banner hidden"><span id="bannerText"></span><i></i></div>

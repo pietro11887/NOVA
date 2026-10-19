@@ -168,15 +168,21 @@ export class PitStop {
         const phys = this.car.phys;
         if (this.plan.compound) phys.fitTyres(this.plan.compound);
         if (this.plan.repair) { phys.repair(); this.repaired = true; }
-        this.phase = 'out';
+        // il giocatore riparte lui al semaforo verde (se non lo fa, dopo un attimo lo rilasciano)
+        if (this.car.isPlayer) { this.phase = 'release'; this.rel = 0; }
+        else this.phase = 'out';
       }
+      vt = 0;
+    } else if (this.phase === 'release') {
+      this.rel += dt;
+      if (this.go || this.rel > 2.5) { this.phase = 'out'; this.relTime = this.rel; }
       vt = 0;
     } else {
       vt = ss < PIT.limitTo ? limit : Math.max(limit, 30);   // uscita: si accelera, ma senza esagerare
     }
     const acc = vt > this.v ? 9 : 16;
     this.v += Math.max(-acc * dt, Math.min(acc * dt, vt - this.v));
-    if (this.phase === 'service') this.v = 0;
+    if (this.phase === 'service' || this.phase === 'release') this.v = 0;
     this.p += this.v * dt;
     this.apply(dt);
     if (this.p >= this.lane.length) { this.finish(); return true; }
@@ -206,11 +212,14 @@ export class PitStop {
     phys.speed = this.v; phys.vxl = this.v; phys.vyl = 0;
     phys.gear = this.v < 12 ? 1 : 2;
     phys.rpm = 4200 + this.v * 260;
-    phys.throttleOut = this.phase === 'service' ? 0 : 0.3;
+    phys.throttleOut = this.phase === 'service' || this.phase === 'release' ? 0 : 0.3;
+    // sui cric durante il cambio gomme
+    const lift = this.phase === 'service' ? Math.min(1, this.service / 0.25) * Math.min(1, (this.serviceTotal - this.service) / 0.25) : 0;
     phys.kerbVibe = 0;
     for (const w of phys.wheels) { w.spin = this.v; w.slide = 0; w.lock = false; w.spinning = false; }
     phys.projectAll();
     for (const w of phys.wheels) { w.ground = w.pr.y; w.comp = 0.013; }
+    phys.y += 0.07 * lift;
   }
 
   finish() {
