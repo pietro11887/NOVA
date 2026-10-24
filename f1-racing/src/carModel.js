@@ -43,8 +43,11 @@ function box(w, h, d, mat, x, y, z) {
   return m;
 }
 
-// Scala visiva delle monoposto (stile "cartone": vetture grandi rispetto alla pista, come nel riferimento)
-export const CAR_SCALE = 1.3;
+// Scala delle vetture: grandezza vera (F1 larga circa 2 m, GT3 circa 2,05 m) su piste larghe 12-15 m,
+// come nella realtà: ci stanno 5-6 vetture affiancate
+export const CAR_SCALE = 1.0;
+// inerzia d'imbardata di riferimento (tarata con le vetture più grandi: la guida resta la stessa)
+export const IZ_K = 1.69;
 
 // Superficie "loft": sezioni trasversali arrotondate (superellisse) collegate tra loro.
 // sections: [{ x, w, yb, yt }] ordinate lungo x; z0 = spostamento laterale del pezzo.

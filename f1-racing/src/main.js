@@ -919,7 +919,7 @@ function updateCamera(dt) {
   if (camMode === 1) {
     // inseguimento come in F1 25: bassa (circa 1,5 m) e vicina, la vettura grande in basso e la pista davanti.
     // Segue le curve con un piccolo ritardo; in accelerazione si allontana un po', in frenata si avvicina
-    const dist = portrait ? 7.0 : 5.9, h = portrait ? 2.0 : 1.62;
+    const dist = portrait ? 6.0 : 5.0, h = portrait ? 1.75 : 1.42;
     let target = phys.yaw;
     if (phys.speed > 5) {
       const vh = Math.atan2(phys.vz, phys.vx);

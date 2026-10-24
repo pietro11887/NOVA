@@ -1,4 +1,4 @@
-import { GEOM, CAR_SCALE } from './carModel.js';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js';
 import { SPEC, IS_F1 } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
@@ -510,7 +510,7 @@ export class CarPhysics {
     // inerzia d'imbardata coerente con le dimensioni della vettura; nelle strisciate
     // leggere pneumatici e sospensioni assorbono gran parte della rotazione
     const soft = Math.min(1, Math.max(0.3, (impact - 1) / 7));
-    const Iz = this.Iz * CAR_SCALE * CAR_SCALE / soft;
+    const Iz = this.Iz * IZ_K / soft;
     const rn = rx * nz - rz * nx;
     // barriere morbide (TecPro, gomme): assorbono l'urto, si rimbalza poco e la vettura si rovina meno
     const smp = this.track.samples[hit.i];

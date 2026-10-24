@@ -1,6 +1,6 @@
 import { CarPhysics } from './physics.js';
 import { AIDriver } from './ai.js';
-import { CAR_SCALE } from './carModel.js';
+import { CAR_SCALE, IZ_K } from './carModel.js';
 import { SPEC, IS_F1 } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
@@ -132,8 +132,8 @@ export class Race {
         const lat = Math.abs(o.phys.prCG.d - p.prCG.d);
         // la scia è più larga dell'aria sporca: uscendo per sorpassare se ne sente ancora un po',
         // mentre il carico si perde solo stando proprio dietro
-        if (lat < (this.street ? 2.8 : 3.6) && g < best) best = g + Math.max(0, lat - 2.8) * 25;
-        if (lat < 2.8 && g < bestDirty) bestDirty = g;
+        if (lat < (this.street ? 2.2 : 2.8) && g < best) best = g + Math.max(0, lat - 2.2) * 25;
+        if (lat < 2.2 && g < bestDirty) bestDirty = g;
       }
       const reach = 60 * Math.sqrt(this.towMul);          // arcade: la scia si sente da più lontano
       const tow = best < reach ? 1 - best / reach : 0;
@@ -327,7 +327,7 @@ export class Race {
       // inerzia d'imbardata coerente con le dimensioni (scalate) della vettura;
       // nei tocchi leggeri pneumatici e sospensioni assorbono quasi tutta la rotazione
       const soft = Math.min(1, Math.max(0.25, (impact - 1.5) / 6));
-      const IzA = A.Iz * CAR_SCALE * CAR_SCALE / soft, IzB = B.Iz * CAR_SCALE * CAR_SCALE / soft;
+      const IzA = A.Iz * IZ_K / soft, IzB = B.Iz * IZ_K / soft;
       const ran = rax * nz - raz * nx, rbn = rbx * nz - rbz * nx;
       const e = impact < 3 ? 0.05 : 0.15;
       const j = -(1 + e) * vn / (1 / A.mass + 1 / B.mass + ran * ran / IzA + rbn * rbn / IzB);

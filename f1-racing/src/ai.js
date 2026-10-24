@@ -157,13 +157,13 @@ export class AIDriver {
         if ((spinning || slow) && lat < 8 && Math.abs(pr.d) < tr.samples[pr.i].hw + 6) { hazGap = g; hazard = c; hazV = Math.max(0, along) * (spinning ? 0.25 : 0.8); }  // chi gira si fermerà presto
       }
       // una vettura lenta (testacoda) occupa più spazio in larghezza
-      const wide = c.phys.speed < v - 12 ? 5 : 3.6;
+      const wide = c.phys.speed < v - 12 ? 3.9 : 2.8;
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
-      if (g < 0 && g > chaserGap && lat < 3.5) { chaserGap = g; chaser = c; }
+      if (g < 0 && g > chaserGap && lat < 2.7) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
-      if (Math.abs(g) < 7 && lat < 3.1) push += -Math.sign(dd || 1) * (3.1 - lat) * (1.35 - 0.6 * this.aggr);
+      if (Math.abs(g) < 5.4 && lat < 2.4) push += -Math.sign(dd || 1) * (2.4 - lat) * (1.35 - 0.6 * this.aggr);
       // affiancate (per la regola dello spazio e per cedere all'interno)
-      if (g > -6.5 && g < 6.5 && lat < 4.6) along.push({ c, g, d: c.phys.prCG.d });
+      if (g > -5 && g < 5 && lat < 3.6) along.push({ c, g, d: c.phys.prCG.d });
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
@@ -203,25 +203,25 @@ export class AIDriver {
       const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
       if (!this.sc && !hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
-        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.2)) - this.line.off[i];
+        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.3)) - this.line.off[i];
       }
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati. In scia, pronti a uscire, si sta più vicini.
       const lat = Math.abs((od - lineOff(blocker.phys.prCG.i)) - myLD);
-      const want = (6.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft));
+      const want = (5.0 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft));
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
-      const room = Math.max(0, bestGap - 5.2 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.45);
+      const room = Math.max(0, bestGap - 4.0 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.45);
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
       const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v);
       const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
-      if (!this.attack || lat < 3.1) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
+      if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
-        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 4.4)) - this.line.off[i];
+        this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.4)) - this.line.off[i];
       }
     }
     const nA = this.nextApex[i], distBrake = nA >= 0 ? ((nA - i + n) % n) * tr.step : 999;
@@ -230,7 +230,7 @@ export class AIDriver {
     if (!this.street && !this.sc && raceT > 20 && !this.attack && !this.mistake && chaser && chaserGap > -18 && distBrake > 150 && this.defStraight !== nA) {
       this.defStraight = nA;
       const cl = chaser.phys.speed - v, clat = Math.abs(chaser.phys.prCG.d - myD);
-      if (cl > 0.5 && clat < 2 && this.rand() < 0.12 * (0.5 + this.aggr) * (0.7 + 0.5 * this.craft)) {
+      if (cl > 0.5 && clat < 1.6 && this.rand() < 0.12 * (0.5 + this.aggr) * (0.7 + 0.5 * this.craft)) {
         this.mistake = { type: 'defend', until: this.t + Math.min(6, distBrake / Math.max(20, v)), side: nA >= 0 ? this.insideAt(nA) : 1 };
       }
     }
@@ -240,7 +240,7 @@ export class AIDriver {
       const ins = this.insideAt(brakeIdx);
       for (const a of along) {
         const rel = (a.d - myD) * ins;                      // > 0: è dalla parte interna
-        if (rel > 1.8 && a.g > -3.5) { this.yield = { until: this.t + 1.8, apex: brakeIdx, side: -ins }; break; }
+        if (rel > 1.4 && a.g > -2.7) { this.yield = { until: this.t + 1.8, apex: brakeIdx, side: -ins }; break; }
       }
     }
     if (this.yield && this.t > this.yield.until) this.yield = null;
@@ -287,10 +287,10 @@ export class AIDriver {
     // regola dello spazio: con una vettura affiancata non ci si sposta verso di lei
     // (le si lascia la larghezza di una macchina), salvo pericolo davanti
     if (!hazard && !this.street) for (const a of along) {
-      if (Math.abs(a.g) > 3.2) continue;
+      if (Math.abs(a.g) > 2.5) continue;
       const mine = laneT + this.line.off[i];
-      if (a.d > myD + 0.8) laneT = Math.min(mine, a.d - 2.9) - this.line.off[i];
-      else if (a.d < myD - 0.8) laneT = Math.max(mine, a.d + 2.9) - this.line.off[i];
+      if (a.d > myD + 0.6) laneT = Math.min(mine, a.d - 2.25) - this.line.off[i];
+      else if (a.d < myD - 0.6) laneT = Math.max(mine, a.d + 2.25) - this.line.off[i];
     }
     this.lane += Math.max(-dt * 2.6, Math.min(dt * 2.6, laneT - this.lane));
 
