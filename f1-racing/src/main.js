@@ -378,7 +378,7 @@ function startRaceGame() {
     if (kind === 'serviced') {
       setTyreColor(model, c.phys.compound);
       if (pit.repaired && model) debris.restoreFor(model.root);
-      if (c.isPlayer) { showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true); sounds.radio('Vai, vai, vai!'); }
+      if (c.isPlayer) { showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true); sounds.radio('Vai, vai, vai!'); pitUi(); }
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
     if (kind === 'pitOut' && c.isPlayer) {
@@ -387,7 +387,7 @@ function startRaceGame() {
       if (pit.relTime != null) feed(`PARTENZA DAL BOX: ${pit.relTime.toFixed(2)} s`, pit.relTime < 0.6 ? 'green' : 'yellow');
       const pos = race.standings().indexOf(race.player) + 1;
       setTimeout(() => sounds.radio(`Sei uscito P${pos}. Attento alle gomme fredde nel primo giro.`), 1500);
-      pitUi();
+      setTimeout(pitUi, 0);
     }
     if (kind === 'ot' && c.isPlayer) { showBanner('OVERTAKE DISPONIBILE · TOCCA LA BATTERIA O B', 'green', 3, true); if (!radioSaid.ot) { radioSaid.ot = true; sounds.radio('Sei entro un secondo: hai l\'overtake in questo giro. Usalo sul rettilineo.'); } }
     if (kind === 'engine') feed(`PROBLEMA AL MOTORE PER ${c.name}`, 'yellow');
@@ -1673,7 +1673,8 @@ function pitUi() {
   const can = !!(race && race.pitLane) && mode !== 'menu' && !quali;
   if (!can) { $('pitPanel').classList.add('hidden'); return; }
   const pit = race.player.pit;
-  $('pitPanel').classList.toggle('hidden', !(pit || race.player.boxCall));
+  // il pannello serve solo per scegliere: dal semaforo verde in poi sparisce (non copre i comandi in uscita)
+  $('pitPanel').classList.toggle('hidden', !(race.player.boxCall || (pit && (pit.phase === 'in' || pit.phase === 'service'))));
   $('pitBtn').classList.toggle('active', !!(pit || race.player.boxCall));
   $('pitCancel').classList.toggle('hidden', !!pit);
   if (!pit) setText('pitCount', 'BOX CHIAMATO');

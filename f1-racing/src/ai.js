@@ -9,14 +9,14 @@ import { ARCADE } from './driveMode.js';
 // street: Baku resta com'era; sulle altre piste i bot non vanno mai oltre il limite della vettura in curva
 export function skillParams(strength, street = false) {
   const t = Math.max(0, Math.min(1, (strength - 1) / 109));
-  const boost = Math.pow(t, 1.6);
+  const boost = Math.pow(t, 1.25);
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: (street ? 0.98 + 0.09 * t : Math.min(0.985, 0.95 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
+    mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
     grip: 1 + 0.2 * boost,            // 110 → +14% di aderenza
     power: 1 + 0.26 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
-    brake: 0.9 + 0.07 * t,            // frazione della frenata massima
+    brake: 0.92 + 0.06 * t,           // frazione della frenata massima
     reaction: 0.3 - 0.25 * t,         // secondi di ritardo allo spegnimento dei semafori
     wobble: 0.15 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
@@ -62,8 +62,10 @@ export class AIDriver {
     this.profile = this.line.speedProfile(mu, brk, 120, this.hs);
     // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
     this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120, this.hs);
+    // profilo "in duello": con un avversario attaccato davanti o dietro si spinge di più (staccate più decise)
+    this.duelProfile = this.line.speedProfile(mu * 1.012, Math.min(0.97, brk + 0.04), 120, this.hs);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
-    this.errPerLap = 0.01 + 0.22 * Math.pow(1 - Math.min(1, t), 2);
+    this.errPerLap = 0.008 + 0.16 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
     this.craft = Math.max(0, Math.min(1, t));
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
@@ -131,6 +133,7 @@ export class AIDriver {
     if (this.attack && this.t > this.attack.until) this.attack = null;
     // passata la corda l'attacco è finito: si torna sulla traiettoria (e non si taglia la strada in uscita)
     if (this.attack && this.attack.apex != null && !this.street) { const past = (i - this.attack.apex + n) % n; if (past > 2 && past < n / 2) this.attack = null; }
+    if (this.mistake && this.mistake.type === 'defend' && this.mistake.apex != null) { const past = (i - this.mistake.apex + n) % n; if (past > 2 && past < n / 2) this.mistake = null; }
 
     // --- traffico ---
     let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -22;
@@ -189,12 +192,13 @@ export class AIDriver {
       const ov = blocker.phys.speed, closing = v - ov;
       const od = blocker.phys.prCG.d;
       // 1) sorpasso in staccata: interno della curva e frenata ritardata
-      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && !this.chicane[brakeIdx] && bestGap < 40 + (raceT > 25 ? 18 * this.craft : 0) && closing > -6 && closing < 11 && this.zone !== brakeIdx) {
+      if (!this.sc && !hazard && !this.attack && brakeIdx >= 0 && !this.chicane[brakeIdx] && bestGap < 48 + (raceT > 25 ? 22 * this.craft : 0) && closing > -8 && closing < 14 && this.zone !== brakeIdx) {
         this.zone = brakeIdx;
         // se chi è davanti ha già chiuso l'interno, si prova all'esterno (o si aspetta)
         const inside = this.insideAt(brakeIdx);
-        const covered = blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend';
-        if (this.rand() < Math.min(0.95, (covered ? 0.7 : 0.75 + 0.25 * this.aggr) * (1 + 0.5 * this.craft))) {
+        // (anche il giocatore: se sta già all'interno, si va all'esterno)
+        const covered = (blocker.ai && blocker.ai.mistake && blocker.ai.mistake.type === 'defend') || (od - lineOff(blocker.phys.prCG.i)) * inside > 1.6;
+        if (this.rand() < Math.min(0.97, (covered ? 0.75 : 0.85 + 0.2 * this.aggr) * (1 + 0.5 * this.craft))) {
           this.attack = { until: this.t + 5, side: covered ? -inside : inside, apex: brakeIdx };
           this.emit('attack');
         }
@@ -230,7 +234,7 @@ export class AIDriver {
     if (!this.street && !this.sc && raceT > 20 && !this.attack && !this.mistake && chaser && chaserGap > -18 && distBrake > 150 && this.defStraight !== nA) {
       this.defStraight = nA;
       const cl = chaser.phys.speed - v, clat = Math.abs(chaser.phys.prCG.d - myD);
-      if (cl > 0.5 && clat < 1.6 && this.rand() < 0.12 * (0.5 + this.aggr) * (0.7 + 0.5 * this.craft)) {
+      if (cl > 0.3 && clat < 2.2 && this.rand() < 0.55 * (0.6 + 0.6 * this.aggr) * (0.7 + 0.5 * this.craft)) {
         this.mistake = { type: 'defend', until: this.t + Math.min(6, distBrake / Math.max(20, v)), side: nA >= 0 ? this.insideAt(nA) : 1 };
       }
     }
@@ -250,9 +254,10 @@ export class AIDriver {
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
-    if (!this.sc && raceT > 25 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && !this.chicane[brakeIdx] && this.defZone !== brakeIdx && chaserGap > -26 - 12 * this.craft && chaserGap < -3 && !(chaser.ai && chaser.ai.attack)) {
+    // (si chiude anche quando chi segue sta già uscendo dalla scia: finché non è affiancato)
+    if (!this.sc && raceT > 8 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && !this.chicane[brakeIdx] && this.defZone !== brakeIdx && chaserGap > -34 - 14 * this.craft && chaserGap < -1.5) {
       this.defZone = brakeIdx;
-      if (this.rand() < Math.min(0.97, (0.75 + 0.25 * this.aggr) * (0.9 + 0.5 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 3.5, side: this.insideAt(brakeIdx) }; }
+      if (this.rand() < Math.min(0.99, (0.85 + 0.2 * this.aggr) * (0.95 + 0.4 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 4, side: this.insideAt(brakeIdx), apex: brakeIdx }; }
     }
 
     // --- errori umani ---
@@ -317,7 +322,11 @@ export class AIDriver {
       this.hurtKey = hk;
       this.dmgProfile = hk ? this.line.speedProfile(this.mu * (1 - hurt), this.brk * (1 - 0.4 * hurt), 120, this.hs) : null;
     }
-    const prof = this.dmgProfile || (this.attack ? this.attackProfile : this.profile);
+    // in duello (avversario entro ~1 s davanti o dietro) si spinge come in qualifica
+    const duel = !this.sc && !this.pitting && ((blocker && bestGap < 35) || (chaser && chaserGap > -25));
+    // chi difende l'interno stacca tardi anche lui (non si lascia infilare)
+    const defending = m && m.type === 'defend';
+    const prof = this.dmgProfile || (this.attack || defending ? this.attackProfile : duel ? this.duelProfile : this.profile);
     // si guarda un attimo avanti (i freni e le gomme non reagiscono all'istante)
     let look = 2 + Math.round(v * 0.12 / tr.step);
     if (m && m.type === 'late') look += Math.round(m.meters / tr.step);   // frena come se la curva fosse più in là
@@ -358,6 +367,7 @@ export class AIDriver {
       this.lineVer = this.line.version;
       this.profile = this.line.speedProfile(this.mu, this.brk, 120, this.hs);
       this.attackProfile = this.line.speedProfile(this.mu * 1.02, Math.min(0.97, this.brk + 0.08), 120, this.hs);
+      this.duelProfile = this.line.speedProfile(this.mu * 1.012, Math.min(0.97, this.brk + 0.04), 120, this.hs);
       this.hurtKey = -1;
     }
     const fastUs = understeer && v > 35;   // in velocità si alza il piede; nei tornanti si impara e basta
