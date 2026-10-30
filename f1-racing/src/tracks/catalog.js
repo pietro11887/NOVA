@@ -19,7 +19,7 @@ function smoothLoop(P, k = 8) {
 export const TRACKS = [
   {
     id: 'nova', name: 'Circuito Nova', place: 'Circuito permanente', flag: ['#6a2cd8', '#ff8a1c'],
-    km: '3,75', corners: 26, info: 'Tornanti, esse e chicane tra lago e colline',
+    km: '3,75', corners: 24, info: 'Tornanti, esse e chicane tra lago e colline, ultimo tratto in pieno',
     outline: smoothLoop(CONTROL_POINTS.map(p => [p[0], p[2]])),
   },
   {

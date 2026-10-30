@@ -48,9 +48,8 @@ export const CONTROL_POINTS = [
   [-548, 3, -62],         // Blanchimont
   [-478, 2, -24],
   [-410, 1, -10],
-  [-366, 0.5, -8],        // Bus stop
-  [-334, 0.3, -19],
-  [-312, 0.2, -8],
+  [-360, 0.5, -6],        // ex Bus stop: ora una piega veloce in pieno (prima era una chicane che si tagliava)
+  [-310, 0.2, -2.5],
 ];
 
 export const KERB_WIDTH = 1.6;
