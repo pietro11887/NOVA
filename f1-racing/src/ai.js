@@ -95,6 +95,8 @@ export class AIDriver {
     }
     this.phys.powerScale = this.skill.power;
     this.phys.gripScale = this.skill.grip;
+    // i bot forti si danneggiano meno nei contatti (a 110 circa un quarto del danno)
+    this.phys.toughness = 0.75 * Math.pow(Math.max(0, Math.min(1, t)), 0.8);
     this.phys.gearLong = Math.sqrt(this.skill.power);
   }
 

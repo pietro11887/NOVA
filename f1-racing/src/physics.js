@@ -534,7 +534,8 @@ export class CarPhysics {
   }
 
   // scala dell'accumulo: danni ridotti = metà
-  get dmgScale() { return this.damageMode === 'reduced' ? 0.5 : 1; }
+  // toughness: i bot forti (come nei giochi) si rompono meno negli urti (0 = come il giocatore)
+  get dmgScale() { return (this.damageMode === 'reduced' ? 0.5 : 1) * (1 - (this.toughness || 0)); }
 
   // urto contro barriere
   applyDamage(part, impact) {
