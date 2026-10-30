@@ -283,7 +283,7 @@ export class Race {
           }
         }
       }
-      if (c.crossings >= this.laps) c.finishT = tc + (c.penalty || 0);   // penalità in secondi
+      if (c.crossings >= this.laps) c.finishT = tc + Math.max(0, (c.penalty || 0) - (c.penServed || 0));   // penalità non scontate ai box
     }
     // tempi di passaggio ogni 10 m (per i distacchi)
     if (c.finishT == null) {
@@ -353,6 +353,8 @@ export class Race {
       const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: Math.abs(vt) };
       for (const fn of A.listeners.impact) fn({ ...info, nx: -nx, nz: -nz });
       for (const fn of B.listeners.impact) fn(info);
+      // per i commissari: chi ha toccato chi e con quale parte (ax/bx: cerchio anteriore > 0, posteriore < 0)
+      if (this.onContact) this.onContact(cars[a], cars[b], impact, ax, bx);
     }
   }
 

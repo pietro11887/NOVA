@@ -64,6 +64,7 @@ const TIPS = [
   'In qualifica secca hai un solo giro: quattro ruote oltre i cordoli e il tempo viene cancellato.',
   'Le gomme danno il massimo tra 90 e 110 °C: nel giro di lancio scaldale con accelerate e frenate decise.',
   "Alla partenza tieni il gas a metà: troppo e le ruote pattinano, poco e il motore si spegne di giri.",
+  'Commissari come in F1: tre volte fuori con quattro ruote è bandiera bianco-nera, alla quarta 5 secondi. Se tagli e guadagni una posizione, restituiscila.',
   'Ai box puoi andare in ogni gara e in ogni giro: chiama BOX (tasto X), scegli le gomme e all\'imbocco la vettura entra da sola.',
   'Il livello IA va da 0 a 110 come in F1 25: già a 60 i bot sono più veloci di molti piloti.',
   "La scia è forte sui rettilinei lunghi: stai dietro fino alla staccata e poi esci all'interno.",
@@ -366,6 +367,8 @@ function startRaceGame() {
   // strategia del box: gomme consigliate in base ai giri che mancano (si cambia dal menu BOX)
   pitChoice = { compound: suggestCompound(race.laps), repair: false };
   race.playerPlan = pitChoice;
+  stewReset();
+  race.onContact = stewContact;
   race.onEvent = (c, kind, pit) => {
     const model = c.isPlayer ? car : c.model;
     if (kind === 'pitIn' && c.isPlayer) {
@@ -378,7 +381,7 @@ function startRaceGame() {
     if (kind === 'serviced') {
       setTyreColor(model, c.phys.compound);
       if (pit.repaired && model) debris.restoreFor(model.root);
-      if (c.isPlayer) { showBanner(`PIT STOP ${pit.serviceTotal.toFixed(1)} s · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true); sounds.radio('Vai, vai, vai!'); pitUi(); }
+      if (c.isPlayer) { showBanner(`PIT STOP ${(pit.serviceTotal - (pit.penWait || 0)).toFixed(1)} s${pit.penWait ? ` + ${pit.penWait} s PENALITÀ` : ''} · ${COMPOUNDS[c.phys.compound].name}${pit.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true); sounds.radio('Vai, vai, vai!'); pitUi(); }
       else feed(`${c.name} AI BOX: ${COMPOUNDS[c.phys.compound].name}`, 'yellow');
     }
     if (kind === 'pitOut' && c.isPlayer) {
@@ -575,7 +578,7 @@ function physicsStep(inp) {
     }
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
     race.step(DT, pc, true);
-    if (!coolAI) { arcadeCut(); arcadeRescue(DT); }
+    if (!coolAI) { stewTick(DT); arcadeRescue(DT); }
     if (race.player.finishT == null) raceSectors(sPrev, phys.prCG.s);
     return;
   }
@@ -587,7 +590,7 @@ function physicsStep(inp) {
 // arcade: tagliare la pista con quattro ruote costa 2 secondi (invece di cancellare il giro)
 var cutOut = false;
 function arcadeCut() {
-  if (!ARC() || phys.inPit) return;
+  if (!ARC() || phys.inPit || race) return;     // in gara valgono le regole dei commissari (limiti, vantaggio)
   const out = phys.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL);
   if (out && !cutOut) {
     if (race) race.player.penalty = (race.player.penalty || 0) + ARCADE.cutPenalty;
@@ -875,11 +878,98 @@ function scBadge(text, kind = 'sc', hold = 0) {
   if (hold) scBadgeUntil = simTime + hold;
 }
 
-function penalize(sec, why) {
-  race.player.penalty = (race.player.penalty || 0) + sec;
+function penalize(sec, why, c = race.player) {
+  c.penalty = (c.penalty || 0) + sec;
+  if (!c.isPlayer) { feed(`PENALITÀ ${c.name}: +${sec} s · ${why.toLowerCase()}`, 'yellow'); return; }
   scBadge(`+${sec}s`, 'pen', 3);
-  feed(`PENALITÀ ${race.player.name}: +${sec} s (${why.toLowerCase()})`, 'red');
-  sounds.radio(`Abbiamo una penalità di ${sec} secondi.`);
+  feed(`PENALITÀ ${sec} SECONDI · ${why}`, 'red');
+  sounds.radio(`Abbiamo una penalità di ${sec} secondi: ${why.toLowerCase()}. ${race.laps - race.player.crossings > 2 ? 'La sconti alla prossima sosta, oppure viene aggiunta al tempo finale.' : 'Verrà aggiunta al tempo finale.'}`);
+}
+
+// ---------------------------------------------------------------- commissari (regole della F1 vera)
+// - Limiti della pista: fuori con tutte e quattro le ruote (non spinto da un altro). 3ª volta bandiera
+//   bianco-nera, 4ª 5 secondi, poi altri 10 secondi ogni 3 volte (7ª, 10ª...).
+// - Vantaggio fuori pista: se tagliando guadagni posizioni devi restituirle entro pochi secondi, sennò 5 s.
+// - Collisioni: tamponamento o chiusura che fa girare, uscire, danneggiare o perdere posizioni l'altro:
+//   5 secondi (10 se la sua gara è compromessa). Un contatto senza conseguenze è un incidente di gara.
+// - Le penalità si scontano alla prossima sosta (i meccanici aspettano) o si aggiungono al tempo finale.
+let stew = null;
+function stewReset() { stew = { strikes: 0, out: null, give: null, inv: [], lastHit: -99 }; }
+const allOff = p => p.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL);
+const posOf = c => race.standings().indexOf(c);
+function stewContact(A, B, impact, ax, bx) {
+  if (!stew || quali || impact < 2.2) return;
+  if (!A.isPlayer && !B.isPlayer) return;
+  stew.lastHit = race.t;
+  // chi ha colpito: muso contro la parte posteriore/laterale di chi è davanti, oppure chiusura laterale
+  const L = track.length, ahead = (x, y) => { let g = x.phys.prCG.s - y.phys.prCG.s; if (g < -L / 2) g += L; else if (g > L / 2) g -= L; return g; };
+  let atFault = null, victim = null;
+  if (ax > 0.5 && bx <= 0.5 && ahead(B, A) > 0) { atFault = A; victim = B; }
+  else if (bx > 0.5 && ax <= 0.5 && ahead(A, B) > 0) { atFault = B; victim = A; }
+  else {
+    // fianco a fianco: ha colpa chi si è spostato lateralmente verso l'altro
+    const lat = c => c.phys.vx * c.phys.prCG.nx + c.phys.vz * c.phys.prCG.nz;        // velocità laterale (verso d crescente > 0)
+    const side = Math.sign(B.phys.prCG.d - A.phys.prCG.d) || 1;
+    const mA = lat(A) * side, mB = -lat(B) * side;                                       // > 0: si muove verso l'altro
+    if (mA > 1.2 && mA > mB + 0.8) { atFault = A; victim = B; } else if (mB > 1.2 && mB > mA + 0.8) { atFault = B; victim = A; }
+  }
+  if (!atFault || stew.inv.some(x => x.f === atFault.slot && x.v === victim.slot)) return;
+  const d = victim.phys.damage;
+  stew.inv.push({ f: atFault.slot, v: victim.slot, t: race.t, pos: posOf(victim), dmg: d.fwL + d.fwR + d.rw + d.floor + Math.max(...d.susp), spun: false, off: false });
+  if (atFault.isPlayer) feed(`INCIDENTE CON ${victim.name}: SOTTO INVESTIGAZIONE`, 'yellow');
+}
+function stewTick(dt) {
+  if (!stew || !race || quali || mode !== 'race') return;
+  const me = race.player, p = phys;
+  if (me.finishT != null || me.pit || dnfTimer >= 0) { stew.out = null; return; }
+  // --- limiti della pista ---
+  const off = allOff(p);
+  if (off && !stew.out && race.t > 3) stew.out = { t: race.t, pos: posOf(me), forced: race.t - stew.lastHit < 2.5, ahead: race.standings().slice(0, posOf(me)).map(c => c.slot) };
+  else if (!off && stew.out && p.wheels.filter(w => w.sf.type !== SURF.GRASS && w.sf.type !== SURF.GRAVEL).length >= 2) {
+    const o = stew.out; stew.out = null;
+    const now = posOf(me);
+    if (!o.forced && now < o.pos) {
+      // posizioni guadagnate fuori pista: vanno restituite
+      const passed = o.ahead.filter(sl => { const c = race.cars.find(x => x.slot === sl); return c && !c.retired && !c.pit && posOf(c) > now; });
+      if (passed.length) {
+        const names = passed.map(sl => race.cars.find(x => x.slot === sl).name).join(', ');
+        stew.give = { slots: passed, until: race.t + 15 };
+        feed(`VANTAGGIO FUORI PISTA: RESTITUISCI LA POSIZIONE A ${names}`, 'yellow');
+        sounds.radio(`Hai guadagnato la posizione fuori pista: restituiscila a ${names}, o prendi cinque secondi.`);
+      }
+    } else if (!o.forced) {
+      stew.strikes++;
+      const k = stew.strikes;
+      if (k < 3) feed(`LIMITI DELLA PISTA · AVVERTIMENTO ${k}`, 'yellow');
+      else if (k === 3) { feed('BANDIERA BIANCO-NERA · ANCORA UNA E SEI PENALIZZATO', 'yellow'); scBadge('B/N', 'bw', 3); sounds.radio('Bandiera bianco-nera per i limiti della pista. Attento: alla prossima è penalità.'); }
+      else if (k === 4) penalize(5, 'LIMITI DELLA PISTA');
+      else if ((k - 4) % 3 === 0) penalize(10, 'LIMITI DELLA PISTA');
+      else feed(`LIMITI DELLA PISTA · ${k}ª VOLTA`, 'yellow');
+    }
+  }
+  // --- posizione da restituire ---
+  if (stew.give) {
+    const G = stew.give, now = posOf(me);
+    const still = G.slots.filter(sl => { const c = race.cars.find(x => x.slot === sl); return c && !c.retired && !c.pit && posOf(c) > now; });
+    if (!still.length) { stew.give = null; feed('POSIZIONE RESTITUITA · NESSUNA PENALITÀ', 'green'); }
+    else if (race.t > G.until) { stew.give = null; penalize(5, 'VANTAGGIO FUORI PISTA'); }
+  }
+  // --- investigazioni sulle collisioni (decisione dopo qualche secondo, come i commissari) ---
+  for (const I of stew.inv) {
+    const v = race.cars.find(x => x.slot === I.v), f = race.cars.find(x => x.slot === I.f);
+    if (!v || !f) { I.done = true; continue; }
+    const vp = v.phys, head = Math.abs(Math.atan2(Math.sin(vp.yaw - Math.atan2(vp.prCG.tz, vp.prCG.tx)), Math.cos(vp.yaw - Math.atan2(vp.prCG.tz, vp.prCG.tx))));
+    if (head > 1.2 || Math.abs(vp.yawRate) > 2.5) I.spun = true;
+    if (allOff(vp)) I.off = true;
+    if (race.t - I.t < 5) continue;
+    I.done = true;
+    const d = vp.damage, dmg = d.fwL + d.fwR + d.rw + d.floor + Math.max(...d.susp) - I.dmg;
+    const lost = posOf(v) > I.pos;
+    const ruined = v.retired || I.spun || dmg > 0.6;
+    if (ruined || I.off || lost || dmg > 0.2) penalize(ruined ? 10 : 5, `COLLISIONE CON ${v.name}`, f);
+    else if (f.isPlayer) feed(`INCIDENTE CON ${v.name}: NESSUNA ULTERIORE AZIONE`, 'green');
+  }
+  stew.inv = stew.inv.filter(I => !I.done);
 }
 
 // ---------------------------------------------------------------- telecamera
@@ -1580,7 +1670,7 @@ function updateHud(dt) {
   if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
   if (race && race.player.pit) {
     const pit = race.player.pit;
-    setText('pitInfo', pit.phase === 'service' ? `PIT STOP ${pit.service.toFixed(1)} s` : pit.phase === 'release' ? 'VERDE · GAS!' : 'LIMITATORE 80');
+    setText('pitInfo', pit.phase === 'service' ? (pit.penWait && pit.service < pit.penWait ? `PENALITÀ ${(pit.penWait - pit.service).toFixed(1)} s` : `PIT STOP ${pit.service.toFixed(1)} s`) : pit.phase === 'release' ? 'VERDE · GAS!' : 'LIMITATORE 80');
     $('pitInfo').classList.toggle('go', pit.phase === 'release');
   }
   $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
@@ -1801,7 +1891,8 @@ function standingsHtml(full) {
       t = lapsDown >= 1 ? `+${lapsDown} ${lapsDown === 1 ? 'giro' : 'giri'}` : (full ? 'in pista' : '+' + fmtGap(race.gap(leader, c)));
     }
     const col = '#' + c.color.toString(16).padStart(6, '0');
-    const pen = c.penalty ? `<em class="pen">+${c.penalty} s</em>` : '';
+    const owe = (c.penalty || 0) - (c.penServed || 0);
+    const pen = owe > 0 ? `<em class="pen">+${owe} s</em>` : '';
     const isFl = fl === c;
     const pts = full ? (c.retired ? 0 : (POINTS[i] || 0) + (isFl && i < 10 ? 1 : 0)) : null;
     return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}${pen}</span><span>${t}</span><span class="bl${isFl ? ' fl' : ''}">${c.bestLap ? (isFl ? '⏱ ' : '') + fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span>${full ? `<span class="pts">${pts ? pts + ' PT' : ''}</span>` : ''}</div>`;
@@ -2065,7 +2156,7 @@ $('pauseReplay').addEventListener('click', () => {
 
 // ---------------- flashback: fino a 10 secondi indietro, poi si riparte da lì
 let fbSnaps = [], fbNext = 0;
-const fbExtra = () => ({ simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid, retired: [...retiredSeen] });
+const fbExtra = () => ({ stew, simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid, retired: [...retiredSeen] });
 function fbTick() {
   if (!race || race.finished || race.player.finishT != null || mode !== 'race') return;
   if (race.t < fbNext) return;
@@ -2094,7 +2185,7 @@ $('rpFlash').addEventListener('click', () => {
   for (const x of fbSnaps) if (x.t <= target + 0.01) S = x;
   exitReplay();                                   // di nuovo nella pausa, poi si ripristina
   const E = restoreRace(S, race, sc, debris, scene);
-  ({ simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid } = E);
+  ({ stew, simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid } = E);
   if (race.player.pit) pitChoice = race.player.pit.plan;
   retiredSeen = new Set(E.retired);
   fbSnaps = fbSnaps.filter(x => x.t <= S.t); fbNext = S.t + FB_EVERY;

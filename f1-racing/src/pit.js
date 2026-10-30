@@ -160,6 +160,9 @@ export class PitStop {
         this.phase = 'service'; this.v = 0;
         const phys = this.car.phys;
         this.serviceTotal = 2.2 + Math.random() * 0.6 + (this.plan.repair ? phys.repairTime() : 0);
+        // penalità a tempo da scontare: i meccanici aspettano prima di toccare la vettura (come in F1)
+        const owe = (this.car.penalty || 0) - (this.car.penServed || 0);
+        if (owe > 0) { this.serviceTotal += owe; this.penWait = owe; this.car.penServed = this.car.penalty; }
         this.service = 0;
       }
     } else if (this.phase === 'service') {
