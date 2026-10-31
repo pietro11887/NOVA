@@ -64,7 +64,7 @@ const TIPS = [
   'In qualifica secca hai un solo giro: quattro ruote oltre i cordoli e il tempo viene cancellato.',
   'Le gomme danno il massimo tra 90 e 110 °C: nel giro di lancio scaldale con accelerate e frenate decise.',
   "Alla partenza tieni il gas a metà: troppo e le ruote pattinano, poco e il motore si spegne di giri.",
-  'Commissari come in F1: tre volte fuori con quattro ruote è bandiera bianco-nera, alla quarta 5 secondi. Se tagli e guadagni una posizione, restituiscila.',
+  'Commissari come in F1 25: se tagli compare RALLENTA, restituisci il tempo e non succede niente. Ogni 3 avvertimenti arriva una penalità a tempo.',
   'Ai box puoi andare in ogni gara e in ogni giro: chiama BOX (tasto X), scegli le gomme e all\'imbocco la vettura entra da sola.',
   'Il livello IA va da 0 a 110 come in F1 25: già a 60 i bot sono più veloci di molti piloti.',
   "La scia è forte sui rettilinei lunghi: stai dietro fino alla staccata e poi esci all'interno.",
@@ -886,17 +886,46 @@ function penalize(sec, why, c = race.player) {
   sounds.radio(`Abbiamo una penalità di ${sec} secondi: ${why.toLowerCase()}. ${race.laps - race.player.crossings > 2 ? 'La sconti alla prossima sosta, oppure viene aggiunta al tempo finale.' : 'Verrà aggiunta al tempo finale.'}`);
 }
 
-// ---------------------------------------------------------------- commissari (regole della F1 vera)
-// - Limiti della pista: fuori con tutte e quattro le ruote (non spinto da un altro). 3ª volta bandiera
-//   bianco-nera, 4ª 5 secondi, poi altri 10 secondi ogni 3 volte (7ª, 10ª...).
-// - Vantaggio fuori pista: se tagliando guadagni posizioni devi restituirle entro pochi secondi, sennò 5 s.
-// - Collisioni: tamponamento o chiusura che fa girare, uscire, danneggiare o perdere posizioni l'altro:
-//   5 secondi (10 se la sua gara è compromessa). Un contatto senza conseguenze è un incidente di gara.
+// ---------------------------------------------------------------- commissari (come nel gioco F1 25)
+// Prima gli avvertimenti, poi le penalità:
+// - Taglio di curva: se fuori pista guadagni tempo compare "RALLENTA" con il tempo da restituire;
+//   se lo restituisci entro pochi secondi non succede niente, altrimenti avvertimento.
+// - Limiti della pista (fuori con quattro ruote senza guadagno): 3ª volta bandiera bianco-nera,
+//   dalla 4ª ogni uscita è un avvertimento.
+// - Contatti: leggeri = avvertimento; se l'altro gira, esce o si danneggia = penalità diretta.
+// - Ogni 3 avvertimenti scatta una penalità a tempo, sempre più pesante: 3 s, 5 s, 5 s, poi 10 s.
+// - Posizione guadagnata tagliando: "RESTITUISCI LA POSIZIONE" con un conto alla rovescia.
 // - Le penalità si scontano alla prossima sosta (i meccanici aspettano) o si aggiungono al tempo finale.
 let stew = null;
-function stewReset() { stew = { strikes: 0, out: null, give: null, inv: [], lastHit: -99 }; }
+const PEN_LADDER = [3, 5, 5, 10];
+function stewReset() { stew = { strikes: 0, warns: 0, pens: 0, out: null, slow: null, give: null, inv: [], lastHit: -99 }; }
 const allOff = p => p.wheels.every(w => w.sf.type === SURF.GRASS || w.sf.type === SURF.GRAVEL);
 const posOf = c => race.standings().indexOf(c);
+// tempo di riferimento lungo la pista (un pilota veloce sulla traiettoria): serve a misurare il vantaggio
+let refCum = null;
+function refTime(s0, s1) {
+  if (!refCum) {
+    const P = racingLine.speedProfile(SPEC_MU() * 1.0, 0.95, 120, IS_F1 ? 0.35 : 0), n = track.count;
+    refCum = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) refCum[i + 1] = refCum[i] + racingLine.ds[i] / Math.max(8, P[i]);
+  }
+  const n = track.count, L = refCum[n], st = track.step;
+  const at = s => { const f = ((s % track.length) + track.length) % track.length / st, i = Math.floor(f) % n; return refCum[i] + (refCum[i + 1] - refCum[i]) * (f - Math.floor(f)); };
+  let d = at(s1) - at(s0); if (d < -L / 2) d += L;
+  return d;
+}
+const SPEC_MU = () => phys.mu * (ARC() ? 1.15 : 1);
+function stewWarn(why) {
+  stew.warns++;
+  const left = 3 - (stew.warns % 3 || 3);
+  if (stew.warns % 3 === 0) {
+    const sec = PEN_LADDER[Math.min(PEN_LADDER.length - 1, stew.pens++)];
+    penalize(sec, why + ' (TROPPI AVVERTIMENTI)');
+  } else {
+    feed(`AVVERTIMENTO · ${why} · ${stew.warns % 3}/3`, 'yellow');
+    if (left === 1) sounds.radio('Attento: ancora un avvertimento e arriva la penalità.');
+  }
+}
 function stewContact(A, B, impact, ax, bx) {
   if (!stew || quali || impact < 2.2) return;
   if (!A.isPlayer && !B.isPlayer) return;
@@ -916,58 +945,67 @@ function stewContact(A, B, impact, ax, bx) {
   if (!atFault || stew.inv.some(x => x.f === atFault.slot && x.v === victim.slot)) return;
   const d = victim.phys.damage;
   stew.inv.push({ f: atFault.slot, v: victim.slot, t: race.t, pos: posOf(victim), dmg: d.fwL + d.fwR + d.rw + d.floor + Math.max(...d.susp), spun: false, off: false });
-  if (atFault.isPlayer) feed(`INCIDENTE CON ${victim.name}: SOTTO INVESTIGAZIONE`, 'yellow');
 }
 function stewTick(dt) {
   if (!stew || !race || quali || mode !== 'race') return;
   const me = race.player, p = phys;
-  if (me.finishT != null || me.pit || dnfTimer >= 0) { stew.out = null; return; }
-  // --- limiti della pista ---
+  if (me.finishT != null || me.pit || dnfTimer >= 0) { stew.out = null; stew.slow = null; hudCache.slowTxt = null; return; }
+  const sNow = race.progress(me);
+  // --- uscite di pista ---
   const off = allOff(p);
-  if (off && !stew.out && race.t > 3) stew.out = { t: race.t, pos: posOf(me), forced: race.t - stew.lastHit < 2.5, ahead: race.standings().slice(0, posOf(me)).map(c => c.slot) };
+  if (off && !stew.out && race.t > 3) stew.out = { t: race.t, s: sNow, pos: posOf(me), forced: race.t - stew.lastHit < 2.5, ahead: race.standings().slice(0, posOf(me)).map(c => c.slot) };
   else if (!off && stew.out && p.wheels.filter(w => w.sf.type !== SURF.GRASS && w.sf.type !== SURF.GRAVEL).length >= 2) {
     const o = stew.out; stew.out = null;
+    const gain = refTime(o.s, sNow) - (race.t - o.t);       // tempo guadagnato fuori pista
     const now = posOf(me);
-    if (!o.forced && now < o.pos) {
-      // posizioni guadagnate fuori pista: vanno restituite
-      const passed = o.ahead.filter(sl => { const c = race.cars.find(x => x.slot === sl); return c && !c.retired && !c.pit && posOf(c) > now; });
-      if (passed.length) {
-        const names = passed.map(sl => race.cars.find(x => x.slot === sl).name).join(', ');
-        stew.give = { slots: passed, until: race.t + 15 };
-        feed(`VANTAGGIO FUORI PISTA: RESTITUISCI LA POSIZIONE A ${names}`, 'yellow');
-        sounds.radio(`Hai guadagnato la posizione fuori pista: restituiscila a ${names}, o prendi cinque secondi.`);
-      }
+    const passed = o.forced ? [] : o.ahead.filter(sl => { const c = race.cars.find(x => x.slot === sl); return c && !c.retired && !c.pit && posOf(c) > now; });
+    if (passed.length) {
+      const names = passed.map(sl => race.cars.find(x => x.slot === sl).name).join(', ');
+      stew.give = { slots: passed, until: race.t + 20 };
+      feed(`RESTITUISCI LA POSIZIONE A ${names}`, 'yellow');
+      sounds.radio(`Hai guadagnato la posizione fuori pista: restituiscila a ${names}.`);
+    } else if (!o.forced && gain > 0.25) {
+      // taglio: si può rimediare rallentando (come nel gioco)
+      stew.slow = { need: gain, s: sNow, t: race.t, until: race.t + 6 };
+      sounds.radio('Hai tagliato: rallenta e restituisci il tempo.');
     } else if (!o.forced) {
       stew.strikes++;
       const k = stew.strikes;
-      if (k < 3) feed(`LIMITI DELLA PISTA · AVVERTIMENTO ${k}`, 'yellow');
-      else if (k === 3) { feed('BANDIERA BIANCO-NERA · ANCORA UNA E SEI PENALIZZATO', 'yellow'); scBadge('B/N', 'bw', 3); sounds.radio('Bandiera bianco-nera per i limiti della pista. Attento: alla prossima è penalità.'); }
-      else if (k === 4) penalize(5, 'LIMITI DELLA PISTA');
-      else if ((k - 4) % 3 === 0) penalize(10, 'LIMITI DELLA PISTA');
-      else feed(`LIMITI DELLA PISTA · ${k}ª VOLTA`, 'yellow');
+      if (k < 3) feed(`LIMITI DELLA PISTA · ${k}`, 'yellow');
+      else if (k === 3) { feed('BANDIERA BIANCO-NERA · LIMITI DELLA PISTA', 'yellow'); scBadge('B/N', 'bw', 3); sounds.radio('Bandiera bianco-nera per i limiti della pista. Da adesso ogni uscita è un avvertimento.'); }
+      else stewWarn('LIMITI DELLA PISTA');
     }
   }
-  // --- posizione da restituire ---
+  // --- "RALLENTA": tempo da restituire dopo un taglio ---
+  if (stew.slow) {
+    const S = stew.slow, lost = (race.t - S.t) - refTime(S.s, sNow), left = S.need - lost;
+    if (left <= 0) { stew.slow = null; feed('TEMPO RESTITUITO · NESSUN AVVERTIMENTO', 'green'); }
+    else if (race.t > S.until) { stew.slow = null; stewWarn('TAGLIO DI CURVA'); }
+    const txt = stew.slow ? `RALLENTA −${left.toFixed(1)} s` : null;
+    if (hudCache.slowTxt !== txt) { hudCache.slowTxt = txt; const el = $('slowInfo'); el.textContent = txt || ''; el.classList.toggle('hidden', !txt); }
+  } else if (hudCache.slowTxt) { hudCache.slowTxt = null; $('slowInfo').classList.add('hidden'); }
+  // --- posizione da restituire (conto alla rovescia) ---
   if (stew.give) {
     const G = stew.give, now = posOf(me);
     const still = G.slots.filter(sl => { const c = race.cars.find(x => x.slot === sl); return c && !c.retired && !c.pit && posOf(c) > now; });
     if (!still.length) { stew.give = null; feed('POSIZIONE RESTITUITA · NESSUNA PENALITÀ', 'green'); }
-    else if (race.t > G.until) { stew.give = null; penalize(5, 'VANTAGGIO FUORI PISTA'); }
+    else if (race.t > G.until) { stew.give = null; penalize(5, 'POSIZIONE NON RESTITUITA'); }
   }
-  // --- investigazioni sulle collisioni (decisione dopo qualche secondo, come i commissari) ---
+  // --- contatti: decisione dopo qualche secondo ---
   for (const I of stew.inv) {
     const v = race.cars.find(x => x.slot === I.v), f = race.cars.find(x => x.slot === I.f);
     if (!v || !f) { I.done = true; continue; }
     const vp = v.phys, head = Math.abs(Math.atan2(Math.sin(vp.yaw - Math.atan2(vp.prCG.tz, vp.prCG.tx)), Math.cos(vp.yaw - Math.atan2(vp.prCG.tz, vp.prCG.tx))));
     if (head > 1.2 || Math.abs(vp.yawRate) > 2.5) I.spun = true;
     if (allOff(vp)) I.off = true;
-    if (race.t - I.t < 5) continue;
+    if (race.t - I.t < 4) continue;
     I.done = true;
     const d = vp.damage, dmg = d.fwL + d.fwR + d.rw + d.floor + Math.max(...d.susp) - I.dmg;
-    const lost = posOf(v) > I.pos;
-    const ruined = v.retired || I.spun || dmg > 0.6;
-    if (ruined || I.off || lost || dmg > 0.2) penalize(ruined ? 10 : 5, `COLLISIONE CON ${v.name}`, f);
-    else if (f.isPlayer) feed(`INCIDENTE CON ${v.name}: NESSUNA ULTERIORE AZIONE`, 'green');
+    const heavy = v.retired || I.spun || I.off || dmg > 0.5;
+    if (f.isPlayer) {
+      if (heavy) penalize(5, `COLLISIONE CON ${v.name}`);
+      else if (dmg > 0.15 || posOf(v) > I.pos) stewWarn('CONTATTO');
+    } else if (heavy) penalize(5, `COLLISIONE CON ${race.player.name === v.name ? 'TE' : v.name}`, f);
   }
   stew.inv = stew.inv.filter(I => !I.done);
 }
@@ -3090,7 +3128,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get stew() { return stew; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

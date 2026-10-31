@@ -245,6 +245,7 @@ body.hq::after { content: ""; position: fixed; inset: 0; pointer-events: none; b
 #topButtons #pitBtn { width: auto; padding: 0 12px; font-weight: 900; letter-spacing: 1px; font-size: 14px; color: var(--yellow); border-color: rgba(245,197,24,0.5); }
 #topButtons #pitBtn.active { background: var(--yellow); color: #111; }
 .pitInfo { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); background: #0b0b0d; border: 2px solid var(--yellow); border-radius: 6px; padding: 6px 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slowInfo { border-color: #ff8a1c; color: #ff8a1c; top: calc(max(16px, env(safe-area-inset-top)) + 96px); }
 .pitInfo.go { border-color: var(--green); color: var(--green); }
 /* strategia box (come il menu MFD di F1 25): a sinistra sotto la classifica, non davanti */
 .pitPanel { position: absolute; left: max(12px, env(safe-area-inset-left)); top: calc(max(16px, env(safe-area-inset-top)) + 150px); width: 236px; padding: 8px 10px; pointer-events: auto; z-index: 4; background: rgba(8,10,20,0.82); border-left: 3px solid var(--yellow); border-radius: 4px; }
