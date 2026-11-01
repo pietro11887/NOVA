@@ -80,7 +80,7 @@ export class SafetyCar {
       // neutralizzazione passano almeno due giri prima della prossima
       // (più rara: solo per incidenti grossi, e almeno tre giri tra una e l'altra)
       if (this.endLap != null && lead.crossings < this.endLap + 3) return;
-      if (this.debrisScore(6) >= 10) this.deploy(lead);
+      if (!this.disabled && this.debrisScore(6) >= 10) this.deploy(lead);
       return;
     }
     const L = this.L(), ord = this.order(), lead = ord[0];

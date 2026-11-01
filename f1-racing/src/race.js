@@ -44,13 +44,17 @@ export class Race {
     this.arcade = !!opts.arcade;
     this.towMul = this.arcade ? TOW_LEVELS[opts.tow ?? 1] : 1;
     this.rubber = this.arcade ? (opts.rubber ?? 1) : 0;
-    const total = opts.bots + 1;
-    const playerSlot = Math.min(total, Math.max(1, opts.startPos)) - 1;
+    // gara online: "roster" descrive ogni piazzola (chi sei tu, chi è l'altro giocatore, i bot);
+    // le vetture "remote" sono guidate dall'altro dispositivo (qui si muovono solo con i suoi dati)
+    const R = opts.roster || null;
+    const total = R ? R.length : opts.bots + 1;
+    const playerSlot = R ? Math.max(0, R.findIndex(r => r.me)) : Math.min(total, Math.max(1, opts.startPos)) - 1;
     let botIdx = 0;
     for (let slot = 0; slot < total; slot++) {
       const isPlayer = slot === playerSlot;
+      const rr = R ? R[slot] : null, remote = !!(rr && rr.remote);
       // ordine di griglia della qualifica: bi è l'avversario (pilota e scuderia) che parte qui
-      const bi = !isPlayer && opts.botOrder && opts.botOrder[botIdx] != null ? opts.botOrder[botIdx] : botIdx;
+      const bi = rr ? (rr.bi ?? 0) : !isPlayer && opts.botOrder && opts.botOrder[botIdx] != null ? opts.botOrder[botIdx] : botIdx;
       const phys = isPlayer ? opts.playerPhys : new CarPhysics(track);
       const car = {
         phys, isPlayer, slot, retired: false,
@@ -73,7 +77,11 @@ export class Race {
         strength = Math.max(1, Math.min(110, strength + (e.team.tier - 1.5) * 4));
       }
       if (isPlayer && opts.playerTeam) car.color = parseInt(opts.playerTeam.colors[0].slice(1), 16);
-      if (!isPlayer) { car.ai = new AIDriver(phys, line, strength, bi + 1); botIdx++; }
+      if (rr) {
+        car.name = rr.name; car.color = rr.color; car.accent = rr.accent; car.team = rr.team || null; car.remote = remote; car.orig = !!rr.orig;
+        if (!isPlayer && !remote && rr.team) strength = Math.max(1, Math.min(110, opts.strength + (rr.team.tier - 1.5) * 4));
+      }
+      if (!isPlayer && !remote) { car.ai = new AIDriver(phys, line, strength, bi + 1); botIdx++; }
       this.cars.push(car);
     }
     this.player = this.cars[playerSlot];
@@ -84,7 +92,7 @@ export class Race {
     for (const c of this.cars) {
       c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : 'M');
       c.phys.inPit = false;
-      if (!c.isPlayer && this.pitLane && this.laps >= 8) {
+      if (c.ai && this.pitLane && this.laps >= 8) {
         const stops = this.laps >= 20 ? 2 : 1;
         for (let k = 1; k <= stops; k++) {
           const lap = Math.round(this.laps * k / (stops + 1) + (Math.random() - 0.5) * this.laps * 0.2);
@@ -125,7 +133,7 @@ export class Race {
       const p = c.phys;
       let best = 1e9, bestDirty = 1e9;
       for (const o of this.cars) {
-        if (o === c || o.gone || o.pit) continue;
+        if (o === c || o.gone || o.pit || o.phys.inPit) continue;
         let g = o.phys.prCG.s - p.prCG.s;
         if (g < -L / 2) g += L; else if (g > L / 2) g -= L;
         if (g <= 3) continue;
@@ -158,6 +166,7 @@ export class Race {
         if (out) { c.stops++; if (this.onEvent) this.onEvent(c, 'pitOut', c.pit); c.pit = null; }
         continue;
       }
+      if (c.remote) continue;          // posizione già impostata dai dati dell'altro dispositivo
       if (running && this.pitLane) this.pitLogic(c);
       if (c.pit) continue;
       if (c.isPlayer) {
@@ -193,7 +202,7 @@ export class Race {
       }
     }
     this.collideCars();
-    if (running) for (const c of this.cars) if (!c.gone) this.lapLogic(c, dt);
+    if (running) for (const c of this.cars) if (!c.gone) { if (c.remote) this.passLog(c); else this.lapLogic(c, dt); }
     if (running && this.otOn) this.overtakeMode(dt);
   }
 
@@ -293,10 +302,17 @@ export class Race {
     c.sPrev = s;
   }
 
+  // vetture remote: giri e arrivo arrivano dall'altro dispositivo; qui solo i passaggi (per i distacchi)
+  passLog(c) {
+    const L = this.track.length, s = c.phys.prCG.s;
+    if (c.finishT == null) { const b = Math.floor((c.crossings * L + s) / 10); if (b >= 0) while (c.pass.length <= b) c.pass.push(this.t); }
+    c.sPrev = s;
+  }
+
   collideCars() {
     const cars = this.cars;
     for (let a = 0; a < cars.length; a++) for (let b = a + 1; b < cars.length; b++) {
-      if (cars[a].gone || cars[b].gone || cars[a].pit || cars[b].pit) continue;
+      if (cars[a].gone || cars[b].gone || cars[a].pit || cars[b].pit || cars[a].phys.inPit || cars[b].phys.inPit) continue;
       const A = cars[a].phys, B = cars[b].phys;
       const dx = B.x - A.x, dz = B.z - A.z;
       if (dx * dx + dz * dz > 81 || Math.abs(A.y - B.y) > 2) continue;

@@ -22,6 +22,7 @@ import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS } from './race.js';
 import { PitLane, PitStop } from './pit.js';
 import { PitCrew } from './pitCrew.js';
+import { Online, NET_VER } from './online.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
@@ -64,6 +65,7 @@ const TIPS = [
   'In qualifica secca hai un solo giro: quattro ruote oltre i cordoli e il tempo viene cancellato.',
   'Le gomme danno il massimo tra 90 e 110 °C: nel giro di lancio scaldale con accelerate e frenate decise.',
   "Alla partenza tieni il gas a metà: troppo e le ruote pattinano, poco e il motore si spegne di giri.",
+  'Gara online: uno crea la gara e dà il codice di 4 cifre all\'altro, che lo scrive in GARA ONLINE › ENTRA.',
   'Commissari come in F1 25: se tagli compare RALLENTA, restituisci il tempo e non succede niente. Ogni 3 avvertimenti arriva una penalità a tempo.',
   'Ai box puoi andare in ogni gara e in ogni giro: chiama BOX (tasto X), scegli le gomme e all\'imbocco la vettura entra da sola.',
   'Il livello IA va da 0 a 110 come in F1 25: già a 60 i bot sono più veloci di molti piloti.',
@@ -352,7 +354,7 @@ function clearRace() {
   $('results').classList.add('hidden');
 }
 
-function startRaceGame() {
+function startRaceGame(roster = null) {
   gameType = 'race';
   fbReset();
   prepareStart();
@@ -360,10 +362,11 @@ function startRaceGame() {
   race = new Race(track, racingLine, {
     laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength,
     startPos: wk && wk.startPos ? wk.startPos : settings.raceStart, playerPhys: phys, damageMode: dmMode(),
-    arcade: ARC(), tow: settings.arcTow, rubber: settings.arcRubber, botOrder: wk && wk.botOrder,
+    arcade: ARC(), tow: settings.arcTow, rubber: roster ? 0 : settings.arcRubber, botOrder: wk && wk.botOrder,
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? (wk && wk.grid) || f1Grid(settings.f1Team, settings.raceBots) : null,
-    pitLane, startCompound: settings.raceTyre,
+    pitLane, startCompound: settings.raceTyre, roster,
   });
+  race.online = !!roster;
   // strategia del box: gomme consigliate in base ai giri che mancano (si cambia dal menu BOX)
   pitChoice = { compound: suggestCompound(race.laps), repair: false };
   race.playerPlan = pitChoice;
@@ -401,6 +404,7 @@ function startRaceGame() {
   // safety car (vettura gialla con barra luci)
   const scModel = gtReady() ? makeCar({ primary: 0x16171b, accent: 0xf4f4f4, lod: 'mid', safety: true }) : createCar({ primary: 0xf4f4f4, accent: 0x16171b });
   sc = new SafetyCar({ race, track, line: racingLine, debris, scene, model: scModel });
+  if (race.online) sc.disabled = true;      // online (per ora): niente safety car
   // registrazione per il replay
   recorder = new Recorder(race.cars, {
     track: settings.track, trackName: track.name, carClass: settings.carClass, driveMode: settings.driveMode, laps: race.laps, date: Date.now(),
@@ -412,7 +416,7 @@ function startRaceGame() {
 function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
-    c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.phys.hazards = p => debris.contact(p);
@@ -513,6 +517,7 @@ function checkDetachments() {
   // ritiro
   if (dnfTimer < 0 && phys.isWrecked()) {
     dnfTimer = 2.2;
+    if (race && race.online) { race.player.retired = true; race.player.retireWhy = 'INCIDENTE'; }
     const d = phys.damage;
     $('dnfReason').textContent = d.engine >= 1 ? 'Motore distrutto dopo l\'impatto.' : 'Sospensione rotta: ruota persa!';
     showBanner('BANDIERA ROSSA', 'red', 2.2, true);
@@ -577,7 +582,9 @@ function physicsStep(inp) {
       resultsTimer = 2;
     }
     const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
+    if (race.online && net) { net.apply(race); for (const c of race.cars) if (c.compoundChanged && c.model) { setTyreColor(c.model, c.phys.compound); c.compoundChanged = false; } }
     race.step(DT, pc, true);
+    if (race.online && net) { net.tick(race, DT); if (net.stale()) onlineLost(net.role === 'host' ? (onl.guest ? onl.guest.name : 'L\'altro giocatore') : (onl.hostName || 'L\'host')); }
     if (!coolAI) { stewTick(DT); arcadeRescue(DT); }
     if (race.player.finishT == null) raceSectors(sPrev, phys.prCG.s);
     return;
@@ -928,7 +935,7 @@ function stewWarn(why) {
 }
 function stewContact(A, B, impact, ax, bx) {
   if (!stew || quali || impact < 2.2) return;
-  if (!A.isPlayer && !B.isPlayer) return;
+  if (!A.isPlayer && !B.isPlayer && !(race.online && ((A.remote && !A.ai && B.ai) || (B.remote && !B.ai && A.ai)))) return;   // online: anche i bot contro l'altro giocatore
   stew.lastHit = race.t;
   // chi ha colpito: muso contro la parte posteriore/laterale di chi è davanti, oppure chiusura laterale
   const L = track.length, ahead = (x, y) => { let g = x.phys.prCG.s - y.phys.prCG.s; if (g < -L / 2) g += L; else if (g > L / 2) g -= L; return g; };
@@ -943,6 +950,8 @@ function stewContact(A, B, impact, ax, bx) {
     if (mA > 1.2 && mA > mB + 0.8) { atFault = A; victim = B; } else if (mB > 1.2 && mB > mA + 0.8) { atFault = B; victim = A; }
   }
   if (!atFault || stew.inv.some(x => x.f === atFault.slot && x.v === victim.slot)) return;
+  // online: ognuno giudica solo sé stesso (e l'host i suoi bot), così una penalità non arriva due volte
+  if (!atFault.isPlayer && !atFault.ai) return;
   const d = victim.phys.damage;
   stew.inv.push({ f: atFault.slot, v: victim.slot, t: race.t, pos: posOf(victim), dmg: d.fwL + d.fwR + d.rw + d.floor + Math.max(...d.susp), spun: false, off: false });
 }
@@ -1971,6 +1980,7 @@ $('podNext').addEventListener('click', () => {
 });
 
 function showResults() {
+  $('resAgain').textContent = race && race.online ? 'SALA D\'ATTESA ›' : 'RIGIOCA';
   if (!race.podiumShown && race.standings().some(c => c.finishT != null)) { race.podiumShown = true; showPodium(); return; }
   const st = race.standings(), pos = st.indexOf(race.player) + 1, fl = fastestLap();
   $('resTitle').textContent = pos === 1 ? 'HAI VINTO!' : `${pos}° POSTO`;
@@ -2169,8 +2179,15 @@ $('resumeBtn').addEventListener('click', () => togglePause(false));
 const restart = () => (quali ? startQuali() : gameType === 'race' ? startRaceGame() : startGame());
 $('restartBtn').addEventListener('click', () => { togglePause(false); restart(); });
 $('menuBtn').addEventListener('click', () => { goMenu(); });
-$('dnfRestart').addEventListener('click', restart);
-$('resAgain').addEventListener('click', startRaceGame);
+$('dnfRestart').addEventListener('click', () => (race && race.online ? (net ? onlineBackToLobby() : goMenu()) : restart()));
+$('resAgain').addEventListener('click', () => {
+  if (!(race && race.online)) { startRaceGame(); return; }
+  if (!net) { goMenu(); return; }
+  // l'host chiude la gara per tutti: se l'altro sta ancora correndo si chiede conferma
+  const other = race.cars.find(c => c.remote && !c.ai && c.finishT == null && !c.gone);
+  if (net.role === 'host' && other && !confirm(`${other.name} sta ancora correndo: chiudere la gara anche per lui?`)) return;
+  onlineBackToLobby();
+});
 $('resReplay').addEventListener('click', () => {
   if (!recorder) return;
   if (!recorder.stopped) { recorder.stopped = true; saveReplay(recorder.pack()); }
@@ -2196,14 +2213,14 @@ $('pauseReplay').addEventListener('click', () => {
 let fbSnaps = [], fbNext = 0;
 const fbExtra = () => ({ stew, simTime, lap, laps, lastLap, dnfTimer, lastPos, lastFeed, resultsTimer, lastLapWarned, scPlayerIdx, scPassT, sessBest, secHold, rsec, arcOffT, radioSaid, retired: [...retiredSeen] });
 function fbTick() {
-  if (!race || race.finished || race.player.finishT != null || mode !== 'race') return;
+  if (!race || race.online || race.finished || race.player.finishT != null || mode !== 'race') return;
   if (race.t < fbNext) return;
   fbNext = race.t + FB_EVERY;
   fbSnaps.push(snapRace(race, sc, debris, fbExtra()));
   while (fbSnaps.length && fbSnaps[0].t < race.t - FB_KEEP) fbSnaps.shift();
 }
 function fbReset() { fbSnaps = []; fbNext = 0; }
-const fbAvailable = () => !!(race && gameType === 'race' && recorder && fbSnaps.length > 1 && race.player.finishT == null && dnfTimer < 0);
+const fbAvailable = () => !!(race && !race.online && gameType === 'race' && recorder && fbSnaps.length > 1 && race.player.finishT == null && dnfTimer < 0);
 $('pauseFlash').addEventListener('click', () => {
   if (!fbAvailable() || mode !== 'pause') return;
   $('pauseReplay').click();
@@ -2243,8 +2260,199 @@ $('rpFlash').addEventListener('click', () => {
   showBanner('FLASHBACK', 'purple', 1.6, true);
 });
 
+// ---------------------------------------------------------------- GARA ONLINE (in due, con i bot)
+// L'host crea la gara (codice di 4 cifre) con circuito, vettura e regole che ha scelto; l'ospite entra col codice
+// e, se serve, il gioco si ricarica con lo stesso circuito e la stessa categoria. Poi l'host dà il via.
+let net = null;
+const onl = { guest: null, ready: false, roster: null, hostName: '' };
+const netName = () => (settings.netName || 'PILOTA').toUpperCase().slice(0, 10);
+function onStatus(text, kind = '') { const el = $('onStatus'); el.textContent = text; el.className = 'onStatus ' + kind; }
+function onLobbyView(on) { $('onStart').classList.toggle('hidden', on); $('onLobby').classList.toggle('hidden', !on); }
+function onConfigText() {
+  const t = TRACKS.find(x => x.id === settings.track);
+  return `${t ? t.name : track.name} · ${IS_F1 ? (ARC() ? 'F1 CARTOON' : 'FORMULA 1') : 'GT3'} · ${settings.raceLaps} giri · ${settings.raceBots + 1} vetture · IA ${settings.raceStrength}`;
+}
+function onPlayersHtml() {
+  const me = `<div class="ok"><b>${netName()}</b><span>${net && net.role === 'host' ? 'HOST' : 'PRONTO'}</span></div>`;
+  if (net && net.role === 'host') return me + (onl.guest ? `<div class="${onl.ready ? 'ok' : ''}"><b>${onl.guest.name}</b><span>${onl.ready ? 'PRONTO' : 'IN CARICAMENTO…'}</span></div>` : '<div><b>—</b><span>IN ATTESA…</span></div>');
+  return `<div class="ok"><b>${onl.hostName || 'HOST'}</b><span>HOST</span></div>` + me;
+}
+function onRefresh() {
+  $('onPlayers').innerHTML = onPlayersHtml();
+  $('onInfo').textContent = onConfigText();
+  $('onGo').classList.toggle('hidden', !(net && net.role === 'host'));
+  $('onGo').disabled = !(onl.guest && onl.ready && net && net.connected);
+}
+function openOnline() {
+  $('onName').value = settings.netName || '';
+  onLobbyView(!!net);
+  if (net) onRefresh(); else onStatus('');
+  showMenuPage('menuOnline');
+}
+$('onlineBtn').addEventListener('click', () => { if (!gtReady()) return; openOnline(); });
+$('onName').addEventListener('change', () => { settings.netName = $('onName').value.trim().toUpperCase().slice(0, 10); saveSettings(); });
+$('onCode').addEventListener('input', () => { $('onCode').value = $('onCode').value.replace(/\D/g, '').slice(0, 4); });
+function onNewNet() {
+  settings.netName = ($('onName').value || settings.netName || 'PILOTA').trim().toUpperCase().slice(0, 10); saveSettings();
+  if (net) net.close();
+  net = new Online();
+  onl.guest = null; onl.ready = false;
+  net.onStatus = (t, k) => onStatus(t, k);
+  net.onMsg = onNetMsg;
+}
+$('onHost').addEventListener('click', async () => {
+  onNewNet();
+  onLobbyView(true); $('onCodeShow').textContent = '····'; onRefresh();
+  onStatus('Creo la gara…');
+  try { const code = await net.host(); $('onCodeShow').textContent = code; onStatus('Di\' all\'altro di scrivere questo codice in GARA ONLINE › ENTRA', ''); }
+  catch (e) { onStatus('Non riesco a creare la gara: controlla la connessione a internet.', 'err'); }
+});
+$('onJoinBtn').addEventListener('click', () => onJoin($('onCode').value));
+async function onJoin(code) {
+  if (!/^\d{4}$/.test(code)) { onStatus('Scrivi il codice di 4 cifre.', 'err'); return; }
+  onNewNet();
+  onLobbyView(true); $('onCodeShow').textContent = code; onRefresh();
+  try { await net.join(code); } catch (e) { onStatus('Non riesco a collegarmi: controlla la connessione a internet.', 'err'); }
+}
+$('onBack').addEventListener('click', () => { if (net) { net.close(); net = null; } onLobbyView(false); showMenuPage('menuHome'); });
+$('onGo').addEventListener('click', () => { if (net && net.role === 'host' && onl.ready) onlineStart(); });
+
+// configurazione che l'host impone all'ospite
+const onCfg = () => ({ k: 'cfg', ver: NET_VER, track: settings.track, carClass: CAR_CLASS, driveMode: settings.driveMode, tod: settings.tod,
+  laps: settings.raceLaps, bots: settings.raceBots, strength: settings.raceStrength, damage: settings.damage, hostName: netName(), hostTeam: settings.f1Team });
+function onNetMsg(m) {
+  if (!net) return;
+  const host = net.role === 'host';
+  switch (m.k) {
+    case 'open':
+      if (!host) net.send({ k: 'hello', ver: NET_VER, name: netName(), team: settings.f1Team, ready: false });
+      break;
+    case 'hello':
+      if (!host) break;
+      if (m.ver !== NET_VER) { net.send({ k: 'err', msg: 'Versioni del gioco diverse: aggiornate tutti e due all\'ultima versione.' }); break; }
+      onl.guest = { name: String(m.name || 'OSPITE').slice(0, 10), team: m.team };
+      onl.ready = !!m.ready;
+      if (!m.ready) net.send(onCfg());
+      onStatus(onl.ready ? `${onl.guest.name} è pronto: premi VIA ALLA GARA` : `${onl.guest.name} si sta collegando…`, onl.ready ? 'ok' : '');
+      onRefresh();
+      break;
+    case 'cfg': {
+      if (host) break;
+      onl.hostName = String(m.hostName || 'HOST').slice(0, 10);
+      if (m.ver !== NET_VER) { onStatus('Versioni del gioco diverse: aggiornate tutti e due all\'ultima versione.', 'err'); break; }
+      // stesse regole dell'host; circuito, categoria e ora del giorno diversi = si ricarica il gioco
+      Object.assign(settings, { raceLaps: m.laps, raceBots: m.bots, raceStrength: m.strength, damage: m.damage, gameType: 'race' });
+      const reload = m.track !== settings.track || m.carClass !== CAR_CLASS || (m.tod || 'day') !== (settings.tod || 'day') || (m.driveMode === 'arcade' && !IS_F1);
+      if (reload) {
+        Object.assign(settings, { track: m.track, carClass: m.carClass, tod: m.tod, driveMode: m.driveMode });
+        saveSettings();
+        onStatus('Carico il circuito della gara…', 'ok');
+        try { sessionStorage.setItem('novaf1.online', JSON.stringify({ code: net.code })); } catch (e) { /* niente */ }
+        setTimeout(() => location.reload(), 300);
+        return;
+      }
+      saveSettings();
+      if (settings.driveMode !== m.driveMode) setDriveMode(m.driveMode);
+      net.send({ k: 'hello', ver: NET_VER, name: netName(), team: settings.f1Team, ready: true });
+      onStatus(`Pronto! Aspetta che ${onl.hostName} dia il via.`, 'ok');
+      onRefresh();
+      break;
+    }
+    case 'start':
+      if (host) break;
+      onl.roster = m.roster;
+      onlineBegin(m.roster, 'guest', m.out);
+      break;
+    case 'lobby':
+      if (!host && race && race.online) onlineBackToLobby(true);
+      break;
+    case 'left':
+      if (race && race.online) for (const c of race.cars) if (c.remote && !c.ai) { c.retired = true; c.gone = true; c.retireWhy = 'USCITO'; }
+      break;
+    case 'full': onStatus('Questa gara ha già due giocatori.', 'err'); break;
+    case 'err': onStatus(m.msg || 'Errore', 'err'); break;
+    case 'bye':
+    case 'lost':
+      onlineLost(host ? (onl.guest ? onl.guest.name : 'L\'altro giocatore') : (onl.hostName || 'L\'host'));
+      break;
+  }
+}
+
+// griglia della gara online: i due giocatori vicini, i bot attorno (stesse auto, stessi nomi su tutti e due)
+function onlineRoster() {
+  const total = Math.max(2, settings.raceBots + 1), nBots = total - 2;
+  const hs = Math.max(0, Math.min(total - 1, settings.raceStart - 1)), gs = hs + 1 < total ? hs + 1 : hs - 1;
+  const grid = IS_F1 ? f1Grid(settings.f1Team, Math.max(1, nBots)) : null;
+  const R = [];
+  let bi = 0;
+  for (let slot = 0; slot < total; slot++) {
+    if (slot === hs || slot === gs) {
+      const isHost = slot === hs, tm = IS_F1 ? teamById(isHost ? settings.f1Team : onl.guest.team) : null;
+      R.push({ human: isHost ? 'host' : 'guest', name: isHost ? netName() : onl.guest.name, teamId: tm ? tm.id : null, orig: !tm && isHost,
+        color: tm ? parseInt(tm.colors[0].slice(1), 16) : isHost ? 0xff8a1c : 0x2a7bff, accent: tm ? parseInt(tm.colors[1].slice(1), 16) : isHost ? 0x27c3ea : 0xffffff });
+    } else {
+      if (IS_F1) { const e = grid[bi % grid.length]; R.push({ name: e.name, teamId: e.team.id, color: parseInt(e.team.colors[0].slice(1), 16), accent: parseInt(e.team.colors[1].slice(1), 16), bi }); }
+      else { const D = DRIVERS[bi % DRIVERS.length]; R.push({ name: D[0], color: D[1], accent: D[2], bi }); }
+      bi++;
+    }
+  }
+  return R;
+}
+function onlineStart() {
+  const R = onlineRoster();
+  const out = 5 + 0.4 + Math.random() * 1.4;
+  onl.roster = R;
+  net.send({ k: 'start', roster: R, out });
+  onlineBegin(R, 'host', out);
+}
+// si costruisce la gara dal proprio punto di vista: io = la mia vettura, l'altro (e per l'ospite i bot) = remote
+function onlineBegin(R, role, out) {
+  const roster = R.map(e => ({ name: e.human === role ? 'TU' : e.name, color: e.color, accent: e.accent, team: e.teamId ? teamById(e.teamId) : null,
+    me: e.human === role, remote: e.human ? e.human !== role : role === 'guest', bi: e.bi ?? 0, orig: !!e.orig }));
+  // la tua vettura con gli stessi colori che vede l'altro (GT: l'host ha la livrea originale, l'ospite la sua)
+  const mine = R.find(e => e.human === role);
+  if (!IS_F1 && gtReady() && mine && !mine.orig) {
+    scene.remove(car.root); car = makeCar({ primary: mine.color, accent: mine.accent }); scene.add(car.root); onl.customCar = true;
+  }
+  if (garage) garage.active = false;
+  introNext = false;
+  net.resetRace();
+  wk = null;
+  startRaceGame(roster);
+  if (countdown) countdown.out = out;
+  feed(`GARA ONLINE CON ${(role === 'host' ? onl.guest.name : onl.hostName)}`, 'green');
+}
+// fine gara: si torna nella sala d'attesa (l'host può ripartire)
+function onlineBackToLobby(fromHost = false) {
+  if (!net) { goMenu(); return; }
+  if (!fromHost && net.role === 'host') net.send({ k: 'lobby' });
+  if (net.role === 'guest' && !fromHost) net.send({ k: 'left' });     // la sua vettura sparisce dalla gara dell'host
+  clearRace(); resetSession();
+  mode = 'menu';
+  $('results').classList.add('hidden'); $('pause').classList.add('hidden'); $('dnf').classList.add('hidden'); $('hud').classList.add('hidden');
+  $('menu').classList.remove('hidden');
+  onl.ready = net.role === 'host' ? !!onl.guest : true;
+  onLobbyView(true); onRefresh();
+  onStatus(net.role === 'host' ? 'Premi VIA ALLA GARA per un\'altra gara' : `Aspetta che ${onl.hostName} dia il via.`, 'ok');
+  showMenuPage('menuOnline');
+  startAttract();
+}
+function onlineLeave() { if (net) { net.close(); net = null; } goMenu(); }
+// l'altro si è scollegato: la sua vettura (e, per l'ospite, i bot) esce dalla gara; tu puoi finire
+function onlineLost(who) {
+  if (race && race.online && mode !== 'menu') {
+    for (const c of race.cars) if (c.remote) { c.retired = true; c.gone = true; c.retireWhy = 'DISCONNESSO'; }
+    feed(`${who.toUpperCase()} SI È SCOLLEGATO`, 'red');
+    if (net) { net.close(); net = null; }
+    return;
+  }
+  if (net && net.role === 'host') { onl.guest = null; onl.ready = false; onStatus(`${who} si è scollegato: aspetto che rientri con lo stesso codice…`, ''); onRefresh(); return; }
+  onStatus(`${who} ha chiuso la gara.`, 'err');
+  if (net) { net.close(); net = null; }
+}
+
 // --- navigazione del menu (come F1 25: titolo › menu a riquadri › scuderia › circuito › impostazioni › caricamento › box › gara)
-const MENU_PAGES = ['menuTitle', 'menuHome', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits'];
+const MENU_PAGES = ['menuTitle', 'menuHome', 'menuOnline', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits'];
 function showMenuPage(id) {
   MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id));
   if (garage) garage.active = id === 'menuGarage' || id === 'menuHub';
@@ -2695,6 +2903,11 @@ let gameStartedAt = 0;
 
 let pausedFrom = 'race';
 function togglePause(on) {
+  // online la gara non si ferma: la pausa chiede se uscire
+  if (on && race && race.online && (mode === 'race' || mode === 'countdown')) {
+    if (confirm('Vuoi lasciare la gara online?')) onlineLeave();
+    return;
+  }
   if (on && (mode === 'race' || mode === 'countdown')) {
     pausedFrom = mode; mode = 'pause';
     $('pause').classList.remove('hidden');
@@ -2711,6 +2924,8 @@ function togglePause(on) {
   }
 }
 function goMenu() {
+  if (net) { net.close(); net = null; }
+  if (onl.customCar) { onl.customCar = false; rebuildPlayerModels(); }
   mode = 'menu';
   quali = null; intro = null; introNext = false; $('introCard').classList.add('hidden');
   $('pause').classList.add('hidden'); $('dnf').classList.add('hidden'); $('hud').classList.add('hidden');
@@ -3021,7 +3236,11 @@ function frame(now) {
     }
     if (dnfTimer >= 0) {
       dnfTimer -= dt;
-      if (dnfTimer < 0) { mode = 'dnf'; $('dnf').classList.remove('hidden'); dnfTimer = 99; }
+      if (dnfTimer < 0) {
+        // online: l'altro vede sparire la tua vettura prima che la gara si fermi qui
+        if (race && race.online && net) { race.player.gone = true; net.sendT = 0; net.tick(race, 0); }
+        mode = 'dnf'; $('dnf').classList.remove('hidden'); dnfTimer = 99;
+      }
     }
     if (phys.gear === -1 && phys.speed < 1 && inp.brake > 0.5 && phys.vxl > -0.1 && Math.random() < 0.003) showBanner('RETROMARCIA', 'yellow', 1);
   }
@@ -3123,12 +3342,16 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   else showMenuPage('menuTitle');
   if (next !== 'trial' && next !== 'replay' && next !== 'hub') startAttract();
   homeArt();
+  // gara online: dopo il ricaricamento con il circuito dell'host ci si ricollega da soli
+  let onlineRe = null;
+  try { onlineRe = JSON.parse(sessionStorage.getItem('novaf1.online') || 'null'); sessionStorage.removeItem('novaf1.online'); } catch (e) { /* niente */ }
+  if (onlineRe && onlineRe.code && gtReady()) { openOnline(); onJoin(onlineRe.code); }
   window.__game = {
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get stew() { return stew; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get stew() { return stew; }, get net() { return net; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

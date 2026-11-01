@@ -150,6 +150,7 @@
     <span class="hidden" id="trackLen"></span>
     <div class="tiles">
       <button class="tile primary" id="playBtn"><span class="tTag">GIOCATORE SINGOLO</span><b>GRAN PREMIO</b><small>Scuderia, circuito, qualifica e gara contro i bot</small><i class="tArt" id="tileMap"></i></button>
+      <button class="tile online" id="onlineBtn"><span class="tTag">IN DUE</span><b>GARA ONLINE</b><small>Tu e un amico, ognuno sul suo dispositivo, contro i bot</small><i class="tIc">⇄</i></button>
       <button class="tile" id="trialBtn"><span class="tTag">DA SOLO</span><b>PROVA A TEMPO</b><small>Il giro perfetto contro il tuo fantasma</small><i class="tIc">⏱</i></button>
       <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
       <button class="tile" id="settingsTile"><span class="tTag">OPZIONI</span><b>IMPOSTAZIONI</b><small>Comandi, telecamera, grafica, audio</small><i class="tIc">⚙</i></button>
@@ -230,6 +231,30 @@
     <div class="mFoot"><button class="go" id="settingsBack">FATTO</button></div>
   </div>
 
+  <!-- gara online in due -->
+  <div class="menuPage hidden" id="menuOnline">
+    <header class="mHead"><div class="logo">GARA ONLINE</div></header>
+    <div class="onBody">
+      <div class="onCol" id="onStart">
+        <label class="onName">IL TUO NOME<input id="onName" maxlength="10" autocomplete="off" spellcheck="false"></label>
+        <button class="onBig go" id="onHost"><b>CREA GARA</b><small>Circuito, vettura e regole sono quelli che hai scelto: li vede anche l'altro</small></button>
+        <div class="onJoin">
+          <input id="onCode" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="CODICE" autocomplete="off">
+          <button class="onBig" id="onJoinBtn"><b>ENTRA</b><small>Scrivi il codice di 4 cifre dell'altro</small></button>
+        </div>
+        <p class="onNote">Servono internet su tutti e due i dispositivi (va benissimo lo stesso Wi-Fi). Il collegamento è diretto tra i due, tramite il servizio gratuito PeerJS.</p>
+      </div>
+      <div class="onCol hidden" id="onLobby">
+        <div class="onCodeBox"><small>CODICE DELLA GARA</small><b id="onCodeShow">----</b></div>
+        <div class="onInfo" id="onInfo"></div>
+        <div class="onPlayers" id="onPlayers"></div>
+        <div class="onStatus" id="onStatus"></div>
+        <button class="onBig go hidden" id="onGo"><b>VIA ALLA GARA ›</b><small>Partite insieme, con i bot</small></button>
+      </div>
+    </div>
+    <div class="mFoot"><button id="onBack">‹ ESCI</button></div>
+  </div>
+
   <div class="menuPage hidden" id="menuHelp">
     <header class="mHead"><div class="logo">COMANDI</div></header>
     <div class="textPage">
@@ -240,6 +265,7 @@
       <p><b>Telefono (in orizzontale):</b> con "Sterzo: Frecce" sterzi con ◀ ▶ a sinistra e usi FRENO e GAS a destra. Con "Sterzo: Inclinazione" inclini il telefono come un volante, tieni premuto a destra per accelerare e a sinistra per frenare.</p>
       <p><b>Batteria e Boost (F1 2026):</b> la batteria (cerchio a sinistra del cruscotto) si scarica un po' guidando a gas aperto, come nelle F1 vere (il motore elettrico fa parte della potenza normale; oltre i 290 km/h consuma pochissimo), e si ricarica quando freni e quando alzi il piede. Se si svuota del tutto perdi un po' di potenza. Toccando il cerchio (o con B, o View/L3 sul controller) accendi il Boost: più potenza finché c'è carica, circa 18 secondi di gas a fondo da piena. Toccalo di nuovo per spegnerlo e risparmiare. I bot lo usano per attaccare e difendersi.</p>
       <p><b>Overtake Mode (F1 2026):</b> se passi sul traguardo a 1 secondo o meno da chi ti precede, per tutto il giro dopo hai energia elettrica in più (circa 7 secondi di spinta). Si usa insieme al Boost (stesso tasto): quando il cerchio dice OT, il Boost spinge ancora di più. Con la safety car non vale. La usano anche i bot.</p>
+      <p><b>Gara online (in due):</b> dal menu GARA ONLINE uno preme CREA GARA e riceve un codice di 4 cifre; l'altro lo scrive e preme ENTRA. Circuito, vettura e regole sono quelli di chi crea la gara (se servono, il gioco dell'altro si ricarica da solo). Quando tutti e due sono pronti, chi ha creato la gara preme VIA. Ognuno guida la sua vettura sul suo schermo; i bot girano sul dispositivo di chi ha creato la gara. Serve internet su tutti e due (va benissimo lo stesso Wi-Fi). Online la pausa non ferma la gara (chiede se vuoi uscire), niente flashback e per ora niente safety car.</p>
       <p><b>Linea ideale:</b> verde = accelera, giallo = alza il piede, rosso = frena. Il colore dipende dalla tua velocità attuale. Puoi mostrarla completa, solo nei tratti di frenata, oppure spegnerla.</p>
       <p><b>Gara:</b> scegli lunghezza, numero di avversari, forza dei bot (1–110: già a 1 sono veloci; da 60 in su hanno più aderenza e potenza della tua vettura) e posizione in griglia. La griglia è sul rettilineo dopo il traguardo; i contatti tra vetture causano danni. Box nelle gare da 8 giri in su: quando vuoi fermarti, tieni il lato dei box all'imbocco della corsia (a Nova a destra sul rettilineo prima della chicane finale, a Baku a sinistra prima dell'ultima curva) ed entri in corsia box. La vettura va da sola fino alla piazzola e intanto scegli la mescola e se riparare. Il cambio gomme dura circa 2,5 s, la riparazione aggiunge tempo in base ai danni. Morbide: più aderenza ma usura rapida; medie: equilibrate; dure: durano di più. I bot in staccata, si difendono, si toccano e a volte sbagliano come piloti veri (frenate lunghe, bloccaggi, traiettorie larghe, testacoda in uscita). Più sono forti, meno sbagliano.</p>
       <p><b>Guida arcade:</b> la scegli in GIOCA, al primo passo. La macchina resta in strada da sola (si gira solo mettendo le ruote posteriori sull'erba), frena di più e il freno motore conta: si alza il piede più che frenare. Gomme sempre in temperatura, conta solo l'usura (grip % sul cruscotto); i danni sono una barra di salute e non ti fanno ritirare. Tagliare la pista con quattro ruote costa 2 secondi; se resti fermo fuori pista vieni rimesso in strada. Nella griglia regoli la forza della scia e l'effetto elastico (i bot ti aspettano se sei indietro e spingono se sei davanti). I record sono separati da quelli della guida realistica.</p>
