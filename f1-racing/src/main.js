@@ -554,9 +554,11 @@ function feed(text, color = 'yellow') {
 
 // ---------------------------------------------------------------- simulazione
 const DT = 1 / 240;
+let stepDT = DT;      // durata dell'ultimo passo di fisica (i passi seguono la frequenza dello schermo)
 let acc = 0;
 
-function physicsStep(inp) {
+function physicsStep(inp, h = DT) {
+  stepDT = h;
   const sPrev = phys.prCG.s;
   const dead = dnfTimer >= 0;
   const cmd = {
@@ -564,11 +566,11 @@ function physicsStep(inp) {
     shiftUp: inp.shiftUp, shiftDown: inp.shiftDown, autoGear: settings.auto, tc: settings.tc, abs: settings.abs,
   };
   inp.shiftUp = inp.shiftDown = false;
-  simTime += DT;
+  simTime += h;
   if (quali && race) {
-    race.step(DT, cmd, true);
+    race.step(h, cmd, true);
     qualiStep(sPrev);
-    arcadeRescue(DT);
+    arcadeRescue(h);
     return;
   }
   if (gameType === 'race') {
@@ -581,17 +583,17 @@ function physicsStep(inp) {
       sounds.radio(pos === 1 ? 'Sì! Hai vinto! Che gara, fantastico!' : pos <= 3 ? `P${pos}! Sul podio, grande gara!` : `Bandiera a scacchi. Finisci P${pos}. Buon lavoro.`);
       resultsTimer = 2;
     }
-    const pc = coolAI ? coolAI.drive(DT, race.cars, 99) : cmd;
+    const pc = coolAI ? coolAI.drive(h, race.cars, 99) : cmd;
     if (race.online && net) { net.apply(race); for (const c of race.cars) if (c.compoundChanged && c.model) { setTyreColor(c.model, c.phys.compound); c.compoundChanged = false; } }
-    race.step(DT, pc, true);
-    if (race.online && net) { net.tick(race, DT); if (net.stale()) onlineLost(net.role === 'host' ? (onl.guest ? onl.guest.name : 'L\'altro giocatore') : (onl.hostName || 'L\'host')); }
-    if (!coolAI) { stewTick(DT); arcadeRescue(DT); }
+    race.step(h, pc, true);
+    if (race.online && net) { net.tick(race, h); if (net.stale()) onlineLost(net.role === 'host' ? (onl.guest ? onl.guest.name : 'L\'altro giocatore') : (onl.hostName || 'L\'host')); }
+    if (!coolAI) { stewTick(h); arcadeRescue(h); }
     if (race.player.finishT == null) raceSectors(sPrev, phys.prCG.s);
     return;
   }
-  phys.step(DT, cmd);
+  phys.step(h, cmd);
   timing(sPrev, phys.prCG.s);
-  arcadeRescue(DT);
+  arcadeRescue(h);
 }
 
 // arcade: tagliare la pista con quattro ruote costa 2 secondi (invece di cancellare il giro)
@@ -628,7 +630,7 @@ function timing(sPrev, sNow) {
   if (crossedBack) { if (lap.active) { lap.sector = -1; lap.valid = false; } return; }
   if (crossedFwd) {
     const f = (L - sPrev) / ((L - sPrev) + sNow);
-    const tCross = simTime - DT + DT * f;
+    const tCross = simTime - stepDT + stepDT * f;
     if (lap.active && lap.sector === 2) {
       lap.sectors[2] = tCross - lap.sectorStart;
       (lap.secCls ||= [])[2] = secClass(2, lap.sectors[2], lap.valid);
@@ -651,7 +653,7 @@ function timing(sPrev, sNow) {
     const b = track.sectorIdx[k] * track.step;
     if (lap.sector === k - 1 && sPrev < b && sNow >= b && sNow - sPrev < 20) {
       const f = (b - sPrev) / (sNow - sPrev);
-      const t = simTime - DT + DT * f;
+      const t = simTime - stepDT + stepDT * f;
       lap.sectors[k - 1] = t - lap.sectorStart;
       lap.sectorStart = t;
       lap.sector = k;
@@ -1551,7 +1553,7 @@ var rsec = null;
 function raceSectors(sPrev, sNow) {
   const L = track.length;
   if (sPrev > L - 80 && sNow < 80) {
-    const f = (L - sPrev) / ((L - sPrev) + sNow), t = simTime - DT + DT * f;
+    const f = (L - sPrev) / ((L - sPrev) + sNow), t = simTime - stepDT + stepDT * f;
     if (rsec && rsec.sector === 2) {
       rsec.sectors[2] = t - rsec.sectorStart;
       rsec.secCls[2] = secClass(2, rsec.sectors[2]);
@@ -1573,7 +1575,7 @@ function raceSectors(sPrev, sNow) {
   for (let k = 1; k <= 2; k++) {
     const b = track.sectorIdx[k] * track.step;
     if (rsec.sector === k - 1 && sPrev < b && sNow >= b && sNow - sPrev < 20) {
-      const t = simTime - DT + DT * (b - sPrev) / (sNow - sPrev);
+      const t = simTime - stepDT + stepDT * (b - sPrev) / (sNow - sPrev);
       rsec.sectors[k - 1] = t - rsec.sectorStart;
       rsec.sectorStart = t; rsec.sector = k;
       // il primo settore del via è più corto (si parte dopo il traguardo): verde, ma non conta come tempo
@@ -3220,7 +3222,13 @@ function frame(now) {
   } else if (mode === 'race') {
     acc += dt;
     let steps = 0;
-    while (acc >= DT && steps < 40) { physicsStep(inp); acc -= DT; steps++; }
+    // passi uguali che coprono esattamente il tempo del fotogramma (circa 240 al secondo):
+    // a 60 Hz sono 4 per fotogramma, a 144 Hz 2 da 1/288 s, ecc. Con passi fissi da 1/240 s
+    // sugli schermi da 75/120/144 Hz si alternavano 1 e 2 passi e la vettura avanzava a scatti.
+    const n = Math.min(40, Math.max(1, Math.round(acc / DT)));
+    const h = Math.min(1 / 150, acc / n);
+    for (; steps < n; steps++) physicsStep(inp, h);
+    acc = 0;
     checkDetachments();
     if (quali) qualiTick();
     if (race && gameType === 'race') fbTick();
