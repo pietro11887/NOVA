@@ -33,7 +33,7 @@ export class Arena3D {
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
+    r.toneMappingExposure = 0.9;
 
     const [c1, c2] = battle.theme.colors;
     const sky = new THREE.Color(c2).lerp(new THREE.Color(0x87ceeb), 0.55);
@@ -43,11 +43,11 @@ export class Arena3D {
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 300);
     const pmrem = new THREE.PMREMGenerator(r);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(r), 0.04).texture;
-    this.scene.environmentIntensity = 0.55;
+    this.scene.environmentIntensity = 0.3;
     pmrem.dispose();
 
-    this.scene.add(new THREE.HemisphereLight(0xdbeafe, new THREE.Color(0x3f6212).lerp(new THREE.Color(c1), 0.3), 0.9));
-    const sun = new THREE.DirectionalLight(0xfff1d6, 2.6);
+    this.scene.add(new THREE.HemisphereLight(0xdbeafe, new THREE.Color(0x3f6212).lerp(new THREE.Color(c1), 0.3), 0.5));
+    const sun = new THREE.DirectionalLight(0xfff1d6, 1.9);
     sun.position.set(-10, 26, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -60,7 +60,8 @@ export class Arena3D {
     const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(r, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.45, 0.88);
+    // Threshold above 1 in linear HDR: only emissive parts (orbs, visors, flames) glow, not the lit grass.
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.3, 2.0);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 

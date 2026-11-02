@@ -23,7 +23,7 @@ export function mat(color, { opacity = 1, emissive = 0, metal = 0, rough = 0.55,
     const params = {
       color, roughness: rough, metalness: metal,
       transparent: opacity < 1, opacity, depthWrite: opacity >= 1,
-      emissive: emissive ? color : 0x000000, emissiveIntensity: emissive * 1.6,
+      emissive: emissive ? color : 0x000000, emissiveIntensity: emissive * 2.2,
     };
     const m = coat ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.15 }) : new THREE.MeshStandardMaterial(params);
     m.userData.cached = true;
@@ -72,7 +72,7 @@ function addFace(head, hr, d) {
   for (const sx of [-1, 1]) {
     const eye = at(sphere(hr * 0.23, white), sx * hr * 0.35, hr * 0.06, hr * 0.78);
     eye.scale.set(0.85, 1.05, 0.55);
-    const ir = at(sphere(hr * 0.15, iris), 0, -hr * 0.01, hr * 0.13);
+    const ir = at(sphere(hr * 0.15, iris), 0, -hr * 0.01, hr * 0.19);
     ir.scale.z = 0.5;
     ir.add(at(sphere(hr * 0.085, pupil), 0, 0, hr * 0.06));
     ir.add(at(sphere(hr * 0.035, shine), hr * 0.04, hr * 0.05, hr * 0.1));
