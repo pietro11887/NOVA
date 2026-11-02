@@ -1,0 +1,115 @@
+/* Design tokens, reset and the app shell (top bar / scrolling screens / bottom nav). Mobile-first. */
+
+:root {
+  --bg: #0b1020;
+  --bg-2: #121a33;
+  --panel: #18223f;
+  --panel-2: #213058;
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #f1f5ff;
+  --muted: #93a0c4;
+  --blue: #3b82f6;
+  --blue-d: #1d4ed8;
+  --green: #22c55e;
+  --green-d: #15803d;
+  --gold: #fbbf24;
+  --gold-d: #b45309;
+  --red: #ef4444;
+  --red-d: #b91c1c;
+  --purple: #a855f7;
+  --elixir: #d946ef;
+  --radius: 14px;
+  --radius-s: 10px;
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --font-display: 'Lilita One', 'Nunito', system-ui, sans-serif;
+  --font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --nav-h: 68px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #05070f;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:disabled { cursor: default; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.3px; margin: 0; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0.4rem 0; }
+small { font-size: 0.78rem; }
+[hidden] { display: none !important; }
+
+.muted { color: var(--muted); }
+.center { text-align: center; }
+.hint { color: var(--muted); font-size: 0.82rem; }
+.danger-text { color: #fca5a5 !important; }
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+#app {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  background:
+    radial-gradient(120% 60% at 50% 0%, #1e2b57 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-2), var(--bg));
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+.screens {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.screen.enter-right { animation: enter-right 0.22s ease-out; }
+.screen.enter-left { animation: enter-left 0.22s ease-out; }
+@keyframes enter-right { from { transform: translateX(28px); opacity: 0.4; } }
+@keyframes enter-left { from { transform: translateX(-28px); opacity: 0.4; } }
+
+body.in-battle #app { visibility: hidden; }
+
+.h-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.h-scroll::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
