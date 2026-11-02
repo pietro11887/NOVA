@@ -3,12 +3,12 @@
 // spell effects and particles. Field coordinates (x 0..18, y 0..32) map to world (x-9, 0, y-16).
 
 import * as THREE from 'three';
-import { buildCardModel, buildTower, buildRubble, mat } from './models3d.js';
+import { buildCardModel, buildTower, buildRubble, mat, addOutlines } from './models3d.js';
 import { getCard } from '../data/cards.js';
 
 const W = 18, H = 32;
 const TEAM = { 1: 0x3b82f6, '-1': 0xef4444 };
-const UNIT_SCALE = 1.5; // characters are drawn chunkier than their collision radius
+const UNIT_SCALE = 1.8; // characters are drawn chunkier than their collision radius
 const toWorld = (x, y) => [x - W / 2, y - H / 2];
 
 export class Arena3D {
@@ -26,18 +26,17 @@ export class Arena3D {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.1;
+    r.toneMapping = THREE.NoToneMapping;
 
     const [c1, c2] = battle.theme.colors;
     const sky = new THREE.Color(c2).lerp(new THREE.Color(0x87ceeb), 0.55);
     this.scene = new THREE.Scene();
     this.scene.background = sky;
     this.scene.fog = new THREE.Fog(sky, 45, 95);
-    this.camera = new THREE.PerspectiveCamera(40, 1, 0.5, 200);
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 300);
 
-    this.scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(c1).multiplyScalar(0.6), 1.1));
-    const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(c1).lerp(new THREE.Color(0xffffff), 0.5), 1.6));
+    const sun = new THREE.DirectionalLight(0xfff4e0, 2.0);
     sun.position.set(-10, 26, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -59,17 +58,38 @@ export class Arena3D {
   buildField(themeColor) {
     const s = this.scene;
     // Checkerboard grass, one texel per tile.
+    const PX = 32;                                  // texture pixels per tile
     const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
+    cv.width = W * PX; cv.height = H * PX;
     const g = cv.getContext('2d');
+    let gseed = 3;
+    const grnd = () => ((gseed = (gseed * 16807) % 2147483647) / 2147483647);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      g.fillStyle = (x + y) % 2 ? '#5fae4a' : '#69ba52';
-      g.fillRect(x, y, 1, 1);
+      const light = (x + y) % 2 === 0;
+      const grad = g.createLinearGradient(0, y * PX, 0, (y + 1) * PX);
+      grad.addColorStop(0, light ? '#8fd468' : '#7cc458');
+      grad.addColorStop(1, light ? '#84cb5f' : '#72b94f');
+      g.fillStyle = grad;
+      g.fillRect(x * PX, y * PX, PX, PX);
+      for (let k = 0; k < 6; k++) {                 // grass speckles
+        g.fillStyle = grnd() < 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(0,60,0,0.10)';
+        g.fillRect(x * PX + grnd() * PX, y * PX + grnd() * PX, 2, 3);
+      }
+    }
+    g.strokeStyle = 'rgba(40, 90, 30, 0.35)';       // tile grid lines
+    g.lineWidth = 1.5;
+    for (let x = 0; x <= W; x++) { g.beginPath(); g.moveTo(x * PX, 0); g.lineTo(x * PX, H * PX); g.stroke(); }
+    for (let y = 0; y <= H; y++) { g.beginPath(); g.moveTo(0, y * PX); g.lineTo(W * PX, y * PX); g.stroke(); }
+    // Darker dirt lanes from the bridges toward the side towers
+    g.fillStyle = 'rgba(150, 110, 60, 0.28)';
+    for (const bx of [3.5, 14.5]) {
+      g.fillRect((bx - 1) * PX, 7 * PX, 2 * PX, 8 * PX);
+      g.fillRect((bx - 1) * PX, 17 * PX, 2 * PX, 8 * PX);
     }
     const tex = new THREE.CanvasTexture(cv);
-    tex.magFilter = THREE.NearestFilter;
+    tex.anisotropy = 4;
     tex.colorSpace = THREE.SRGBColorSpace;
-    const field = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: tex }));
     field.rotation.x = -Math.PI / 2;
     field.receiveShadow = true;
     s.add(field);
@@ -160,10 +180,13 @@ export class Arena3D {
       const t1 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 0.8, 6), trunk);
       t1.position.y = 0.4;
       const h = 1.6 + rnd() * 1.4;
-      const c = new THREE.Mesh(new THREE.ConeGeometry(0.8 + rnd() * 0.4, h, 7), leaf[i % 3]);
-      c.position.y = 0.8 + h / 2;
-      t1.castShadow = c.castShadow = true;
-      tree.add(t1, c);
+      const c = new THREE.Mesh(new THREE.SphereGeometry(0.9 + rnd() * 0.4, 12, 9), leaf[i % 3]);
+      c.position.y = 0.8 + h * 0.45;
+      const c2 = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 8), leaf[(i + 1) % 3]);
+      c2.position.set(0.4, 0.8 + h * 0.75, 0.2);
+      t1.castShadow = c.castShadow = c2.castShadow = true;
+      tree.add(t1, c, c2);
+      addOutlines(tree, 0.05);
       tree.position.set(x, 0, z);
       s.add(tree);
       if (i % 3 === 0) {
@@ -239,7 +262,7 @@ export class Arena3D {
     };
 
     let best = null;
-    for (let deg = 46; deg <= 66; deg += 4) {
+    for (let deg = 62; deg <= 74; deg += 3) {
       const pitch = THREE.MathUtils.degToRad(deg);
       let lo = 8, hi = 160;
       for (let i = 0; i < 28; i++) {
@@ -256,6 +279,11 @@ export class Arena3D {
     const centre = (Math.max(...ys) + Math.min(...ys)) / 2;
     cam.setViewOffset(this.width, this.height, 0, -centre * this.height / 2, this.width, this.height);
     cam.updateProjectionMatrix();
+    // Fog only on the far scenery, never on the field.
+    const d = cam.position.distanceTo(target);
+    this.scene.fog.near = d + 12;
+    this.scene.fog.far = d + 70;
+    this.camDist = d;
   }
 
   /** Screen point → field coordinates, or null if off the ground. */

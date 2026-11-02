@@ -13,16 +13,50 @@ import * as THREE from 'three';
 
 // ── Material & mesh helpers ────────────────────────────────────────────────
 const matCache = new Map();
-export function mat(color, { opacity = 1, emissive = 0, metal = 0.05, rough = 0.6 } = {}) {
-  const key = `${color}|${opacity}|${emissive}|${metal}|${rough}`;
+// Cartoon look: 3-band toon shading (shadow / mid / light) instead of realistic shading.
+let toonRamp = null;
+function ramp() {
+  if (!toonRamp) {
+    const data = new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]);
+    toonRamp = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+    toonRamp.minFilter = toonRamp.magFilter = THREE.NearestFilter;
+    toonRamp.needsUpdate = true;
+  }
+  return toonRamp;
+}
+
+export function mat(color, { opacity = 1, emissive = 0 } = {}) {
+  const key = `${color}|${opacity}|${emissive}`;
   if (!matCache.has(key)) {
-    matCache.set(key, new THREE.MeshStandardMaterial({
-      color, roughness: rough, metalness: metal, flatShading: true,
+    const m = new THREE.MeshToonMaterial({
+      color, gradientMap: ramp(),
       transparent: opacity < 1, opacity, depthWrite: opacity >= 1,
       emissive: emissive ? color : 0x000000, emissiveIntensity: emissive,
-    }));
+    });
+    m.userData.cached = true;
+    matCache.set(key, m);
   }
   return matCache.get(key);
+}
+
+// Black "inverted hull" outlines: a slightly bigger back-face copy of each solid mesh.
+const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14141f, side: THREE.BackSide });
+outlineMat.userData.cached = true;
+export function addOutlines(root, width = 0.035) {
+  const targets = [];
+  root.traverse((o) => {
+    if (o.isMesh && !o.userData.outline && !o.userData.noOutline && o.material && !o.material.transparent && o.geometry.type !== 'RingGeometry' && o.geometry.type !== 'CircleGeometry') targets.push(o);
+  });
+  for (const o of targets) {
+    o.geometry.computeBoundingSphere();
+    const r = Math.max(0.02, o.geometry.boundingSphere.radius);
+    const hull = new THREE.Mesh(o.geometry, outlineMat);
+    hull.scale.setScalar(Math.min(1.45, 1 + width / r));
+    hull.userData.outline = true;
+    hull.castShadow = false;
+    o.add(hull);
+  }
+  return root;
 }
 
 function mesh(geo, m) {
@@ -31,7 +65,8 @@ function mesh(geo, m) {
   return o;
 }
 const box = (w, h, d, m) => mesh(new THREE.BoxGeometry(w, h, d), m);
-const sphere = (r, m, ws = 12, hs = 9) => mesh(new THREE.SphereGeometry(r, ws, hs), m);
+const sphere = (r, m, ws = 16, hs = 12) => mesh(new THREE.SphereGeometry(Math.max(r, 0.001), Math.max(ws, 10), Math.max(hs, 8)), m);
+const capsule = (r, len, m) => mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m);
 const cyl = (rt, rb, h, m, seg = 10) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
 const cone = (r, h, m, seg = 8) => mesh(new THREE.ConeGeometry(r, h, seg), m);
 const torus = (r, t, m, arc = Math.PI * 2) => mesh(new THREE.TorusGeometry(r, t, 6, 18, arc), m);
@@ -96,6 +131,7 @@ export function buildCardModel(cardId, team = null) {
   const s = d.scale ?? 1;
   m.root.scale.setScalar(s);
   m.height = (m.height ?? 1.3) * s;
+  addOutlines(m.root, 0.03 / s);
   return m;
 }
 
@@ -129,8 +165,8 @@ function humanoid(d, team) {
   } else {
     for (const sx of [-1, 1]) {
       const leg = pivot(sx * bw * 0.27, 0.5, 0,
-        at(box(bw * 0.32, 0.46, 0.24, clothDark), 0, -0.23, 0),
-        at(box(bw * 0.36, 0.1, 0.32, accentM), 0, -0.45, 0.04));
+        at(capsule(bw * 0.16, 0.22, clothDark), 0, -0.22, 0),
+        at(box(bw * 0.38, 0.12, 0.34, accentM), 0, -0.45, 0.05));
       legs.push(leg);
       body.add(leg);
     }
@@ -156,10 +192,18 @@ function humanoid(d, team) {
   }
 
   // Head
-  const hr = broad ? 0.23 : 0.2;
-  const head = pivot(0, 1.18, 0, sphere(hr, skinM));
-  const eyeM = mat(SKIN_DARK);
-  for (const sx of [-1, 1]) head.add(at(sphere(0.035, eyeM, 6, 5), sx * 0.075, 0.02, hr * 0.9));
+  const hr = broad ? 0.32 : 0.29;                       // big cartoon head
+  const head = pivot(0, 1.22 + hr * 0.55, 0, sphere(hr, skinM));
+  const eyeM = mat(SKIN_DARK), whiteM = mat(0xffffff);
+  for (const sx of [-1, 1]) {
+    const eye = at(sphere(hr * 0.24, whiteM), sx * hr * 0.36, hr * 0.08, hr * 0.8);
+    eye.scale.set(0.85, 1.1, 0.6);
+    eye.add(at(sphere(hr * 0.13, eyeM), 0, -hr * 0.02, hr * 0.17));
+    head.add(eye);
+    const brow = at(box(hr * 0.4, hr * 0.08, 0.04, mat(darken(d.skin, 0.4))), sx * hr * 0.36, hr * 0.38, hr * 0.86);
+    brow.rotation.z = sx * 0.18;
+    head.add(brow);
+  }
   if (d.visor) head.add(at(box(hr * 1.6, 0.07, 0.06, mat(d.accent, { emissive: 0.9 })), 0, 0.03, hr * 0.85));
   if (d.goggles) for (const sx of [-1, 1]) head.add(at(torus(0.05, 0.02, metalM), sx * 0.08, 0.05, hr * 0.92));
   if (d.helmet) {
@@ -196,7 +240,7 @@ function humanoid(d, team) {
       ray.rotation.z = a - Math.PI / 2;
       halo.add(ray);
     }
-    at(halo, 0, 1.25, -0.2);
+    at(halo, 0, 1.5, -0.25);
     body.add(halo);
     body.userData.halo = halo;
   }
@@ -205,8 +249,8 @@ function humanoid(d, team) {
   for (const sx of [-1, 1]) {
     const thick = broad ? 0.2 : 0.13;
     const arm = pivot(sx * (bw / 2 + thick / 2 + 0.01), 0.97, 0,
-      at(box(thick, 0.44, thick, clothM), 0, -0.2, 0),
-      at(sphere(d.fists ? 0.13 : 0.075, skinM, 8, 6), 0, -0.45, 0));
+      at(capsule(thick * 0.5, 0.3, clothM), 0, -0.2, 0),
+      at(sphere(d.fists ? 0.15 : 0.09, skinM), 0, -0.45, 0));
     arms.push(arm);
     body.add(arm);
   }
@@ -261,7 +305,7 @@ function humanoid(d, team) {
   let flickerT = 0;
   return {
     root,
-    height: 1.55,
+    height: 1.95,
     animate({ t, moving, attack, stunned }) {
       const s = stunned ? 0 : 1;
       const w = moving ? t * 9 * speed : 0;
@@ -847,7 +891,19 @@ export function buildTower(isKing, team) {
   const root = group();
   let aim, flag, sleep;
 
+  const tileA = mat(0xc8c2b4), tileB = mat(0xb5ae9f);
+  const plat = (n) => {
+    const g = group();
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const tile = box(0.94, 0.3, 0.94, (i + j) % 2 ? tileA : tileB);
+      tile.position.set(i - (n - 1) / 2, 0.15, j - (n - 1) / 2);
+      tile.receiveShadow = true;
+      g.add(tile);
+    }
+    return g;
+  };
   if (!isKing) {
+    root.add(plat(3));
     root.add(at(cyl(1.0, 1.15, 1.9, stoneM, 12), 0, 0.95, 0));
     for (let i = 0; i < 3; i++) root.add(at(cyl(1.02 + i * 0.02, 1.02 + i * 0.02, 0.08, stoneDark, 12), 0, 0.4 + i * 0.6, 0));
     root.add(at(cyl(1.2, 1.05, 0.25, stoneDark, 12), 0, 2.0, 0));
@@ -870,6 +926,7 @@ export function buildTower(isKing, team) {
     flag.position.set(1.15, 2.95, -0.6);
     root.add(flag);
   } else {
+    root.add(plat(4));
     root.add(at(box(2.8, 2.0, 2.8, stoneM), 0, 1.0, 0));
     root.add(at(box(2.9, 0.1, 2.9, stoneDark), 0, 0.5, 0));
     root.add(at(box(3.0, 0.3, 3.0, stoneDark), 0, 2.1, 0));
@@ -897,6 +954,7 @@ export function buildTower(isKing, team) {
     sleep = at(group(), 0, 4.2, 0);
     root.add(sleep);
   }
+  addOutlines(root, 0.05);
   return {
     root,
     aim,

@@ -15,7 +15,7 @@ function init() {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(SIZE, Math.round(SIZE * 1.2), false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = THREE.NoToneMapping;
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4));
