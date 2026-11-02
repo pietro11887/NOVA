@@ -155,6 +155,7 @@
 .card-art.rarity-legendary { animation: legend-glow 3s linear infinite; }
 @keyframes legend-glow { 50% { filter: hue-rotate(25deg) brightness(1.15); } }
 .card-emoji { font-size: clamp(1.6rem, 8vw, 2.4rem); filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.45)); z-index: 1; }
+.card-3d { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.45)); pointer-events: none; }
 .card-art.xl { width: 110px; flex: none; }
 .card-art.xl .card-emoji { font-size: 3.6rem; }
 .card-name { font-size: 0.66rem; font-weight: 900; text-align: center; line-height: 1.1; min-height: 2.2em; display: flex; align-items: center; justify-content: center; overflow: hidden; }

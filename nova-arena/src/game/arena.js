@@ -9,6 +9,8 @@ import { h, shuffle, pick, fmtDuration } from '../ui/dom.js';
 import { getCard, statMultiplier, FACTIONS } from '../data/cards.js';
 import { ARENAS } from '../data/catalog.js';
 import { confirmDialog } from '../ui/components/modal.js';
+import { Arena3D } from './arena3d.js';
+import { cardPortrait } from '../ui/components/portraits.js';
 
 const W = 18, H = 32;
 const RIVER_TOP = 15, RIVER_BOT = 17, MID = 16;
@@ -76,7 +78,7 @@ class Battle {
     this.ents.push({
       id: ++uid, side, kind: 'tower', isKing, active: !isKing, x, y, r: isKing ? 1.6 : 1.25,
       hp, maxHp: hp, dmg: 55 * m, hitSpeed: isKing ? 1.0 : 0.8, cd: 0, range: isKing ? 7 : 7.5,
-      air: false, tags: new Set(['Ranged']), art: isKing ? '👑' : '🗼', dots: [], stun: 0,
+      air: false, tags: new Set(['Ranged']), art: isKing ? '👑' : '🗼', dots: [], stun: 0, dir: null, attackAt: null,
     });
   }
 
@@ -84,7 +86,6 @@ class Battle {
   start() {
     const s = this.sides;
     this.canvas = h('canvas', { class: 'arena-canvas' });
-    this.ctx = this.canvas.getContext('2d');
     this.timerEl = h('div', { class: 'arena-timer' }, '2:00');
     this.badgeEl = h('div', { class: 'arena-badge', hidden: true });
     this.crownsEl = { [ME]: h('b', {}, '0'), [FOE]: h('b', {}, '0') };
@@ -106,6 +107,14 @@ class Battle {
         : h('footer', { class: 'arena-bottom' }, h('div', { class: 'hand-row' }, this.nextEl, this.handEl), this.elixirEl),
     );
     this.root.append(this.el);
+    try {
+      this.view = new Arena3D(this.canvas, this);
+      this.canvas.classList.add('is-3d');
+    } catch (err) {
+      console.warn('WebGL non disponibile, uso la vista 2D', err);
+      this.view = null;
+      this.ctx = this.canvas.getContext('2d');
+    }
 
     this.canvas.addEventListener('pointermove', (e) => { this.pointer = this.toField(e); });
     this.canvas.addEventListener('pointerleave', () => { this.pointer = null; });
@@ -121,7 +130,7 @@ class Battle {
       const dt = Math.min(0.05, (t - this.last) / 1000);
       this.last = t;
       this.step(dt);
-      this.draw();
+      if (this.view) this.view.render(dt); else this.draw();
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -129,6 +138,10 @@ class Battle {
 
   resize() {
     const box = this.canvas.parentElement.getBoundingClientRect();
+    if (this.view) {
+      this.view.resize(Math.max(1, box.width), Math.max(1, box.height));
+      return;
+    }
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.tile = Math.max(8, Math.min(box.width / W, box.height / H));
     const cw = this.tile * W, ch = this.tile * H;
@@ -140,6 +153,7 @@ class Battle {
   }
 
   toField(e) {
+    if (this.view) return this.view.pick(e.clientX, e.clientY);
     const r = this.canvas.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
   }
@@ -155,10 +169,10 @@ class Battle {
         style: { '--f1': f.color, '--f2': f.accent },
         dataset: { idx: i },
         onClick: () => { this.selected = this.selected === i ? -1 : i; this.renderHand(); },
-      }, h('span', { class: 'hc-art' }, card.art), h('span', { class: 'elixir' }, String(card.elixir)), h('small', {}, card.name));
+      }, portraitOrEmoji(card, 'hc-art'), h('span', { class: 'elixir' }, String(card.elixir)), h('small', {}, card.name));
     }));
     const next = getCard(side.queue[0]);
-    this.nextEl.replaceChildren(h('small', {}, 'Prossima'), h('span', {}, next.art));
+    this.nextEl.replaceChildren(h('small', {}, 'Prossima'), portraitOrEmoji(next, 'next-art'));
   }
 
   updateHud() {
@@ -196,6 +210,7 @@ class Battle {
   }
 
   onFieldTap(p) {
+    if (!p) return;
     if (this.spectate || this.over || this.selected < 0) return;
     const side = this.sides[ME];
     const card = getCard(side.hand[this.selected]);
@@ -241,6 +256,7 @@ class Battle {
         lifetime: st.lifetime, spawnTimer: st.spawn ? st.spawn.every * 0.5 : 0,
         dots: [], stun: 0, deploy: card.type === 'building' ? 0.5 : 0.8,
         phased: card.tags.includes('Phasing'), rewound: false, noSplit: Boolean(opts.noSplit), auraT: 0,
+        mini: Boolean(opts.small), moving: false, dir: { x: 0, y: -side }, attackAt: null,
       });
     }
   }
@@ -251,10 +267,10 @@ class Battle {
     const towerFactor = 0.35;
     if (st.duration) {
       // Damage over time zone (Toxic Cloud, Singularity).
-      this.fx.push({ type: 'zone', side, x, y, radius: st.radius, dps: (st.dmg * m) / st.duration, life: st.duration, t: 0, color, pull: card.tags.includes('Pull'), towerFactor, art: card.art });
+      this.fx.push({ type: 'zone', side, x, y, radius: st.radius, dps: (st.dmg * m) / st.duration, life: st.duration, t: 0, color, pull: card.tags.includes('Pull'), towerFactor, art: card.art, cardId: card.id });
       return;
     }
-    this.fx.push({ type: 'blast', x, y, radius: st.radius, t: 0, life: 0.5, color, art: card.art });
+    this.fx.push({ type: 'blast', x, y, radius: st.radius, t: 0, life: 0.6, color, art: card.art, cardId: card.id });
     for (const e of this.enemiesOf(side)) {
       if (Math.hypot(e.x - x, e.y - y) > st.radius + e.r) continue;
       this.damage(e, st.dmg * m * (e.kind === 'tower' ? towerFactor : 1));
@@ -301,6 +317,7 @@ class Battle {
   }
 
   updateEntity(e, dt) {
+    e.moving = false;
     if (e.deploy > 0) { e.deploy -= dt; return; }
     for (const dot of e.dots) { this.damage(e, dot.dps * dt, true); dot.t -= dt; }
     e.dots = e.dots.filter((d) => d.t > 0);
@@ -393,12 +410,16 @@ class Battle {
     const d = Math.hypot(dx, dy);
     if (d < 0.01) return;
     const step = Math.min(d, e.speed * dt);
+    e.moving = true;
+    e.dir = { x: dx, y: dy };
     e.x += (dx / d) * step;
     e.y += (dy / d) * step;
   }
 
   attack(e, target) {
     const ranged = e.range > 1.2;
+    e.attackAt = this.time;
+    e.dir = { x: target.x - e.x, y: target.y - e.y };
     this.fx.push(ranged
       ? { type: 'shot', x: e.x, y: e.y, tx: target.x, ty: target.y, t: 0, life: 0.18, color: SIDE_COLOR[e.side] }
       : { type: 'hit', x: target.x, y: target.y, t: 0, life: 0.2 });
@@ -579,6 +600,7 @@ class Battle {
     this.over = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener('resize', this.onResize);
+    this.view?.dispose();
     const me = this.sides[ME].crowns, foe = this.sides[FOE].crowns;
     let outcome = me > foe ? 'win' : me < foe ? 'loss' : 'draw';
     if (outcome === 'draw' && !abandon) {
@@ -767,4 +789,10 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** 3D portrait of the card when available, emoji otherwise. */
+function portraitOrEmoji(card, cls) {
+  const url = cardPortrait(card.id);
+  return url ? h('img', { class: cls, src: url, alt: '', draggable: 'false' }) : h('span', { class: cls }, card.art);
 }

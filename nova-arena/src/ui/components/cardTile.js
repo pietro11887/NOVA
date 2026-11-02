@@ -5,6 +5,7 @@ import { FACTIONS, RARITIES, upgradeCost } from '../../data/cards.js';
 import { ARENAS } from '../../data/catalog.js';
 import { playerState } from '../../state/playerState.js';
 import { canUpgrade } from '../../state/economy.js';
+import { cardPortrait } from './portraits.js';
 
 export const elixirDrop = (value, extra = '') => h('span', { class: ['elixir', extra] }, String(value));
 export const gold = (n) => h('span', { class: 'cur cur-gold' }, h('i', {}, '🪙'), String(n));
@@ -16,7 +17,7 @@ export function cardArt(card, size = '') {
   return h('div', {
     class: ['card-art', size, `rarity-${card.rarity}`],
     style: { '--f1': f.color, '--f2': f.accent, '--rc': RARITIES[card.rarity].color },
-  }, h('span', { class: 'card-emoji' }, card.art));
+  }, portrait(card));
 }
 
 /**
@@ -48,4 +49,11 @@ export function cardTile(card, opts = {}) {
       h('span', {}, `${owned.count}/${cost.cards}`),
     ),
   );
+}
+
+function portrait(card) {
+  const url = cardPortrait(card.id);
+  return url
+    ? h('img', { class: 'card-3d', src: url, alt: card.name, draggable: 'false', loading: 'lazy' })
+    : h('span', { class: 'card-emoji' }, card.art);
 }

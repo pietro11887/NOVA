@@ -13,6 +13,8 @@ import { battleHub } from './ui/screens/battleHub.js';
 import { social, startSocialSimulation } from './ui/screens/social.js';
 import { events, activeEventCount } from './ui/screens/events.js';
 import { isInBattle } from './game/battleFlow.js';
+import { cardPortrait } from './ui/components/portraits.js';
+import { CARDS } from './data/cards.js';
 
 const topBarEl = document.getElementById('top-bar');
 const outlet = document.getElementById('screens');
@@ -53,6 +55,9 @@ function flush() {
   nav.refreshBadges();
   if (!isInBattle()) router.refresh(reason);
 }
+
+// Render every 3D card portrait once up front (≈32 small renders), so all menus show 3D art.
+CARDS.forEach((c) => cardPortrait(c.id));
 
 renderTopBar(topBarEl, router);
 nav.refreshBadges();
