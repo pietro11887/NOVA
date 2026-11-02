@@ -2,12 +2,13 @@
 // used as card art everywhere in the menus. Falls back to the emoji when WebGL is not available.
 
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCardModel } from '../../game/models3d.js';
 
 const cache = new Map();
 let ctx = null;          // { renderer, scene, camera }
 let failed = false;
-const SIZE = 256;
+const SIZE = 320;
 
 function init() {
   const canvas = document.createElement('canvas');
@@ -15,10 +16,14 @@ function init() {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(SIZE, Math.round(SIZE * 1.2), false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4));
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = 0.6;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.8));
   const key = new THREE.DirectionalLight(0xffffff, 2.4);
   key.position.set(3, 5, 6);
   scene.add(key);

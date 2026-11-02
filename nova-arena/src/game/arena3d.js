@@ -3,7 +3,13 @@
 // spell effects and particles. Field coordinates (x 0..18, y 0..32) map to world (x-9, 0, y-16).
 
 import * as THREE from 'three';
-import { buildCardModel, buildTower, buildRubble, mat, addOutlines } from './models3d.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { buildCardModel, buildTower, buildRubble, mat } from './models3d.js';
 import { getCard } from '../data/cards.js';
 
 const W = 18, H = 32;
@@ -26,7 +32,8 @@ export class Arena3D {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.NoToneMapping;
+    r.toneMapping = THREE.ACESFilmicToneMapping;
+    r.toneMappingExposure = 1.05;
 
     const [c1, c2] = battle.theme.colors;
     const sky = new THREE.Color(c2).lerp(new THREE.Color(0x87ceeb), 0.55);
@@ -34,16 +41,30 @@ export class Arena3D {
     this.scene.background = sky;
     this.scene.fog = new THREE.Fog(sky, 45, 95);
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 300);
+    const pmrem = new THREE.PMREMGenerator(r);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(r), 0.04).texture;
+    this.scene.environmentIntensity = 0.55;
+    pmrem.dispose();
 
-    this.scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(c1).lerp(new THREE.Color(0xffffff), 0.5), 1.6));
-    const sun = new THREE.DirectionalLight(0xfff4e0, 2.0);
+    this.scene.add(new THREE.HemisphereLight(0xdbeafe, new THREE.Color(0x3f6212).lerp(new THREE.Color(c1), 0.3), 0.9));
+    const sun = new THREE.DirectionalLight(0xfff1d6, 2.6);
     sun.position.set(-10, 26, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.radius = 4;
+    sun.shadow.normalBias = 0.02;
     Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 22, bottom: -22, near: 1, far: 70 });
     sun.shadow.bias = -0.0008;
     this.scene.add(sun);
 
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    this.composer = new EffectComposer(r, rt);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.45, 0.88);
+    this.composer.addPass(this.bloom);
+    this.composer.addPass(new OutputPass());
+
+    this.blobTex = makeBlobTexture();
     this.buildField(c1);
     this.raycaster = new THREE.Raycaster();
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -58,7 +79,7 @@ export class Arena3D {
   buildField(themeColor) {
     const s = this.scene;
     // Checkerboard grass, one texel per tile.
-    const PX = 32;                                  // texture pixels per tile
+    const PX = 64;                                  // texture pixels per tile
     const cv = document.createElement('canvas');
     cv.width = W * PX; cv.height = H * PX;
     const g = cv.getContext('2d');
@@ -66,30 +87,38 @@ export class Arena3D {
     const grnd = () => ((gseed = (gseed * 16807) % 2147483647) / 2147483647);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const light = (x + y) % 2 === 0;
-      const grad = g.createLinearGradient(0, y * PX, 0, (y + 1) * PX);
-      grad.addColorStop(0, light ? '#8fd468' : '#7cc458');
-      grad.addColorStop(1, light ? '#84cb5f' : '#72b94f');
+      const j = (grnd() - 0.5) * 10;               // per-tile tone jitter
+      const base = light ? [138 + j, 205 + j, 98 + j] : [118 + j, 190 + j, 84 + j];
+      const X = x * PX, Y = y * PX;
+      const grad = g.createLinearGradient(X, Y, X + PX, Y + PX);
+      grad.addColorStop(0, `rgb(${base[0] + 14},${base[1] + 12},${base[2] + 8})`);
+      grad.addColorStop(1, `rgb(${base[0] - 10},${base[1] - 12},${base[2] - 8})`);
       g.fillStyle = grad;
-      g.fillRect(x * PX, y * PX, PX, PX);
-      for (let k = 0; k < 6; k++) {                 // grass speckles
-        g.fillStyle = grnd() < 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(0,60,0,0.10)';
-        g.fillRect(x * PX + grnd() * PX, y * PX + grnd() * PX, 2, 3);
+      g.fillRect(X, Y, PX, PX);
+      for (let k = 0; k < 40; k++) {               // grass blades
+        const bx = X + 3 + grnd() * (PX - 6), by = Y + 5 + grnd() * (PX - 8);
+        g.strokeStyle = grnd() < 0.5 ? 'rgba(255,255,230,0.16)' : 'rgba(20,70,10,0.16)';
+        g.lineWidth = 1.4;
+        g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + (grnd() - 0.5) * 3, by - 3 - grnd() * 4); g.stroke();
+      }
+      // bevel: light top/left edge, dark bottom/right edge
+      g.fillStyle = 'rgba(255,255,255,0.18)';
+      g.fillRect(X, Y, PX, 3); g.fillRect(X, Y, 3, PX);
+      g.fillStyle = 'rgba(20,60,10,0.28)';
+      g.fillRect(X, Y + PX - 3, PX, 3); g.fillRect(X + PX - 3, Y, 3, PX);
+    }
+    // Worn dirt lanes from the bridges toward the side towers
+    for (const bx of [3.5, 14.5]) for (const [y0, y1] of [[7, 15], [17, 25]]) {
+      for (let k = 0; k < 900; k++) {
+        const px = (bx - 0.9 + grnd() * 1.8) * PX, py = (y0 + grnd() * (y1 - y0)) * PX;
+        g.fillStyle = `rgba(${150 + grnd() * 30},${110 + grnd() * 20},${60 + grnd() * 20},0.22)`;
+        g.beginPath(); g.arc(px, py, 2 + grnd() * 4, 0, Math.PI * 2); g.fill();
       }
     }
-    g.strokeStyle = 'rgba(40, 90, 30, 0.35)';       // tile grid lines
-    g.lineWidth = 1.5;
-    for (let x = 0; x <= W; x++) { g.beginPath(); g.moveTo(x * PX, 0); g.lineTo(x * PX, H * PX); g.stroke(); }
-    for (let y = 0; y <= H; y++) { g.beginPath(); g.moveTo(0, y * PX); g.lineTo(W * PX, y * PX); g.stroke(); }
-    // Darker dirt lanes from the bridges toward the side towers
-    g.fillStyle = 'rgba(150, 110, 60, 0.28)';
-    for (const bx of [3.5, 14.5]) {
-      g.fillRect((bx - 1) * PX, 7 * PX, 2 * PX, 8 * PX);
-      g.fillRect((bx - 1) * PX, 17 * PX, 2 * PX, 8 * PX);
-    }
     const tex = new THREE.CanvasTexture(cv);
-    tex.anisotropy = 4;
+    tex.anisotropy = 8;
     tex.colorSpace = THREE.SRGBColorSpace;
-    const field = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: tex }));
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
     field.rotation.x = -Math.PI / 2;
     field.receiveShadow = true;
     s.add(field);
@@ -101,19 +130,52 @@ export class Arena3D {
     outer.receiveShadow = true;
     s.add(outer);
 
-    // Stone border
-    const stone = mat(0x9ca3af, { rough: 0.9 });
-    const wall = (w, d, x, z) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.45, d), stone);
-      m.position.set(x, 0.22, z);
-      m.castShadow = m.receiveShadow = true;
-      s.add(m);
-    };
-    wall(W + 1.2, 0.6, 0, -H / 2 - 0.3);
-    wall(W + 1.2, 0.6, 0, H / 2 + 0.3);
-    for (const sx of [-1, 1]) {
-      wall(0.6, H / 2 - 1.2, sx * (W / 2 + 0.3), -H / 4 - 0.6);
-      wall(0.6, H / 2 - 1.2, sx * (W / 2 + 0.3), H / 4 + 0.6);
+    // Stone curb: individual rounded blocks with colour variation (instanced)
+    {
+      const blocks = [];
+      for (let x = -W / 2 - 0.5; x <= W / 2 + 0.5; x += 1) blocks.push([x, -H / 2 - 0.45], [x, H / 2 + 0.45]);
+      for (let z = -H / 2 + 0.5; z < H / 2; z += 1) if (Math.abs(z) > 1.2) blocks.push([-W / 2 - 0.45, z], [W / 2 + 0.45, z]);
+      const geo = new RoundedBoxGeometry(0.96, 0.5, 0.86, 3, 0.12);
+      const inst = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), blocks.length);
+      const m4 = new THREE.Matrix4(), col = new THREE.Color();
+      blocks.forEach(([x, z], i) => {
+        const vertical = Math.abs(x) > W / 2;
+        m4.makeRotationY(vertical ? Math.PI / 2 + (Math.random() - 0.5) * 0.06 : (Math.random() - 0.5) * 0.06);
+        m4.setPosition(x, 0.2 + Math.random() * 0.05, z);
+        inst.setMatrixAt(i, m4);
+        inst.setColorAt(i, col.setHSL(0.1, 0.06, 0.6 + Math.random() * 0.12));
+      });
+      inst.castShadow = inst.receiveShadow = true;
+      s.add(inst);
+    }
+
+    // Grass tufts and flowers around the arena (instanced)
+    {
+      const tufts = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.45, 5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }), 1400);
+      const flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }), 260);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color();
+      const outside = () => {
+        for (;;) {
+          const x = (Math.random() - 0.5) * 60, z = (Math.random() - 0.5) * 75;
+          if ((Math.abs(x) > W / 2 + 1 || Math.abs(z) > H / 2 + 1) && Math.abs(z) > 1.3) return [x, z];
+        }
+      };
+      for (let i = 0; i < 1400; i++) {
+        const [x, z] = outside();
+        e.set((Math.random() - 0.5) * 0.5, Math.random() * 6, (Math.random() - 0.5) * 0.5);
+        m4.compose(new THREE.Vector3(x, 0.2, z), q.setFromEuler(e), new THREE.Vector3(1, 0.6 + Math.random() * 0.8, 1));
+        tufts.setMatrixAt(i, m4);
+        tufts.setColorAt(i, col.setHSL(0.26 + Math.random() * 0.06, 0.55, 0.32 + Math.random() * 0.12));
+      }
+      const petals = [0xfef08a, 0xf9a8d4, 0xffffff, 0xc4b5fd, 0xfca5a5];
+      for (let i = 0; i < 260; i++) {
+        const [x, z] = outside();
+        m4.makeTranslation(x, 0.12, z);
+        flowers.setMatrixAt(i, m4);
+        flowers.setColorAt(i, col.setHex(petals[i % petals.length]));
+      }
+      tufts.receiveShadow = flowers.castShadow = true;
+      s.add(tufts, flowers);
     }
 
     // River with scrolling stripes
@@ -127,16 +189,21 @@ export class Arena3D {
     this.waterTex.wrapS = this.waterTex.wrapT = THREE.RepeatWrapping;
     this.waterTex.repeat.set(10, 1);
     this.waterTex.colorSpace = THREE.SRGBColorSpace;
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(W + 30, 2), new THREE.MeshStandardMaterial({ map: this.waterTex, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.95 }));
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(W + 30, 2), new THREE.MeshPhysicalMaterial({ map: this.waterTex, color: 0x9fe3ff, roughness: 0.08, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.05, transparent: true, opacity: 0.92 }));
     water.rotation.x = -Math.PI / 2;
     water.position.y = 0.03;
     water.receiveShadow = true;
     s.add(water);
     for (const sz of [-1.08, 1.08]) {
-      const bank = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.18, 0.2), mat(0x78716c));
-      bank.position.set(0, 0.09, sz);
-      bank.receiveShadow = true;
+      const bank = new THREE.Mesh(new RoundedBoxGeometry(W + 30, 0.22, 0.26, 2, 0.08), mat(0x8b8378, { rough: 0.95 }));
+      bank.position.set(0, 0.1, sz);
+      bank.receiveShadow = bank.castShadow = true;
       s.add(bank);
+      const foam = new THREE.Mesh(new THREE.PlaneGeometry(W + 30, 0.14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }));
+      foam.rotation.x = -Math.PI / 2;
+      foam.position.set(0, 0.045, sz * 0.86);
+      s.add(foam);
+      (this.foams ??= []).push(foam);
     }
 
     // Bridges
@@ -167,7 +234,7 @@ export class Arena3D {
     }
 
     // Trees and rocks around the arena
-    const leaf = [mat(0x2f855a), mat(0x38a169), mat(0x276749)];
+    const leaf = [mat(0x3f9142, { rough: 0.8 }), mat(0x4ea64a, { rough: 0.8 }), mat(0x2f7a3a, { rough: 0.8 })];
     const trunk = mat(0x6b4226);
     const rock = mat(0x8b8f99, { rough: 1 });
     let seed = 7;
@@ -186,7 +253,6 @@ export class Arena3D {
       c2.position.set(0.4, 0.8 + h * 0.75, 0.2);
       t1.castShadow = c.castShadow = c2.castShadow = true;
       tree.add(t1, c, c2);
-      addOutlines(tree, 0.05);
       tree.position.set(x, 0, z);
       s.add(tree);
       if (i % 3 === 0) {
@@ -220,6 +286,9 @@ export class Arena3D {
     this.width = w;
     this.height = h;
     this.renderer.setSize(w, h, false);
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer.setSize(w, h);
+    this.bloom.resolution.set(w / 2, h / 2);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.fitCamera();
@@ -301,6 +370,7 @@ export class Arena3D {
     this.time += dt;
     const b = this.battle;
     this.waterTex.offset.x += dt * 0.08;
+    this.foams?.forEach((f, i) => { f.material.opacity = 0.4 + Math.sin(this.time * 2 + i * 2) * 0.15; });
 
     const alive = new Set();
     for (const e of b.ents) {
@@ -323,7 +393,7 @@ export class Arena3D {
 
     this.syncFx(dt);
     this.updateGhost();
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render(dt);
   }
 
   createVisual(e) {
@@ -342,6 +412,13 @@ export class Arena3D {
     model.root.position.set(x, 0, z);
     model.root.rotation.y = e.side === 1 ? Math.PI : 0;
     model.root.traverse((o) => { if (o.isMesh) o.castShadow = o.castShadow !== false; });
+    if (e.kind !== 'tower') {
+      const blob = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: this.blobTex, transparent: true, depthWrite: false, opacity: 0.55 }));
+      blob.rotation.x = -Math.PI / 2;
+      blob.position.y = 0.025;
+      blob.renderOrder = 1;
+      model.root.add(blob);
+    }
     this.scene.add(model.root);
 
     const bar = this.makeBar(e.kind === 'tower' ? 2.4 : Math.max(0.9, e.r * 2.2), e.kind === 'tower' ? 0.3 : 0.14, team);
@@ -669,6 +746,7 @@ export class Arena3D {
 
   dispose() {
     this.overlay.remove();
+    this.composer.dispose?.();
     disposeTree(this.scene);
     this.renderer.dispose();
     this.renderer.forceContextLoss?.();
@@ -682,4 +760,18 @@ function disposeTree(root) {
     if (o.material && !o.material.__cached && o.material.isMeshBasicMaterial) o.material.dispose();
     if (o.material?.map && o.isSprite) o.material.map.dispose();
   });
+}
+
+/** Radial soft shadow used under units (contact shadow). */
+function makeBlobTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(0,0,0,0.75)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0.3)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
 }

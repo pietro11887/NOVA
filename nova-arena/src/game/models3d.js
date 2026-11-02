@@ -10,71 +10,111 @@
 // attack cycle, and cards add flourishes (spinning rotors, swaying hydra heads, flapping wings…).
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // ── Material & mesh helpers ────────────────────────────────────────────────
+// Physically based materials (smooth shading, environment reflections). Metals are glossy and
+// reflective, cloth is matte, skin is soft, emissive parts glow (and bloom in the arena).
 const matCache = new Map();
-// Cartoon look: 3-band toon shading (shadow / mid / light) instead of realistic shading.
-let toonRamp = null;
-function ramp() {
-  if (!toonRamp) {
-    const data = new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]);
-    toonRamp = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
-    toonRamp.minFilter = toonRamp.magFilter = THREE.NearestFilter;
-    toonRamp.needsUpdate = true;
-  }
-  return toonRamp;
-}
 
-export function mat(color, { opacity = 1, emissive = 0 } = {}) {
-  const key = `${color}|${opacity}|${emissive}`;
+export function mat(color, { opacity = 1, emissive = 0, metal = 0, rough = 0.55, coat = 0 } = {}) {
+  const key = `${color}|${opacity}|${emissive}|${metal}|${rough}|${coat}`;
   if (!matCache.has(key)) {
-    const m = new THREE.MeshToonMaterial({
-      color, gradientMap: ramp(),
+    const params = {
+      color, roughness: rough, metalness: metal,
       transparent: opacity < 1, opacity, depthWrite: opacity >= 1,
-      emissive: emissive ? color : 0x000000, emissiveIntensity: emissive,
-    });
+      emissive: emissive ? color : 0x000000, emissiveIntensity: emissive * 1.6,
+    };
+    const m = coat ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.15 }) : new THREE.MeshStandardMaterial(params);
     m.userData.cached = true;
     matCache.set(key, m);
   }
   return matCache.get(key);
 }
+// Shorthands for common surfaces
+const metalOf = (c) => mat(c, { metal: 0.9, rough: 0.28 });
+const clothOf = (c, o = {}) => mat(c, { rough: 0.85, ...o });
+const glossOf = (c) => mat(c, { rough: 0.3, coat: 0.6 });
 
-// Black "inverted hull" outlines: a slightly bigger back-face copy of each solid mesh.
-const outlineMat = new THREE.MeshBasicMaterial({ color: 0x14141f, side: THREE.BackSide });
-outlineMat.userData.cached = true;
-export function addOutlines(root, width = 0.035) {
-  const targets = [];
-  root.traverse((o) => {
-    if (o.isMesh && !o.userData.outline && !o.userData.noOutline && o.material && !o.material.transparent && o.geometry.type !== 'RingGeometry' && o.geometry.type !== 'CircleGeometry') targets.push(o);
-  });
-  for (const o of targets) {
-    o.geometry.computeBoundingSphere();
-    const r = Math.max(0.02, o.geometry.boundingSphere.radius);
-    const hull = new THREE.Mesh(o.geometry, outlineMat);
-    hull.scale.setScalar(Math.min(1.45, 1 + width / r));
-    hull.userData.outline = true;
-    hull.castShadow = false;
-    o.add(hull);
-  }
-  return root;
-}
+/** Outlines were part of the old cartoon style; kept as a no-op for compatibility. */
+export function addOutlines(root) { return root; }
 
 function mesh(geo, m) {
   const o = new THREE.Mesh(geo, m);
   o.castShadow = true;
+  o.receiveShadow = true;
   return o;
 }
-const box = (w, h, d, m) => mesh(new THREE.BoxGeometry(w, h, d), m);
-const sphere = (r, m, ws = 16, hs = 12) => mesh(new THREE.SphereGeometry(Math.max(r, 0.001), Math.max(ws, 10), Math.max(hs, 8)), m);
-const capsule = (r, len, m) => mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m);
-const cyl = (rt, rb, h, m, seg = 10) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
-const cone = (r, h, m, seg = 8) => mesh(new THREE.ConeGeometry(r, h, seg), m);
-const torus = (r, t, m, arc = Math.PI * 2) => mesh(new THREE.TorusGeometry(r, t, 6, 18, arc), m);
+// Smooth, rounded primitives: no blocky "pixel" boxes anywhere.
+const box = (w, h, d, m) => mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.28), m);
+const sphere = (r, m) => mesh(new THREE.SphereGeometry(Math.max(r, 0.001), 28, 20), m);
+const capsule = (r, len, m) => mesh(new THREE.CapsuleGeometry(r, len, 8, 20), m);
+const cyl = (rt, rb, h, m, seg = 28) => mesh(new THREE.CylinderGeometry(rt, rb, h, Math.max(seg, 24)), m);
+const cone = (r, h, m, seg = 24) => mesh(new THREE.ConeGeometry(r, h, Math.max(seg, 16)), m);
+const torus = (r, t, m, arc = Math.PI * 2) => mesh(new THREE.TorusGeometry(r, t, 14, 40, arc), m);
 const at = (o, x, y, z) => { o.position.set(x, y, z); return o; };
 const rot = (o, axis, v) => { o.rotation[axis] = v; return o; };
 const group = (...children) => { const g = new THREE.Group(); children.forEach((c) => c && g.add(c)); return g; };
 const darken = (c, k = 0.6) => new THREE.Color(c).multiplyScalar(k).getHex();
 const SKIN_DARK = 0x111827;
+
+const HAIR = {
+  nc_glitch_runner: { color: 0xe879f9, style: 'spiky' }, nc_data_lancer: { color: 0x1e293b, style: 'short' },
+  sp_rivet_gunner: { color: 0x7c2d12, style: 'messy' }, nc_netrunner_queen: { color: 0xf0abfc, style: 'long' },
+  bm_brute: null, cm_solar_titan: { color: 0xfb923c, style: 'flame' }, sp_mad_inventor: null,
+};
+const IRIS = { 'neo-cyber': 0x06b6d4, 'bio-mutant': 0x84cc16, 'steam-punk': 0x92400e, 'cosmic-mythos': 0x8b5cf6 };
+
+function addFace(head, hr, d) {
+  const white = mat(0xffffff, { rough: 0.2 }), pupil = mat(0x0b0b12, { rough: 0.15 });
+  const iris = mat(d.iris ?? d.accent, { rough: 0.25 });
+  const shine = mat(0xffffff, { emissive: 1 });
+  for (const sx of [-1, 1]) {
+    const eye = at(sphere(hr * 0.23, white), sx * hr * 0.35, hr * 0.06, hr * 0.78);
+    eye.scale.set(0.85, 1.05, 0.55);
+    const ir = at(sphere(hr * 0.15, iris), 0, -hr * 0.01, hr * 0.13);
+    ir.scale.z = 0.5;
+    ir.add(at(sphere(hr * 0.085, pupil), 0, 0, hr * 0.06));
+    ir.add(at(sphere(hr * 0.035, shine), hr * 0.04, hr * 0.05, hr * 0.1));
+    eye.add(ir);
+    head.add(eye);
+    const brow = at(capsule(hr * 0.035, hr * 0.28, mat(darken(d.skin, 0.35), { rough: 0.9 })), sx * hr * 0.36, hr * 0.36, hr * 0.86);
+    brow.rotation.z = Math.PI / 2 + sx * 0.25;
+    head.add(brow);
+    const cheek = at(sphere(hr * 0.11, mat(0xf472b6, { opacity: 0.35, rough: 0.9 })), sx * hr * 0.55, -hr * 0.22, hr * 0.72);
+    cheek.scale.z = 0.3;
+    cheek.castShadow = false;
+    head.add(cheek);
+  }
+  head.add(at(sphere(hr * 0.09, mat(darken(d.skin, 0.9), { rough: 0.5 })), 0, -hr * 0.1, hr * 0.98));
+  const mouth = at(torus(hr * 0.16, hr * 0.03, mat(0x7f1d1d, { rough: 0.6 }), Math.PI), 0, -hr * 0.34, hr * 0.86);
+  mouth.rotation.z = Math.PI;
+  head.add(mouth);
+  for (const sx of [-1, 1]) head.add(at(sphere(hr * 0.13, mat(d.skin, { rough: 0.5 })), sx * hr * 0.98, 0, 0));   // ears
+}
+
+function addHair(head, hr, d) {
+  const conf = HAIR[d.id] ?? { color: darken(d.cloth, 0.7), style: 'short' };
+  if (!conf) return;
+  const hm = mat(conf.color, { rough: 0.45, coat: 0.3, emissive: conf.style === 'flame' ? 0.5 : 0 });
+  const cap = mesh(new THREE.SphereGeometry(hr * 1.05, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2.1), hm);
+  cap.rotation.x = -0.25;
+  head.add(at(cap, 0, hr * 0.06, -hr * 0.06));
+  if (conf.style === 'spiky' || conf.style === 'flame') {
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      const spike = at(cone(hr * 0.2, hr * 0.7, hm), Math.sin(a) * hr * 0.55, hr * 0.75, Math.cos(a) * hr * 0.5 - hr * 0.15);
+      spike.rotation.set(Math.cos(a) * 0.6 - 0.3, 0, -Math.sin(a) * 0.6);
+      head.add(spike);
+    }
+  } else if (conf.style === 'messy') {
+    for (let i = 0; i < 6; i++) head.add(at(sphere(hr * 0.32, hm), Math.sin(i * 1.7) * hr * 0.6, hr * 0.62, Math.cos(i * 1.7) * hr * 0.5 - hr * 0.2));
+  } else if (conf.style === 'long') {
+    const back = at(capsule(hr * 0.75, hr * 1.1, hm), 0, -hr * 0.55, -hr * 0.45);
+    back.scale.z = 0.55;
+    head.add(back);
+  }
+}
 
 /** Simple pivot: a group at (x,y,z) whose children hang from it. */
 function pivot(x, y, z, ...children) { return at(group(...children), x, y, z); }
@@ -122,10 +162,12 @@ const D = {
   cm_singularity:    { type: 'spell', look: 'hole', color: 0x1e1b4b },
 };
 
+const cardFaction = (id) => ({ nc: 'neo-cyber', bm: 'bio-mutant', sp: 'steam-punk', cm: 'cosmic-mythos' })[id.slice(0, 2)];
+
 export const isAirModel = (id) => ['drone', 'blimp', 'sprite'].includes(D[id]?.type) || id === 'cm_astral_serpent';
 
 export function buildCardModel(cardId, team = null) {
-  const d = D[cardId];
+  const d = { id: cardId, iris: IRIS[cardFaction(cardId)], ...D[cardId] };
   const builder = BUILDERS[d.type];
   const m = builder(d, team);
   const s = d.scale ?? 1;
@@ -149,11 +191,11 @@ function humanoid(d, team) {
   const broad = d.build === 'broad', slim = d.build === 'slim';
   const bw = broad ? 0.62 : slim ? 0.38 : 0.46;
   const op = d.ghost ? 0.55 : 1;
-  const skinM = mat(d.skin, { opacity: op, emissive: d.glow ? 0.6 : d.ghost ? 0.4 : 0 });
-  const clothM = mat(d.cloth, { opacity: op });
-  const clothDark = mat(darken(d.cloth), { opacity: op });
+  const skinM = mat(d.skin, { opacity: op, rough: 0.5, emissive: d.glow ? 0.6 : d.ghost ? 0.4 : 0 });
+  const clothM = clothOf(d.cloth, { opacity: op });
+  const clothDark = clothOf(darken(d.cloth), { opacity: op });
   const accentM = mat(d.accent, { opacity: op, metal: 0.3, emissive: d.visor || d.glow ? 0.25 : 0 });
-  const metalM = mat(0xcbd5e1, { metal: 0.7, rough: 0.3 });
+  const metalM = metalOf(0xd4dae3);
   const teamM = team != null ? mat(team) : accentM;
 
   const body = group();       // bobs while walking
@@ -194,20 +236,12 @@ function humanoid(d, team) {
   // Head
   const hr = broad ? 0.32 : 0.29;                       // big cartoon head
   const head = pivot(0, 1.22 + hr * 0.55, 0, sphere(hr, skinM));
-  const eyeM = mat(SKIN_DARK), whiteM = mat(0xffffff);
-  for (const sx of [-1, 1]) {
-    const eye = at(sphere(hr * 0.24, whiteM), sx * hr * 0.36, hr * 0.08, hr * 0.8);
-    eye.scale.set(0.85, 1.1, 0.6);
-    eye.add(at(sphere(hr * 0.13, eyeM), 0, -hr * 0.02, hr * 0.17));
-    head.add(eye);
-    const brow = at(box(hr * 0.4, hr * 0.08, 0.04, mat(darken(d.skin, 0.4))), sx * hr * 0.36, hr * 0.38, hr * 0.86);
-    brow.rotation.z = sx * 0.18;
-    head.add(brow);
-  }
+  addFace(head, hr, d);
+  if (!d.helmet && !d.tophat && !d.ghost && !d.robe) addHair(head, hr, d);
   if (d.visor) head.add(at(box(hr * 1.6, 0.07, 0.06, mat(d.accent, { emissive: 0.9 })), 0, 0.03, hr * 0.85));
   if (d.goggles) for (const sx of [-1, 1]) head.add(at(torus(0.05, 0.02, metalM), sx * 0.08, 0.05, hr * 0.92));
   if (d.helmet) {
-    const helm = mesh(new THREE.SphereGeometry(hr * 1.12, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), metalM);
+    const helm = mesh(new THREE.SphereGeometry(hr * 1.12, 32, 16, 0, Math.PI * 2, 0, Math.PI / 1.9), metalM);
     head.add(at(helm, 0, 0.02, 0));
     if (d.plume) head.add(at(box(0.05, 0.16, hr * 1.8, mat(d.accent)), 0, hr + 0.06, -0.02));
   }
@@ -883,15 +917,42 @@ const BUILDERS = { humanoid, mech, drone, worm, quadruped, spider, serpent, blim
 
 // ── TOWERS ─────────────────────────────────────────────────────────────────
 /** Princess-style side tower or the bigger central keep. Returns { root, aim(group), animate } */
+let brickTex = null;
+function bricks() {
+  if (brickTex) return brickTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#8d8a84';
+  g.fillRect(0, 0, 256, 256);
+  const rows = 8, bw = 64, bh = 256 / rows;
+  for (let r = 0; r < rows; r++) for (let i = -1; i < 5; i++) {
+    const x = i * bw + (r % 2) * bw / 2, y = r * bh;
+    const v = 170 + Math.floor(Math.random() * 40);
+    g.fillStyle = `rgb(${v},${v - 4},${v - 12})`;
+    g.fillRect(x + 3, y + 3, bw - 6, bh - 6);
+    g.fillStyle = 'rgba(255,255,255,0.18)';
+    g.fillRect(x + 3, y + 3, bw - 6, 3);
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    g.fillRect(x + 3, y + bh - 6, bw - 6, 3);
+  }
+  brickTex = new THREE.CanvasTexture(c);
+  brickTex.colorSpace = THREE.SRGBColorSpace;
+  brickTex.wrapS = brickTex.wrapT = THREE.RepeatWrapping;
+  brickTex.repeat.set(2, 1);
+  brickTex.anisotropy = 8;
+  return brickTex;
+}
+
 export function buildTower(isKing, team) {
-  const stoneM = mat(0x9ca3af, { rough: 0.85 });
-  const stoneDark = mat(0x6b7280, { rough: 0.9 });
-  const teamM = mat(team);
-  const woodM = mat(0x92400e);
+  const stoneM = new THREE.MeshStandardMaterial({ map: bricks(), color: 0xe7e2d8, roughness: 0.9 });
+  const stoneDark = mat(0x7c7770, { rough: 0.9 });
+  const teamM = glossOf(team);
+  const woodM = mat(0x8a4b1d, { rough: 0.75 });
   const root = group();
   let aim, flag, sleep;
 
-  const tileA = mat(0xc8c2b4), tileB = mat(0xb5ae9f);
+  const tileA = mat(0xd6cfbf, { rough: 0.9 }), tileB = mat(0xc2baa8, { rough: 0.9 });
   const plat = (n) => {
     const g = group();
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
