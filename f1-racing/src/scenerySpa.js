@@ -29,6 +29,8 @@ function bbox(p) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, 
 export class SpaScenery extends Scenery {
   constructor(scene, track, renderer, quality) {
     super(scene, track, renderer, quality);
+    this.fanNations = ['bel', 'ned', 'ned', 'bel', 'ger', 'fra', 'gbr', 'ita', 'esp', 'mon', 'aus', 'chk', 'ned', 'bel'];
+    this.bannerTexts = ['ALLEZ!', 'HUP HOLLAND!', 'EAU ROUGE!', 'SPA ❤', 'FORZA!', 'GO GO GO!', 'P1!', 'VAMOS!'];
     this.data = TRACK.data;
     const G = this.data.grid;
     this.dem = G;
@@ -83,7 +85,7 @@ export class SpaScenery extends Scenery {
   build() {
     setAniso(this.aniso);
     if (!this.low) triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 });
-    const steps = ['sky', 'terrain', 'roads', 'pitGarages', 'grandstands', 'gantry', 'billboards', 'bigScreen', 'trackside', 'brakeBoards',
+    const steps = ['sky', 'terrain', 'roads', 'pitGarages', 'grandstands', 'gantry', 'billboards', 'bigScreen', 'trackside', 'brakeBoards', 'marshals', 'birds',
       'spectators', 'houses', 'forestTrees', 'bushes'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
@@ -92,7 +94,7 @@ export class SpaScenery extends Scenery {
   // terreno vero (modello del terreno a 50 m) intorno alla pista; oltre i dati, colline boscose
   // delle Ardenne fino all'orizzonte (la griglia si allarga verso l'esterno, senza cuciture)
   terrain() {
-    const tb = this.terrainBox, step = this.low ? 16 : 10;
+    const tb = this.terrainBox, step = this.low ? 16 : this.ultra ? 7 : 10;
     const axis = (a0, a1) => {
       const out = [], n = Math.ceil((a1 - a0) / step);
       for (let k = 12; k >= 1; k--) out.push(a0 - 60 * (Math.pow(1.38, k) - 1));
@@ -266,7 +268,7 @@ export class SpaScenery extends Scenery {
   // la volta compatta delle chiome (una superficie a gobbe sopra i boschi) come si vede dalla pista
   forestTrees() {
     const r = rand(42);
-    const max = this.low ? 3500 : this.quality === 'high' ? 14000 : 8000;
+    const max = this.low ? 3500 : this.ultra ? 24000 : 14000;
     const L = { pine: [[], []], broad: [[], []] };
     let count = 0;
     const tint = sp => sp === 'broad' ? new THREE.Color().setHSL(0.21 + r() * 0.06, 0.24, 0.5 + r() * 0.16) : new THREE.Color().setHSL(0.3 + r() * 0.05, 0.16, 0.3 + r() * 0.12);

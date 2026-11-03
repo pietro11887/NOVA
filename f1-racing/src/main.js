@@ -22,6 +22,7 @@ import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS } from './race.js';
 import { PitLane, PitStop } from './pit.js';
 import { PitCrew } from './pitCrew.js';
+import { buildGrassTufts } from './grassTufts.js';
 import { Online, NET_VER } from './online.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
@@ -55,9 +56,60 @@ const ARC = () => settings.driveMode === 'arcade';
 if (settings.driveMode === 'arcade' && !IS_F1) { settings.carClass = 'f1'; store.set('novaf1.settings', settings); location.reload(); }
 // in arcade i danni "simulazione" diventano una barra di salute senza forature né guasti
 // arcade: solo F1 in versione cartoon (stile iRacing Arcade)
-const makeCar = (o = {}) => { const c = createGT(o); return ARC() ? cartoonize(c, { ghost: o.ghost, outline: o.lod !== 'mid' || settings.quality === 'high' }) : c; };
+// qualità: 'low' (leggera), 'high' (alta), 'ultra' (massima: tutto al massimo, anche se pesa)
+const ULTRA = settings.quality === 'ultra', HIQ = settings.quality !== 'low';
+// ultra: carrozzerie con vernice trasparente lucida (clearcoat) e, sulla tua vettura, i riflessi veri
+// di quello che ha intorno (una ripresa a 360° aggiornata mentre guidi)
+const ccCache = new Map();
+let carCube = null, tufts = null;
+function carEnv() {
+  if (!ULTRA) return null;
+  if (!carCube) {
+    const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+    carCube = { rt, cam: new THREE.CubeCamera(0.5, 1800, rt), n: 0 };
+  }
+  return carCube.rt.texture;
+}
+function ultraCar(model, env = null) {
+  if (!ULTRA || !model || !model.root) return;
+  const keep = new Set(Object.values(model.materials || {}).filter(m => m && m !== model.materials.paint));
+  model.root.traverse(o => {
+    if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+    const m = o.material;
+    if (!m.isMeshStandardMaterial || keep.has(m) || m.transparent) return;
+    if (m.isMeshPhysicalMaterial) { if (env && !m.envMap) { m.envMap = env; m.envMapIntensity = 1.1; } return; }
+    const paint = /PAINT|chasis|chassis|body|livery|carroz/i.test(m.name || '') || m.userData.livery || m === (model.materials && model.materials.paint);
+    const key = m.uuid + (env ? ':e' : '');
+    let p = ccCache.get(key);
+    if (!p) {
+      if (paint) {
+        p = new THREE.MeshPhysicalMaterial();
+        THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+        p.defines = { STANDARD: '', PHYSICAL: '' };
+        p.clearcoat = 1; p.clearcoatRoughness = 0.05; p.roughness = Math.max(0.16, m.roughness);
+        p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey;
+      } else if (env) p = m.clone();
+      else return;
+      if (env) { p.envMap = env; p.envMapIntensity = paint ? 1.15 : 1; }
+      ccCache.set(key, p);
+    }
+    o.material = p;
+  });
+}
+function ultraReflections() {
+  if (!ULTRA || !carCube || !car || mode === 'menu') return;
+  if ((carCube.n++ % 3) !== 0) return;              // un aggiornamento ogni 3 fotogrammi
+  carCube.cam.position.set(phys.x, phys.y + 0.9, phys.z);
+  const vis = car.root.visible, au = renderer.shadowMap.autoUpdate;
+  car.root.visible = false; renderer.shadowMap.autoUpdate = false;
+  if (tufts) tufts.visible = false;            // l'erba non si vede nei riflessi (e pesa)
+  carCube.cam.update(renderer, scene);
+  car.root.visible = vis; renderer.shadowMap.autoUpdate = au;
+  if (tufts) tufts.visible = true;
+}
+const makeCar = (o = {}) => { const c = createGT(o); return ARC() ? cartoonize(c, { ghost: o.ghost, outline: o.lod !== 'mid' || HIQ }) : c; };
 const dmMode = () => (ARC() && settings.damage === 'sim' ? 'reduced' : settings.damage);
-if (settings.quality === 'high') document.body.classList.add('hq');
+if (HIQ) document.body.classList.add('hq');
 const saveSettings = () => store.set('novaf1.settings', settings);
 
 // schermata di caricamento in stile F1 25: nome e bandiera, mappa del circuito, dati e un consiglio
@@ -94,7 +146,8 @@ fillLoading(settings.track);
 // ---------------------------------------------------------------- renderer / scena
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
+// ultra: si disegna a risoluzione più alta dello schermo (immagine più nitida, bordi più puliti)
+renderer.setPixelRatio(ULTRA ? Math.min(3, Math.max(1.5, devicePixelRatio * 1.5)) : Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
@@ -109,13 +162,13 @@ const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
-const shadowSize = settings.quality === 'low' ? 1024 : settings.quality === 'high' ? 4096 : 2048;
+const shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(8192, renderer.capabilities.maxTextureSize) : 4096;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
 // con grafica alta l'ombra copre molto più spazio (palazzi e alberi lontani) con la stessa nitidezza
-const SHR = settings.quality === 'high' ? 140 : 70;
+const SHR = ULTRA ? 190 : HIQ ? 140 : 70;
 Object.assign(sun.shadow.camera, { left: -SHR, right: SHR, top: SHR, bottom: -SHR, near: 1, far: 800 });
 sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = settings.quality === 'high' ? 0.12 : 0.06;
+sun.shadow.normalBias = HIQ ? 0.12 : 0.06;
 scene.add(sun, sun.target);
 const SUN_DIR = ENV.sunDir;
 
@@ -231,13 +284,14 @@ function build() {
   }
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
-  if (settings.quality === 'high' && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); if (LOOK) post.setLook(LOOK.grade); }
+  if (HIQ && settings.post !== false) {
+    try { post = new Post(renderer, scene, camera, { ultra: ULTRA, warm: SUNSET ? 1 : 0.15, bloom: SUNSET ? 0.38 : 0.22, natural: !SUNSET, rays: !TRACK.model, ao: true }); post.setSize(innerWidth, innerHeight); if (LOOK) post.setLook(LOOK.grade); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   // senza effetti (grafica leggera) i colori della pista si applicano direttamente nella resa finale, senza costi
   if (!post && LOOK) gradeToneMapping(LOOK.grade);
   car = gtReady() ? makeCar(playerCarOpts()) : createCar();
+  ultraCar(car, carEnv());
   scene.add(car.root);
   ghostCar = gtReady() ? makeCar({ ghost: true }) : createCar({ ghost: true });
   ghostCar.root.visible = false;
@@ -249,15 +303,17 @@ function build() {
   racingLine = new RacingLine(track);
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
   if (!TRACK.model) scene.add(racingLine.buildRubber());
+  // ultra: erba vera (ciuffi di fili d'erba in 3D) sul prato ai bordi della pista
+  if (ULTRA && !TRACK.model) { tufts = buildGrassTufts(track, 150000); if (tufts) scene.add(tufts); }
   // asfalto e bordi "vissuti": gomma sporca, segni di frenata, terra fuori pista
   if (!TRACK.model) scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
   scene.add(racingLine.build());
-  if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: settings.quality === 'high' });
+  if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: HIQ });
   phys = new CarPhysics(track);
   phys.on('impact', onImpact);
   particles = new Particles(scene);
   // scintille e bagliori (si sommano alla luce: con gli effetti TV brillano)
-  glow = new Particles(scene, settings.quality === 'high' ? 700 : 300, { additive: true });
+  glow = new Particles(scene, HIQ ? 700 : 300, { additive: true });
   skids = new SkidMarks(scene);
   // segni e ammaccature sui muri dopo gli urti
   wallMarks = new WallMarks(scene, track, particles);
@@ -417,6 +473,7 @@ function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid' }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    ultraCar(c.model);
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
     c.phys.hazards = p => debris.contact(p);
@@ -1192,7 +1249,7 @@ const qBack = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0)
 function renderMirrors(ck) {
   if (!ck.mirrors || !ck.mirrors.length) return;
   if (!mirrorRT) {
-    const hi = settings.quality === 'high';
+    const hi = HIQ;
     mirrorRT = new THREE.WebGLRenderTarget(hi ? 768 : 512, hi ? 192 : 128, { samples: 0 });
     mirrorRT.texture.colorSpace = THREE.SRGBColorSpace;
     rearCam = new THREE.PerspectiveCamera(19, 4, 0.3, camera.far);
@@ -2095,7 +2152,7 @@ const SET_LABELS = {
   post: v => `Effetti TV: ${v !== false ? 'ON' : 'OFF'}`,
   tod: v => `Ora: ${v === 'sunset' ? 'TRAMONTO' : 'GIORNO'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
-  quality: v => `Grafica: ${v === 'high' ? 'Alta' : 'Leggera'}`,
+  quality: v => `Grafica: ${v === 'ultra' ? 'Ultra (massima)' : v === 'high' ? 'Alta' : 'Leggera'}`,
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
   raceTyre: v => `Gomme di partenza: ${COMPOUNDS[v].name}`,
   msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
@@ -2122,7 +2179,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'post') { settings.post = settings.post === false; saveSettings(); location.reload(); return; }
   else if (k === 'tod') { settings.tod = settings.tod === 'sunset' ? 'day' : 'sunset'; saveSettings(); location.reload(); return; }
-  else if (k === 'quality') { settings.quality = settings.quality === 'high' ? 'low' : 'high'; saveSettings(); location.reload(); return; }
+  else if (k === 'quality') { settings.quality = settings.quality === 'low' ? 'high' : settings.quality === 'high' ? 'ultra' : 'low'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = settings.raceTyre === 'M' ? 'H' : settings.raceTyre === 'H' ? 'S' : 'M'; }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
   else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
@@ -2157,6 +2214,7 @@ function rebuildPlayerModels() {
   if (!gtReady() || !car) return;
   scene.remove(car.root);
   car = makeCar(playerCarOpts());
+  ultraCar(car, carEnv());
   scene.add(car.root);
   setTyreColor(car, phys.compound);
   const vis = ghostCar.root.visible;
@@ -2414,7 +2472,7 @@ function onlineBegin(R, role, out) {
   // la tua vettura con gli stessi colori che vede l'altro (GT: l'host ha la livrea originale, l'ospite la sua)
   const mine = R.find(e => e.human === role);
   if (!IS_F1 && gtReady() && mine && !mine.orig) {
-    scene.remove(car.root); car = makeCar({ primary: mine.color, accent: mine.accent }); scene.add(car.root); onl.customCar = true;
+    scene.remove(car.root); car = makeCar({ primary: mine.color, accent: mine.accent }); ultraCar(car, carEnv()); scene.add(car.root); onl.customCar = true;
   }
   if (garage) garage.active = false;
   introNext = false;
@@ -3006,7 +3064,7 @@ function startAttract() {
   if (!gtReady() || mode !== 'menu') return;
   clearRace();
   resetSession();
-  const bots = settings.quality === 'high' ? 9 : 5;
+  const bots = HIQ ? 9 : 5;
   race = new Race(track, racingLine, {
     laps: 999, bots, strength: 80, startPos: 1, playerPhys: phys, damageMode: 'cosmetic', arcade: ARC(), rubber: 0,
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? f1Grid(settings.f1Team, bots) : null,
@@ -3283,6 +3341,8 @@ function frame(now) {
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 350);
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
+  if (tufts) tufts.userData.update(mode === 'pause' ? 0 : dt);
+  ultraReflections();
   if (post) {
     // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;

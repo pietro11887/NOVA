@@ -91,6 +91,7 @@ function azFlagTexture() {
 export class BakuScenery extends Scenery {
   constructor(scene, track, renderer, quality) {
     super(scene, track, renderer, quality);
+    this.bannerTexts = ['BAKU ❤', 'ALGA!', 'FORZA!', 'GO GO GO!', 'P1!', 'VAMOS!', 'ALLEZ!', 'CITY CIRCUIT'];
     this.data = TRACK.data;
     this.brand = { real: true, gantryBrand: 'qatar', stand: 'QATAR AIRWAYS', standBg: ['#5c0632', '#7a0a44'] };
     this.floorY = -3;
@@ -226,7 +227,7 @@ export class BakuScenery extends Scenery {
       triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 });
       this.wallMat = triplanar(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), 'oldwall', { scale: 3.2, strength: 0.95, normal: 1.3 });
     } else this.wallMat = this.colored;
-    const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'timingClock', 'grandstands', 'gantry', 'screen', 'billboards',
+    const steps = ['sky', 'farHills', 'sea', 'terrain', 'pitGarages', 'walls', 'timingClock', 'grandstands', 'gantry', 'screen', 'birds', 'billboards',
       'buildings', 'roads', 'landmarks', 'trackside', 'brakeBoards', 'spectators', 'cityTrees', 'lamps', 'trackDressing'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
@@ -323,7 +324,7 @@ export class BakuScenery extends Scenery {
 
   // ------------------------------------------------------------------ terreno
   terrain() {
-    const tb = this.terrainBox, step = this.low ? 14 : 11;
+    const tb = this.terrainBox, step = this.low ? 14 : this.ultra ? 8 : 11;
     const nx = Math.ceil((tb.x1 - tb.x0) / step), nz = Math.ceil((tb.z1 - tb.z0) / step);
     const N = (nx + 1) * (nz + 1);
     const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), hh = new Float32Array(N);
@@ -562,6 +563,7 @@ export class BakuScenery extends Scenery {
     for (const g of stands) { g.updateMatrixWorld(true); for (const p of g.userData.flags) pts.push(p.clone().applyMatrix4(g.matrixWorld)); }
     this.standPos = stands.map(g => g.position.clone());   // per il rumore del pubblico
     if (pts.length) this.flags(pts);
+    this.fanFlags(stands, ['aze', 'aze', 'aze', 'aze', 'gbr', 'ita', 'ned', 'esp', 'ger', 'fra', 'mex', 'chk']);
   }
 
   // tribune: il pubblico salta ed esulta (ognuno a modo suo)
@@ -1216,7 +1218,7 @@ export class BakuScenery extends Scenery {
 
   // ------------------------------------------------------------------ verde
   cityTrees() {
-    const total = this.low ? 1600 : 3800;
+    const total = this.low ? 1600 : this.ultra ? 6200 : 3800;
     const r = rand(42);
     const leafG = mergeGeometries([
       new THREE.IcosahedronGeometry(2.6, 0).translate(0, 5.6, 0),

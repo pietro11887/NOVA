@@ -56,10 +56,46 @@ const mat4 = (x, y, z, ry = 0, sx = 1, sy = 1, sz = 1, rx = 0, rz = 0) => {
   return new THREE.Matrix4().compose(V.set(x, y, z), Q, SC.set(sx, sy, sz));
 };
 
+// numeri casuali ripetibili (stessa scena ogni volta)
+function mulberryS(a) {
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+// bandiere dei paesi disegnate (una striscia di riquadri: ogni tifoso ne prende una)
+const FLAG_DRAW = {
+  ita: g => { ['#009246', '#fff', '#ce2b37'].forEach((c, k) => { g.fillStyle = c; g.fillRect(k * 21.3, 0, 22, 64); }); },
+  ned: g => { ['#ae1c28', '#fff', '#21468b'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); },
+  ger: g => { ['#000', '#dd0000', '#ffce00'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); },
+  fra: g => { ['#0055a4', '#fff', '#ef4135'].forEach((c, k) => { g.fillStyle = c; g.fillRect(k * 21.3, 0, 22, 64); }); },
+  esp: g => { g.fillStyle = '#c60b1e'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#ffc400'; g.fillRect(0, 16, 64, 32); },
+  gbr: g => { g.fillStyle = '#012169'; g.fillRect(0, 0, 64, 64); g.strokeStyle = '#fff'; g.lineWidth = 12; g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.stroke();
+    g.strokeStyle = '#c8102e'; g.lineWidth = 5; g.stroke(); g.fillStyle = '#fff'; g.fillRect(24, 0, 16, 64); g.fillRect(0, 24, 64, 16); g.fillStyle = '#c8102e'; g.fillRect(27, 0, 10, 64); g.fillRect(0, 27, 64, 10); },
+  bra: g => { g.fillStyle = '#009c3b'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#ffdf00'; g.beginPath(); g.moveTo(32, 8); g.lineTo(58, 32); g.lineTo(32, 56); g.lineTo(6, 32); g.fill(); g.fillStyle = '#002776'; g.beginPath(); g.arc(32, 32, 11, 0, 7); g.fill(); },
+  mex: g => { ['#006847', '#fff', '#ce1126'].forEach((c, k) => { g.fillStyle = c; g.fillRect(k * 21.3, 0, 22, 64); }); g.fillStyle = '#8b5a2b'; g.beginPath(); g.arc(32, 32, 6, 0, 7); g.fill(); },
+  mon: g => { g.fillStyle = '#ce1126'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#fff'; g.fillRect(0, 32, 64, 32); },
+  jpn: g => { g.fillStyle = '#fff'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#bc002d'; g.beginPath(); g.arc(32, 32, 13, 0, 7); g.fill(); },
+  can: g => { g.fillStyle = '#d52b1e'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; g.fillRect(16, 0, 32, 64); g.fillStyle = '#d52b1e'; g.beginPath(); g.moveTo(32, 18); g.lineTo(40, 34); g.lineTo(34, 33); g.lineTo(34, 44); g.lineTo(30, 44); g.lineTo(30, 33); g.lineTo(24, 34); g.fill(); },
+  aus: g => { g.fillStyle = '#00008b'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; for (const [x, y] of [[44, 18], [52, 34], [40, 46], [48, 54], [16, 48]]) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); } },
+  aze: g => { ['#0092bc', '#e4002b', '#00af66'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); g.fillStyle = '#fff'; g.beginPath(); g.arc(30, 32, 7, 0, 7); g.fill(); g.fillStyle = '#e4002b'; g.beginPath(); g.arc(32, 32, 6, 0, 7); g.fill(); },
+  bel: g => { ['#000', '#fdda24', '#ef3340'].forEach((c, k) => { g.fillStyle = c; g.fillRect(k * 21.3, 0, 22, 64); }); },
+  chk: g => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#111' : '#fff'; g.fillRect(x * 16, y * 16, 16, 16); } },
+};
+const FLAG_SETS = { def: ['ita', 'ned', 'gbr', 'esp', 'ger', 'fra', 'bra', 'mex', 'mon', 'jpn', 'can', 'aus', 'chk', 'ita', 'ned', 'gbr'] };
+const atlasCache = new Map();
+function flagAtlas(list) {
+  const L = list || FLAG_SETS.def, key = L.join(',');
+  if (atlasCache.has(key)) return atlasCache.get(key);
+  const c = document.createElement('canvas'); c.width = 64 * L.length; c.height = 64;
+  const g = c.getContext('2d');
+  L.forEach((k, i) => { g.save(); g.translate(i * 64, 0); g.beginPath(); g.rect(0, 0, 64, 64); g.clip(); (FLAG_DRAW[k] || FLAG_DRAW.chk)(g); g.restore(); });
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const a = { tex, n: L.length }; atlasCache.set(key, a); return a;
+}
+
 export class Scenery {
   constructor(scene, track, renderer, quality) {
     this.scene = scene; this.track = track; this.renderer = renderer; this.quality = quality;
     this.low = quality === 'low';
+    this.ultra = quality === 'ultra';   // grafica ultra: più alberi, auto, case e terreno più fitto
     this.group = new THREE.Group();
     scene.add(this.group);
     this.aniso = renderer.capabilities.getMaxAnisotropy();
@@ -191,7 +227,7 @@ export class Scenery {
     // materiali fotografici (grafica media e alta)
     if (!this.low) { setAniso(this.aniso); triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 }); }
     const steps = ['sky', 'mountains', 'terrain', 'water', 'pitBuilding', 'grandstands', 'gantry', 'billboards', 'bigScreen',
-      'bridge', 'paddock', 'trackside', 'brakeBoards', 'spectators', 'campsite', 'village', 'windFarm', 'balloons', 'trees', 'bushes'];
+      'bridge', 'paddock', 'trackside', 'brakeBoards', 'marshals', 'spectators', 'campsite', 'village', 'windFarm', 'balloons', 'birds', 'trees', 'bushes'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
   }
@@ -313,7 +349,7 @@ export class Scenery {
   }
 
   terrain() {
-    const tb = this.terrainBox, step = this.low ? 14 : 10;
+    const tb = this.terrainBox, step = this.low ? 14 : this.ultra ? 7 : 10;
     const nx = Math.ceil((tb.x1 - tb.x0) / step), nz = Math.ceil((tb.z1 - tb.z0) / step);
     const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
     const col = new Float32Array((nx + 1) * (nz + 1) * 3);
@@ -474,6 +510,16 @@ export class Scenery {
     }
     const ad = new THREE.Mesh(new THREE.PlaneGeometry(length, 2), M.ad);
     ad.position.set(0, 1.1, 0.51); g.add(ad);
+    // tifosi con le bandiere in mano (punti sulla gradinata: x, quota, profondità) e striscioni sul parapetto
+    g.userData.fans = [];
+    const fr = mulberryS(length * 131 + rows * 7 + (this.fanSeed = (this.fanSeed || 0) + 1));
+    const nFans = Math.round(length * rows / (this.low ? 70 : 34));
+    for (let k = 0; k < nFans; k++) {
+      const f = 0.08 + fr() * 0.88;
+      g.userData.fans.push(new THREE.Vector3((fr() - 0.5) * (length - 2), 2 + f * height + 1.25, -f * depth + 0.2));
+    }
+    g.userData.banners = [];
+    for (let x = -length / 2 + 6; x < length / 2 - 6; x += 13 + fr() * 10) if (fr() < 0.75) g.userData.banners.push(new THREE.Vector3(x, 2.75, 0.55));
     // bandiere sul tetto
     g.userData.flags = [];
     for (let x = -length / 2 + 3; x <= length / 2 - 2; x += Math.max(8, length / 6)) g.userData.flags.push(new THREE.Vector3(x, height + 7.3, -depth - 0.5));
@@ -503,6 +549,142 @@ export class Scenery {
     for (const g of stands) { g.updateMatrixWorld(true); for (const p of g.userData.flags) pts.push(p.clone().applyMatrix4(g.matrixWorld)); }
     this.standPos = stands.map(g => g.position.clone());   // per il rumore del pubblico
     this.flags(pts);
+    this.fanFlags(stands, this.fanNations);
+  }
+
+  // bandiere sventolate dai tifosi sulle tribune (di tanti paesi, come in un Gran Premio vero) e striscioni
+  fanFlags(stands, nations = null) {
+    const pts = [], ban = [];
+    for (const g of stands) {
+      g.updateMatrixWorld(true);
+      for (const p of g.userData.fans || []) pts.push([p.clone().applyMatrix4(g.matrixWorld), g.rotation.y]);
+      for (const p of g.userData.banners || []) ban.push([p.clone().applyMatrix4(g.matrixWorld), g.rotation.y]);
+    }
+    if (pts.length) {
+      const atlas = flagAtlas(nations);
+      const geo = new THREE.PlaneGeometry(1.05, 0.68, 6, 1).translate(0.525, 0, 0);
+      const tile = new Float32Array(pts.length), r = mulberryS(pts.length * 17 + 3);
+      for (let k = 0; k < pts.length; k++) tile[k] = Math.floor(r() * atlas.n);
+      geo.setAttribute('aTile', new THREE.InstancedBufferAttribute(tile, 1));
+      const mat = new THREE.MeshStandardMaterial({ map: atlas.tex, side: THREE.DoubleSide, roughness: 0.85 });
+      const uT = { value: 0 }, N = atlas.n;
+      mat.onBeforeCompile = sh => {
+        sh.uniforms.uT = uT;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT; attribute float aTile;')
+          .replace('#include <uv_vertex>', `#include <uv_vertex>\n#ifdef USE_MAP\n vMapUv = vec2((uv.x + aTile) / ${N.toFixed(1)}, uv.y);\n#endif`)
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+            float ph = instanceMatrix[3][0] * 0.71 + instanceMatrix[3][2] * 0.53;
+            // sventolata: la bandiera ondeggia e il braccio la muove avanti e indietro
+            transformed.z += sin(position.x * 5.0 - uT * 9.0 + ph) * position.x * 0.22;
+            transformed.y += sin(uT * (2.0 + fract(ph) * 2.0) + ph) * 0.18 * position.x;`);
+      };
+      mat.customProgramCacheKey = () => 'fanflags' + N;
+      this.animated.push(t => { uT.value = t; });
+      const inst = new THREE.InstancedMesh(geo, mat, pts.length);
+      const stick = new THREE.CylinderGeometry(0.02, 0.02, 1.3, 4);
+      pts.forEach(([p, ry], k) => {
+        inst.setMatrixAt(k, mat4(p.x, p.y + 0.55, p.z, ry + (r() - 0.5) * 1.2 + Math.PI / 2));
+        this.batch.add(stick, this.colored, mat4(p.x, p.y, p.z, 0, 1, 1, 1, (r() - 0.5) * 0.4, (r() - 0.5) * 0.4), 0x3a3a3a);
+      });
+      this.group.add(inst);
+    }
+    // striscioni dei tifosi appesi al parapetto
+    if (ban.length) {
+      const msgs = this.bannerTexts || ['FORZA!', 'GO GO GO!', 'VAMOS!', 'ALLEZ!', 'TIFOSI', 'WE ❤ F1', 'P1!', 'NOVA ❤', 'CIAO MAMMA!', 'SEMPRE AVANTI'];
+      const cols = [['#d8231f', '#fff'], ['#ffd21e', '#111'], ['#1f4fd8', '#fff'], ['#fff', '#d8231f'], ['#111', '#ffd21e'], ['#1f9a4a', '#fff']];
+      const r = mulberryS(ban.length * 31 + 5);
+      ban.forEach(([p, ry], k) => {
+        const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+        const x = c.getContext('2d'), col = cols[Math.floor(r() * cols.length)];
+        x.fillStyle = col[0]; x.fillRect(0, 0, 256, 64);
+        x.fillStyle = col[1]; x.font = 'italic 900 38px "Titillium Web", Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText(msgs[Math.floor(r() * msgs.length)], 128, 34);
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = this.aniso;
+        const w = 4.5 + r() * 2.5;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4, 8, 1), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9, side: THREE.DoubleSide }));
+        // un po' afflosciato al centro
+        const pa = m.geometry.attributes.position;
+        for (let i = 0; i < pa.count; i++) pa.setY(i, pa.getY(i) - 0.12 * (1 - (2 * pa.getX(i) / w) ** 2));
+        m.position.copy(p); m.rotation.y = ry; m.rotation.x = -0.05;
+        this.group.add(m);
+      });
+    }
+  }
+
+  // postazioni dei commissari di percorso lungo la pista (cabina, commissario arancione, telecamera TV ogni tanto)
+  marshals() {
+    const S = this.track.samples, n = this.track.count, st = this.track.step;
+    const r = mulberryS(4242), spacing = Math.round(260 / st);
+    const booth = new THREE.BoxGeometry(2.2, 2.3, 2), roof = new THREE.BoxGeometry(2.6, 0.18, 2.4);
+    const body = new THREE.CapsuleGeometry(0.24, 0.85, 3, 8), head = new THREE.SphereGeometry(0.15, 10, 8);
+    const tripod = new THREE.CylinderGeometry(0.03, 0.09, 1.5, 5), cam = new THREE.BoxGeometry(0.35, 0.3, 0.75), lens = new THREE.CylinderGeometry(0.11, 0.11, 0.3, 10);
+    for (let i = Math.round(spacing / 2); i < n; i += spacing) {
+      const side = Math.abs(S[i].curv) > 0.004 ? (S[i].curv > 0 ? 1 : -1) : (r() < 0.5 ? 1 : -1);    // all'esterno delle curve
+      const f = this.frame(i, side, 2.4);
+      if (!this.free(f.x, f.z, 2.2)) continue;
+      const cs = Math.cos(f.ry), sn = Math.sin(f.ry);
+      const L = (lx, lz) => [f.x + lx * cs + lz * sn, f.z - lx * sn + lz * cs];
+      let [x, z] = L(0, -0.8);
+      this.batch.add(booth, this.colored, mat4(x, f.y + 1.15, z, f.ry), 0xf3f3f1);
+      this.batch.add(roof, this.colored, mat4(x, f.y + 2.4, z, f.ry), 0xe2741e);
+      // commissario in tuta arancione (e il collega)
+      for (const lx of [-1.6, 1.7]) {
+        [x, z] = L(lx, 0.4);
+        this.batch.add(body, this.colored, mat4(x, f.y + 0.75, z, f.ry), 0xf07a19);
+        this.batch.add(head, this.colored, mat4(x, f.y + 1.45, z, f.ry), 0xd9a47c);
+      }
+      // telecamera TV su treppiede, ogni tanto
+      if (r() < 0.4) {
+        [x, z] = L(3.4, 0.2);
+        this.batch.add(tripod, this.colored, mat4(x, f.y + 0.75, z, f.ry), 0x2a2a2a);
+        this.batch.add(cam, this.colored, mat4(x, f.y + 1.65, z, f.ry + 0.6), 0x1b1d22);
+        const [lx2, lz2] = L(3.4 + Math.sin(0.6) * 0.45, 0.2 + Math.cos(0.6) * 0.45);
+        this.batch.add(lens, this.colored, mat4(lx2, f.y + 1.67, lz2, f.ry + 0.6, 1, 1, 1, Math.PI / 2), 0x0d0d0f);
+      }
+      this.occupied.push([f.x, f.z, 4]);
+    }
+  }
+
+  // stormi di uccelli che volano in cerchio nel cielo (battono le ali)
+  birds() {
+    const r = mulberryS(99), b = this.track.samples, n = this.track.count;
+    const geo = new THREE.BufferGeometry();
+    // una "V" con due ali (6 vertici): le punte delle ali si muovono nel vertex shader
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.18, -0.9, 0, -0.1, 0, 0, -0.2, 0, 0, 0.18, 0, 0, -0.2, 0.9, 0, -0.1], 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshBasicMaterial({ color: 0x2a2c30, side: THREE.DoubleSide, fog: true });
+    const uT = { value: 0 };
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uT = uT;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          float ph = instanceMatrix[3][0] * 1.7 + instanceMatrix[3][2] * 0.9;
+          transformed.y += abs(position.x) * sin(uT * 9.0 + ph) * 0.6;`);
+    };
+    const flocks = [], N = 14;
+    for (let f = 0; f < 4; f++) {
+      const s = b[Math.floor(r() * n)];
+      flocks.push({ cx: s.x + (r() - 0.5) * 300, cz: s.z + (r() - 0.5) * 300, y: s.y + 45 + r() * 50, R: 60 + r() * 90, w: (0.06 + r() * 0.06) * (r() < 0.5 ? 1 : -1), a0: r() * 6.28,
+        off: Array.from({ length: N }, () => [(r() - 0.5) * 14, (r() - 0.5) * 6, (r() - 0.5) * 14, 0.8 + r() * 0.5]) });
+    }
+    const inst = new THREE.InstancedMesh(geo, mat, flocks.length * N);
+    inst.frustumCulled = false;
+    this.group.add(inst);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    this.animated.push(t => {
+      uT.value = t;
+      let k = 0;
+      for (const F of flocks) {
+        const a = F.a0 + t * F.w, cx = F.cx + Math.cos(a) * F.R, cz = F.cz + Math.sin(a) * F.R;
+        const dir = Math.atan2(Math.cos(a) * F.w, -Math.sin(a) * F.w);
+        for (const [ox, oy, oz, s] of F.off) {
+          v.set(cx + ox, F.y + oy + Math.sin(t * 0.7 + ox) * 1.5, cz + oz);
+          e.set(0, -dir + Math.PI / 2, 0); q.setFromEuler(e); sc.set(s, s, s);
+          inst.setMatrixAt(k++, m.compose(v, q, sc));
+        }
+      }
+      inst.instanceMatrix.needsUpdate = true;
+    });
   }
 
   flags(points) {
@@ -723,7 +905,7 @@ export class Scenery {
       this.batch.add(tent, this.colored, mat4(hx, f.y + 4.6, hz, f.ry + Math.PI / 4), k % 3 ? 0xf8f8f8 : team);
     }
     // parcheggio del pubblico
-    const nCars = this.low ? 120 : 260;
+    const nCars = this.low ? 120 : this.ultra ? 420 : 260;
     const body = new THREE.BoxGeometry(4.2, 1.0, 1.8), roof = new THREE.BoxGeometry(2.2, 0.7, 1.6);
     const carCols = [0xf2f2f2, 0x1d1f24, 0x8a8f99, 0xc0262c, 0x2a62c9, 0xd9dde3, 0x34495e, 0xe2b13c];
     let placed = 0;
@@ -833,7 +1015,7 @@ export class Scenery {
       colored(new THREE.BoxGeometry(0.08, 0.1, 0.09).translate(0.24, 0.8, 0), 0xc99a74),
     ]);
     const pts = [];
-    const target = this.low ? 1600 : 3200;
+    const target = this.low ? 1600 : this.ultra ? 5200 : 3200;
     let lastI = -999;
     for (let i = 0; i < n && pts.length < target; i += 3) {
       if (Math.abs(S[i].curv) < 0.01 || i - lastI < 35) continue;
@@ -1007,7 +1189,7 @@ export class Scenery {
 
   // ------------------------------------------------------------------ vegetazione
   trees() {
-    const total = this.low ? 1800 : 4200;
+    const total = this.low ? 1800 : this.ultra ? 7500 : 4200;
     const conG = mergeGeometries([
       new THREE.ConeGeometry(2.6, 5, 7).translate(0, 4.5, 0),
       new THREE.ConeGeometry(2.0, 4, 7).translate(0, 7.2, 0),
@@ -1092,7 +1274,7 @@ export class Scenery {
     const n = this.track.count, r = rand(13);
     const geo = new THREE.IcosahedronGeometry(1, 0);
     const mats = [];
-    const count = this.low ? 500 : 1100;
+    const count = this.low ? 500 : this.ultra ? 2000 : 1100;
     for (let k = 0; k < count * 3 && mats.length < count; k++) {
       const i = Math.floor(r() * n), side = r() < 0.5 ? 1 : -1;
       const f = this.frame(i, side, 2 + r() * 6, (r() - 0.5) * 4);

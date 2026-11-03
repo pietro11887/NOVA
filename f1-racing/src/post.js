@@ -94,19 +94,23 @@ export class Post {
   constructor(renderer, scene, camera, opts = {}) {
     this.renderer = renderer;
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+    // ultra: antialiasing 8x (se la scheda video lo permette)
+    const maxS = renderer.capabilities.maxSamples || 4, U = !!opts.ultra;
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: U ? Math.min(8, maxS) : 4 });
     this.composer = new EffectComposer(renderer, rt);
     this.render = new RenderPass(scene, camera);
     this.composer.addPass(this.render);
     // occlusione ambientale: ombre morbide negli angoli, sotto le vetture, tra i palazzi (a metà risoluzione)
     if (opts.ao) {
-      const ao = new GTAOPass(scene, camera, size.x / 2, size.y / 2);
+      // ultra: a piena risoluzione e con più campioni (ombre di contatto più precise)
+      const aoDiv = U ? 1 : 2;
+      const ao = new GTAOPass(scene, camera, size.x / aoDiv, size.y / aoDiv);
       ao.output = GTAOPass.OUTPUT.Default;
       ao.blendIntensity = 1.0;
-      ao.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.6, thickness: 2.5, scale: 1.15, samples: 12 });
-      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+      ao.updateGtaoMaterial({ radius: U ? 1.8 : 1.4, distanceExponent: 1.6, thickness: 2.5, scale: U ? 1.25 : 1.15, samples: U ? 24 : 12 });
+      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: U ? 8 : 6, rings: U ? 3 : 2, samples: U ? 20 : 12 });
       const ss = ao.setSize.bind(ao);
-      ao.setSize = (w, h) => ss(Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(h / 2)));
+      ao.setSize = (w, h) => ss(Math.max(1, Math.round(w / aoDiv)), Math.max(1, Math.round(h / aoDiv)));
       // le chiome degli alberi (foglie ritagliate) non devono fare "ombra quadrata"
       const ov = ao.overrideVisibility.bind(ao);
       // e nemmeno gli strati trasparenti appoggiati sull'asfalto (gomma, segni di frenata, linea guida)
@@ -117,7 +121,7 @@ export class Post {
     this.rays = new ShaderPass(RaysShader);
     this.rays.enabled = !!opts.rays;
     this.composer.addPass(this.rays);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), opts.bloom ?? 0.32, 0.55, 0.92);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / (U ? 1 : 2), size.y / (U ? 1 : 2)), opts.bloom ?? 0.32, 0.55, 0.92);
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
     this.grade.uniforms.uWarm.value = opts.warm ?? 0;
