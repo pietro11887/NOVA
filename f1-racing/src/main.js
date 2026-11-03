@@ -171,6 +171,8 @@ sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = HIQ ? 0.12 : 0.06;
 scene.add(sun, sun.target);
 const SUN_DIR = ENV.sunDir;
+let perfAvg = 1 / 60, perfSlow = false, shadowTick = 0;
+const sunTmp = new THREE.Vector3(), sunU = new THREE.Vector3(), sunV = new THREE.Vector3(), sunUp = new THREE.Vector3(0, 1, 0);
 
 // pista scelta: i dati di Baku (OpenStreetMap) si caricano solo se servono
 if (settings.track === 'baku') {
@@ -1250,14 +1252,15 @@ function renderMirrors(ck) {
   if (!ck.mirrors || !ck.mirrors.length) return;
   if (!mirrorRT) {
     const hi = HIQ;
-    mirrorRT = new THREE.WebGLRenderTarget(hi ? 768 : 512, hi ? 192 : 128, { samples: 0 });
+    mirrorRT = new THREE.WebGLRenderTarget(ULTRA ? 768 : hi ? 600 : 400, ULTRA ? 192 : hi ? 150 : 100, { samples: 0 });
     mirrorRT.texture.colorSpace = THREE.SRGBColorSpace;
-    rearCam = new THREE.PerspectiveCamera(19, 4, 0.3, camera.far);
+    // negli specchietti basta vedere fino a 600 m (oltre c'è la nebbia): molti meno oggetti da disegnare
+    rearCam = new THREE.PerspectiveCamera(19, 4, 0.3, 600);
   }
   if (ck.mirrorMat.map !== mirrorRT.texture) { ck.mirrorMat.map = mirrorRT.texture; ck.mirrorMat.needsUpdate = true; }
   ck.mf = (ck.mf || 0) + 1;
   virtualMirror(ck);
-  if (ck.mf % 2) return;                       // metà dei fotogrammi: basta e costa poco
+  if (ck.mf % (perfSlow ? 3 : 2)) return;      // un fotogramma su 2 (su 3 se il dispositivo fa fatica)
   rearCam.position.copy(car.body.localToWorld(mirTmp.set(ck.eye.x - 0.25, ck.eye.y + 0.1, 0)));
   car.body.getWorldQuaternion(qTmp);
   rearCam.quaternion.copy(qTmp).multiply(qBack);
@@ -1265,6 +1268,7 @@ function renderMirrors(ck) {
   const vis = car.root.visible, auto = renderer.shadowMap.autoUpdate;
   car.root.visible = false; renderer.shadowMap.autoUpdate = false;
   const vmv = vMirror ? vMirror.visible : false; if (vMirror) vMirror.visible = false;   // mai lo specchietto dentro sé stesso
+  if (tufts) tufts.visible = false;            // l'erba 3D negli specchietti non si nota
   skyTmp.copy(scenery.skyMesh.position); scenery.skyMesh.position.copy(rearCam.position);
   renderer.setRenderTarget(mirrorRT);
   renderer.render(scene, rearCam);
@@ -1272,6 +1276,7 @@ function renderMirrors(ck) {
   scenery.skyMesh.position.copy(skyTmp);
   car.root.visible = vis; renderer.shadowMap.autoUpdate = auto;
   if (vMirror) vMirror.visible = vmv;
+  if (tufts) tufts.visible = true;
 }
 // specchietto virtuale in alto al centro (come in iRacing): con il campo visivo stretto quelli
 // veri restano fuori dallo schermo
@@ -3232,7 +3237,7 @@ function frame(now) {
   const inp = input.update(dt);
   padNav.update(dt);
   // garage: si disegna solo lo showroom
-  if (garage && garage.active) { garage.render(dt); input.endFrame(); return; }
+  if (garage && garage.active) { renderer.shadowMap.autoUpdate = true; garage.render(dt); input.endFrame(); return; }
 
   if (input.consume('KeyM')) { sounds.setMuted(!sounds.muted); }
   if (input.consume('KeyP') || input.consume('Escape')) { if (mode === 'pause') togglePause(false); else togglePause(true); }
@@ -3335,14 +3340,29 @@ function frame(now) {
   if (mode !== 'menu' && mode !== 'replay' && mode !== 'intro') updateHud(dt);
   updateTouchSteer();
 
-  // l'ombra segue la vettura (nel menu: quella inquadrata)
-  const fp = mode === 'replay' && rp ? rp.focus : attract && attract.shot ? attract.shot.car.phys : phys;
-  sun.target.position.set(fp.x, fp.y, fp.z);
-  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 350);
+  // l'ombra segue la vettura (nel menu: quella inquadrata). La posizione è "agganciata" ai pixel della
+  // mappa delle ombre: così le ombre ferme non tremolano mentre ti muovi.
+  // Se il dispositivo fa fatica (sotto ~50 fotogrammi al secondo) le ombre si ricalcolano a fotogrammi alterni.
+  perfAvg += (Math.min(0.1, dt) - perfAvg) * 0.05;
+  perfSlow = perfAvg > 1 / 50;
+  shadowTick++;
+  const shadowNow = !perfSlow || shadowTick % 2 === 0;
+  if (shadowNow) {
+    const fp = mode === 'replay' && rp ? rp.focus : attract && attract.shot ? attract.shot.car.phys : phys;
+    const texel = (2 * SHR) / shadowSize;
+    sunTmp.set(fp.x, fp.y, fp.z);
+    // coordinate nel piano della luce, arrotondate a un pixel della mappa
+    sunU.crossVectors(SUN_DIR, sunUp).normalize(); sunV.crossVectors(sunU, SUN_DIR).normalize();
+    const u = Math.round(sunTmp.dot(sunU) / texel) * texel, v = Math.round(sunTmp.dot(sunV) / texel) * texel, w = sunTmp.dot(SUN_DIR);
+    sun.target.position.copy(sunU).multiplyScalar(u).addScaledVector(sunV, v).addScaledVector(SUN_DIR, w);
+    sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 350);
+  }
+  renderer.shadowMap.autoUpdate = false;
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
   if (tufts) tufts.userData.update(mode === 'pause' ? 0 : dt);
   ultraReflections();
+  if (shadowNow) renderer.shadowMap.needsUpdate = true;     // dopo i riflessi: le ombre si calcolano per l'immagine principale
   if (post) {
     // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
