@@ -1,6 +1,7 @@
 {
   "name": "Nova Grand Prix",
   "short_name": "Nova GP",
+  "description": "Gioco di corse: Formula 1 e GT3 a Nova, Spa e Baku",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
