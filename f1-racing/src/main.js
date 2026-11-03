@@ -56,6 +56,15 @@ const ARC = () => settings.driveMode === 'arcade';
 if (settings.driveMode === 'arcade' && !IS_F1) { settings.carClass = 'f1'; store.set('novaf1.settings', settings); location.reload(); }
 // in arcade i danni "simulazione" diventano una barra di salute senza forature né guasti
 // arcade: solo F1 in versione cartoon (stile iRacing Arcade)
+// protezione della grafica Ultra: se l'ultima volta il gioco si è bloccato mentre partiva in Ultra
+// (memoria della scheda video finita), questa volta si torna su Alta invece di bloccarsi di nuovo
+let qFallback = false;
+try {
+  if (settings.quality === 'ultra' && localStorage.getItem('novaf1.qguard') === 'ultra') {
+    settings.quality = 'high'; localStorage.setItem('novaf1.settings', JSON.stringify(settings)); qFallback = true;
+  }
+  if (settings.quality === 'ultra') localStorage.setItem('novaf1.qguard', 'ultra'); else localStorage.removeItem('novaf1.qguard');
+} catch (e) { /* niente */ }
 // qualità: 'low' (leggera), 'high' (alta), 'ultra' (massima: tutto al massimo, anche se pesa)
 const ULTRA = settings.quality === 'ultra', HIQ = settings.quality !== 'low';
 // ultra: carrozzerie con vernice trasparente lucida (clearcoat) e, sulla tua vettura, i riflessi veri
@@ -147,7 +156,7 @@ fillLoading(settings.track);
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 // ultra: si disegna a risoluzione più alta dello schermo (immagine più nitida, bordi più puliti)
-renderer.setPixelRatio(ULTRA ? Math.min(3, Math.max(1.5, devicePixelRatio * 1.5)) : Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
+renderer.setPixelRatio(ULTRA ? Math.min(2, Math.max(1.25, devicePixelRatio * 1.25)) : Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
@@ -162,7 +171,7 @@ const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
-const shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(8192, renderer.capabilities.maxTextureSize) : 4096;
+const shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(6144, renderer.capabilities.maxTextureSize) : 4096;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
 // con grafica alta l'ombra copre molto più spazio (palazzi e alberi lontani) con la stessa nitidezza
 const SHR = ULTRA ? 190 : HIQ ? 140 : 70;
@@ -2174,8 +2183,16 @@ const SET_LABELS = {
 };
 function refreshSettings() {
   document.querySelectorAll('[data-set]').forEach(b => { const k = b.dataset.set; b.textContent = SET_LABELS[k](settings[k]); });
+  document.querySelectorAll('#qPick [data-q]').forEach(b => b.classList.toggle('sel', b.dataset.q === settings.quality));
   $('menuBest').textContent = best ? fmt(best.time) : '—';
 }
+// grafica: si sceglie direttamente tra le tre (il gioco si ricarica una volta sola)
+document.querySelectorAll('#qPick [data-q]').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.q === settings.quality) return;
+  settings.quality = b.dataset.q; saveSettings();
+  document.querySelectorAll('#qPick [data-q]').forEach(x => x.classList.toggle('sel', x === b));
+  setTimeout(() => location.reload(), 150);
+}));
 document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.set;
   if (k === 'cam') { settings.cam = (settings.cam + 1) % CAMS.length; camMode = settings.cam; }
@@ -3443,4 +3460,14 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);
+  // Ultra partito bene: dopo 25 s di gioco la protezione si toglie
+  if (ULTRA) setTimeout(() => { try { localStorage.removeItem('novaf1.qguard'); } catch (e) { /* niente */ } }, 25000);
+  if (qFallback) setTimeout(() => showBanner('GRAFICA ULTRA TROPPO PESANTE PER QUESTO DISPOSITIVO: TORNATO SU ALTA', 'yellow', 5, true), 1500);
 }, 30)));
+// scheda video "persa" (memoria finita) con la grafica Ultra: si riparte su Alta
+canvas.addEventListener('webglcontextlost', e => {
+  if (!ULTRA) return;
+  e.preventDefault();
+  try { settings.quality = 'high'; localStorage.setItem('novaf1.settings', JSON.stringify(settings)); localStorage.removeItem('novaf1.qguard'); } catch (x) { /* niente */ }
+  location.reload();
+});

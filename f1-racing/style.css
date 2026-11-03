@@ -984,3 +984,9 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
   .onName input, .onJoin input { font-size: 17px; padding: 6px 10px; } .onCol { gap: 7px; } .onNote { display: none; }
 }
 @media (max-width: 700px) and (min-height: 501px) { .tiles { grid-template-columns: 1fr 1fr; } }
+
+/* scelta della grafica: tre opzioni da toccare direttamente */
+.qPick { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 6px; align-items: center; padding: 4px 0; }
+.qPick span { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: var(--muted); padding-right: 4px; }
+.setGroups .qPick button { margin: 0; padding: 9px 6px; text-align: center; font-weight: 900; }
+.setGroups .qPick button.sel { background: var(--accent); color: #111; border-color: var(--accent); }

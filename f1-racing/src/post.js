@@ -96,7 +96,7 @@ export class Post {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     // ultra: antialiasing 8x (se la scheda video lo permette)
     const maxS = renderer.capabilities.maxSamples || 4, U = !!opts.ultra;
-    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: U ? Math.min(8, maxS) : 4 });
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: U && renderer.getPixelRatio() <= 1.5 ? Math.min(8, maxS) : 4 });
     this.composer = new EffectComposer(renderer, rt);
     this.render = new RenderPass(scene, camera);
     this.composer.addPass(this.render);
