@@ -510,7 +510,7 @@ export function buildTrack(points) {
   // corsia box: il muretto box separa la pista dalla corsia, la barriera esterna (solo grafica)
   // sta oltre la corsia
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
-  const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count) : buildPitPath(samples, length, step, count);
+  const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;
   samples.forEach(s => {
     const ss = s.s > length / 2 ? s.s - length : s.s;
@@ -573,14 +573,14 @@ export function buildTrack(points) {
 }
 
 // corsia box da un percorso reale (coordinate del mondo, nel verso di marcia)
-function pitFromPath(path, samples, length, step, count) {
+function pitFromPath(path, samples, length, step, count, street = false) {
   const proj = (x, z) => {
     let best = 0, bd = Infinity;
     for (let i = 0; i < count; i++) { const s = samples[i], d = (s.x - x) ** 2 + (s.z - z) ** 2; if (d < bd) { bd = d; best = i; } }
     const s = samples[best];
     const along = (x - s.x) * s.tx + (z - s.z) * s.tz;
     let ss = s.s + along; if (ss > length / 2) ss -= length;
-    return { ss, d: (x - s.x) * s.nx + (z - s.z) * s.nz, y: s.y };
+    return { ss, d: (x - s.x) * s.nx + (z - s.z) * s.nz, y: s.y, s };
   };
   // ricampionamento a 1 m
   const raw = path.map(([x, z]) => ({ x, z }));
@@ -592,8 +592,29 @@ function pitFromPath(path, samples, length, step, count) {
     while (k < raw.length - 2 && cum[k + 1] < p) k++;
     const f = (p - cum[k]) / (cum[k + 1] - cum[k] || 1), a = raw[k], b = raw[k + 1];
     const x = a.x + (b.x - a.x) * f, z = a.z + (b.z - a.z) * f, pr = proj(x, z);
-    pts.push({ x, y: pr.y, z, ss: pr.ss, d: pr.d });
+    pts.push({ x, y: pr.y, z, ss: pr.ss, d: pr.d, tr: pr.s });
   }
+  // città (Baku): la corsia vera corre su una carreggiata a parte, separata dalla pista dal muretto box
+  // (cemento e rete). I dati la mettono quasi sopra la pista: si allarga verso l'esterno, con l'imbocco
+  // e l'uscita che si staccano piano dalla pista come nella realtà.
+  if (street) {
+    const sg = Math.sign(pts.reduce((a, p) => a + p.d, 0)) || 1, n = pts.length;
+    const sm = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], tr = p.tr;
+      const need = (tr.hw + 2.1 + 3.0) * sm(i / 140) * sm((n - 1 - i) / 110);
+      const extra = need - p.d * sg;
+      if (extra > 0) { p.x += tr.nx * sg * extra; p.z += tr.nz * sg * extra; p.d += sg * extra; }
+    }
+    // niente gradini: media mobile sullo scostamento laterale
+    const dd = pts.map(p => p.d);
+    for (let i = 0; i < n; i++) {
+      let a = 0, c = 0; for (let k = -6; k <= 6; k++) { const j = i + k; if (j >= 0 && j < n) { a += dd[j]; c++; } }
+      const nd = Math.max(a / c * sg, dd[i] * sg) * sg, tr = pts[i].tr;
+      pts[i].x += tr.nx * (nd - pts[i].d); pts[i].z += tr.nz * (nd - pts[i].d); pts[i].d = nd;
+    }
+  }
+  for (const p of pts) delete p.tr;
   pts.forEach((p, i) => {
     const a = pts[Math.max(0, i - 2)], b = pts[Math.min(pts.length - 1, i + 2)];
     let tx = b.x - a.x, tz = b.z - a.z; const l = Math.hypot(tx, tz) || 1;
