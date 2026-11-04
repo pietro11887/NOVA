@@ -7,6 +7,7 @@ import { IS_F1 } from './vehicle.js';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
+import { LINE_GRIP } from './wx.js';
 const LINE_MU = IS_F1 ? 1.0 : 1.3 / 1.8, LINE_BRK = IS_F1 ? 0.9 : 0.72, LINE_HS = IS_F1 ? 0.35 : 0;
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
@@ -105,7 +106,7 @@ export class RacingLine {
     this.gripMap = new Float64Array(n).fill(1);
     this.version = 0;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
-    this.speed = this.speedProfile(LINE_MU * CAR.mu, LINE_BRK, 95, LINE_HS);
+    this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP, LINE_BRK * LINE_GRIP, 95, LINE_HS);
   }
 
   // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
@@ -182,7 +183,7 @@ export class RacingLine {
     }
     if (changed) {
       this.version++;
-      this.speed = this.speedProfile(LINE_MU * CAR.mu * (this.arcadeOn ? ARCADE.grip : 1), LINE_BRK * (this.arcadeOn ? ARCADE.brake : 1), 95, LINE_HS);
+      this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP * (this.arcadeOn ? ARCADE.grip : 1), LINE_BRK * LINE_GRIP * (this.arcadeOn ? ARCADE.brake : 1), 95, LINE_HS);
     }
     return changed;
   }
@@ -197,7 +198,7 @@ export class RacingLine {
   setArcade(on) {
     if (this.arcadeOn === on) return;
     this.arcadeOn = on;
-    this.speed = this.speedProfile(LINE_MU * CAR.mu * (on ? ARCADE.grip : 1), LINE_BRK * (on ? ARCADE.brake : 1), 95, LINE_HS);
+    this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP * (on ? ARCADE.grip : 1), LINE_BRK * LINE_GRIP * (on ? ARCADE.brake : 1), 95, LINE_HS);
   }
 
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)

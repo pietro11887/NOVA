@@ -1,3 +1,4 @@
+import { WX } from './wx.js';
 // Audio del gioco, tutto sintetizzato con WebAudio (nessun file da scaricare).
 //
 // Motore: un ciclo completo del motore (due giri dell'albero, sei scoppi) viene "costruito"
@@ -73,6 +74,7 @@ export class Sound {
     this.buildSurfaces();
     this.buildWind();
     this.buildCrowd();
+    if (WX.rain > 0) this.buildRain();
     this.buildScrape();
     this.voices = [0, 1, 2].map(() => this.makeVoice());
     this.prev = { gear: 1, thr: 0, rpm: 0, popsUntil: 0, lastPop: 0, pitBeep: 0 };
@@ -266,6 +268,18 @@ export class Sound {
     this.chain(n, this.windF, this.windLP, this.windG, this.bus.amb);
   }
 
+  // pioggia: scroscio continuo (fruscio chiaro) e acqua sollevata dalle gomme, più forte con la velocità
+  buildRain() {
+    const n = this.loop(this.noiseBuf);
+    const hp = this.filt('highpass', 900, 0.4), lp = this.filt('lowpass', 7500, 0.5);
+    this.rainG = this.gain(0.05 + 0.09 * WX.rain);
+    this.chain(n, hp, lp, this.rainG, this.bus.amb);
+    const n2 = this.loop(this.pinkBuf);
+    this.hissF = this.filt('bandpass', 1800, 0.7);
+    this.hissG = this.gain(0);
+    this.chain(n2, this.hissF, this.hissG, this.bus.sfx);
+  }
+
   buildCrowd() {
     this.crowd = this.loop(this.crowdBuf);
     this.crowdF = this.filt('lowpass', 1800, 0.6);
@@ -389,6 +403,10 @@ export class Sound {
     this.scrape *= Math.exp(-dt * 9);
     this.scrG.gain.setTargetAtTime(Math.min(0.6, this.scrape), t, 0.03);
     this.scrF.frequency.setTargetAtTime(1800 + v * 40, t, 0.05);
+    if (this.hissG) {
+      this.hissG.gain.setTargetAtTime(Math.min(0.32, v * 0.0042 * WX.wet) * (car.inPit ? 0.4 : 1), t, 0.12);
+      this.hissF.frequency.setTargetAtTime(900 + v * 22, t, 0.15);
+    }
     // pubblico
     this.cheer *= Math.exp(-dt * 0.45);
     const crowd = Math.min(1, this.crowdLevel + this.cheer);

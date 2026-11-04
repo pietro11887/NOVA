@@ -23,7 +23,9 @@ export class Particles {
         attribute float alpha; attribute float size; varying float vA; varying vec3 vC;
         uniform float scale;
         void main(){ vA = alpha; vC = color; vec4 mv = modelViewMatrix * vec4(position,1.0);
-          gl_PointSize = size * scale / -mv.z; gl_Position = projectionMatrix * mv; }`,
+          gl_PointSize = size * scale / -mv.z;${opts.soft ? `
+          mv.xyz *= max(0.1, 1.0 - size * 0.5 / length(mv.xyz));      // un po' verso la telecamera: l'asfalto non la taglia a metà` : ''}
+          gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `
         varying float vA; varying vec3 vC;
         void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d); if (r > 0.5) discard;

@@ -258,6 +258,11 @@ body.hq::after { content: ""; position: fixed; inset: 0; pointer-events: none; b
 .pitPanel button { font-family: var(--font); font-weight: 900; font-size: 11px; color: var(--text); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 5px 3px; cursor: pointer; }
 .pitComps button i { display: block; width: 18px; height: 18px; margin: 0 auto 3px; border-radius: 50%; border: 4px solid currentColor; background: #111; }
 .pitComps .c-s i { color: #e8322b; } .pitComps .c-m i { color: #f5c518; } .pitComps .c-h i { color: #f2f2f2; }
+.pitComps .c-i i { color: #2fb84e; } .pitComps .c-w i { color: #2a74e8; }
+.pitComps .wetOnly { display: none; }
+body.wet .pitComps { grid-template-columns: repeat(5, 1fr); }
+body.wet .pitComps .wetOnly { display: block; }
+body.wet .pitComps small { display: none; }
 .pitPanel button small { display: block; font-size: 8px; font-weight: 600; color: var(--muted); margin-top: 2px; }
 .pitPanel button.sel { background: rgba(255,255,255,0.2); border-color: var(--text); }
 .pitRow { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 5px; }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt } from './trackData.js';
 import * as tex from './textures.js';
 import { texSet, triplanar } from './pbr.js';
+import { WX } from './wx.js';
 
 // ammaccature delle barriere morbide: [x, z, profondità, raggio] e [direzione verso l'esterno x, z, quota dell'urto]
 export const DENTS = { a: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, d: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, next: 0 };
@@ -237,10 +238,68 @@ export class Track {
           roughnessFactor = clamp(roughnessFactor + (texture2D(map, vWPos.xz * 0.031 + 0.71).r - 0.33) * 0.6, ${this.street && this.tod === 'sunset' ? '0.3, 0.85' : '0.5, 0.95'});` + (photo ? `
           roughnessFactor = clamp(roughnessFactor * (0.6 + 0.6 * texture2D(pAr, pq).g), 0.25, 0.95);` : ''));
     };
+    // pioggia: asfalto scuro e lucido che riflette cielo e palazzi, pozzanghere a specchio, cerchi delle gocce
+    if (WX.wet > 0) {
+      const base = asphMat.onBeforeCompile;
+      this.wetU = { value: WX.wet }; this.rainT = { value: 0 };
+      this.reflU = { tex: { value: null }, mat: { value: new THREE.Matrix4() }, k: { value: 0 } };
+      asphMat.onBeforeCompile = sh => {
+        base(sh);
+        sh.uniforms.uWet = this.wetU; sh.uniforms.uRainT = this.rainT;
+        sh.uniforms.uRefl = this.reflU.tex; sh.uniforms.uReflMat = this.reflU.mat; sh.uniforms.uReflK = this.reflU.k;
+        sh.fragmentShader = sh.fragmentShader.replace('#include <clipping_planes_pars_fragment>', `#include <clipping_planes_pars_fragment>
+          uniform float uWet, uRainT, uReflK; uniform sampler2D uRefl; uniform mat4 uReflMat;
+          float wetPud(){ return smoothstep(0.6, 0.7, texture2D(map, vWPos.xz * 0.017 + 0.43).r) * smoothstep(0.3, 0.6, texture2D(map, vWPos.xz * 0.004 + 0.1).r); }
+          vec2 wetRip(vec2 p, float t){
+            vec2 g = vec2(0.0);
+            for (int k = 0; k < 2; k++) {
+              vec2 q = p * (k == 0 ? 2.3 : 3.4) + float(k) * 7.31;
+              vec2 c = floor(q), f = fract(q) - 0.5;
+              float rn = fract(sin(dot(c, vec2(127.1, 311.7))) * 43758.5453);
+              vec2 dv = f - (vec2(fract(rn * 13.7), fract(rn * 71.3)) - 0.5) * 0.5;
+              float r = length(dv), ph = fract(t * (1.1 + 0.3 * float(k)) + rn), R = ph * 0.46;
+              float env = (1.0 - ph) * (1.0 - smoothstep(0.0, 0.07, abs(r - R)));
+              g += dv / (r + 1e-3) * sin((r - R) * 70.0) * env;
+            }
+            return g;
+          }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            float wPud = wetPud() * uWet;
+            diffuseColor.rgb *= 1.0 - uWet * 0.48 - wPud * 0.2;`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+            roughnessFactor = mix(roughnessFactor, 0.17, uWet * 0.88);
+            roughnessFactor = mix(roughnessFactor, 0.035, wPud);`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+            vec2 wRip = vec2(0.0);
+            { vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+              wn = normalize(mix(wn, vec3(0.0, 1.0, 0.0), wPud * 0.85));       // l'acqua ferma è liscia
+              vec2 rg = wetRip(vWPos.xz, uRainT) * uWet * (0.1 + 0.3 * wPud);
+              wRip = rg;
+              wn = normalize(wn + vec3(rg.x, 0.0, rg.y));
+              normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz); }`)
+          // riflesso a specchio di vetture, box e cielo sull'acqua (allungato in verticale come sull'asfalto bagnato vero)
+          .replace('#include <opaque_fragment>', `
+            if (uReflK > 0.0) {
+              vec4 rc = uReflMat * vec4(vWPos, 1.0);
+              vec2 ruv = rc.xy / rc.w + wRip * 0.02;
+              float st = 0.004 + 0.012 * (1.0 - wPud);
+              vec3 rcol = (texture2D(uRefl, ruv + vec2(0.0, -1.5 * st)).rgb + texture2D(uRefl, ruv + vec2(0.0, -0.5 * st)).rgb
+                + texture2D(uRefl, ruv + vec2(0.0, 0.5 * st)).rgb + texture2D(uRefl, ruv + vec2(0.0, 1.5 * st)).rgb) * 0.25;
+              float ndv = clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0);
+              float fr = 0.05 + 0.95 * pow(1.0 - ndv, 4.0);
+              float edge = smoothstep(0.0, 0.06, ruv.x) * smoothstep(1.0, 0.94, ruv.x) * smoothstep(0.0, 0.06, ruv.y) * smoothstep(1.0, 0.94, ruv.y);
+              float k = clamp(uReflK * uWet * (0.4 + 0.5 * wPud) * (0.25 + 0.75 * fr) * edge, 0.0, 0.75);
+              outgoingLight = mix(outgoingLight, rcol * 0.88, k);
+            }
+            #include <opaque_fragment>`);
+      };
+      asphMat.customProgramCacheKey = () => 'asphWet';
+    }
     // Baku: asfalto cittadino più liscio e lucido, riflette sole e palazzi controluce
     if (this.street) { asphMat.roughness = 0.6; asphMat.envMapIntensity = 1.6; }
     // asfalto come in F1 25: grigio chiaro e opaco (di giorno non deve sembrare blu né bagnato)
     if (this.hq && this.tod !== 'sunset') { asphMat.color.setRGB(1.5, 1.47, 1.42); asphMat.roughness = 0.85; asphMat.envMapIntensity = 0.55; }
+    if (WX.wet > 0) { asphMat.envMapIntensity = 0.9 + 0.5 * WX.wet; }
     void asphalt;
     this.asphMat = asphMat;            // anche per la corsia box (stesso asfalto della pista)
     g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));

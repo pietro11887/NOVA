@@ -2,6 +2,7 @@ import { GEOM, CAR_SCALE, IZ_K } from './carModel.js';
 import { SPEC, IS_F1 } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
+import { WX, wetGrip } from './wx.js';
 
 // Dinamica del veicolo: modello a 4 ruote con pneumatici "Pacejka" semplificati,
 // ellisse d'attrito, sospensioni molla-smorzatore (beccheggio / rollio / scuotimento),
@@ -29,6 +30,9 @@ export const COMPOUNDS = {
   S: { name: 'MORBIDA', grip: 1.045, wear: 1.7, tMin: 85, tMax: 105, color: 0xe8322b },
   M: { name: 'MEDIA', grip: 1.0, wear: 1.0, tMin: 90, tMax: 110, color: 0xf5c518 },
   H: { name: 'DURA', grip: 0.965, wear: 0.6, tMin: 95, tMax: 118, color: 0xf2f2f2 },
+  // gomme da pioggia: lavorano più fredde (l'acqua le raffredda) e sull'asciutto si consumano in fretta
+  I: { name: 'INTERMEDIA', grip: 1.0, wear: 1.3, tMin: 55, tMax: 100, color: 0x2fb84e, wet: true },
+  W: { name: 'BAGNATO', grip: 1.0, wear: 1.1, tMin: 45, tMax: 88, color: 0x2a74e8, wet: true },
 };
 function tyreGrip(w, c = COMPOUNDS.M) {
   const t = w.temp ?? 95;
@@ -339,6 +343,7 @@ export class CarPhysics {
     // freni: si scaldano frenando, raffreddano con l'aria; oltre ~950 °C perdono efficacia
     const brakeFade = !A && this.brakeTemp > 950 ? Math.max(0.7, 1 - (this.brakeTemp - 950) / 1000) : 1;
     const brakeF = brake * this.maxBrakeForce * brakeFade * (A ? ARCADE.brake : 1);
+    const wetOn = WX.wet > 0;
     this.brakeTemp += (brake * speed * 1.4 - (this.brakeTemp - 200) * (0.004 + 0.0006 * speed)) * dt * 4;
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
@@ -353,7 +358,7 @@ export class CarPhysics {
       const load = w.fz;
       if (A) { w.temp = 95; w.flat = 0; }   // arcade: gomme sempre in temperatura, niente spiattellamenti
       const loadSens = Math.max(0.62, 1 - 0.07 * (load / (m * G * 0.25) - 1));
-      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * (A ? ARCADE.grip * (front ? 1 : ARCADE.rear) : 1) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]);
+      const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * (A ? ARCADE.grip * (front ? 1 : ARCADE.rear) : 1) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]) * (wetOn ? wetGrip(this.compound, speed) * (w.sf.type >= 2 ? 1 - 0.25 * WX.wet : w.sf.type === 1 ? 1 - 0.18 * WX.wet : 1) : 1);
       const Fmax = mu * load;
 
       // longitudinale
@@ -402,8 +407,8 @@ export class CarPhysics {
       const slipV = Math.abs(vlat) + (w.lock || w.spinning ? Math.abs(vlong) * 0.6 : Math.abs(vlong) * 0.03 * Math.abs(fxOut) / Math.max(1, Fmax));
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
-      w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28) * (0.02 + 0.0006 * speed)) * dt;
-      w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (A ? ARCADE.wear : 1) * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1));
+      w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28 + 14 * WX.wet) * (0.02 + 0.0006 * speed) * (1 + 0.7 * WX.wet)) * dt;
+      w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (A ? ARCADE.wear : 1) * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1) * (COMPOUNDS[this.compound].wet && WX.wet < 0.3 ? 3 : 1));
       if (w.lock && speed > 12 && !A) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
       const bx = fxOut * cd - fyOut * sd;

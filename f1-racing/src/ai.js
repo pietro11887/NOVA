@@ -1,4 +1,5 @@
 import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
+import { LINE_GRIP } from './wx.js';
 import { CAR } from './physics.js';
 import { SPEC, IS_F1 } from './vehicle.js';
 import { ARCADE } from './driveMode.js';
@@ -54,8 +55,8 @@ export class AIDriver {
     // arcade: tu hai più aderenza e gli aiuti; i bot forti hanno anche qualche cavallo in più
     if (arc) this.skill.power *= 1 + ARCADE.aiPower * Math.pow(Math.max(0, Math.min(1, t)), 1.6);
     const tc = Math.max(0, Math.min(1, t));
-    const mu = this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
-    const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1));
+    const mu = LINE_GRIP * this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
+    const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1)) * LINE_GRIP;
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     // F1: nelle curve veloci il carico aerodinamico permette di più (Eau Rouge in pieno)
     this.hs = IS_F1 ? 0.35 : 0;

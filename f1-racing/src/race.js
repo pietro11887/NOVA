@@ -1,4 +1,5 @@
 import { CarPhysics } from './physics.js';
+import { bestCompound } from './wx.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE, IZ_K } from './carModel.js';
 import { SPEC, IS_F1 } from './vehicle.js';
@@ -93,7 +94,7 @@ export class Race {
     for (const c of this.cars) { c.phys.fuel = Math.min(110, this.laps * 1.9 + 2); c.phys.mass = c.phys.baseMass + c.phys.fuel; }
     // gomme di partenza e strategia dei bot (una sosta, due nelle gare lunghe)
     for (const c of this.cars) {
-      c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : 'M');
+      c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : bestCompound('M'));
       c.phys.inPit = false;
       if (c.ai && this.pitLane && this.laps >= 8) {
         const stops = this.laps >= 20 ? 2 : 1;
@@ -259,7 +260,7 @@ export class Race {
       const worn = left >= 3 && c.phys.wheels.some(w => w.wear > 0.8);
       if (planned || hurt || worn) {
         const rem = this.laps - lapNow;
-        c.pitRequest = { compound: rem >= 12 ? 'H' : rem >= 5 ? 'M' : 'S', repair: hurt || d.fwL + d.fwR > 0.2 };
+        c.pitRequest = { compound: bestCompound(rem >= 12 ? 'H' : rem >= 5 ? 'M' : 'S'), repair: hurt || d.fwL + d.fwR > 0.2 };
         if (planned) c.plan.shift();
       }
     }
