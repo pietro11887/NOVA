@@ -242,6 +242,7 @@ export class Track {
     // asfalto come in F1 25: grigio chiaro e opaco (di giorno non deve sembrare blu né bagnato)
     if (this.hq && this.tod !== 'sunset') { asphMat.color.setRGB(1.5, 1.47, 1.42); asphMat.roughness = 0.85; asphMat.envMapIntensity = 0.55; }
     void asphalt;
+    this.asphMat = asphMat;            // anche per la corsia box (stesso asfalto della pista)
     g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));
     // linee bianche di bordo pista
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.7 });

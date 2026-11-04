@@ -60,26 +60,33 @@ export class PitLane {
   build(scene) {
     if (TRACK.model) return;          // corsia e box sono già nel modello 3D
     const g = new THREE.Group();
-    const asphalt = new THREE.MeshStandardMaterial({ color: 0x55595f, roughness: 0.9 });
+    const asphalt = this.track.asphMat || new THREE.MeshStandardMaterial({ color: 0x55595f, roughness: 0.9 });
     const white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.7 });
     const yellow = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.7 });
     // nastro della corsia
     const strip = (d0, d1, mat, y = 0.03, from = PIT.entry, to = PIT.exit) => {
-      const pos = [], idx = [];
+      const pos = [], idx = [], uv = [];
       let row = 0;
       const p0s = this.pAtSs(from), p1s = this.pAtSs(to);
       for (let q = p0s; q <= p1s + 1e-6; q += Math.min(1, p1s - p0s || 1)) {
         const p0 = this.poseP(q, d0), p1 = this.poseP(q, d1);
         pos.push(p0.x, p0.y + y, p0.z, p1.x, p1.y + y, p1.z);
+        uv.push(0.12, q / 10, 0.88, q / 10);          // come la pista: attraverso 0..1, lungo in decine di metri
         if (row) { const a = (row - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
         row++;
         if (p1s - p0s <= 0) break;
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
       geo.setIndex(idx); geo.computeVertexNormals();
+      // faccia verso l'alto (l'asfalto della pista si vede da un solo lato)
+      if (geo.attributes.normal.count && geo.attributes.normal.getY(0) < 0) {
+        for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+        geo.setIndex(idx); geo.computeVertexNormals();
+      }
       const m = new THREE.Mesh(geo, mat);
-      m.material.side = THREE.DoubleSide;
+      if (mat !== this.track.asphMat) m.material.side = THREE.DoubleSide;
       m.receiveShadow = true;
       g.add(m);
     };
