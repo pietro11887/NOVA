@@ -505,7 +505,7 @@ function startRaceRest() {
   document.body.classList.add('race-mode');
   $('racePos').classList.remove('hidden');
   $('tower').classList.remove('hidden');
-  $('pitBtn').classList.toggle('hidden', !race.pitLane);
+  $('pitBtn').classList.add('hidden');      // niente chiamata: si entra ai box quando si vuole
   pitUi();
   camState.init = false;
   updateCarVisual(0);
@@ -525,7 +525,6 @@ function startGame() {
       color: tm ? parseInt(tm.colors[0].slice(1), 16) : 0xff8a1c };
     pitChoice = { compound: phys.compound === 'S' ? 'M' : 'S', repair: false };
     setTyreColor(car, phys.compound);
-    $('pitBtn').classList.remove('hidden');
   }
   pitUi();
   startCountdown();
@@ -1944,7 +1943,7 @@ function pitUi() {
   // il pannello serve solo per scegliere: dal semaforo verde in poi sparisce (non copre i comandi in uscita)
   $('pitPanel').classList.toggle('hidden', !(me.boxCall || (pit && (pit.phase === 'in' || pit.phase === 'service'))));
   $('pitBtn').classList.toggle('active', !!(pit || me.boxCall));
-  $('pitCancel').classList.toggle('hidden', !!pit);
+  $('pitCancel').classList.add('hidden');
   if (!pit) setText('pitCount', 'BOX CHIAMATO');
   document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
   const rt = phys.repairTime();
@@ -3365,7 +3364,6 @@ function frame(now) {
   if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(PC() && PC().pit)) rescue();
   if (input.consume('KeyB') && mode === 'race') toggleOT();
   // box: X chiama/annulla, 1-2-3 gomme, 4 riparazione (croce del pad: su, sinistra/destra, giù)
-  if (input.consume('KeyX')) pitCall();
   if (PC() && (PC().boxCall || PC().pit)) {
     const order = ['S', 'M', 'H'], k = order.indexOf(pitChoice.compound);
     if (input.consume('Digit1')) pitSet('S'); if (input.consume('Digit2')) pitSet('M'); if (input.consume('Digit3')) pitSet('H');
