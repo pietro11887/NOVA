@@ -777,7 +777,7 @@ function finishLap(time) {
     store.set('novaf1.bestSectors.v3' + recKey(), bestSectors);
     if (!best || time < best.time) {
       isBest = true;
-      best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec };
+      best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec, date: Date.now(), car: carLabel() };
       store.set('novaf1.best.v3' + recKey(), best);
     }
   }
@@ -2592,7 +2592,7 @@ function onlineLost(who) {
 }
 
 // --- navigazione del menu (come F1 25: titolo › menu a riquadri › scuderia › circuito › impostazioni › caricamento › box › gara)
-const MENU_PAGES = ['menuTitle', 'menuHome', 'menuOnline', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits'];
+const MENU_PAGES = ['menuTitle', 'menuHome', 'menuOnline', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits', 'menuRecords'];
 function showMenuPage(id) {
   MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id));
   if (garage) garage.active = id === 'menuGarage' || id === 'menuHub';
@@ -2610,6 +2610,49 @@ $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('settingsTile').addEventListener('click', () => showMenuPage('menuSettings'));
 $('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
 $('creditsBtn').addEventListener('click', () => showMenuPage('menuCredits'));
+// --- i miei record: giro migliore per circuito e categoria (F1 / GT3), simulazione e arcade
+let recMode = ARC() ? 'arc' : 'norm';
+function carLabel() { return IS_F1 ? (teamById(settings.f1Team) || {}).name || 'F1' : '992 GT3 R'; }
+function renderRecords() {
+  document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
+  const arc = recMode === 'arc' ? '.arc' : '';
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1']];
+  let html = '';
+  for (const t of TRACKS) {
+    const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
+    const { d } = outlinePath(t, 130, 74, 6);
+    html += `<div class="recCard"><svg viewBox="0 0 130 74" aria-hidden="true"><path d="${d}" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+      <h3><span class="rcFlag">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>${t.name.toUpperCase()}</h3>`;
+    for (const [c, label, k] of cls) {
+      const key = base + k + arc;
+      const b = store.get('novaf1.best.v3' + key), bs = store.get('novaf1.bestSectors.v3' + key) || [];
+      const ideal = bs.length === 3 && bs.every(x => x != null) ? bs.reduce((a, x) => a + x, 0) : null;
+      const date = b && b.date ? new Date(b.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      html += `<div class="recRow"><span class="cls ${c}">${label}</span>
+        <span class="tm${b ? '' : ' none'}">${b ? fmt(b.time) : '—'}</span><span class="dt">${date}${b && b.car ? '<br>' + b.car : ''}</span>`;
+      if (b) {
+        const sec = (b.sectors || []).map((x, i) => x == null ? '' : `<span>S${i + 1} <em>${x.toFixed(3)}</em></span>`).join('');
+        html += `<span class="sec">${sec}</span><span class="sec">${ideal && ideal < b.time - 0.001 ? `<span>GIRO IDEALE <b>${fmt(ideal)}</b></span>` : ''}
+          <button class="del" data-key="${key}">✕ cancella</button></span>`;
+      } else html += `<span class="sec">Nessun giro valido</span>`;
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  $('recGrid').innerHTML = html;
+  $('recGrid').querySelectorAll('.del').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Cancellare questo record (e il suo fantasma)?')) return;
+    const k = btn.dataset.key;
+    try { localStorage.removeItem('novaf1.best.v3' + k); localStorage.removeItem('novaf1.bestSectors.v3' + k); } catch (e) { /* niente */ }
+    if (k === recKey()) { best = null; bestSectors = [null, null, null]; }
+    renderRecords(); $('menuBest').textContent = best ? fmt(best.time) : '—';
+  }));
+}
+function openRecords() { sounds.ui && sounds.ui(); renderRecords(); showMenuPage('menuRecords'); }
+$('recordsBtn').addEventListener('click', openRecords);
+$('recChip').addEventListener('click', openRecords);
+document.querySelectorAll('#recTabs button').forEach(b => b.addEventListener('click', () => { recMode = b.dataset.m; renderRecords(); }));
+$('recordsBack').addEventListener('click', () => showMenuPage('menuHome'));
 ['settingsBack', 'helpBack', 'creditsBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
 $('garageBtn').addEventListener('click', () => openGarage(false));
 $('garageBack').addEventListener('click', () => showMenuPage('menuHome'));

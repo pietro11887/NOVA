@@ -144,7 +144,7 @@
       <div class="homeLogo"><span class="hl1">NOVA</span><span class="hl2">GRAND PRIX</span></div>
       <div class="topChips">
         <span class="topChip"><small>CIRCUITO</small><b id="trackName">CIRCUITO NOVA</b></span>
-        <span class="topChip"><small>RECORD</small><b id="menuBest">—</b></span>
+        <span class="topChip recChip" id="recChip" role="button" tabindex="0"><small>RECORD</small><b id="menuBest">—</b></span>
         <button class="topIc" id="settingsBtn" aria-label="Impostazioni">⚙</button>
       </div>
     </header>
@@ -156,7 +156,7 @@
       <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
       <button class="tile" id="settingsTile"><span class="tTag">OPZIONI</span><b>IMPOSTAZIONI</b><small>Comandi, telecamera, grafica, audio</small><i class="tIc">⚙</i></button>
     </div>
-    <div class="navMini homeMini"><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button></div>
+    <div class="navMini homeMini"><button id="recordsBtn">🏆 Record</button><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button></div>
     <div class="liveTag" id="liveTag"><i></i><span id="liveText">IN PISTA</span></div>
   </div>
 
@@ -276,6 +276,12 @@
     <div class="mFoot"><button class="go" id="helpBack">OK</button></div>
   </div>
 
+  <div class="menuPage hidden" id="menuRecords">
+    <header class="mHead"><div class="logo">I MIEI RECORD</div></header>
+    <div class="recTabs" id="recTabs"><button data-m="norm" class="sel">SIMULAZIONE</button><button data-m="arc">ARCADE</button></div>
+    <div class="recGrid" id="recGrid"></div>
+    <div class="mFoot"><span class="carHint">Giri validi della prova a tempo e della qualifica. Restano salvati su questo dispositivo.</span><button class="go" id="recordsBack">OK</button></div>
+  </div>
   <div class="menuPage hidden" id="menuCredits">
     <header class="mHead"><div class="logo">CREDITI</div></header>
     <div class="textPage">
