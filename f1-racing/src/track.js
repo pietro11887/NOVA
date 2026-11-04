@@ -289,7 +289,7 @@ export class Track {
               float fr = 0.05 + 0.95 * pow(1.0 - ndv, 4.0);
               float edge = smoothstep(0.0, 0.06, ruv.x) * smoothstep(1.0, 0.94, ruv.x) * smoothstep(0.0, 0.06, ruv.y) * smoothstep(1.0, 0.94, ruv.y);
               float k = clamp(uReflK * uWet * (0.4 + 0.5 * wPud) * (0.25 + 0.75 * fr) * edge, 0.0, 0.75);
-              outgoingLight = mix(outgoingLight, rcol * 0.88, k);
+              outgoingLight = mix(outgoingLight, rcol * (0.62 + 0.26 * wPud), k);
             }
             #include <opaque_fragment>`);
       };

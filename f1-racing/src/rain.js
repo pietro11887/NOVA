@@ -15,7 +15,9 @@ export class Rain {
     const low = quality === 'low', ultra = quality === 'ultra';
     const I = WX.rain;
     // ---- gocce: righe sottili in una scatola che segue la telecamera (si ripetono all'infinito)
-    const N = Math.round((low ? 7000 : ultra ? 30000 : 18000) * (0.35 + 0.65 * I));
+    const heavy = I > 0.7;
+    this.heavy = heavy;
+    const N = Math.round((low ? 9000 : ultra ? 42000 : 26000) * (heavy ? 1.25 : 0.45));
     const quad = new THREE.InstancedBufferGeometry();
     quad.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, 0, 1, 0, 0, -1, 1, 0, 1, 1, 0], 3));
     quad.setIndex([0, 1, 2, 1, 3, 2]);
@@ -25,8 +27,8 @@ export class Rain {
     quad.instanceCount = N;
     this.u = {
       uCam: { value: new THREE.Vector3() }, uCamVel: { value: new THREE.Vector3() }, uTime: { value: 0 },
-      uBox: { value: new THREE.Vector3(56, 26, 56) }, uFall: { value: new THREE.Vector3(1.6, -10.5 - 2 * I, 0.8) },
-      uAlpha: { value: (low ? 0.46 : 0.26) * (0.6 + 0.4 * I) }, uColor: { value: new THREE.Color(0.78, 0.82, 0.88) }, uWidth: { value: low ? 1.6 : 1 },
+      uBox: { value: new THREE.Vector3(56, 26, 56) }, uFall: { value: new THREE.Vector3(heavy ? 3.2 : 1.6, -10.5 - 3 * I, heavy ? 1.6 : 0.8) },
+      uAlpha: { value: heavy ? (low ? 0.62 : 0.42) : (low ? 0.4 : 0.26) }, uColor: { value: new THREE.Color(0.84, 0.87, 0.92) }, uWidth: { value: (low ? 1.6 : 1) * (heavy ? 1.35 : 1) },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms: this.u, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide,
@@ -40,7 +42,7 @@ export class Rain {
           vec3 p = mod(c - uCam + uBox * 0.5, uBox) - uBox * 0.5 + uCam;
           // la riga è lunga quanto lo spazio percorso dalla goccia (rispetto alla telecamera) in 1/40 di secondo
           vec3 rel = uFall * sp - uCamVel;
-          float L = clamp(length(rel) * 0.026, 0.35, 2.6);
+          float L = clamp(length(rel) * 0.03, 0.4, 2.8);
           vec3 dir = normalize(rel);
           vec3 toCam = normalize(uCam - p);
           vec3 side = normalize(cross(dir, toCam));
@@ -98,6 +100,36 @@ export class Rain {
     this.splash.frustumCulled = false;
     scene.add(this.splash);
     this.M = M; this.sNext = 0; this.sAcc = 0;
+
+    // ---- cortine di pioggia in lontananza: veli grigi che scendono e si muovono col vento
+    //      (due cilindri attorno alla telecamera, a 60 e 140 m): danno la sensazione di diluvio
+    this.curtains = [];
+    const cMat = (alpha, scale) => new THREE.ShaderMaterial({
+      uniforms: { uTime: this.u.uTime, uA: { value: alpha }, uS: { value: scale } },
+      transparent: true, depthWrite: false, side: THREE.BackSide, fog: false,
+      vertexShader: 'varying vec2 vUv; varying float vY; void main(){ vUv = uv; vec4 wp = modelMatrix * vec4(position, 1.0); vY = position.y; gl_Position = projectionMatrix * viewMatrix * wp; }',
+      fragmentShader: `
+        uniform float uTime, uA, uS; varying vec2 vUv; varying float vY;
+        float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+        void main(){
+          vec2 q = vec2(vUv.x * uS, vUv.y * 3.0 + uTime * 2.2);
+          float streak = n(vec2(q.x * 40.0, q.y * 1.5)) * 0.6 + n(vec2(q.x * 90.0, q.y * 3.0 + 4.0)) * 0.4;
+          float sheet = n(vec2(vUv.x * uS * 0.6 + uTime * 0.05, uTime * 0.12)) ;            // folate più fitte
+          float a = uA * (0.55 + 0.45 * streak) * (0.5 + 0.8 * sheet);
+          a *= smoothstep(0.0, 0.08, vUv.y) * (1.0 - smoothstep(0.75, 1.0, vUv.y));
+          gl_FragColor = vec4(vec3(0.62, 0.65, 0.7), a);
+        }`,
+    });
+    for (const [R, a, sc] of [[60, heavy ? 0.16 : 0.07, 18], [140, heavy ? 0.24 : 0.1, 30]]) {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 70, 48, 1, true), cMat(a, sc));
+      m.frustumCulled = false; m.renderOrder = 4;
+      scene.add(m); this.curtains.push(m);
+    }
+
+    // ---- gocce sull'obiettivo della telecamera (sopra il gioco, sotto i comandi)
+    this.lens = new LensDrops(heavy ? 1 : 0.45);
     this.rate = (low ? 260 : 650) * (0.4 + 0.6 * I);   // schizzi al secondo
     this.prev = new THREE.Vector3(); this.hasPrev = false;
     this.camVel = new THREE.Vector3();
@@ -116,6 +148,8 @@ export class Rain {
     }
     this.prev.copy(cp); this.hasPrev = true;
     u.uCam.value.copy(cp); u.uCamVel.value.copy(this.camVel);
+    for (const c of this.curtains) c.position.set(cp.x, cp.y + 18, cp.z);
+    if (this.lens) this.lens.update(dt, this.camVel.length(), this.lensOn !== false);
     // nuovi schizzi sulla pista attorno alla vettura seguita
     if (focusI == null || dt <= 0) return;
     const S = this.track.samples, n = this.track.count, r = this.rnd;
@@ -134,7 +168,7 @@ export class Rain {
     if (changed) this.sAttr.needsUpdate = true;
   }
 
-  setVisible(v) { this.drops.visible = v; this.splash.visible = v; }
+  setVisible(v) { this.drops.visible = v; this.splash.visible = v; for (const c of this.curtains) c.visible = v; }
 }
 
 // nuvola d'acqua sollevata dalle ruote (come in TV: dietro le vetture veloci non si vede quasi niente)
@@ -145,7 +179,7 @@ export function sprayFor(p, spray, dt, near = 1) {
   for (let i = 2; i < 4; i++) {
     const w = p.wheels[i];
     if (w.sf.type > 1 || !(w.fz > 0)) continue;
-    let m = dt * 26 * k;
+    let m = dt * (18 + 22 * WX.rain) * k;
     while (m > 0) {
       if (m < 1 && Math.random() > m) break;
       m -= 1;
@@ -153,7 +187,7 @@ export function sprayFor(p, spray, dt, near = 1) {
       const wx = p.x + cy * (w.x - back) - sy * w.y, wz = p.z + sy * (w.x - back) + cy * w.y;
       const lat = (Math.random() - 0.5) * 2.2;
       spray.emit(wx, w.ground + 0.25 + Math.random() * 0.3, wz, {
-        color: [0.82, 0.85, 0.88], size: 0.9 + Math.random() * 0.6, grow: 5 + 3 * k, life: 0.7 + Math.random() * 0.6, alpha: 0.11 + 0.13 * k,
+        color: [0.74, 0.77, 0.8], size: 0.9 + Math.random() * 0.7, grow: 5 + 4 * k * WX.rain, life: 0.7 + Math.random() * 0.8 * WX.rain, alpha: (0.1 + 0.16 * k) * (0.7 + 0.5 * WX.rain),
         vx: p.vx * 0.55 - sy * lat, vy: 0.8 + Math.random() * 1.6 * k, vz: p.vz * 0.55 + cy * lat, drag: 1.6,
       });
     }
@@ -191,5 +225,76 @@ export function blinkRainLights(models, t) {
     // lampeggio veloce come le vere luci da pioggia (circa 4 volte al secondo)
     const on = ((t * 4 + m.rainPhase) % 1) < 0.55;
     m.rainLight.visible = on && m.root.visible;
+  }
+}
+
+// Gocce sull'obiettivo (come le telecamere TV sotto la pioggia): compaiono, restano un po',
+// scivolano via; più veloce vai, più corrono verso i bordi. Disegnate su una tela leggera sopra il gioco.
+class LensDrops {
+  constructor(amount) {
+    const c = document.createElement('canvas');
+    c.id = 'lensDrops';
+    c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;';
+    const game = document.getElementById('game');
+    if (game && game.parentNode) game.parentNode.insertBefore(c, game.nextSibling); else document.body.appendChild(c);
+    this.c = c; this.g = c.getContext('2d');
+    this.amount = amount; this.drops = []; this.acc = 0;
+    this.resize();
+    addEventListener('resize', () => this.resize());
+  }
+  resize() { this.w = this.c.width = Math.round(innerWidth / 2); this.h = this.c.height = Math.round(innerHeight / 2); }
+  update(dt, speed, on) {
+    const g = this.g, W = this.w, H = this.h;
+    g.clearRect(0, 0, W, H);
+    this.c.style.display = on ? '' : 'none';
+    if (!on || dt <= 0) return;
+    // nuove gocce: di più da fermi o piano (in velocità l'aria le spazza via)
+    this.acc += dt * this.amount * (14 - Math.min(10, speed * 0.12));
+    while (this.acc > 1 && this.drops.length < 70) {
+      this.acc -= 1;
+      const r = (1.5 + Math.random() * 5.5) * (W / 640);
+      this.drops.push({ x: Math.random() * W, y: Math.random() * H, r, life: 2 + Math.random() * 5, t: 0, vy: 0 });
+    }
+    const cx = W / 2, cy = H * 0.45, push = Math.min(1, speed / 60);
+    this.drops = this.drops.filter(d => {
+      d.t += dt;
+      if (d.t > d.life) return false;
+      // le grosse scivolano in basso, in velocità tutte vanno verso i bordi
+      if (d.r > 4 * (W / 640)) d.vy += dt * 6;
+      d.y += d.vy * dt * 10 + (d.y - cy) * push * dt * 1.6;
+      d.x += (d.x - cx) * push * dt * 1.6;
+      if (d.x < -10 || d.x > W + 10 || d.y > H + 10 || d.y < -10) return false;
+      const a = Math.min(1, d.t * 6) * Math.min(1, (d.life - d.t) * 1.5);
+      const r = d.r, sx = 1, sy = 1 + Math.min(1.5, d.vy * 0.15 + push * 0.6);
+      g.save(); g.translate(d.x, d.y); g.scale(sx, sy);
+      // goccia: bordo scuro, centro chiaro e un riflesso in alto (sembra una lente d'acqua)
+      const gr = g.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
+      gr.addColorStop(0, `rgba(255,255,255,${0.5 * a})`);
+      gr.addColorStop(0.45, `rgba(200,210,220,${0.16 * a})`);
+      gr.addColorStop(0.85, `rgba(40,45,55,${0.22 * a})`);
+      gr.addColorStop(1, 'rgba(40,45,55,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 6.283); g.fill();
+      g.restore();
+      // scia d'acqua dietro le gocce che scivolano
+      if (d.vy > 1) { g.strokeStyle = `rgba(210,220,230,${0.12 * a})`; g.lineWidth = r * 0.6; g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x, d.y - d.vy * 3); g.stroke(); }
+      return true;
+    });
+  }
+}
+
+// lampo: il cielo si illumina un attimo (due-tre bagliori), poi arriva il tuono
+export class Lightning {
+  constructor() { this.next = 12 + Math.random() * 20; this.t = -1; this.flash = 0; }
+  update(dt) {
+    this.next -= dt;
+    let thunder = null;
+    if (this.next <= 0) { this.next = 25 + Math.random() * 40; this.t = 0; this.dist = Math.random(); thunder = { delay: 0.6 + this.dist * 3.5, power: 1 - this.dist * 0.6 }; }
+    if (this.t >= 0) {
+      this.t += dt;
+      const t = this.t;
+      this.flash = (t < 0.08 ? 1 : t < 0.16 ? 0.15 : t < 0.24 ? 0.8 : t < 0.5 ? Math.max(0, 0.6 - (t - 0.24) * 2.4) : 0) * (1 - this.dist * 0.5);
+      if (t > 0.6) { this.t = -1; this.flash = 0; }
+    }
+    return thunder;
   }
 }

@@ -19,7 +19,7 @@ import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
-import { Rain, sprayFor, addRainLight, blinkRainLights } from './rain.js';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning } from './rain.js';
 import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js';
 import { WX, WET, bestCompound } from './wx.js';
@@ -258,12 +258,12 @@ const WET_GRADE = { sat: 0.74, con: 1.05, lift: 0.014, shadow: [0.95, 0.99, 1.05
 if (WET && !TRACK.model) {
   const R = WX.rain, heavy = R > 0.7;
   ENV.rain = R;
-  const fogC = heavy ? 0x8f979f : 0xa7aeb5;
-  ENV.horizon = fogC; ENV.skyTop = heavy ? 0x59616b : 0x6f7984;
+  const fogC = heavy ? 0x737b84 : 0xa7aeb5;
+  ENV.horizon = fogC; ENV.skyTop = heavy ? 0x4a525c : 0x6f7984;
   sun.color.set(SUNSET ? 0xd9b59a : 0xdfe6ee); sun.intensity = heavy ? 0.55 : 1.25;
   hemi.color.set(heavy ? 0xaeb8c3 : 0xbcc6d1); hemi.groundColor.set(track.street ? 0x4a4842 : 0x3d4537); hemi.intensity = heavy ? 1.25 : 1.15;
-  scene.fog = new THREE.Fog(fogC, heavy ? 40 : 140, heavy ? 950 : 2000);
-  renderer.toneMappingExposure = heavy ? 1.12 : 1.06;
+  scene.fog = new THREE.Fog(fogC, heavy ? 25 : 140, heavy ? 700 : 2000);
+  renderer.toneMappingExposure = heavy ? 0.98 : 1.04;
 }
 const GRADE = WET && !TRACK.model ? WET_GRADE : LOOK ? LOOK.grade : null;
 const sounds = new Sound();
@@ -279,7 +279,7 @@ const padNav = new PadNav({
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
-let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0;
+let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
 function build() {
   track.quality = settings.quality;
@@ -347,7 +347,8 @@ function build() {
   // pioggia: gocce, schizzi, nuvole d'acqua dietro le vetture; cordoli e righe bagnati (più scuri e lucidi)
   if (WET && !TRACK.model) {
     rain = new Rain(scene, track, { quality: settings.quality });
-    spray = new Particles(scene, settings.quality === 'low' ? 900 : 2400, { soft: true });
+    spray = new Particles(scene, settings.quality === 'low' ? 1400 : 3600, { soft: true });
+    if (WX.rain > 0.7) lightning = new Lightning();
     // asfalto a specchio: la scena riflessa sotto la pista (vetture, box, cielo), a risoluzione ridotta
     if (HIQ && track.reflU) {
       try {
@@ -3565,6 +3566,15 @@ function frame(now) {
       reflDone = !ULTRA && (++reflFrame % 2 === 1);       // grafica alta: un fotogramma sì e uno no
     }
     if (track.rainT) track.rainT.value += rdt;
+    // lampi e tuoni (pioggia forte)
+    if (lightning) {
+      if (hemiBase == null) { hemiBase = hemi.intensity; expBase = renderer.toneMappingExposure; }
+      const th = lightning.update(rdt);
+      if (th) setTimeout(() => sounds.thunder(th.power), th.delay * 1000);
+      hemi.intensity = hemiBase + lightning.flash * 4;
+      renderer.toneMappingExposure = expBase * (1 + lightning.flash * 0.6);
+    }
+    rain.lensOn = mode !== 'menu' && mode !== 'pause' && !(garage && garage.active);
     // luci rosse da pioggia sul retro di tutte le vetture
     const rx = Math.min(...SPEC.hull.map(h => h[0])) * CAR_SCALE - 0.04, ry = (IS_F1 ? 0.36 : 0.86) - GEOM.cgHeight;
     const models = [car];

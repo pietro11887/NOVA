@@ -510,6 +510,23 @@ export class Sound {
   }
 
   // pubblico: vicinanza alle tribune (0-1) ed esultanza
+  // tuono: boato basso che rotola e si spegne piano (più lontano = più cupo e più debole)
+  thunder(power = 1) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, src = this.ctx.createBufferSource();
+    src.buffer = this.pinkBuf; src.playbackRate.value = 0.35 + 0.15 * power;
+    const lp = this.filt('lowpass', 180 + 420 * power, 0.7), g = this.gain(0);
+    src.connect(lp); lp.connect(g); g.connect(this.bus.amb);
+    const v = 0.9 * power;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v * 0.6, t + 0.08);
+    g.gain.linearRampToValueAtTime(v, t + 0.35);
+    g.gain.linearRampToValueAtTime(v * 0.45, t + 1.1);
+    g.gain.linearRampToValueAtTime(v * 0.7, t + 1.6);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 5.5);
+    src.start(t, Math.random() * 1.5); src.stop(t + 5.6);
+  }
+
   setCrowd(level) { this.crowdLevel = clamp(level, 0, 1); }
   cheerUp(v = 0.6) { this.cheer = Math.min(1, this.cheer + v); }
 

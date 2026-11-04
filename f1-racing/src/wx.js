@@ -20,9 +20,9 @@ export const WET = WX.wet > 0;
 // slick: sul bagnato non scarica l'acqua e scivola; intermedia: la migliore con poca acqua;
 // da bagnato: la migliore con tanta acqua; sull'asciutto le gomme da pioggia sono lente
 const TABLE = {
-  slick: [1.0, 0.64, 0.47],
-  I: [0.88, 0.81, 0.66],
-  W: [0.81, 0.75, 0.73],
+  slick: [1.0, 0.72, 0.56],
+  I: [0.9, 0.9, 0.78],
+  W: [0.85, 0.86, 0.87],
 };
 export function wetGrip(compound, speed = 0, wet = WX.wet) {
   const T = TABLE[compound === 'I' || compound === 'W' ? compound : 'slick'];
@@ -30,7 +30,7 @@ export function wetGrip(compound, speed = 0, wet = WX.wet) {
   let g = T[i] + (T[i + 1] - T[i]) * f;
   // acquaplaning: in rettilineo veloce le slick (e un po' le intermedie) galleggiano sull'acqua
   if (wet > 0 && speed > 40) {
-    const a = compound === 'W' ? 0.02 : compound === 'I' ? 0.07 : 0.2;
+    const a = compound === 'W' ? 0.01 : compound === 'I' ? 0.05 : 0.18;
     g *= 1 - a * wet * Math.min(1, (speed - 40) / 35);
   }
   return g;
