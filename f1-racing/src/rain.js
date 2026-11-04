@@ -298,3 +298,56 @@ export class Lightning {
     return thunder;
   }
 }
+
+// Tutto bagnato (muri, barriere, cordoli, prati, marciapiedi, edifici): più scuro e più lucido,
+// pozzanghere sulle superfici piane, rivoli d'acqua che scendono su quelle verticali.
+// Si aggiunge allo shader dei materiali esistenti (nessun oggetto in più da disegnare).
+export function wetifyMaterials(roots, uTime) {
+  const U = { uWetK: { value: WX.wet }, uWetT: uTime };
+  const seen = new Set();
+  for (const root of roots) {
+    if (!root) continue;
+    root.traverse(o => {
+      const m = o.isMesh && o.material;
+      if (!m || Array.isArray(m) || seen.has(m)) return;
+      seen.add(m);
+      if (!m.isMeshStandardMaterial || m.transparent || m.alphaTest > 0 || m.userData.noWet || o.isBatchedMesh) return;
+      const base = m.onBeforeCompile, key = m.customProgramCacheKey();
+      m.onBeforeCompile = (sh, r) => {
+        base.call(m, sh, r);
+        Object.assign(sh.uniforms, U);
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWetP; varying vec3 vWetN;')
+          .replace('#include <project_vertex>', `#include <project_vertex>
+            { vec4 wwp = vec4(transformed, 1.0); vec3 wwn = objectNormal;
+              #ifdef USE_INSTANCING
+              wwp = instanceMatrix * wwp; wwn = mat3(instanceMatrix) * wwn;
+              #endif
+              wwp = modelMatrix * wwp; vWetP = wwp.xyz; vWetN = mat3(modelMatrix) * wwn; }`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+            uniform float uWetK, uWetT; varying vec3 vWetP; varying vec3 vWetN;
+            float wH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+            float wN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+              return mix(mix(wH(i), wH(i + vec2(1.0, 0.0)), f.x), mix(wH(i + vec2(0.0, 1.0)), wH(i + vec2(1.0, 1.0)), f.x), f.y); }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            vec3 wNn = normalize(vWetN);
+            float wUp = smoothstep(0.75, 0.95, wNn.y);
+            float wSide = 1.0 - smoothstep(0.2, 0.55, abs(wNn.y));
+            // chiazze d'acqua per terra
+            float wPd = smoothstep(0.56, 0.68, wN(vWetP.xz * 0.12) * 0.65 + wN(vWetP.xz * 0.5 + 3.1) * 0.35) * wUp * uWetK;
+            // rivoli che colano sui muri (scendono piano)
+            float wU = vWetP.x * wNn.z - vWetP.z * wNn.x;
+            float wSt = smoothstep(0.55, 0.85, wN(vec2(wU * 6.0, vWetP.y * 0.7 + uWetT * 1.3))) * wSide * uWetK;
+            diffuseColor.rgb *= 1.0 - uWetK * 0.3 - wPd * 0.25 - wSt * 0.2;`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+            roughnessFactor = mix(roughnessFactor, max(roughnessFactor * 0.5, 0.34), uWetK);
+            roughnessFactor = mix(roughnessFactor, 0.06, wPd);
+            roughnessFactor = mix(roughnessFactor, 0.14, wSt);`)
+          // nelle pozzanghere l'acqua è ferma e liscia: niente rilievi (e niente puntini che luccicano sull'erba)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+            normal = normalize(mix(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz), wPd));`);
+      };
+      m.customProgramCacheKey = () => key + '|wet';
+      m.needsUpdate = true;
+    });
+  }
+}

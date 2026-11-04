@@ -19,7 +19,7 @@ import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning } from './rain.js';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js';
 import { RacingLine } from './racingLine.js';
 import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js';
 import { WX, WET, bestCompound } from './wx.js';
@@ -262,7 +262,7 @@ if (WET && !TRACK.model) {
   ENV.horizon = fogC; ENV.skyTop = heavy ? 0x4a525c : 0x6f7984;
   sun.color.set(SUNSET ? 0xd9b59a : 0xdfe6ee); sun.intensity = heavy ? 0.55 : 1.25;
   hemi.color.set(heavy ? 0xaeb8c3 : 0xbcc6d1); hemi.groundColor.set(track.street ? 0x4a4842 : 0x3d4537); hemi.intensity = heavy ? 1.25 : 1.15;
-  scene.fog = new THREE.Fog(fogC, heavy ? 25 : 140, heavy ? 700 : 2000);
+  scene.fog = new THREE.Fog(fogC, heavy ? 40 : 140, heavy ? 850 : 2000);
   renderer.toneMappingExposure = heavy ? 0.98 : 1.04;
 }
 const GRADE = WET && !TRACK.model ? WET_GRADE : LOOK ? LOOK.grade : null;
@@ -350,9 +350,9 @@ function build() {
     spray = new Particles(scene, settings.quality === 'low' ? 1400 : 3600, { soft: true });
     if (WX.rain > 0.7) lightning = new Lightning();
     // asfalto a specchio: la scena riflessa sotto la pista (vetture, box, cielo), a risoluzione ridotta
-    if (HIQ && track.reflU) {
+    if (track.reflU) {
       try {
-        const q = ULTRA ? 0.5 : 0.34, pr = Math.min(devicePixelRatio, 1.5);
+        const q = ULTRA ? 0.5 : HIQ ? 0.34 : 0.22, pr = Math.min(devicePixelRatio, 1.5);
         reflector = new Reflector(new THREE.PlaneGeometry(10, 10), { textureWidth: Math.round(innerWidth * pr * q), textureHeight: Math.round(innerHeight * pr * q), clipBias: 0.003 });
         const tm = reflector.material.uniforms.textureMatrix.value, rt = reflector.getRenderTarget(), inv = new THREE.Matrix4();
         reflector.material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false });
@@ -372,16 +372,17 @@ function build() {
           R.k.value = 1;
         };
         scene.add(reflector);
+        // grafica leggera: nel riflesso solo vetture, muri, box e cielo (pochi oggetti: costa poco)
+        if (!HIQ) {
+          reflector.camera.layers.set(1);
+          hemi.layers.enable(1); sun.layers.enable(1);
+          for (const r of [track.group, pitLane.group, scenery.skyMesh]) if (r) r.traverse(o => o.layers.enable(1));
+        }
       } catch (e) { console.warn('riflessi bagnato non disponibili', e); reflector = null; }
     }
-    const seen = new Set();
-    track.group.traverse(o => {
-      const m = o.isMesh && o.material;
-      if (!m || !m.isMeshStandardMaterial || m === track.asphMat || seen.has(m)) return;
-      seen.add(m);
-      m.color.multiplyScalar(1 - 0.22 * WX.wet);
-      m.roughness = Math.min(m.roughness, m.roughness + (0.3 - m.roughness) * 0.8 * WX.wet);
-    });
+    // muri, barriere, cordoli, prati, marciapiedi, edifici: bagnati (l'asfalto della pista ha il suo shader)
+    if (track.asphMat) track.asphMat.userData.noWet = true;
+    wetifyMaterials([track.group, scenery.group, pitLane.group, tufts], track.rainT || { value: 0 });
   }
   // segni e ammaccature sui muri dopo gli urti
   wallMarks = new WallMarks(scene, track, particles);
@@ -3563,7 +3564,7 @@ function frame(now) {
       const sy0 = track.samples[fc.prCG.i].y;
       reflector.position.set(camera.position.x + fxDir.x * 6, sy0 + 0.012, camera.position.z + fxDir.z * 6);
       reflector.updateMatrixWorld();
-      reflDone = !ULTRA && (++reflFrame % 2 === 1);       // grafica alta: un fotogramma sì e uno no
+      reflDone = !ULTRA && (++reflFrame % 2 === 1);       // grafica alta e leggera: un fotogramma sì e uno no
     }
     if (track.rainT) track.rainT.value += rdt;
     // lampi e tuoni (pioggia forte)
@@ -3579,7 +3580,7 @@ function frame(now) {
     const rx = Math.min(...SPEC.hull.map(h => h[0])) * CAR_SCALE - 0.04, ry = (IS_F1 ? 0.36 : 0.86) - GEOM.cgHeight;
     const models = [car];
     if (race) for (const c of race.cars) if (c.model) models.push(c.model);
-    for (const m of models) if (m && !m.rainLight) addRainLight(m, rx, ry);
+    for (const m of models) if (m && !m.rainLight) { addRainLight(m, rx, ry); if (!HIQ) m.root.traverse(o => o.layers.enable(1)); }
     blinkRainLights(models, performance.now() / 1000);
   }
   if (tufts) tufts.userData.update(mode === 'pause' ? 0 : dt);

@@ -249,7 +249,7 @@ export class Track {
         sh.uniforms.uRefl = this.reflU.tex; sh.uniforms.uReflMat = this.reflU.mat; sh.uniforms.uReflK = this.reflU.k;
         sh.fragmentShader = sh.fragmentShader.replace('#include <clipping_planes_pars_fragment>', `#include <clipping_planes_pars_fragment>
           uniform float uWet, uRainT, uReflK; uniform sampler2D uRefl; uniform mat4 uReflMat;
-          float wetPud(){ return smoothstep(0.6, 0.7, texture2D(map, vWPos.xz * 0.017 + 0.43).r) * smoothstep(0.3, 0.6, texture2D(map, vWPos.xz * 0.004 + 0.1).r); }
+          float wetPud(){ return smoothstep(0.55, 0.66, texture2D(map, vWPos.xz * 0.017 + 0.43).r) * smoothstep(0.25, 0.55, texture2D(map, vWPos.xz * 0.004 + 0.1).r); }
           vec2 wetRip(vec2 p, float t){
             vec2 g = vec2(0.0);
             for (int k = 0; k < 2; k++) {
@@ -264,7 +264,9 @@ export class Track {
             return g;
           }`)
           .replace('#include <color_fragment>', `#include <color_fragment>
-            float wPud = wetPud() * uWet;
+            // acqua che si raccoglie ai bordi della pista (pendenza verso l'esterno) più le pozzanghere sparse
+            float wEdge = 1.0 - smoothstep(0.02, 0.13, min(vMapUv.x, 1.0 - vMapUv.x));
+            float wPud = max(wetPud(), wEdge * smoothstep(0.35, 0.6, texture2D(map, vWPos.xz * 0.03 + 0.7).r)) * uWet;
             diffuseColor.rgb *= 1.0 - uWet * 0.48 - wPud * 0.2;`)
           .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
             roughnessFactor = mix(roughnessFactor, 0.17, uWet * 0.88);
@@ -288,8 +290,8 @@ export class Track {
               float ndv = clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0);
               float fr = 0.05 + 0.95 * pow(1.0 - ndv, 4.0);
               float edge = smoothstep(0.0, 0.06, ruv.x) * smoothstep(1.0, 0.94, ruv.x) * smoothstep(0.0, 0.06, ruv.y) * smoothstep(1.0, 0.94, ruv.y);
-              float k = clamp(uReflK * uWet * (0.4 + 0.5 * wPud) * (0.25 + 0.75 * fr) * edge, 0.0, 0.75);
-              outgoingLight = mix(outgoingLight, rcol * (0.62 + 0.26 * wPud), k);
+              float k = clamp(uReflK * uWet * (0.35 + 0.5 * wPud) * (0.3 + 0.5 * fr) * edge, 0.0, 0.6);
+              outgoingLight = mix(outgoingLight, rcol * (0.55 + 0.25 * wPud), k);
             }
             #include <opaque_fragment>`);
       };
