@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildPitComplex } from './pitComplex.js';
 import { Scenery, ENV } from './scenery.js';
 import { PIT, TRACK } from './trackData.js';
 import { setAniso, triplanar, meadow } from './pbr.js';
@@ -182,26 +184,9 @@ export class SpaScenery extends Scenery {
   }
 
   // box lungo la corsia vera: garage delle squadre, piano superiore vetrato e terrazza
+  // box veri (uno per vettura, due per scuderia) con interni, piazzole, muretto, direzione gara e paddock
   pitGarages() {
-    const pts = this.track.pit.pts, sd = PIT.side;
-    if (!pts || !pts.length) return;
-    const at = ss => { let lo = 0, hi = pts.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].ss < ss) lo = m; else hi = m; } return pts[lo]; };
-    const teams = [0xff8a1c, 0xd8231f, 0x2a62c9, 0x1f9a4a, 0xf5c518, 0x6a2cd8, 0x111111, 0xf2f2f2, 0x27c3ea, 0xe0457b];
-    const gw = PIT.boxGap;
-    for (let k = -2; k <= 22; k++) {
-      const p = at(PIT.boxFrom + k * gw);
-      const off = PIT.halfW + 1.2 + 8;
-      const x = p.x + p.nx * sd * off, z = p.z + p.nz * sd * off;
-      const ry = Math.atan2(-p.nx * sd, -p.nz * sd);
-      const fx = Math.sin(ry), fz = Math.cos(ry), y = p.y;
-      const team = k < 0 || k > 19 ? 0xe9eaec : teams[k % teams.length];
-      this.batch.add(new THREE.BoxGeometry(gw, 7, 16), this.colored, mat4(x, y + 3.5, z, ry), 0xe9ebee);
-      this.batch.add(new THREE.BoxGeometry(gw - 2.4, 5, 0.2), this.colored, mat4(x + fx * 8.0, y + 2.5, z + fz * 8.0, ry), k < 0 || k > 19 ? 0x8a9099 : 0x22252b);
-      this.batch.add(new THREE.BoxGeometry(gw, 1.0, 0.3), this.colored, mat4(x + fx * 8.05, y + 6.2, z + fz * 8.05, ry), team);
-      this.batch.add(new THREE.BoxGeometry(gw, 4.2, 12), this.colored, mat4(x - fx * 2, y + 9.1, z - fz * 2, ry), 0x5f7486);
-      this.batch.add(new THREE.BoxGeometry(gw, 0.5, 16.6), this.colored, mat4(x, y + 11.45, z, ry), 0x1b1d22);
-      this.occupied.push([x, z, 13]);
-    }
+    buildPitComplex(this, this.track, { mergeFn: mergeGeometries, low: this.low });
   }
 
   // case delle Ardenne (OpenStreetMap): muri chiari o in pietra, tetti a due falde di ardesia scura

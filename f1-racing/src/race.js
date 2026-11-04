@@ -5,6 +5,7 @@ import { SPEC, IS_F1 } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
 import { TOW_LEVELS } from './driveMode.js';
+import { TEAMS } from './f1Teams.js';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -12,6 +13,7 @@ import { TOW_LEVELS } from './driveMode.js';
 // precede ha, per tutto il giro dopo, energia elettrica in più (0,5 MJ) da usare quando vuole:
 // tutta insieme o un po' alla volta. Qui: circa 7 secondi di spinta piena.
 export const OT_GAP = 1.0, OT_ENERGY = 7;
+export const N_BOXES = 22, GT_PLAYER_BOX = 19;     // piazzole in corsia box (11 scuderie × 2)
 
 export const DRIVERS = [
   ['ROSSI', 0xd8231f, 0xffd21e], ['BIANCHI', 0x1b3a8a, 0xff2d55], ['VERDI', 0x0a7d3e, 0xffffff],
@@ -64,7 +66,7 @@ export class Race {
         team: isPlayer ? opts.playerTeam || null : null,
         crossings: 0, halfway: false, finishT: null, lastLapT: null, bestLap: null, lapStart: 0,
         pass: [], sPrev: 0,
-        pit: null, pitRequest: null, stops: 0, plan: [],
+        pit: null, pitRequest: null, stops: 0, plan: [], bi,
       };
       phys.damageMode = opts.damageMode || 'sim';
       phys.arcade = !!opts.arcade;
@@ -85,6 +87,7 @@ export class Race {
       this.cars.push(car);
     }
     this.player = this.cars[playerSlot];
+    this.assignBoxes();
     this.placeGrid();
     // benzina per tutta la gara (circa 1,9 kg al giro) più un margine
     for (const c of this.cars) { c.phys.fuel = Math.min(110, this.laps * 1.9 + 2); c.phys.mass = c.phys.baseMass + c.phys.fuel; }
@@ -99,6 +102,19 @@ export class Race {
           c.plan.push(Math.max(2, Math.min(this.laps - 1, lap)));
         }
       }
+    }
+  }
+
+  // box di ogni vettura: in F1 due box affiancati per scuderia (nell'ordine delle squadre), come nella corsia vera;
+  // in GT un box per pilota (i colori del box sono quelli della sua vettura), il tuo è il "NOVA RACING"
+  assignBoxes() {
+    const used = {};
+    for (const c of this.cars) {
+      if (c.team) {
+        const t = Math.max(0, TEAMS.findIndex(x => x.id === c.team.id));
+        const k = used[t] = (used[t] ?? -1) + 1;
+        c.box = t * 2 + Math.min(1, k);
+      } else c.box = c.isPlayer ? GT_PLAYER_BOX : c.remote && !c.ai ? GT_PLAYER_BOX + 1 : (c.bi ?? c.slot) % GT_PLAYER_BOX;
     }
   }
 

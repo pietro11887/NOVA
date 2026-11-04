@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, sponsorAt } from './trackData.js';
+import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt } from './trackData.js';
 import * as tex from './textures.js';
 import { texSet, triplanar } from './pbr.js';
 
@@ -404,6 +404,13 @@ export class Track {
     const tyreT = tex.tyreWall(); tyreT.anisotropy = aniso;
     const fenceT = this.quality !== 'low' && !TRACK.model ? tex.fineFence() : tex.fence(); fenceT.anisotropy = aniso;
     // sub: suddivisioni tra due campioni, hr: righe in altezza (le barriere morbide ne hanno tante per potersi ammaccare)
+    // davanti ai box niente muro né rete sul lato dei garage: la corsia dà direttamente sulle piazzole
+    const L = this.length;
+    const boxOpen = s => {
+      if (!PIT || TRACK.model || side !== PIT.side || PIT.boxFrom == null) return false;
+      const ss = s.s > L / 2 ? s.s - L : s.s;
+      return ss > PIT.boxFrom - 4.5 * PIT.boxGap && ss < PIT.boxFrom + 22.5 * PIT.boxGap;
+    };
     const make = (h0, h1, mat, vs, mask, extrude = 0, pitWall = false, flip = 1, sub = 1, hr = 1) => {
       const pos = [], uv = [], idx = [];
       let prev = -1, last = null;
@@ -419,7 +426,7 @@ export class Track {
       };
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
-        if ((mask && !mask(s)) || (!pitWall && (side > 0 ? s.openL : s.openR))) { prev = -1; last = null; continue; }
+        if ((mask && !mask(s)) || (!pitWall && (side > 0 ? s.openL : s.openR)) || (!pitWall && boxOpen(s))) { prev = -1; last = null; continue; }
         const w = (pitWall ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR)) + extrude;
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         // ss: distanza continua anche a cavallo del traguardo

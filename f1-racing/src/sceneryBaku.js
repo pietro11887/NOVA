@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildPitComplex } from './pitComplex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Scenery, ENV } from './scenery.js';
 import { PIT, TRACK } from './trackData.js';
@@ -428,41 +429,9 @@ export class BakuScenery extends Scenery {
 
   // ------------------------------------------------------------------ box
   // garage temporanei lungo la corsia box vera (lato città)
+  // box veri (uno per vettura, due per scuderia) con interni, piazzole, muretto, direzione gara e paddock
   pitGarages() {
-    const pts = this.track.pit.pts, sd = PIT.side;
-    const at = ss => { let lo = 0, hi = pts.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].ss < ss) lo = m; else hi = m; } return pts[lo]; };
-    const teams = [0xff8a1c, 0xd8231f, 0x2a62c9, 0x1f9a4a, 0xf5c518, 0x6a2cd8, 0x111111, 0xf2f2f2, 0x27c3ea, 0xe0457b];
-    const gw = PIT.boxGap;
-    for (let k = -1; k <= 20; k++) {
-      const p = at(PIT.boxFrom + k * gw);
-      const off = PIT.halfW + 1.2 + 7;
-      const x = p.x + p.nx * sd * off, z = p.z + p.nz * sd * off;
-      const ry = Math.atan2(-p.nx * sd, -p.nz * sd);   // +Z locale verso la corsia
-      const fx = Math.sin(ry), fz = Math.cos(ry);
-      const y = p.y;
-      const team = k < 0 || k > 19 ? 0xe9eaec : teams[k % teams.length];
-      this.batch.add(new THREE.BoxGeometry(gw, 7.5, 14), this.colored, mat4(x, y + 3.75, z, ry), 0xeceef1);
-      this.batch.add(new THREE.BoxGeometry(gw - 2.4, 5, 0.2), this.colored, mat4(x + fx * 7.0, y + 2.5, z + fz * 7.0, ry), k < 0 || k > 19 ? 0x8a9099 : 0x22252b);
-      this.batch.add(new THREE.BoxGeometry(gw, 1.1, 0.3), this.colored, mat4(x + fx * 7.05, y + 6.3, z + fz * 7.05, ry), team);
-      // piano superiore (hospitality) con vetrate e terrazza
-      this.batch.add(new THREE.BoxGeometry(gw, 3.6, 10), this.colored, mat4(x - fx * 2, y + 9.3, z - fz * 2, ry), 0x6f8597);
-      this.batch.add(new THREE.BoxGeometry(gw, 0.5, 14.6), this.colored, mat4(x, y + 11.35, z, ry), 0xd8231f);
-      this.clearBuildings(x, z, 10.5);
-      this.occupied.push([x, z, 12]);
-    }
-    // paddock dietro i box: strada di servizio, motorhome
-    const r = rand(17);
-    for (let k = 0; k < 18; k++) {
-      const p = at(PIT.boxFrom + k * gw * 1.1);
-      const off = PIT.halfW + 1.2 + 14 + 9;
-      const x = p.x + p.nx * sd * off, z = p.z + p.nz * sd * off;
-      if (this.inBuilding(x, z, 4) || !this.isLand(x, z)) continue;
-      const ry = Math.atan2(-p.nx * sd, -p.nz * sd) + Math.PI / 2;
-      const team = teams[k % teams.length];
-      this.batch.add(new THREE.BoxGeometry(13, 3.8, 2.6), this.colored, mat4(x, y0(this, x, z) + 2.2, z, ry), r() < 0.5 ? team : 0xf2f2f2);
-      this.occupied.push([x, z, 8]);
-    }
-    function y0(self, x, z) { return self.heightAt(x, z); }
+    buildPitComplex(this, this.track, { mergeFn: mergeGeometries, low: this.low });
   }
 
   // ------------------------------------------------------------------ Città Vecchia
@@ -1326,7 +1295,7 @@ export class BakuScenery extends Scenery {
       for (const side of [1, -1]) {
         if (r() < 0.45) continue;
         const f = this.frame(i, side, 0.42);
-        if (!this.isLand(f.x, f.z)) continue;
+        if (!this.isLand(f.x, f.z) || !this.free(f.x, f.z, 1)) continue;     // niente striscioni davanti ai box
         const k = Math.floor(r() * 4);
         const pg = new THREE.PlaneGeometry(12, 1.5);
         const uv = pg.attributes.uv;

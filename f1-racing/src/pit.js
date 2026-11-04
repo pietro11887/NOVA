@@ -135,7 +135,7 @@ export class PitStop {
     this.v = Math.max(p.speed, 10);
     const hw = p.track.samples[p.prCG.i].hw;
     this.fromD = Math.max(-hw - 2, Math.min(hw + 2, p.prCG.d));
-    this.box = lane.boxS(car.slot % 20);
+    this.box = lane.boxS(car.box ?? car.slot % 20);       // il box della sua squadra
     this.boxP = lane.pAtSs(this.box);
     this.phase = 'in';              // in -> service -> out -> done
     this.service = 0;

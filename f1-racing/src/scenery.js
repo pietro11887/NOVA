@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildPitComplex } from './pitComplex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as tex from './textures.js';
 import { sponsorAt } from './trackData.js';
@@ -227,7 +228,7 @@ export class Scenery {
     // materiali fotografici (grafica media e alta)
     if (!this.low) { setAniso(this.aniso); triplanar(this.colored, 'concrete', { scale: 3, strength: 0.45, normal: 0.6 }); }
     const steps = ['sky', 'mountains', 'terrain', 'water', 'pitBuilding', 'grandstands', 'gantry', 'billboards', 'bigScreen',
-      'bridge', 'paddock', 'trackside', 'brakeBoards', 'marshals', 'spectators', 'campsite', 'village', 'windFarm', 'balloons', 'birds', 'trees', 'bushes'];
+      'bridge', 'trackside', 'brakeBoards', 'marshals', 'spectators', 'campsite', 'village', 'windFarm', 'balloons', 'birds', 'trees', 'bushes'];
     for (const s of steps) { const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
   }
@@ -713,37 +714,9 @@ export class Scenery {
     this.group.add(inst);
   }
 
+  // box veri (uno per vettura, due per scuderia) con interni, piazzole, muretto, direzione gara e paddock
   pitBuilding() {
-    const st = this.track.step;
-    const pt = tex.pitBuilding(); pt.anisotropy = this.aniso;
-    const len = 300;
-    pt.repeat.set(len / 40, 1);
-    const g = new THREE.Group();
-    const white = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.7 });
-    const front = new THREE.MeshStandardMaterial({ map: pt, roughness: 0.7 });
-    // box: facciata verso la pista (+Z)
-    const mats = [white, white, white, white, front, white];
-    const b = new THREE.Mesh(new THREE.BoxGeometry(len, 9, 16), mats);
-    b.position.set(0, 4.5, -8); b.castShadow = true; b.receiveShadow = true; g.add(b);
-    const roofTrim = new THREE.Mesh(new THREE.BoxGeometry(len + 1, 0.8, 17), new THREE.MeshStandardMaterial({ color: 0xc0262c, roughness: 0.6 }));
-    roofTrim.position.set(0, 9.3, -8); g.add(roofTrim);
-    // secondo piano con vetrate e terrazza
-    const glass = new THREE.MeshStandardMaterial({ color: 0x2a3a52, roughness: 0.08, metalness: 0.7 });
-    const upper = new THREE.Mesh(new THREE.BoxGeometry(len - 20, 4, 11), [white, white, white, white, glass, white]);
-    upper.position.set(0, 11.7, -10); upper.castShadow = true; g.add(upper);
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 12), [white, white, white, white, glass, white]);
-    tower.position.set(-110, 19.7, -10); tower.castShadow = true; g.add(tower);
-    const towerTop = new THREE.Mesh(new THREE.BoxGeometry(16, 0.8, 14), roofTrim.material);
-    towerTop.position.set(-110, 26.1, -10); g.add(towerTop);
-    // insegne
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(22, 4), new THREE.MeshStandardMaterial({ map: tex.sponsor('NOVA', '#ffffff', ['#4b2fd6', '#b43adf']), emissive: 0x221144, emissiveIntensity: 0.3 }));
-    sign.position.set(-60, 15.8, -4.2); g.add(sign);
-    const sign2 = sign.clone(); sign2.position.x = 70; g.add(sign2);
-    const sign3 = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), new THREE.MeshStandardMaterial({ map: tex.sponsor('RACE CONTROL', '#ffffff', ['#1a1a1a', '#3a3a3a']) }));
-    sign3.position.set(-110, 23.5, -3.95); g.add(sign3);
-    g.userData.radius = 150;
-    // il centro dell'edificio a circa 95 m dopo il traguardo, a destra
-    this.place(g, Math.round(95 / st), -1, 0.5);
+    buildPitComplex(this, this.track, { mergeFn: mergeGeometries, low: this.low });
   }
 
   gantry() {

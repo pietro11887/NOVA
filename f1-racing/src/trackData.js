@@ -608,7 +608,7 @@ function pitFromPath(path, samples, length, step, count) {
     startD: pts[0].d, endD: pts[len].d,
   });
   // piazzole lungo il tratto centrale
-  const nBox = 20, gap = PIT.boxGap || 12;
+  const nBox = 22, gap = PIT.boxGap || 12;          // 11 scuderie × 2
   const mid = (PIT.limitFrom + PIT.limitTo) / 2;
   PIT.boxFrom = mid - (nBox - 1) * gap / 2;
   PIT.boxGap = gap;
