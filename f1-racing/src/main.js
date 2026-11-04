@@ -19,7 +19,7 @@ import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './rep
 import { Sound } from './audio.js';
 import { Particles, SkidMarks, Debris } from './effects.js';
 import { RacingLine } from './racingLine.js';
-import { Race, DRIVERS } from './race.js';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js';
 import { PitLane, PitStop } from './pit.js';
 import { PitCrew } from './pitCrew.js';
 import { buildGrassTufts } from './grassTufts.js';
@@ -402,6 +402,7 @@ function startCountdown() {
 }
 
 function clearRace() {
+  trialCar = null;
   podium = null; $('podium').classList.add('hidden');
   if (recorder && !recorder.stopped && recorder.frames.length > HZ_MIN_FRAMES) saveReplay(recorder.pack());
   recorder = null;
@@ -516,6 +517,17 @@ function startGame() {
   gameType = 'trial';
   clearRace();
   prepareStart();
+  // prova a tempo: si può entrare ai box quando si vuole (box della propria squadra, meccanici, cambio gomme)
+  if (pitLane) {
+    const tm = IS_F1 ? teamById(settings.f1Team) : null;
+    trialCar = { phys, isPlayer: true, slot: 0, name: 'TU', crossings: 0, penalty: 0, penServed: 0, pit: null, boxCall: false,
+      box: tm ? Math.max(0, TEAMS.findIndex(t => t.id === tm.id)) * 2 : GT_PLAYER_BOX,
+      color: tm ? parseInt(tm.colors[0].slice(1), 16) : 0xff8a1c };
+    pitChoice = { compound: phys.compound === 'S' ? 'M' : 'S', repair: false };
+    setTyreColor(car, phys.compound);
+    $('pitBtn').classList.remove('hidden');
+  }
+  pitUi();
   startCountdown();
 }
 
@@ -659,6 +671,7 @@ function physicsStep(inp, h = DT) {
     if (race.player.finishT == null) raceSectors(sPrev, phys.prCG.s);
     return;
   }
+  if (trialCar && trialPit(h, sPrev)) return;
   phys.step(h, cmd);
   timing(sPrev, phys.prCG.s);
   arcadeRescue(h);
@@ -1095,7 +1108,7 @@ const qTmp = new THREE.Quaternion(), qYaw = new THREE.Quaternion().setFromAxisAn
 const qTcam = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.12);   // T-Cam: 7 gradi verso il basso
 // pit stop come in TV: inquadratura di tre quarti dal lato della corsia mentre cambiano le gomme
 function pitCamera() {
-  const pit = race && race.player.pit;
+  const pit = PC() && PC().pit;
   if (!pit || (pit.phase !== 'service' && pit.phase !== 'release') || mode !== 'race') return false;
   hideCockpit();
   const P = pit.lane.pts[Math.min(pit.lane.pts.length - 1, Math.round(pit.boxP))];
@@ -1788,23 +1801,24 @@ function updateHud(dt) {
   }
   const comp = phys.compound;
   if (hudCache.comp !== comp) { hudCache.comp = comp; const el = $('aidTyre'); el.textContent = comp; el.style.borderColor = '#' + COMPOUNDS[comp].color.toString(16).padStart(6, '0'); }
-  if (race && race.player.pit) {
-    const pit = race.player.pit;
+  if (PC() && PC().pit) {
+    const pit = PC().pit;
     setText('pitInfo', pit.phase === 'service' ? (pit.penWait && pit.service < pit.penWait ? `PENALITÀ ${(pit.penWait - pit.service).toFixed(1)} s` : `PIT STOP ${pit.service.toFixed(1)} s`) : pit.phase === 'release' ? 'VERDE · GAS!' : 'LIMITATORE 80');
     $('pitInfo').classList.toggle('go', pit.phase === 'release');
   }
-  $('pitInfo').classList.toggle('hidden', !(race && race.player.pit));
-  if (race && race.player.pit && race.player.pit.phase === 'in') {
-    const pit = race.player.pit;
+  $('pitInfo').classList.toggle('hidden', !(PC() && PC().pit));
+  if (PC() && PC().pit && PC().pit.phase === 'in') {
+    const pit = PC().pit;
     setText('pitCount', `PIAZZOLA TRA ${Math.max(0, (pit.boxP - pit.p) / Math.max(8, pit.v)).toFixed(0)} s`);
-  } else if (race && race.player.pit) setText('pitCount', race.player.pit.phase === 'service' ? 'CAMBIO GOMME' : 'RIPARTENZA');
+  } else if (PC() && PC().pit) setText('pitCount', PC().pit.phase === 'service' ? 'CAMBIO GOMME' : 'RIPARTENZA');
   if (race) race.playerPlan = pitChoice;
   // previsione del rientro e stato delle gomme montate (4 volte al secondo)
-  if (race && race.pitLane && !quali && (race.player.boxCall || race.player.pit) && (hudCache.pitT = (hudCache.pitT || 0) - dt) <= 0) {
+  if ((race ? race.pitLane : trialCar) && !quali && (PC().boxCall || PC().pit) && (hudCache.pitT = (hudCache.pitT || 0) - dt) <= 0) {
     hudCache.pitT = 0.25;
     const wear = phys.wheels.reduce((a, w) => a + (w.wear || 0), 0) / 4;
     let html = `<em>GOMME:</em> ${COMPOUNDS[phys.compound].name} · ${Math.round(wear * 100)}% usura`;
-    if (!race.player.pit) {
+    if (!race && !trialCar.pit) html += `<br><em>GIRO IN CORSO:</em> non valido (giro di uscita dai box)`;
+    else if (!PC().pit) {
       const R = pitRejoin();
       html += `<br><em>RIENTRO PREVISTO:</em> P${R.pos}${R.behind ? ` dietro ${R.behind.name} (+${R.gap.toFixed(1)} s)` : ''}<br><em>TEMPO PERSO:</em> ~${R.loss.toFixed(0)} s`;
     }
@@ -1841,6 +1855,47 @@ function setTyreColor(model, compound) {
 
 // ---------------------------------------------------------------- box
 let pitChoice = { compound: 'M', repair: false }, pitCalled = false;
+// vettura del giocatore per i box: in gara quella della gara, in prova a tempo una sola vettura
+var trialCar = null;
+const PC = () => (race ? race.player : trialCar);
+// box nella prova a tempo: imbocco della corsia, sosta, uscita (il giro in corso non vale)
+function trialPit(h, sPrev) {
+  const c = trialCar, L = track.length, s = phys.prCG.s, ss = s > L / 2 ? s - L : s;
+  const sp = c.pitPrev ?? ss; c.pitPrev = ss;
+  if (!c.pit && dnfTimer < 0) {
+    const crossing = sp < PIT.entry && ss >= PIT.entry && ss - sp < 20;
+    const hw = track.samples[phys.prCG.i].hw, dSide = phys.prCG.d * PIT.side;
+    if (crossing && (dSide > hw * 0.45 || (c.boxCall && dSide > -hw * 0.6))) {
+      c.boxCall = false;
+      c.pit = new PitStop(pitLane, c, { compound: pitChoice.compound, repair: pitChoice.repair });
+      pitChoice = c.pit.plan;
+      if (!pitCalled) sounds.radio('Ok, box box. Scegli le gomme.');
+      pitCalled = false;
+      if (lap.active && lap.valid) { lap.valid = false; $('invalid').classList.remove('hidden'); }
+      feed('INGRESSO BOX · GIRO NON VALIDO', 'yellow');
+      pitUi();
+    }
+  }
+  if (!c.pit) return false;
+  const P = c.pit, was = P.phase === 'service';
+  const out = P.step(h);
+  if (was && P.phase !== 'service') {
+    setTyreColor(car, phys.compound);
+    if (P.repaired) debris.restore();
+    showBanner(`PIT STOP ${P.serviceTotal.toFixed(1)} s · ${COMPOUNDS[phys.compound].name}${P.repaired ? ' · RIPARATA' : ''}`, 'green', 3, true);
+    sounds.radio('Vai, vai, vai!');
+    pitUi();
+  }
+  timing(sPrev, phys.prCG.s);
+  if (lap.active && lap.valid) { lap.valid = false; $('invalid').classList.remove('hidden'); }   // giro di uscita
+  if (out) {
+    c.pit = null;
+    if (P.relTime != null) feed(`PARTENZA DAL BOX: ${P.relTime.toFixed(2)} s`, P.relTime < 0.6 ? 'green' : 'yellow');
+    pitChoice = { compound: phys.compound, repair: false };
+    setTimeout(pitUi, 0);
+  }
+  return true;
+}
 // gomme consigliate per il resto della gara
 const suggestCompound = left => left >= 14 ? 'H' : left >= 6 ? 'M' : 'S';
 // tempo perso con una sosta (corsia a 80 km/h + cambio gomme) rispetto a un passaggio in pista
@@ -1868,11 +1923,13 @@ function pitRejoin() {
   return { pos, loss, behind, gap: gapB };
 }
 // chiamata al box (tasto BOX / X): si entra al prossimo imbocco della corsia
-function pitCall(on = !race.player.boxCall) {
-  if (!race || !race.pitLane || mode !== 'race' || quali || race.player.pit || race.player.finishT != null || dnfTimer >= 0) return;
-  race.player.boxCall = on;
+function pitCall(on) {
+  const me = PC();
+  if (!me || (race && !race.pitLane) || mode !== 'race' || quali || me.pit || me.finishT != null || dnfTimer >= 0) return;
+  if (on === undefined) on = !me.boxCall;
+  me.boxCall = on;
   pitCalled = on;
-  race.playerPlan = pitChoice;
+  if (race) race.playerPlan = pitChoice;
   if (on) { sounds.radio('Box, box. Confermato, rientra in questo giro.'); feed('BOX CHIAMATO', 'yellow'); }
   else sounds.radio('Ricevuto, restiamo fuori.');
   pitUi();
@@ -1880,12 +1937,13 @@ function pitCall(on = !race.player.boxCall) {
 $('pitBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pitCall(); });
 $('pitCancel').addEventListener('click', () => pitCall(false));
 function pitUi() {
-  const can = !!(race && race.pitLane) && mode !== 'menu' && !quali;
+  const me = PC();
+  const can = !!(race ? race.pitLane : trialCar) && mode !== 'menu' && !quali;
   if (!can) { $('pitPanel').classList.add('hidden'); return; }
-  const pit = race.player.pit;
+  const pit = me.pit;
   // il pannello serve solo per scegliere: dal semaforo verde in poi sparisce (non copre i comandi in uscita)
-  $('pitPanel').classList.toggle('hidden', !(race.player.boxCall || (pit && (pit.phase === 'in' || pit.phase === 'service'))));
-  $('pitBtn').classList.toggle('active', !!(pit || race.player.boxCall));
+  $('pitPanel').classList.toggle('hidden', !(me.boxCall || (pit && (pit.phase === 'in' || pit.phase === 'service'))));
+  $('pitBtn').classList.toggle('active', !!(pit || me.boxCall));
   $('pitCancel').classList.toggle('hidden', !!pit);
   if (!pit) setText('pitCount', 'BOX CHIAMATO');
   document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.classList.toggle('sel', b.dataset.comp === pitChoice.compound));
@@ -1898,7 +1956,7 @@ function pitUi() {
 document.querySelectorAll('#pitPanel [data-comp]').forEach(b => b.addEventListener('click', () => pitSet(b.dataset.comp)));
 $('pitRepair').addEventListener('click', () => pitSet(null, true));
 function pitSet(comp, repairToggle) {
-  if (race && race.player.pit && race.player.pit.phase !== 'in') return;
+  if (PC() && PC().pit && PC().pit.phase !== 'in') return;
   if (comp) pitChoice.compound = comp;
   if (repairToggle) pitChoice.repair = !pitChoice.repair;
   pitUi();
@@ -3065,7 +3123,7 @@ function updateAudio(dt) {
   for (const p of scenery.standPos || []) dmin = Math.min(dmin, Math.hypot(p.x - camera.position.x, p.z - camera.position.z));
   sounds.setCrowd(Math.max(0, 1 - dmin / 160) * 0.8);
   // pit stop: rumori del box quando la vettura si ferma
-  const pit = race && race.player.pit;
+  const pit = PC() && PC().pit;
   const ph = pit ? pit.phase : null;
   if (ph === 'service' && audioPitPhase !== 'service') sounds.pitService(pit.serviceTotal);
   audioPitPhase = ph;
@@ -3261,11 +3319,11 @@ function frame(now) {
   if (mode === 'race' || mode === 'countdown') {
     if (input.consume('KeyC')) cycleCam();
   }
-  if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(race && race.player.pit)) rescue();
+  if (mode === 'race' && input.consume('KeyR') && dnfTimer < 0 && !(PC() && PC().pit)) rescue();
   if (input.consume('KeyB') && mode === 'race') toggleOT();
   // box: X chiama/annulla, 1-2-3 gomme, 4 riparazione (croce del pad: su, sinistra/destra, giù)
   if (input.consume('KeyX')) pitCall();
-  if (race && (race.player.boxCall || race.player.pit)) {
+  if (PC() && (PC().boxCall || PC().pit)) {
     const order = ['S', 'M', 'H'], k = order.indexOf(pitChoice.compound);
     if (input.consume('Digit1')) pitSet('S'); if (input.consume('Digit2')) pitSet('M'); if (input.consume('Digit3')) pitSet('H');
     if (input.consume('PadLeft')) pitSet(order[Math.max(0, k - 1)]);
@@ -3273,7 +3331,7 @@ function frame(now) {
     if (input.consume('Digit4') || input.consume('PadDown')) pitSet(null, true);
   }
   // semaforo verde al box: riparti dando gas
-  if (race && race.player.pit && race.player.pit.phase === 'release' && inp.throttle > 0.4) race.player.pit.go = true;
+  if (PC() && PC().pit && PC().pit.phase === 'release' && inp.throttle > 0.4) PC().pit.go = true;
   if (race && race.otOn) race.noOT = !!(sc && sc.active);
   if (mode === 'menu' && attract && race) attractStep(dt);
 
@@ -3351,7 +3409,7 @@ function frame(now) {
     updateGhost();
     racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
     if (attract && mode === 'menu') attractCamera(dt); else if (mode === 'intro' && intro) introCamera(dt); else if (podium && race) podiumCamera(dt); else updateCamera(dt);
-    if (pitCrew) pitCrew.update(mode === 'menu' ? null : race, camera, dt);
+    if (pitCrew) pitCrew.update(mode === 'menu' ? null : race || (trialCar && { pitLane, cars: [trialCar] }), camera, dt);
     updateAudio(dt);
   }
   if (mode !== 'menu' && mode !== 'replay' && mode !== 'intro') updateHud(dt);
@@ -3456,7 +3514,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get stew() { return stew; }, get net() { return net; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, get net() { return net; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);
