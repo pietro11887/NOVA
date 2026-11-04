@@ -3550,6 +3550,7 @@ function frame(now) {
   // Se il dispositivo fa fatica (sotto ~50 fotogrammi al secondo) le ombre si ricalcolano a fotogrammi alterni.
   perfAvg += (Math.min(0.1, dt) - perfAvg) * 0.05;
   perfSlow = perfAvg > 1 / 50;
+  if (HIQ) dynRes(dt);
   shadowTick++;
   const shadowNow = !perfSlow || shadowTick % 2 === 0;
   if (shadowNow) {
@@ -3606,6 +3607,27 @@ function frame(now) {
 }
 
 // effetti dell'immagine: raggi di sole, obiettivo TV
+// Risoluzione dinamica (grafica alta e ultra), come nelle console: se il gioco scende sotto ~55 fotogrammi
+// al secondo si disegna con meno pixel (gli effetti restano tutti); quando torna fluido si risale piano.
+// Si misura su finestre di 1,5 s, solo in pista (il menu e la pausa non contano).
+const DYN = { base: 0, scale: 1, t: 0, n: 0, sum: 0, good: 0, min: ULTRA ? 0.5 : 0.55 };
+function dynRes(dt) {
+  if (!DYN.base) DYN.base = renderer.getPixelRatio();
+  if (mode !== 'race' || dt <= 0 || dt > 0.25) return;
+  DYN.t += dt; DYN.n++; DYN.sum += dt;
+  if (DYN.t < 1.5) return;
+  const avg = DYN.sum / DYN.n;
+  DYN.t = 0; DYN.n = 0; DYN.sum = 0;
+  let next = DYN.scale;
+  if (avg > 1 / 52) { next = Math.max(DYN.min, DYN.scale - (avg > 1 / 40 ? 0.15 : 0.08)); DYN.good = 0; }
+  else if (avg < 1 / 58.5) { if (++DYN.good >= 3) { next = Math.min(1, DYN.scale + 0.05); DYN.good = 0; } }
+  else DYN.good = 0;
+  if (Math.abs(next - DYN.scale) < 0.001) return;
+  DYN.scale = next;
+  renderer.setPixelRatio(Math.max(0.5, DYN.base * next));
+  resize();
+}
+
 function postFx() {
   const tv = (mode === 'replay' && rp && (RP_CAMS[rp.cam] === 'TV' || RP_CAMS[rp.cam] === 'ELICOTTERO')) || (mode === 'menu' && !!attract);
   // riprese TV e menu: la telecamera segue le vetture, la scia la farebbe solo su di loro: niente scia
