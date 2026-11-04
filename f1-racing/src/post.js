@@ -5,6 +5,96 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+
+// Scia di movimento come una telecamera vera: ogni punto dell'immagine si sfoca nella direzione in cui
+// si è spostato sullo schermo dall'ultimo fotogramma (ricostruito dalla profondità e dalla telecamera di prima).
+// La vettura seguita (vicina alla telecamera) resta nitida, lo sfondo scorre.
+const MotionBlurShader = {
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() },
+    uPrevVP: { value: new THREE.Matrix4() }, uStr: { value: 0 }, uNear: { value: 6 }, uMax: { value: 0.035 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse, tDepth; uniform mat4 uInvProj, uCamWorld, uPrevVP; uniform float uStr, uNear, uMax; varying vec2 vUv;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec4 base = texture2D(tDiffuse, vUv);
+      if (uStr <= 0.0001) { gl_FragColor = base; return; }
+      float d = min(texture2D(tDepth, vUv).x, 0.99999);
+      vec4 vp = uInvProj * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); vp /= vp.w;
+      float dist = -vp.z;
+      vec4 prev = uPrevVP * (uCamWorld * vp);
+      vec2 puv = prev.xy / prev.w * 0.5 + 0.5;
+      vec2 vel = (vUv - puv) * uStr * smoothstep(uNear, uNear * 2.2, dist);
+      // al centro (dove ci sono le vetture davanti, che vanno veloci come te) la scia è leggera
+      vel *= mix(0.3, 1.0, smoothstep(0.1, 0.38, length(vUv - vec2(0.5, 0.55))));
+      float L = length(vel);
+      if (L < 0.0006) { gl_FragColor = base; return; }
+      if (L > uMax) vel *= uMax / L;
+      float j = h(vUv * 917.0) - 0.5;
+      vec3 acc = vec3(0.0);
+      for (int i = 0; i < 10; i++) { float t = (float(i) + j) / 9.0 - 0.5; acc += texture2D(tDiffuse, vUv + vel * t).rgb; }
+      gl_FragColor = vec4(acc / 10.0, base.a);
+    }`,
+};
+
+// Occhi che si abituano alla luce: si misura la luminosità media dell'immagine (sulla scheda video,
+// senza rallentare) e l'esposizione si adatta piano: all'ombra dei palazzi l'immagine si schiarisce,
+// uscendo al sole si scurisce. Confronta con la media degli ultimi secondi, così il "look" resta quello della pista.
+class ExposurePass extends Pass {
+  constructor() {
+    super();
+    const o = { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false };
+    this.small = new THREE.WebGLRenderTarget(32, 32, { ...o, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    this.avg = new THREE.WebGLRenderTarget(1, 1, o);
+    this.ad = [new THREE.WebGLRenderTarget(1, 1, o), new THREE.WebGLRenderTarget(1, 1, o)];
+    this.cur = 0; this.dt = 1 / 60; this.reset = 2;
+    const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+    // 1) luminanza (logaritmica, più peso al centro dove si guarda)
+    this.qLum = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D t; varying vec2 vUv;
+        void main(){ float s = 0.0; for (int i = 0; i < 4; i++) { vec2 o = vec2(float(i % 2), float(i / 2)) / 64.0 - 1.0 / 128.0;
+          vec3 c = texture2D(t, vUv + o).rgb; s += log(0.0005 + dot(c, vec3(0.2126, 0.7152, 0.0722))); }
+          float w = 1.0 - 0.6 * smoothstep(0.2, 0.7, length(vUv - vec2(0.5, 0.55)));
+          gl_FragColor = vec4(s / 4.0 * w, w, 0.0, 1.0); }` }));
+    // 2) media su tutta l'immagine
+    this.qAvg = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D t; varying vec2 vUv;
+        void main(){ vec2 a = vec2(0.0); for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) a += texture2D(t, (vec2(x, y) + 0.5) / 32.0).rg;
+          gl_FragColor = vec4(exp(a.x / max(a.y, 1e-3)), 0.0, 0.0, 1.0); }` }));
+    // 3) adattamento lento: r = luminanza adattata (pochi decimi di secondo), g = riferimento (decine di secondi)
+    this.qAd = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tPrev: { value: null }, tCur: { value: null }, uDt: { value: 0 }, uReset: { value: 1 } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D tPrev, tCur; uniform float uDt, uReset; varying vec2 vUv;
+        void main(){ float c = texture2D(tCur, vec2(0.5)).r; vec2 p = texture2D(tPrev, vec2(0.5)).rg;
+          if (uReset > 0.5 || p.x <= 0.0 || p.y <= 0.0) p = vec2(c);
+          // alla luce forte ci si abitua più in fretta che al buio
+          float k = 1.0 - exp(-uDt * (c > p.x ? 2.6 : 1.4));
+          float kr = 1.0 - exp(-uDt / 25.0);
+          gl_FragColor = vec4(mix(p.x, c, k), mix(p.y, c, kr), 0.0, 1.0); }` }));
+    // 4) esposizione applicata all'immagine (in HDR, prima del bagliore e della conversione)
+    this.qOut = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, tAd: { value: null }, uStr: { value: 0.6 } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D tDiffuse, tAd; uniform float uStr; varying vec2 vUv;
+        void main(){ vec2 a = texture2D(tAd, vec2(0.5)).rg; float e = clamp(pow(max(a.y, 1e-4) / max(a.x, 1e-4), uStr), 0.7, 1.55);
+          vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(c.rgb * e, c.a); }` }));
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    const src = readBuffer.texture;
+    this.qLum.material.uniforms.t.value = src;
+    renderer.setRenderTarget(this.small); this.qLum.render(renderer);
+    this.qAvg.material.uniforms.t.value = this.small.texture;
+    renderer.setRenderTarget(this.avg); this.qAvg.render(renderer);
+    const prev = this.ad[this.cur], next = this.ad[1 - this.cur];
+    const u = this.qAd.material.uniforms;
+    u.tPrev.value = prev.texture; u.tCur.value = this.avg.texture; u.uDt.value = this.dt; u.uReset.value = this.reset > 0 ? 1 : 0;
+    if (this.reset > 0) this.reset--;
+    renderer.setRenderTarget(next); this.qAd.render(renderer);
+    this.cur = 1 - this.cur;
+    this.qOut.material.uniforms.tDiffuse.value = src; this.qOut.material.uniforms.tAd.value = next.texture;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.qOut.render(renderer);
+  }
+}
 
 // Effetti "da ripresa TV" sull'immagine finale (solo con grafica alta):
 // - bagliore sulle luci forti (sole, scintille, freni roventi, led)
@@ -118,6 +208,16 @@ export class Post {
       this.ao = ao;
       this.composer.addPass(ao);
     }
+    // scia di movimento (usa la profondità calcolata per l'occlusione ambientale)
+    if (this.ao) {
+      this.mblur = new ShaderPass(MotionBlurShader);
+      this.mblur.uniforms.tDepth.value = this.ao.depthTexture;
+      this.composer.addPass(this.mblur);
+      this.prevVP = new THREE.Matrix4(); this.hasPrev = false; this.prevPos = new THREE.Vector3();
+    }
+    // esposizione automatica
+    this.expo = new ExposurePass();
+    this.composer.addPass(this.expo);
     this.rays = new ShaderPass(RaysShader);
     this.rays.enabled = !!opts.rays;
     this.composer.addPass(this.rays);
@@ -128,6 +228,10 @@ export class Post {
     this.grade.uniforms.uNat.value = opts.natural ? 1 : 0;   // colori naturali, come una ripresa vera
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
+    // antialiasing sull'immagine finale (in più al multicampionamento): bordi di reti, cartelloni, foglie e
+    // riflessi senza scalini né tremolio
+    this.smaa = new SMAAPass(size.x, size.y);
+    this.composer.addPass(this.smaa);
     this.speed = 0;
   }
   // correzione colore per pista: { sat, con, shadow: [r,g,b], high: [r,g,b], lift }
@@ -165,6 +269,22 @@ export class Post {
     this.speed += (speed - this.speed) * Math.min(1, dt * 3);
     this.grade.uniforms.uSpeed.value = this.speed;
     this.grade.uniforms.uTime.value = (this.grade.uniforms.uTime.value + dt) % 100;
+    if (this.expo) this.expo.dt = Math.min(0.1, Math.max(0.001, dt));
+    if (this.mblur) {
+      const u = this.mblur.uniforms;
+      camera.updateMatrixWorld();
+      u.uInvProj.value.copy(camera.projectionMatrixInverse);
+      u.uCamWorld.value.copy(camera.matrixWorld);
+      // otturatore di 1/100 di secondo (più lungo del fotogramma solo se il gioco va a meno di 100 fps)
+      const jump = this.hasPrev && camera.position.distanceTo(this.prevPos) > 25;     // stacco di inquadratura
+      u.uStr.value = this.hasPrev && !jump && dt > 0 && fx.blur !== false ? Math.min(1.2, (1 / 100) / dt) : 0;
+      u.uNear.value = fx.near ?? 6;
+      u.uPrevVP.value.copy(this.prevVP);
+      this.prevVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      this.prevPos.copy(camera.position); this.hasPrev = true;
+    }
     this.composer.render(dt);
   }
+  // nuova sessione / stacco: niente scia e l'esposizione riparte da capo
+  cut() { this.hasPrev = false; if (this.expo) this.expo.reset = 2; }
 }

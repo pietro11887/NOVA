@@ -391,6 +391,10 @@ function build() {
   minimap = new Minimap($('minimap'), track);
   localMap = new LocalMap($('localMap'), track);
 
+  // reti, foglie, bandiere, pubblico (ritagliati con la trasparenza): bordi morbidi senza scalini né tremolio
+  // (con l'antialiasing multicampione la trasparenza diventa copertura parziale del pixel)
+  const a2c = new Set();
+  scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) if (m.alphaTest > 0 && !m.transparent && !a2c.has(m)) { a2c.add(m); m.alphaToCoverage = true; m.needsUpdate = true; } });
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
   $('trackName').textContent = track.name + ' · ' + (IS_F1 ? 'FORMULA 1' : 'GT3');
 }
@@ -874,6 +878,12 @@ function updateModel(car, phys, dt) {
     w.pivot.rotation.set(w.side * dm * 0.28, -(i < 2 ? phys.steer : 0) - (i % 2 === 0 ? -1 : 1) * dm * 0.045, 0, 'YXZ');
     w.angle -= pw.spin / GEOM.wheelR * dt;
     w.spin.rotation.z = w.angle;
+    if (w.blur) {
+      // da circa 50 km/h i raggi non si vedono più: disco sfocato
+      const k = Math.max(0, Math.min(1, (Math.abs(pw.spin) - 9) / 14));
+      w.blur.visible = k > 0.02;
+      w.blur.material.opacity = k * 0.92;
+    }
   });
   // flap dell'ala posteriore danneggiato
   const f = car.rearWing.userData.flap;
@@ -3210,6 +3220,7 @@ $('leftDial').addEventListener('contextmenu', e => e.preventDefault());
 function cycleCam() {
   camMode = (camMode + 1) % CAMS.length; settings.cam = camMode; saveSettings();
   camState.init = false;
+  if (post && post.cut) post.cut();
   showBanner(`TELECAMERA: ${CAMS[camMode]}`, 'yellow', 1.2);
 }
 
@@ -3597,7 +3608,8 @@ function frame(now) {
 // effetti dell'immagine: raggi di sole, obiettivo TV
 function postFx() {
   const tv = (mode === 'replay' && rp && (RP_CAMS[rp.cam] === 'TV' || RP_CAMS[rp.cam] === 'ELICOTTERO')) || (mode === 'menu' && !!attract);
-  return { sunDir: SUN_DIR, lens: tv ? 1 : 0 };
+  // riprese TV e menu: la telecamera segue le vetture, la scia la farebbe solo su di loro: niente scia
+  return { sunDir: SUN_DIR, lens: tv ? 1 : 0, blur: !tv && mode !== 'pause', near: camMode >= 2 ? 2.5 : 6 };
 }
 
 function resize() {

@@ -331,8 +331,18 @@ export function createGT(opts = {}) {
     // F1 (dal 2022): deflettore in carbonio ad arco sopra la gomma anteriore, fissato al portamozzo
     // (sterza con la ruota ma non gira); si vede bene dalla T-Cam e dall'abitacolo
     if (tpl.kind === 'f1' && i < 2) pivot.add(wheelArch(wi, side, ghost ? ghostMat : archMat()));
+    // ruota che gira veloce: i raggi del cerchio diventano un disco sfocato (come visti da una telecamera vera)
+    let blur = null;
+    if (!ghost) {
+      if (!wheelBlurMat) wheelBlurMat = new THREE.MeshStandardMaterial({ map: wheelBlurTex(), transparent: true, opacity: 0, depthWrite: false, roughness: 0.45, metalness: 0.6 });
+      blur = new THREE.Mesh(new THREE.CircleGeometry(wi.radius * 0.76, 40), wheelBlurMat.clone());
+      blur.position.z = side * (wi.width / 2 + 0.008);
+      if (side < 0) blur.rotation.y = Math.PI;
+      blur.visible = false; blur.renderOrder = 2;
+      pivot.add(blur);
+    }
     body.add(pivot);
-    return { pivot, spin, baseY: wi.center.y, x: wi.center.x, side, arms: [], angle: 0 };
+    return { pivot, spin, baseY: wi.center.y, x: wi.center.x, side, arms: [], angle: 0, blur };
   });
   // Formula 1: il pilota (casco nell'abitacolo aperto)
   const helmet = [];
@@ -625,4 +635,19 @@ function wheelArch(wi, side, mat) {
   st.rotation.z = a1 - Math.PI / 2;
   grp.add(st);
   return grp;
+}
+
+// disco della ruota in movimento: mozzo scuro, cerchio "strisciato" in cerchi concentrici, bordo del canale
+let wheelBlurMat = null;
+function wheelBlurTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), R = 128;
+  const gr = g.createRadialGradient(R, R, 0, R, R, R);
+  gr.addColorStop(0, 'rgba(30,31,34,1)'); gr.addColorStop(0.16, 'rgba(70,72,78,1)'); gr.addColorStop(0.22, 'rgba(40,41,45,0.95)');
+  gr.addColorStop(0.5, 'rgba(95,98,104,0.7)'); gr.addColorStop(0.8, 'rgba(70,72,77,0.75)'); gr.addColorStop(0.93, 'rgba(120,123,128,0.95)'); gr.addColorStop(1, 'rgba(25,25,28,1)');
+  g.fillStyle = gr; g.beginPath(); g.arc(R, R, R, 0, 6.283); g.fill();
+  // anelli leggeri (i raggi che girano lasciano cerchi più chiari e più scuri)
+  for (let k = 0; k < 14; k++) { const r = R * (0.25 + 0.68 * Math.random()); g.strokeStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${0.04 + Math.random() * 0.05})`; g.lineWidth = 1 + Math.random() * 3; g.beginPath(); g.arc(R, R, r, 0, 6.283); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
