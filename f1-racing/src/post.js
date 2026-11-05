@@ -216,8 +216,9 @@ export class Post {
       this.prevVP = new THREE.Matrix4(); this.hasPrev = false; this.prevPos = new THREE.Vector3();
     }
     // esposizione automatica
-    this.expo = new ExposurePass();
-    this.composer.addPass(this.expo);
+    // esposizione automatica: tolta (al tramonto scuriva troppo); per riattivarla basta rimettere queste due righe
+    // this.expo = new ExposurePass();
+    // this.composer.addPass(this.expo);
     this.rays = new ShaderPass(RaysShader);
     this.rays.enabled = !!opts.rays;
     this.composer.addPass(this.rays);
