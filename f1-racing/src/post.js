@@ -55,7 +55,7 @@ class ExposurePass extends Pass {
     this.qLum = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: vs, depthTest: false,
       fragmentShader: `uniform sampler2D t; varying vec2 vUv;
         void main(){ float s = 0.0; for (int i = 0; i < 4; i++) { vec2 o = vec2(float(i % 2), float(i / 2)) / 64.0 - 1.0 / 128.0;
-          vec3 c = texture2D(t, vUv + o).rgb; s += log(0.0005 + dot(c, vec3(0.2126, 0.7152, 0.0722))); }
+          vec3 c = texture2D(t, vUv + o).rgb; s += log(0.0005 + min(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1.5)); }   // sole e cielo non contano più del resto
           float w = 1.0 - 0.6 * smoothstep(0.2, 0.7, length(vUv - vec2(0.5, 0.55)));
           gl_FragColor = vec4(s / 4.0 * w, w, 0.0, 1.0); }` }));
     // 2) media su tutta l'immagine
@@ -73,9 +73,9 @@ class ExposurePass extends Pass {
           float kr = 1.0 - exp(-uDt / 25.0);
           gl_FragColor = vec4(mix(p.x, c, k), mix(p.y, c, kr), 0.0, 1.0); }` }));
     // 4) esposizione applicata all'immagine (in HDR, prima del bagliore e della conversione)
-    this.qOut = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, tAd: { value: null }, uStr: { value: 0.6 } }, vertexShader: vs, depthTest: false,
+    this.qOut = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, tAd: { value: null }, uStr: { value: 0.45 } }, vertexShader: vs, depthTest: false,
       fragmentShader: `uniform sampler2D tDiffuse, tAd; uniform float uStr; varying vec2 vUv;
-        void main(){ vec2 a = texture2D(tAd, vec2(0.5)).rg; float e = clamp(pow(max(a.y, 1e-4) / max(a.x, 1e-4), uStr), 0.7, 1.55);
+        void main(){ vec2 a = texture2D(tAd, vec2(0.5)).rg; float e = clamp(pow(max(a.y, 1e-4) / max(a.x, 1e-4), uStr), 0.94, 1.4);     // schiarisce all'ombra, non scurisce quasi mai
           vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(c.rgb * e, c.a); }` }));
   }
   render(renderer, writeBuffer, readBuffer) {

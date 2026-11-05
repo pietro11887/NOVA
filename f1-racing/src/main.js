@@ -145,7 +145,7 @@ function ultraCar(model, env = null) {
         p.defines = { STANDARD: '', PHYSICAL: '' };
         const matte = m.roughness > 0.38;                          // livree opache (alcune F1): trasparente satinato
         p.clearcoat = matte ? 0.3 : 1; p.clearcoatRoughness = matte ? 0.35 : 0.04; p.roughness = Math.max(0.2, m.roughness);
-        if (model.kind !== 'f1') p.metalness = Math.max(p.metalness, 0.35);   // GT: vernice metallizzata
+        if (model.kind !== 'f1') p.metalness = Math.max(p.metalness, 0.2);    // GT: vernice metallizzata (senza scurire il colore)
         p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey;
         paintShader(p, U);
       } else if (env) { p = m.clone(); p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey; }
@@ -497,6 +497,7 @@ function resetSession() {
   simTime = 0;
   dnfTimer = -1;
   if (car) { car.dirt = 0; if (car.paintU) car.paintU.uDirt.value = 0; }      // vettura pulita a ogni nuova sessione
+  if (post && post.cut) post.cut();                 // l'esposizione riparte dalla pista, non dal menu
   camState.init = false;
   updateCarVisual(0);
   setSectorsHud([]);
