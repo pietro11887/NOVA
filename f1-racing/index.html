@@ -153,6 +153,7 @@
     <span class="hidden" id="trackLen"></span>
     <div class="tiles">
       <button class="tile primary" id="playBtn"><span class="tTag">GIOCATORE SINGOLO</span><b>GRAN PREMIO</b><small>Scuderia, circuito, qualifica e gara contro i bot</small><i class="tArt" id="tileMap"></i></button>
+      <button class="tile champ" id="champBtn"><span class="tTag">STAGIONE</span><b>CAMPIONATO</b><small>Più gare di fila: punti e classifica piloti e scuderie</small><i class="tIc">🏆</i></button>
       <button class="tile online" id="onlineBtn"><span class="tTag">IN DUE</span><b>GARA ONLINE</b><small>Tu e un amico, ognuno sul suo dispositivo, contro i bot</small><i class="tIc">⇄</i></button>
       <button class="tile" id="trialBtn"><span class="tTag">DA SOLO</span><b>PROVA A TEMPO</b><small>Il giro perfetto contro il tuo fantasma</small><i class="tIc">⏱</i></button>
       <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
@@ -278,6 +279,11 @@
     <div class="mFoot"><button class="go" id="helpBack">OK</button></div>
   </div>
 
+  <div class="menuPage hidden" id="menuChamp">
+    <header class="mHead"><div class="steps" id="champSteps"></div><div class="logo" id="champTitle">CAMPIONATO</div></header>
+    <div class="champBody" id="champBody"></div>
+    <div class="mFoot"><button class="back" id="champBack">‹ MENU</button><span class="carHint" id="champHint"></span><button class="go" id="champGo">INIZIA ›</button></div>
+  </div>
   <div class="menuPage hidden" id="menuRecords">
     <header class="mHead"><div class="logo">I MIEI RECORD</div></header>
     <div class="recTabs" id="recTabs"><button data-m="norm" class="sel">SIMULAZIONE</button><button data-m="arc">ARCADE</button></div>
@@ -313,6 +319,7 @@
       <button id="resMenu">MENU</button>
       <button id="resReplay">▶ REPLAY</button>
       <button id="resAgain" class="primary">RIGIOCA</button>
+      <button id="resChamp" class="primary hidden">CLASSIFICA CAMPIONATO ›</button>
     </div>
   </div>
 </div>

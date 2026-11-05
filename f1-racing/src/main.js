@@ -2249,6 +2249,8 @@ $('podNext').addEventListener('click', () => {
 });
 
 function showResults() {
+  champRecord();
+  $('resChamp').classList.toggle('hidden', !race.champRec);
   $('resAgain').textContent = race && race.online ? 'SALA D\'ATTESA ›' : 'RIGIOCA';
   if (!race.podiumShown && race.standings().some(c => c.finishT != null)) { race.podiumShown = true; showPodium(); return; }
   const st = race.standings(), pos = st.indexOf(race.player) + 1, fl = fastestLap();
@@ -2730,7 +2732,7 @@ function onlineLost(who) {
 }
 
 // --- navigazione del menu (come F1 25: titolo › menu a riquadri › scuderia › circuito › impostazioni › caricamento › box › gara)
-const MENU_PAGES = ['menuTitle', 'menuHome', 'menuOnline', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits', 'menuRecords'];
+const MENU_PAGES = ['menuTitle', 'menuHome', 'menuOnline', 'menuTrack', 'menuRace', 'menuGarage', 'menuHub', 'menuSettings', 'menuHelp', 'menuCredits', 'menuRecords', 'menuChamp'];
 function showMenuPage(id) {
   MENU_PAGES.forEach(p => $(p).classList.toggle('hidden', p !== id));
   if (garage) garage.active = id === 'menuGarage' || id === 'menuHub';
@@ -2791,6 +2793,125 @@ $('recordsBtn').addEventListener('click', openRecords);
 $('recChip').addEventListener('click', openRecords);
 document.querySelectorAll('#recTabs button').forEach(b => b.addEventListener('click', () => { recMode = b.dataset.m; renderRecords(); }));
 $('recordsBack').addEventListener('click', () => showMenuPage('menuHome'));
+
+// ---------------- CAMPIONATO: più gare di fila sulle piste del calendario, punti F1 (25-18-15-12-10-8-6-4-2-1,
+// +1 al giro più veloce se nei primi 10), classifica piloti e (in F1) costruttori. Salvato sul dispositivo:
+// si può smettere e riprendere quando si vuole. Uno per categoria (F1 e GT3).
+const CH_KEY = 'novaf1.champ.v1' + (IS_F1 ? '.f1' : '.gt');
+let champ = store.get(CH_KEY);
+const champSave = () => store.set(CH_KEY, champ);
+const CH_CAL = { 3: ['nova', 'spa', 'baku'], 6: ['nova', 'spa', 'baku', 'nova', 'spa', 'baku'] };
+const chNew = { cal: 3, laps: 5, bots: Math.min(19, Math.max(5, settings.raceBots)), strength: settings.raceStrength, osq: true };
+const trackLabel = id => { const t = TRACKS.find(x => x.id === id) || TRACKS[0]; return t.name.toUpperCase(); };
+function champTables() {
+  const names = Object.keys(champ.pts);
+  const drv = names.map(n => ({ n, pts: champ.pts[n] || 0, w: champ.wins[n] || 0, info: champ.info[n] || {} }))
+    .sort((a, b) => b.pts - a.pts || b.w - a.w);
+  const teams = {};
+  if (IS_F1) for (const d of drv) if (d.info.team) { const t = teams[d.info.team] || (teams[d.info.team] = { n: d.info.team, pts: 0, w: 0, col: d.info.teamColor }); t.pts += d.pts; t.w += d.w; }
+  return { drv, teams: Object.values(teams).sort((a, b) => b.pts - a.pts || b.w - a.w) };
+}
+function renderChamp() {
+  const B = $('champBody');
+  const chips = (key, opts, fmtv) => `<div class="chChips">${opts.map(v => `<button data-k="${key}" data-v="${v}" class="${chNew[key] === v ? 'sel' : ''}">${fmtv(v)}</button>`).join('')}</div>`;
+  if (!champ) {
+    $('champTitle').textContent = 'NUOVO CAMPIONATO';
+    $('champSteps').innerHTML = `<b class="on">${IS_F1 ? 'FORMULA 1' : 'GT3'}</b>`;
+    B.className = 'champBody setup';
+    B.innerHTML = `<div class="chCard">
+      <div class="chOpt"><div><b>CALENDARIO</b><small>${CH_CAL[chNew.cal].map(trackLabel).join(' · ')}</small></div>${chips('cal', [3, 6], v => v + ' GARE')}</div>
+      <div class="chOpt"><div><b>GIRI PER GARA</b><small>${chNew.laps >= 8 ? 'con soste ai box' : 'gare sprint'}</small></div>${chips('laps', [3, 5, 8, 12], v => v)}</div>
+      <div class="chOpt"><div><b>AVVERSARI</b><small>${chNew.bots + 1} vetture in griglia</small></div>${chips('bots', [5, 9, 15, 19], v => v)}</div>
+      <div class="chOpt"><div><b>LIVELLO IA</b><small>${tier(chNew.strength)}</small></div>${chips('strength', [40, 60, 80, 100, 110], v => v)}</div>
+      <div class="chOpt"><div><b>QUALIFICA</b><small>${chNew.osq ? 'un giro secco decide la griglia' : 'partenza dal fondo'}</small></div>${chips('osq', [true, false], v => v ? 'SÌ' : 'NO')}</div>
+    </div>`;
+    B.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.k, v = b.dataset.v;
+      chNew[k] = k === 'osq' ? v === 'true' : +v;
+      sounds.ui && sounds.ui(); renderChamp();
+    }));
+    $('champGo').textContent = 'INIZIA CAMPIONATO ›';
+    $('champHint').textContent = 'Meteo e ora del giorno: quelli delle impostazioni';
+    return;
+  }
+  const N = champ.cal.length, { drv, teams } = champTables();
+  $('champTitle').textContent = champ.done ? 'CAMPIONATO CONCLUSO' : `CAMPIONATO · GARA ${champ.round + 1} DI ${N}`;
+  $('champSteps').innerHTML = `<b class="on">${IS_F1 ? 'FORMULA 1' : 'GT3'}</b> · ${champ.laps} giri · IA ${champ.strength}`;
+  B.className = 'champBody';
+  let html = '';
+  if (champ.done && drv[0]) html += `<div class="chChamp"><small>${drv[0].n === 'TU' ? 'SEI CAMPIONE!' : 'CAMPIONE'}</small><b>🏆 ${drv[0].n === 'TU' ? 'TU' : drv[0].n} · ${drv[0].pts} PUNTI</b></div>`;
+  html += '<div class="chCard"><h3>CALENDARIO</h3>';
+  champ.cal.forEach((id, k) => {
+    const r = champ.results[k];
+    let res = '';
+    if (r) { const me = r.order.findIndex(o => o.n === 'TU'); res = `${me >= 0 ? (r.order[me].r ? 'RIT.' : (me + 1) + '°') : ''}`; }
+    else if (k === champ.round && !champ.done) res = 'PROSSIMA';
+    html += `<div class="chRound${k === champ.round && !champ.done ? ' next' : ''}"><span class="n">${k + 1}</span><span><b>${trackLabel(id)}</b>${r ? `<small>vince ${r.order[0].n}${r.fl ? ` · giro veloce ${r.fl}` : ''}</small>` : ''}</span><span class="res">${res}</span></div>`;
+  });
+  html += `<div class="chOpt" style="margin-top:8px"><span></span><div class="chChips"><button id="champQuit">${champ.done ? 'CANCELLA' : 'ABBANDONA'}</button></div></div></div>`;
+  const row = (k, name, col, sub, w, pts, me) => `<div class="r${me ? ' me' : ''}"><span class="p">${k}</span><i style="background:${col}"></i><span>${name}${sub ? `<span class="tm">${sub}</span>` : ''}</span><span class="w">${w ? w + (w === 1 ? ' vittoria' : ' vittorie') : ''}</span><span class="pt">${pts} PT</span></div>`;
+  const hex = c => typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : c || '#888';
+  html += `<div><div class="chCard chTable"><h3>PILOTI</h3>${drv.length ? drv.map((d, i) => row(i + 1, d.n, hex(d.info.color), d.info.team, d.w, d.pts, d.n === 'TU')).join('') : '<small style="color:var(--muted)">Ancora nessuna gara: i punti arrivano dopo la prima.</small>'}</div>`;
+  if (teams.length) html += `<div class="chCard chTable" style="margin-top:12px"><h3>COSTRUTTORI</h3>${teams.map((t, i) => row(i + 1, t.n, hex(t.col), '', t.w, t.pts, IS_F1 && teamById(champ.team) && teamById(champ.team).name === t.n)).join('')}</div>`;
+  html += '</div>';
+  B.innerHTML = html;
+  $('champQuit').addEventListener('click', () => {
+    if (!confirm(champ.done ? 'Cancellare questo campionato?' : 'Abbandonare il campionato? I punti andranno persi.')) return;
+    champ = null; try { localStorage.removeItem(CH_KEY); } catch (e) { /* niente */ }
+    renderChamp();
+  });
+  $('champGo').textContent = champ.done ? 'NUOVO CAMPIONATO ›' : `GARA ${champ.round + 1}: ${trackLabel(champ.cal[champ.round])} ›`;
+  $('champHint').textContent = champ.done ? '' : `${N - champ.round} ${N - champ.round === 1 ? 'gara' : 'gare'} alla fine`;
+}
+function openChamp() { sounds.ui && sounds.ui(); renderChamp(); showMenuPage('menuChamp'); }
+function champGo() {
+  if (!champ) {
+    champ = { v: 1, cal: CH_CAL[chNew.cal].slice(), round: 0, laps: chNew.laps, bots: chNew.bots, strength: chNew.strength, osq: chNew.osq,
+      team: IS_F1 ? settings.f1Team : null, grid: IS_F1 ? f1Grid(settings.f1Team, chNew.bots).map(e => ({ name: e.name, team: e.team.id })) : null,
+      results: [], pts: {}, wins: {}, info: {}, done: false };
+    champSave();
+  } else if (champ.done) { champ = null; try { localStorage.removeItem(CH_KEY); } catch (e) { /* niente */ } renderChamp(); return; }
+  const id = champ.cal[champ.round];
+  Object.assign(settings, { gameType: 'race', raceLaps: champ.laps, raceBots: champ.bots, raceStrength: champ.strength, weekend: champ.osq ? 'osq' : 'race', raceStart: champ.bots + 1 });
+  if (IS_F1 && champ.team) settings.f1Team = champ.team;
+  if (id !== settings.track) {
+    settings.track = id; saveSettings();
+    try { sessionStorage.setItem('novaf1.next', 'champ'); } catch (e) { /* niente */ }
+    showLoading(() => location.reload(), 0);
+    return;
+  }
+  saveSettings();
+  showLoading(champHub, 1700);
+}
+// box del weekend di campionato: stessa griglia (piloti e scuderie) in tutte le gare
+function champHub() {
+  if (!champ || champ.done) { openChamp(); return; }
+  wk = { grid: champ.grid ? champ.grid.map(e => ({ name: e.name, team: teamById(e.team) })) : null, quali: null, startPos: null, botOrder: null, champ: true };
+  openHub();
+}
+// a fine gara: punti e classifica (una volta sola per gara; rigiocarla non conta più)
+function champRecord() {
+  if (!wk || !wk.champ || !champ || champ.done || !race || race.champRec || race.online) return;
+  race.champRec = true;
+  const st = race.standings(), fl = fastestLap(), order = [];
+  st.forEach((c, i) => {
+    const key = c.isPlayer ? 'TU' : c.name;
+    const p = c.retired ? 0 : (POINTS[i] || 0) + (fl === c && i < 10 ? 1 : 0);
+    champ.pts[key] = (champ.pts[key] || 0) + p;
+    if (i === 0 && !c.retired) champ.wins[key] = (champ.wins[key] || 0) + 1;
+    champ.info[key] = { color: c.color, team: c.team ? c.team.name : null, teamColor: c.team ? c.team.colors[0] : null };
+    order.push({ n: key, p, r: !!c.retired });
+  });
+  champ.results.push({ track: champ.cal[champ.round], order, fl: fl ? (fl.isPlayer ? 'TU' : fl.name) : null });
+  champ.round++;
+  if (champ.round >= champ.cal.length) champ.done = true;
+  champSave();
+  wk.champ = false;
+}
+$('champBtn').addEventListener('click', openChamp);
+$('champBack').addEventListener('click', () => showMenuPage('menuHome'));
+$('champGo').addEventListener('click', () => { sounds.ui && sounds.ui(); champGo(); });
+$('resChamp').addEventListener('click', () => { goMenu(); openChamp(); });
 ['settingsBack', 'helpBack', 'creditsBack'].forEach(id => $(id).addEventListener('click', () => showMenuPage('menuHome')));
 $('garageBtn').addEventListener('click', () => openGarage(false));
 $('garageBack').addEventListener('click', () => showMenuPage('menuHome'));
@@ -2953,7 +3074,7 @@ async function openHub() {
   if (attract) { clearRace(); resetSession(); }
   const S = settings, trial = S.gameType === 'trial', osq = !trial && S.weekend === 'osq';
   const tm = IS_F1 ? teamById(S.f1Team) : null;
-  $('hubKind').textContent = trial ? 'PROVA A TEMPO' : 'GRAN PREMIO';
+  $('hubKind').textContent = trial ? 'PROVA A TEMPO' : wk.champ && champ ? `CAMPIONATO · GARA ${champ.round + 1} DI ${champ.cal.length}` : 'GRAN PREMIO';
   $('hubTrack').textContent = track.name.toUpperCase();
   $('hubCar').textContent = ARC() ? `F1 CARTOON${tm ? ' · ' + tm.name : ''}` : tm ? `${tm.name} · ${tm.car}` : 'PORSCHE 992 GT3 R';
   const q = wk.quali;
@@ -3748,10 +3869,11 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   else if (next === 'trial') startGame();
   else if (next === 'track' || next === 'car') openTrackPage();
   else if (next === 'hub') openHub();
+  else if (next === 'champ') champHub();
   else if (next === 'garage') openGarage();
   else if (next === 'menu') showMenuPage('menuHome');
   else showMenuPage('menuTitle');
-  if (next !== 'trial' && next !== 'replay' && next !== 'hub') startAttract();
+  if (next !== 'trial' && next !== 'replay' && next !== 'hub' && next !== 'champ') startAttract();
   homeArt();
   // gara online: dopo il ricaricamento con il circuito dell'host ci si ricollega da soli
   let onlineRe = null;

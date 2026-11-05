@@ -421,7 +421,7 @@ button.card:active { transform: scale(0.97); }
 #menuFade { position: absolute; inset: 0; background: #05060a; opacity: 0; pointer-events: none; transition: opacity .28s ease; z-index: 0; }
 #menuFade.on { opacity: 1; transition: opacity .18s ease; }
 .menuPage { position: relative; z-index: 1; }
-#menuMode, #menuCar, #menuRace, #menuSettings, #menuHelp, #menuCredits, #menuRecords {
+#menuMode, #menuCar, #menuRace, #menuSettings, #menuHelp, #menuCredits, #menuRecords, #menuChamp {
   background: linear-gradient(90deg, rgba(6,8,13,0.94) 0%, rgba(6,8,13,0.78) 55%, rgba(6,8,13,0.55) 100%); }
 
 /* --- schermata iniziale --- */
@@ -712,7 +712,7 @@ body.touch .rpKeys { display: none; }
 #menuBest { color: #c48bff; }
 .topIc { width: 48px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.45); color: #fff; font-size: 22px; cursor: pointer; }
 .tiles { position: absolute; z-index: 2; left: max(28px, env(safe-area-inset-left)); right: max(28px, env(safe-area-inset-right)); bottom: max(54px, calc(env(safe-area-inset-bottom) + 44px));
-  display: grid; grid-template-columns: 1.6fr 1.2fr 1fr 1fr 1fr; gap: 12px; height: min(36vh, 300px); }
+  display: grid; grid-template-columns: 1.5fr 1.15fr 1.1fr 1fr 1fr 1fr; gap: 12px; height: min(36vh, 300px); }
 .tile { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 4px; text-align: left; cursor: pointer;
   padding: 18px 20px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); color: #fff; font-family: var(--font);
   background: linear-gradient(180deg, rgba(30,34,46,0.55), rgba(8,10,16,0.92)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -1020,3 +1020,37 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .recRow .sec em { font-style: normal; color: #fff; }
 .recRow .del { margin-left: auto; padding: 0; border: 0; background: none; color: rgba(255,255,255,0.35); font-size: 11px; cursor: pointer; font-family: var(--font); }
 .recRow .del:hover { color: #ff5a4f; }
+
+/* --- campionato --- */
+.tile.champ { background: linear-gradient(120deg, rgba(255,210,30,0.22), rgba(255,255,255,0.05)); border-color: rgba(255,210,30,0.45); }
+.champBody { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(220px, 0.9fr) 1.4fr; gap: 16px; align-content: start; touch-action: pan-y; text-align: left; }
+.champBody.setup { grid-template-columns: 1fr; max-width: 640px; margin: 0 auto; width: 100%; }
+.chCard { border-radius: 16px; padding: 12px 14px; background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.10); }
+.chCard h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 3px; color: var(--muted); font-weight: 800; }
+.chRound { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.07); font-size: 13px; }
+.chRound:first-of-type { border-top: 0; }
+.chRound .n { font-weight: 900; color: var(--muted); }
+.chRound b { font-style: italic; font-weight: 900; letter-spacing: .5px; }
+.chRound small { display: block; color: var(--muted); font-size: 11px; }
+.chRound .res { font-weight: 900; font-size: 13px; }
+.chRound.next { background: rgba(255,138,28,0.14); border-radius: 8px; padding: 7px 6px; }
+.chRound.next .res { color: var(--accent); }
+.chTable .r { display: grid; grid-template-columns: 26px 10px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 4px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+.chTable .r:first-of-type { border-top: 0; }
+.chTable .r i { width: 6px; height: 18px; border-radius: 2px; }
+.chTable .r .p { font-weight: 900; color: var(--muted); text-align: right; }
+.chTable .r .w { font-size: 11px; color: var(--muted); }
+.chTable .r .pt { font-weight: 900; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+.chTable .r.me { background: rgba(255,138,28,0.16); border-radius: 8px; }
+.chTable .r.me span { color: #fff; }
+.chTable .r .tm { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.chOpt { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.07); }
+.chOpt:first-of-type { border-top: 0; }
+.chOpt b { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+.chOpt small { display: block; color: var(--muted); font-size: 11.5px; }
+.chChips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.chChips button { font-family: var(--font); font-weight: 800; font-size: 12px; color: #fff; padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); cursor: pointer; }
+.chChips button.sel { background: var(--accent); border-color: var(--accent); color: #111; }
+.chChamp { grid-column: 1 / -1; text-align: center; padding: 14px; border-radius: 16px; background: linear-gradient(120deg, #ffd21e, #ff9a33); color: #141414; }
+.chChamp b { display: block; font-size: 26px; font-style: italic; font-weight: 900; letter-spacing: 1px; }
+@media (max-width: 760px) { .champBody { grid-template-columns: 1fr; } }
