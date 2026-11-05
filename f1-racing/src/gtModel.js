@@ -104,7 +104,7 @@ function tuneMaterial(src) {
   // Formula 1 (RB22)
   else if (n === 'chasis' || n === 'chassis2') { m.roughness = 0.3; m.metalness = 0.2; m.color.set(0xffffff); m.userData.livery = true; }
   else if (n === 'decal') { m.transparent = false; m.alphaTest = 0.45; m.roughness = 0.35; m.depthWrite = true; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; }
-  else if (n === 'carbon') { m.roughness = 0.45; m.metalness = 0.35; m.color.set(0x9a9a9a); }
+  else if (n === 'carbon') { m.roughness = 0.4; m.metalness = 0.35; m.color.set(0x9a9a9a); carbonWeave(m); }
   else if (n === 'glass') { m.map = null; m.transparent = true; m.opacity = 0.35; m.color.set(0x1a2230); m.roughness = 0.05; }
   else if (n === 'redbull_wheel_hub') { m.roughness = 0.35; m.metalness = 0.6; }
   else if (/^TIRE_/.test(n)) { m.roughness = 0.88; m.metalness = 0; }
@@ -293,6 +293,15 @@ export function createGT(opts = {}) {
     }
   }
   const stripe = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.6 });
+  const sidewall = ghost ? null : new THREE.MeshStandardMaterial({ map: sidewallTex(), color: 0xf5c518, transparent: true, depthWrite: false, roughness: 0.7,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  // altezza della carrozzeria (per lo sporco che sale dal basso)
+  if (!tpl.yr) {
+    const b = new THREE.Box3();
+    for (const p of tpl.parts.body) { p.g.computeBoundingBox(); b.union(p.g.boundingBox); }
+    const w0 = tpl.wheelInfo[0];
+    tpl.yr = [w0.center.y - w0.radius, b.max.y];
+  }
   const M = m => ghost ? ghostMat : (m === paint ? myPaint : swap.get(m) || m);
   const root = new THREE.Group(), body = new THREE.Group();
   body.rotation.order = 'YZX';
@@ -324,9 +333,12 @@ export function createGT(opts = {}) {
     // fascia colorata della mescola sul fianco esterno
     const side = i % 2 === 0 ? -1 : 1;
     if (!ghost) {
-      const band = new THREE.Mesh(new THREE.TorusGeometry(wi.radius * 0.84, 0.012, 4, 32), stripe);
-      band.position.z = side * (wi.width / 2 + 0.003);
-      spin.add(band);
+      // fianco della gomma: scritte e anello nel colore della mescola (girano con la ruota)
+      const ring = new THREE.Mesh(new THREE.RingGeometry(wi.radius * 0.79, wi.radius * 0.975, 72, 1), sidewall);
+      ring.position.z = side * (wi.width / 2 + 0.004);
+      if (side < 0) ring.rotation.y = Math.PI;
+      ring.renderOrder = 1;
+      spin.add(ring);
     }
     // F1 (dal 2022): deflettore in carbonio ad arco sopra la gomma anteriore, fissato al portamozzo
     // (sterza con la ruota ma non gira); si vede bene dalla T-Cam e dall'abitacolo
@@ -356,7 +368,7 @@ export function createGT(opts = {}) {
     body.add(h); helmet.push(h);
   }
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
-  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe }, scale: CAR_SCALE, gt: true, kind: tpl.kind };
+  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe, sidewall }, scale: CAR_SCALE, gt: true, kind: tpl.kind, yr: tpl.yr };
 }
 
 // ---------------------------------------------------------------- abitacolo GT (visuale interna)
@@ -650,4 +662,57 @@ function wheelBlurTex() {
   for (let k = 0; k < 14; k++) { const r = R * (0.25 + 0.68 * Math.random()); g.strokeStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${0.04 + Math.random() * 0.05})`; g.lineWidth = 1 + Math.random() * 3; g.beginPath(); g.arc(R, R, r, 0, 6.283); g.stroke(); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+// fianco della gomma: anello sottile e scritte in cerchio (bianche: le colora la mescola)
+let swTex = null;
+function sidewallTex() {
+  if (swTex) return swTex;
+  const S = 1024, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), C = S / 2, R0 = C * 0.79 / 0.975, R1 = C;
+  g.strokeStyle = '#fff';
+  // due archi dell'anello della mescola
+  g.lineWidth = S * 0.012;
+  for (const [a0, a1] of [[0.15, 1.4], [3.29, 4.54]]) { g.beginPath(); g.arc(C, C, R0 + (R1 - R0) * 0.3, a0, a1); g.stroke(); }
+  // scritte lungo il cerchio
+  const text = (str, ang, r, size, spacing) => {
+    g.font = `900 ${size}px Arial Black, Arial, sans-serif`; g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const w = [...str].map(ch => g.measureText(ch).width * spacing);
+    let a = ang - w.reduce((x, y) => x + y, 0) / r / 2;
+    for (let i = 0; i < str.length; i++) {
+      a += w[i] / r / 2;
+      g.save(); g.translate(C + Math.cos(a) * r, C + Math.sin(a) * r); g.rotate(a + Math.PI / 2); g.fillText(str[i], 0, 0); g.restore();
+      a += w[i] / r / 2;
+    }
+  };
+  const rm = R0 + (R1 - R0) * 0.62;
+  for (const base of [-Math.PI / 2, Math.PI / 2]) {
+    text('NOVA', base, rm, S * 0.075, 1.1);
+    text('RACE', base + 0.95, rm, S * 0.034, 1.25);
+    text('RACE', base - 0.95, rm, S * 0.034, 1.25);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return (swTex = t);
+}
+
+// carbonio a vista: trama intrecciata (si vede da vicino; da lontano diventa il grigio medio)
+function carbonWeave(m) {
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCbP; varying vec3 vCbN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCbP = position; vCbN = normal;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCbP; varying vec3 vCbN;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec3 an = abs(vCbN);
+        vec2 wq = (an.y > an.x && an.y > an.z ? vCbP.xz : an.x > an.z ? vCbP.zy : vCbP.xy) * 170.0;
+        float cell = mod(floor(wq.x) + floor(wq.y), 2.0);
+        float s = cell > 0.5 ? fract(wq.x) : fract(wq.y);
+        float tow = sin(s * 3.14159);
+        float fw = length(fwidth(wq));
+        float k = 1.0 - smoothstep(0.35, 0.9, fw);
+        float cbW = mix(1.0, (cell > 0.5 ? 1.12 : 0.82) * (0.8 + 0.3 * tow), k);
+        diffuseColor.rgb *= cbW;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, roughnessFactor * (cell > 0.5 ? 0.7 : 1.2), k);`);
+  };
+  m.customProgramCacheKey = () => 'carbonWeave';
 }

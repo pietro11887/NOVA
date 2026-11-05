@@ -82,8 +82,53 @@ function carEnv() {
   }
   return carCube.rt.texture;
 }
+// vernice da auto vera (grafica alta e ultra): strato di trasparente lucido sopra il colore, scagliette
+// metallizzate che brillano al sole, sporco e gomma che salgono dal basso durante la gara, acqua quando piove
+const PAINT_GLSL = {
+  vpars: 'varying vec3 vCarP;',
+  vmain: 'vCarP = position;',
+  fpars: `varying vec3 vCarP; uniform float uDirt, uCarWet; uniform vec2 uCarY;
+    float cH1(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float cN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(cH1(i), cH1(i + vec3(1,0,0)), f.x), mix(cH1(i + vec3(0,1,0)), cH1(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(cH1(i + vec3(0,0,1)), cH1(i + vec3(1,0,1)), f.x), mix(cH1(i + vec3(0,1,1)), cH1(i + vec3(1,1,1)), f.x), f.y), f.z); }`,
+  color: `
+    float cHt = clamp((vCarP.y - uCarY.x) / max(uCarY.y - uCarY.x, 0.05), 0.0, 1.0);
+    float cDn = cN3(vCarP * 4.0) * 0.6 + cN3(vCarP * 13.0) * 0.4;
+    // sporco: parte dal basso (fiancate, diffusore, dietro le ruote) e sale con i giri
+    float dirtM = clamp(uDirt * 1.7 - cHt * 1.9 + (cDn - 0.5) * 0.7 + 0.25 * uDirt * smoothstep(0.0, -2.0, vCarP.x), 0.0, 1.0) * smoothstep(0.0, 0.08, uDirt);
+    vec3 dirtC = mix(vec3(0.36, 0.31, 0.25), vec3(0.27, 0.28, 0.29), uCarWet) * (0.75 + 0.5 * cDn);
+    diffuseColor.rgb = mix(diffuseColor.rgb, dirtC, dirtM * 0.8);
+    diffuseColor.rgb *= 1.0 - 0.08 * uCarWet;`,
+  rough: 'roughnessFactor = mix(roughnessFactor, 0.8, dirtM * (1.0 - 0.6 * uCarWet));',
+  normal: `
+    { vec3 fp = vCarP * 230.0, ci = floor(fp);
+      vec3 r3 = vec3(cH1(ci), cH1(ci + 17.3), cH1(ci + 41.7)) - 0.5;
+      float fw = length(fwidth(fp));
+      normal = normalize(normal + r3 * 0.42 * (1.0 - smoothstep(0.35, 1.1, fw)) * (1.0 - dirtM)); }`,
+  coat: `
+    material.clearcoat *= 1.0 - 0.85 * dirtM;
+    material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.55, dirtM * (1.0 - uCarWet));`,
+};
+function paintShader(p, U) {
+  const base = p.onBeforeCompile, key = (p.customProgramCacheKey !== THREE.Material.prototype.customProgramCacheKey && p.customProgramCacheKey) ? p.customProgramCacheKey() : '';
+  p.onBeforeCompile = (sh, r) => {
+    base.call(p, sh, r);
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + PAINT_GLSL.vpars).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + PAINT_GLSL.vmain);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + PAINT_GLSL.fpars)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + PAINT_GLSL.color)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + PAINT_GLSL.rough)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + PAINT_GLSL.normal)
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n' + PAINT_GLSL.coat);
+  };
+  p.customProgramCacheKey = () => key + '|carPaint';
+}
 function ultraCar(model, env = null) {
-  if (!ULTRA || !model || !model.root) return;
+  if (!HIQ || !model || !model.root) return;
+  if (!ULTRA) env = null;
+  // uniformi della vettura: sporco (cresce in gara), pioggia, altezza della carrozzeria
+  const U = model.paintU || (model.paintU = { uDirt: { value: 0 }, uCarWet: { value: WX.wet }, uCarY: { value: new THREE.Vector2(...(model.yr || [0, 1.2])) } });
   const keep = new Set(Object.values(model.materials || {}).filter(m => m && m !== model.materials.paint));
   model.root.traverse(o => {
     if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
@@ -91,16 +136,19 @@ function ultraCar(model, env = null) {
     if (!m.isMeshStandardMaterial || keep.has(m) || m.transparent) return;
     if (m.isMeshPhysicalMaterial) { if (env && !m.envMap) { m.envMap = env; m.envMapIntensity = 1.1; } return; }
     const paint = /PAINT|chasis|chassis|body|livery|carroz/i.test(m.name || '') || m.userData.livery || m === (model.materials && model.materials.paint);
-    const key = m.uuid + (env ? ':e' : '');
+    const key = m.uuid + (env ? ':e' : '') + (paint ? ':' + model.root.uuid : '');
     let p = ccCache.get(key);
     if (!p) {
       if (paint) {
         p = new THREE.MeshPhysicalMaterial();
         THREE.MeshStandardMaterial.prototype.copy.call(p, m);
         p.defines = { STANDARD: '', PHYSICAL: '' };
-        p.clearcoat = 1; p.clearcoatRoughness = 0.05; p.roughness = Math.max(0.16, m.roughness);
+        const matte = m.roughness > 0.38;                          // livree opache (alcune F1): trasparente satinato
+        p.clearcoat = matte ? 0.3 : 1; p.clearcoatRoughness = matte ? 0.35 : 0.04; p.roughness = Math.max(0.2, m.roughness);
+        if (model.kind !== 'f1') p.metalness = Math.max(p.metalness, 0.35);   // GT: vernice metallizzata
         p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey;
-      } else if (env) p = m.clone();
+        paintShader(p, U);
+      } else if (env) { p = m.clone(); p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey; }
       else return;
       if (env) { p.envMap = env; p.envMapIntensity = paint ? 1.15 : 1; }
       ccCache.set(key, p);
@@ -448,6 +496,7 @@ function resetSession() {
   lastLap = null;
   simTime = 0;
   dnfTimer = -1;
+  if (car) { car.dirt = 0; if (car.paintU) car.paintU.uDirt.value = 0; }      // vettura pulita a ogni nuova sessione
   camState.init = false;
   updateCarVisual(0);
   setSectorsHud([]);
@@ -985,6 +1034,9 @@ function updateEffects(dt) {
     }
     spray.update(dt);
   }
+  // sporco sulle carrozzerie: cresce con i km (di più sul bagnato e quando si va sull'erba o sulla ghiaia)
+  dirtTick(phys, car, dt);
+  if (race) for (const c of race.cars) if (!c.isPlayer && c.model && !c.gone) dirtTick(c.phys, c.model, dt);
   particles.update(dt);
   glow.update(dt);
   debris.update(dt, phys.hint);
@@ -1931,6 +1983,7 @@ function carStatusHtml() {
 // colore della fascia sulla gomma in base alla mescola (rossa, gialla, bianca)
 function setTyreColor(model, compound) {
   if (model && model.materials && model.materials.stripe) model.materials.stripe.color.setHex(COMPOUNDS[compound].color);
+  if (model && model.materials && model.materials.sidewall) model.materials.sidewall.color.setHex(COMPOUNDS[compound].color);
 }
 
 // ---------------------------------------------------------------- box
@@ -3626,6 +3679,14 @@ function dynRes(dt) {
   DYN.scale = next;
   renderer.setPixelRatio(Math.max(0.5, DYN.base * next));
   resize();
+}
+
+function dirtTick(p, m, dt) {
+  if (!m || !m.paintU || !(p.speed > 1) || p.inPit) return;
+  let off = 0;
+  for (const w of p.wheels) if (w.sf.type >= SURF.GRASS) off++;
+  m.dirt = Math.min(1, (m.dirt || 0) + p.speed * dt * ((WET ? 1 / 14000 : 1 / 26000) + off / 2500));
+  m.paintU.uDirt.value = m.dirt;
 }
 
 function postFx() {
