@@ -42,3 +42,7 @@ EU-DEM 25 m (Copernicus Land Monitoring Service, via OpenTopoData). Il modulo `s
   tagliati per Stunt Rally — licenza [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Le versioni convertite qui restano CC BY-SA 3.0.
 - `sfx/squeal.mp3`: "Car tire squeal skid loop" di **qubodup** su [OpenGameArt](https://opengameart.org/content/car-tire-squeal-skid-loop) — CC BY 3.0.
 Modifiche: conversione in mp3 mono; nel gioco i file vengono resi ciclici (dissolvenza tra fine e inizio) e uniformati di volume.
+- `amb/crowd.mp3`, `amb/cheer1..3.mp3`: "Free Crowd Cheering Sounds" di **Gregor Quendel** ([OpenGameArt](https://opengameart.org/content/free-crowd-cheering-sounds)) — CC BY 4.0 (tagliati, mono).
+- `amb/thunder.mp3`: "Thunder, Very Close, Rain, 01" di **InspectorJ** (www.jshaw.co.uk) — CC BY 3.0 (tagliato, dissolvenza).
+- `amb/rain.mp3`: "Rain (loopable)" di ylmir — CC0. `amb/water.mp3`: "40 CC0 water/splash" di rubberduck — CC0.
+- `amb/gun1-2.mp3`, `drop`, `jack`, `clatter`: "68 Workshop Sounds" di Bart Kelsey — CC0. `amb/static.mp3`: "Static" di xhunterko — CC0.

@@ -22,6 +22,7 @@ const REF_RPM = 6000;                 // giri a cui è costruito il buffer del m
 // F1: V12 fino a 10.000 giri (portato a 10.500 al limitatore); GT3: 6 cilindri in linea da corsa fino a 8.000.
 const SND = 'assets/sounds/';
 const BANK = IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;
 // volume uniformato (tutti i file allo stesso livello medio)
@@ -84,6 +85,15 @@ export class Sound {
     this.out.connect(comp); comp.connect(lim); lim.connect(ctx.destination);
     this.bus = {};
     for (const [k, v] of [['eng', 0.9], ['sfx', 0.9], ['amb', 0.6], ['radio', 0.9]]) { const g = ctx.createGain(); g.gain.value = v; g.connect(this.out); this.bus[k] = g; }
+    // eco: il motore rimbalza sui muri e sui palazzi vicini (riverbero corto, più forte quando i muri sono vicini)
+    try {
+      const conv = ctx.createConvolver(), sr = ctx.sampleRate, len = Math.floor(sr * 1.1), ir = ctx.createBuffer(2, len, sr);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); const r = rand(77 + c); for (let i = 0; i < len; i++) { const x = i / len; d[i] = (r() * 2 - 1) * Math.pow(1 - x, 3.2) * (i < sr * 0.012 ? i / (sr * 0.012) : 1); } }
+      conv.buffer = ir;
+      this.echoG = ctx.createGain(); this.echoG.gain.value = 0;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 250;
+      this.bus.eng.connect(this.echoG); this.echoG.connect(hp); hp.connect(conv); conv.connect(this.out);
+    } catch (e) { this.echoG = null; }
 
     this.noiseBuf = this.makeNoise(2, false);
     this.pinkBuf = this.makeNoise(3, true);
@@ -124,6 +134,22 @@ export class Sound {
       SFX.forEach((n, i) => { this.sfx[n] = bufs[i]; });
       this.buildSampleSfx();
     } catch (e) { console.warn('effetti registrati non disponibili', e); }
+    try {
+      const bufs = await Promise.all(AMB.map(n => get(`${SND}amb/${n}.mp3`).catch(() => null)));
+      this.amb = {};
+      AMB.forEach((n, i) => { this.amb[n] = bufs[i]; });
+      this.buildSampleAmb();
+    } catch (e) { console.warn('ambiente registrato non disponibile', e); }
+  }
+
+  buildSampleAmb() {
+    const A = this.amb, ctx = this.ctx, t = ctx.currentTime;
+    const loopOf = (buf, rms) => { const s = ctx.createBufferSource(); s.buffer = seamless(ctx, buf, rms); s.loop = true; s.start(t, Math.random() * s.buffer.duration); return s; };
+    // pubblico vero sulle tribune
+    if (A.crowd && this.crowd) { this.crowd.disconnect(); this.crowdS = loopOf(A.crowd, 0.2); this.crowdS.connect(this.crowdG); }
+    // pioggia vera e acqua sotto le gomme
+    if (A.rain && this.rainN) { this.rainN.disconnect(); this.rainS = loopOf(A.rain, 0.2); this.rainS.connect(this.rainG); this.rainG.gain.value = 0.18 + 0.3 * WX.rain; }
+    if (A.water && this.hissN) { this.hissN.disconnect(); this.waterS = loopOf(A.water, 0.2); this.waterS.connect(this.hissG); }
   }
 
   buildSampleEngine(bufs) {
@@ -164,12 +190,15 @@ export class Sound {
   }
 
   // suono registrato singolo (urti, cambiata)
-  play(buf, vol, rate = 1, at = 0, bus = this.bus.sfx) {
+  play(buf, vol, rate = 1, at = 0, bus = this.bus.sfx, dur = 0, offset = 0, filter = null) {
     if (!buf || !this.ctx) return;
     const s = this.ctx.createBufferSource(), g = this.gain(vol);
     s.buffer = buf; s.playbackRate.value = rate;
-    s.connect(g); g.connect(bus);
-    s.start(this.ctx.currentTime + at);
+    if (filter) { s.connect(filter); filter.connect(g); } else s.connect(g);
+    g.connect(bus);
+    const t0 = this.ctx.currentTime + at;
+    s.start(t0, offset);
+    if (dur > 0) { g.gain.setValueAtTime(vol, t0 + dur * 0.7); g.gain.linearRampToValueAtTime(0, t0 + dur); s.stop(t0 + dur + 0.02); }
   }
 
   // ------------------------------------------------------------------ buffer
@@ -363,11 +392,11 @@ export class Sound {
 
   // pioggia: scroscio continuo (fruscio chiaro) e acqua sollevata dalle gomme, più forte con la velocità
   buildRain() {
-    const n = this.loop(this.noiseBuf);
+    const n = this.rainN = this.loop(this.noiseBuf);
     const hp = this.filt('highpass', 900, 0.4), lp = this.filt('lowpass', 7500, 0.5);
     this.rainG = this.gain(0.05 + 0.09 * WX.rain);
     this.chain(n, hp, lp, this.rainG, this.bus.amb);
-    const n2 = this.loop(this.pinkBuf);
+    const n2 = this.hissN = this.loop(this.pinkBuf);
     this.hissF = this.filt('bandpass', 1800, 0.7);
     this.hissG = this.gain(0);
     this.chain(n2, this.hissF, this.hissG, this.bus.sfx);
@@ -507,7 +536,7 @@ export class Sound {
     this.grassF.frequency.setTargetAtTime(300 + v * 20, t, 0.1);
     this.grassG.gain.setTargetAtTime(grass * 0.5 * Math.min(1, v / 8), t, 0.06);
     // vento (abitacolo aperto della F1: si sente di più)
-    const wind = Math.min(0.42, v * v * (IS_F1 ? 0.000045 : 0.00003) * (inCar ? 1.5 : 1));
+    const wind = Math.min(0.5, v * v * (IS_F1 ? 0.000045 : 0.00003) * (inCar ? 1.5 : 1) * (1 + 0.8 * (this.echo || 0)));   // vicino ai muri l'aria "soffia" di più
     this.windG.gain.setTargetAtTime(wind, t, 0.15);
     this.windF.frequency.setTargetAtTime(300 + v * 9, t, 0.15);
     // strisciata contro il muro: decade in fretta se non ci sono nuovi contatti
@@ -518,6 +547,7 @@ export class Sound {
     if (this.hissG) {
       this.hissG.gain.setTargetAtTime(Math.min(0.32, v * 0.0042 * WX.wet) * (car.inPit ? 0.4 : 1), t, 0.12);
       this.hissF.frequency.setTargetAtTime(900 + v * 22, t, 0.15);
+      if (this.waterS) this.waterS.playbackRate.setTargetAtTime(clamp(0.7 + v / 70, 0.7, 1.8), t, 0.15);
     }
     // pubblico
     this.cheer *= Math.exp(-dt * 0.45);
@@ -615,6 +645,19 @@ export class Sound {
   // pit stop: cric su, pistole sulle quattro ruote, (riparazione), pistole, cric giù
   pitService(total) {
     if (!this.ctx) return;
+    const A = this.amb;
+    if (A && A.gun1) {
+      // pistole dei meccanici: raffica corta e acuta sulle quattro ruote (svita, poi riavvita), ruote che cadono, cric
+      const gun = (at, k) => this.play(k % 2 ? A.gun2 : A.gun1, 0.55, 1.5 + Math.random() * 0.25, at, this.bus.sfx, 0.32 + Math.random() * 0.08, Math.random() * 0.3);
+      if (A.jack) this.play(A.jack, 0.6, 0.8, 0.05);
+      [0.22, 0.29, 0.36, 0.43].forEach(gun);
+      if (A.drop) [0.75, 0.82, 0.95, 1.02].forEach((a, i) => this.play(A.drop, 0.35, 0.7 + i * 0.05, a));
+      if (A.clatter) this.play(A.clatter, 0.3, 0.9, 1.1);
+      const end = Math.max(1.4, total);
+      [end - 0.75, end - 0.68, end - 0.6, end - 0.52].forEach(gun);
+      if (A.jack) this.play(A.jack, 0.7, 0.7, end - 0.08);
+      return;
+    }
     const gun = at => {
       for (let k = 0; k < 2; k++) {
         const t0 = at + k * 0.11;
@@ -637,6 +680,11 @@ export class Sound {
   // tuono: boato basso che rotola e si spegne piano (più lontano = più cupo e più debole)
   thunder(power = 1) {
     if (!this.ctx) return;
+    if (this.amb && this.amb.thunder) {
+      // tuono vero: da lontano più cupo e più piano
+      this.play(this.amb.thunder, 0.35 + 0.65 * power, 0.85 + 0.2 * power, 0, this.bus.amb, 0, 0, this.filt('lowpass', 400 + 4000 * power * power, 0.7));
+      return;
+    }
     const t = this.ctx.currentTime, src = this.ctx.createBufferSource();
     src.buffer = this.pinkBuf; src.playbackRate.value = 0.35 + 0.15 * power;
     const lp = this.filt('lowpass', 180 + 420 * power, 0.7), g = this.gain(0);
@@ -651,8 +699,19 @@ export class Sound {
     src.start(t, Math.random() * 1.5); src.stop(t + 5.6);
   }
 
+  // eco (0-1): muri e palazzi vicini, tribune, corsia box
+  setEcho(v) { this.echo = clamp(v, 0, 1); if (this.echoG && this.ctx) this.echoG.gain.setTargetAtTime(this.echo * 0.55, this.ctx.currentTime, 0.2); }
+
   setCrowd(level) { this.crowdLevel = clamp(level, 0, 1); }
-  cheerUp(v = 0.6) { this.cheer = Math.min(1, this.cheer + v); }
+  cheerUp(v = 0.6) {
+    this.cheer = Math.min(1, this.cheer + v);
+    // esultanza vera del pubblico (non più di una ogni 3 secondi)
+    if (this.amb && this.ctx && this.ctx.currentTime - (this.lastCheer || -9) > 3) {
+      this.lastCheer = this.ctx.currentTime;
+      const buf = v >= 0.9 ? this.amb.cheer3 || this.amb.cheer1 : Math.random() < 0.5 ? this.amb.cheer1 : this.amb.cheer2;
+      this.play(buf, Math.min(0.9, (0.25 + 0.75 * Math.max(this.crowdLevel, v >= 0.9 ? 0.8 : 0)) * v), 0.95 + Math.random() * 0.1, 0, this.bus.amb);
+    }
+  }
 
   // bip (semaforo, record, limitatore)
   beep(freq = 880, dur = 0.18, vol = 0.25) {
@@ -673,7 +732,11 @@ export class Sound {
     if (!this.ctx || !this.radioOn || this.muted) return;
     const now = performance.now();
     if (this.radioBusy && now < this.radioBusy) { this.radioQueue = text; return; }
-    const squelch = at => { this.burst(0.12, 'bandpass', 2500, 1.5, 0.12, at, this.bus.radio, 0.4); this.beep(1500, 0.05, 0.05); };
+    const squelch = at => {
+      if (this.amb && this.amb.static) this.play(this.amb.static, 0.35, 1, at, this.bus.radio, 0.22, Math.random() * 2.5, this.filt('bandpass', 2200, 0.8));
+      else this.burst(0.12, 'bandpass', 2500, 1.5, 0.12, at, this.bus.radio, 0.4);
+      this.beep(1500, 0.05, 0.05);
+    };
     squelch(0);
     const synth = window.speechSynthesis;
     let dur = 0.4 + text.length * 0.065;

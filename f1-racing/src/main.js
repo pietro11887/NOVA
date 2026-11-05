@@ -3295,6 +3295,10 @@ function updateAudio(dt) {
   if (!sounds.ctx) return;
   sounds.setView(camMode >= 2);
   sounds.update(phys, mode === 'race' || mode === 'countdown', dt);
+  // eco: quanto sono vicini muri e palazzi (Baku tra i palazzi ne ha di più)
+  { const sm = track.samples[phys.prCG.i], dl = Math.abs((sm.wallLVis ?? sm.wallL) - phys.prCG.d), dr = Math.abs((sm.wallRVis ?? sm.wallR) + phys.prCG.d);
+    const near = Math.max(0, 1 - Math.min(dl, dr) / 9) * 0.6 + Math.max(0, 1 - (dl + dr) / 30) * 0.4;
+    sounds.setEcho((track.street ? 0.35 : 0.1) + near * (track.street ? 0.65 : 0.5) + (phys.inPit ? 0.3 : 0)); }
   // ascoltatore: la telecamera
   camera.getWorldDirection(tmpAudio);
   const fl = Math.hypot(tmpAudio.x, tmpAudio.z) || 1;
