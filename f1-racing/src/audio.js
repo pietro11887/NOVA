@@ -16,6 +16,30 @@ import { WX } from './wx.js';
 import { IS_F1 } from './vehicle.js';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
+
+// Motori registrati (Stunt Rally, CryHam, CC-BY 4.0): un file ogni 1000 giri, a giri costanti.
+// Si suonano i due più vicini ai giri attuali, mescolati e accelerati/rallentati di poco: suono vero a ogni regime.
+// F1: V12 fino a 10.000 giri (portato a 10.500 al limitatore); GT3: 6 cilindri in linea da corsa fino a 8.000.
+const SND = 'assets/sounds/';
+const BANK = IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
+// file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;
+// volume uniformato (tutti i file allo stesso livello medio)
+function seamless(ctx, buf, rms = 0.2) {
+  const sr = buf.sampleRate, d = buf.getChannelData(0);
+  let a = 0, b = d.length;
+  while (a < d.length && a < sr * 0.1 && Math.abs(d[a]) < 2e-4) a++;
+  while (b > a && d.length - b < sr * 0.1 && Math.abs(d[b - 1]) < 2e-4) b--;
+  const X = Math.min(Math.floor(sr * 0.12), Math.floor((b - a) / 4)), L = b - a - X;
+  if (L < sr * 0.1) return buf;
+  const out = ctx.createBuffer(1, L, sr), o = out.getChannelData(0);
+  let sum = 0;
+  for (let i = 0; i < L; i++) { o[i] = d[a + i]; sum += o[i] * o[i]; }
+  for (let i = 0; i < X; i++) { const k = i / X; o[i] = d[a + i] * Math.sqrt(k) + d[a + L + i] * Math.sqrt(1 - k); }
+  const g = rms > 0 ? rms / Math.max(1e-4, Math.sqrt(sum / L)) : 1;
+  if (g !== 1) for (let i = 0; i < L; i++) o[i] *= g;
+  return out;
+}
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function rand(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
@@ -78,6 +102,74 @@ export class Sound {
     this.buildScrape();
     this.voices = [0, 1, 2].map(() => this.makeVoice());
     this.prev = { gear: 1, thr: 0, rpm: 0, popsUntil: 0, lastPop: 0, pitBeep: 0 };
+    this.loadSamples();
+  }
+
+  // ------------------------------------------------------------------ suoni registrati
+  async loadSamples() {
+    const ctx = this.ctx;
+    const get = async url => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(url);
+      const ab = await r.arrayBuffer();
+      return await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
+    };
+    try {
+      const bank = await Promise.all(Array.from({ length: BANK.n }, (_, i) => get(`${SND}${BANK.dir}/${i + 1}.mp3`)));
+      this.buildSampleEngine(bank.map(b => seamless(ctx, b)));
+    } catch (e) { console.warn('motore registrato non disponibile (resta quello sintetico)', e); }
+    try {
+      const bufs = await Promise.all(SFX.map(n => get(`${SND}sfx/${n}.mp3`).catch(() => null)));
+      this.sfx = {};
+      SFX.forEach((n, i) => { this.sfx[n] = bufs[i]; });
+      this.buildSampleSfx();
+    } catch (e) { console.warn('effetti registrati non disponibili', e); }
+  }
+
+  buildSampleEngine(bufs) {
+    const t = this.ctx.currentTime;
+    this.bankSum = this.gain(1);
+    this.bankLP = this.filt('lowpass', 8000, 0.6);
+    const lowShelf = this.filt('lowshelf', 160, 0.7, IS_F1 ? 2 : 4);       // un po' di "pancia"
+    this.chain(this.bankSum, lowShelf, this.bankLP, this.eCut);
+    this.bank = bufs.map((b, i) => {
+      const s = this.ctx.createBufferSource(); s.buffer = b; s.loop = true;
+      const g = this.gain(0);
+      s.connect(g); g.connect(this.bankSum);
+      s.start(t, Math.random() * b.duration);
+      return { s, g, rpm: (i + 1) * 1000 };
+    });
+    // avversari: un campione vicino ai giri di gara
+    const vb = bufs[Math.min(bufs.length, BANK.voice) - 1];
+    this.voiceRef = Math.min(bufs.length, BANK.voice) * 1000;
+    for (const v of this.voices) {
+      try { v.s.stop(); v.s.disconnect(); } catch (e) { /* niente */ }
+      const s = this.ctx.createBufferSource(); s.buffer = vb; s.loop = true; s.connect(v.pk); s.start(t, Math.random() * vb.duration);
+      v.s = s;
+    }
+  }
+
+  buildSampleSfx() {
+    const S = this.sfx, ctx = this.ctx, t = ctx.currentTime;
+    const loopOf = (buf, rms) => { const s = ctx.createBufferSource(); s.buffer = seamless(ctx, buf, rms); s.loop = true; s.start(t, Math.random() * s.buffer.duration); return s; };
+    // stridio delle gomme registrato
+    if (S.squeal && this.sqN) { this.sqN.disconnect(); this.sqS = loopOf(S.squeal, 0.25); this.sqS.connect(this.sqG); }
+    // strisciata contro il muro: lamiera vera
+    if (S.scrap && this.scrN) { this.scrN.disconnect(); this.scrS = loopOf(S.screech || S.scrap, 0.22); this.scrS.connect(this.scrG); }
+    // turbo della F1
+    if (S.turbo && this.tG) {
+      try { this.tOsc.disconnect(); this.tOsc2.disconnect(); this.tNz.disconnect(); } catch (e) { /* niente */ }
+      this.tS = loopOf(S.turbo, 0.25); this.tS.connect(this.tG);
+    }
+  }
+
+  // suono registrato singolo (urti, cambiata)
+  play(buf, vol, rate = 1, at = 0, bus = this.bus.sfx) {
+    if (!buf || !this.ctx) return;
+    const s = this.ctx.createBufferSource(), g = this.gain(vol);
+    s.buffer = buf; s.playbackRate.value = rate;
+    s.connect(g); g.connect(bus);
+    s.start(this.ctx.currentTime + at);
   }
 
   // ------------------------------------------------------------------ buffer
@@ -218,6 +310,7 @@ export class Sound {
       this.tG = this.gain(0);
       const tn = this.loop(this.noiseBuf), tbp = this.filt('bandpass', 6000, 8), tng = this.gain(0.25);
       this.chain(tn, tbp, tng, this.tG);
+      this.tNz = tng;
       this.tBP = tbp;
       this.tOsc.connect(this.tG); this.tOsc2.connect(this.tG); this.tG.connect(this.bus.eng);
       this.tOsc.start(); this.tOsc2.start();
@@ -233,7 +326,7 @@ export class Sound {
   // ------------------------------------------------------------------ gomme
   buildTyres() {
     // stridio: due risonanze che oscillano un po' (non è mai un fischio pulito)
-    const n = this.loop(this.noiseBuf);
+    const n = this.sqN = this.loop(this.noiseBuf);
     this.sqA = this.filt('bandpass', 900, 14); this.sqB = this.filt('bandpass', 1420, 16);
     this.sqG = this.gain(0);
     n.connect(this.sqA); n.connect(this.sqB);
@@ -289,7 +382,7 @@ export class Sound {
   }
 
   buildScrape() {
-    const n = this.loop(this.noiseBuf);
+    const n = this.scrN = this.loop(this.noiseBuf);
     this.scrF = this.filt('bandpass', 2600, 3);
     this.scrAM = this.gain(1);
     this.scrG = this.gain(0);
@@ -308,7 +401,7 @@ export class Sound {
     const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
     this.chain(s, pk, f, g);
     if (pan) { g.connect(pan); pan.connect(this.bus.eng); } else g.connect(this.bus.eng);
-    return { s, f, g, pan, id: null };
+    return { s, pk, f, g, pan, id: null };
   }
 
   // ------------------------------------------------------------------ impostazioni
@@ -329,8 +422,22 @@ export class Sound {
     this.eOff.playbackRate.setTargetAtTime(rate * 0.998, t, 0.012);
     // in tiro / in rilascio
     const load = running ? thr : thr * 0.5;
-    this.gOn.gain.setTargetAtTime(0.15 + 0.85 * Math.pow(load, 0.7), t, 0.03);
-    this.gOff.gain.setTargetAtTime(0.75 * (1 - load * 0.85), t, 0.03);
+    const syn = this.bank ? 0 : 1;          // motore registrato caricato: quello sintetico tace
+    this.gOn.gain.setTargetAtTime(syn * (0.15 + 0.85 * Math.pow(load, 0.7)), t, 0.03);
+    this.gOff.gain.setTargetAtTime(syn * 0.75 * (1 - load * 0.85), t, 0.03);
+    if (this.bank) {
+      const B = this.bank, r = clamp(car.rpm * BANK.mul, 800, 11500);
+      let i = 0;
+      while (i < B.length - 2 && r > B[i + 1].rpm) i++;
+      const f = clamp((r - B[i].rpm) / (B[i + 1].rpm - B[i].rpm), 0, 1);
+      for (let j = 0; j < B.length; j++) {
+        const gj = j === i ? Math.cos(f * Math.PI / 2) : j === i + 1 ? Math.sin(f * Math.PI / 2) : 0;
+        B[j].g.gain.setTargetAtTime(gj, t, 0.025);
+        if (gj > 0 || B[j].g.gain.value > 0.002) B[j].s.playbackRate.setTargetAtTime(r / B[j].rpm, t, 0.012);
+      }
+      // in rilascio il motore è più cupo; dall'abitacolo si sente filtrato dalla scocca
+      this.bankLP.frequency.setTargetAtTime(clamp((900 + 11000 * Math.pow(load, 1.2) + r * 0.5) * (inCar ? 0.6 : 1), 400, 18000), t, 0.03);
+    }
     const vol = E.vol * (0.32 + 0.48 * load + 0.2 * rn) * (inCar ? 0.85 : 1);
     this.eVol.gain.setTargetAtTime(running || thr > 0 ? vol : vol * 0.7, t, 0.04);
     const lp = (E.lp[0] + E.lp[1] * load + E.lp[2] * car.rpm) * (inCar ? 0.6 : 1);
@@ -349,7 +456,7 @@ export class Sound {
       this.eCut.gain.setValueAtTime(up ? 0.25 : 0.6, t + cut);
       this.eCut.gain.linearRampToValueAtTime(1, t + cut + 0.03);
       if (up && thr > 0.5) this.bark(IS_F1 ? 0.35 : 0.55);
-      if (!IS_F1) this.clunk(up ? 0.25 : 0.18);
+      if (!IS_F1) { if (this.sfx && this.sfx.shift) this.play(this.sfx.shift, up ? 0.35 : 0.25, 0.9 + Math.random() * 0.2, 0, this.bus.eng); else this.clunk(up ? 0.25 : 0.18); }
       if (!up && car.gear > 0) this.pops(IS_F1 ? 1 : 3, 0.5);
       P.gear = car.gear;
     }
@@ -362,7 +469,10 @@ export class Sound {
       this.tOsc.frequency.setTargetAtTime(3200 + this.boost * 6500, t, 0.05);
       this.tOsc2.frequency.setTargetAtTime(4900 + this.boost * 7400, t, 0.05);
       this.tBP.frequency.setTargetAtTime(5000 + this.boost * 5000, t, 0.05);
-      this.tG.gain.setTargetAtTime(this.boost * this.boost * (inCar ? 0.018 : 0.01), t, 0.06);
+      if (this.tS) {
+        this.tS.playbackRate.setTargetAtTime(0.6 + this.boost * 0.9, t, 0.05);
+        this.tG.gain.setTargetAtTime(this.boost * this.boost * (inCar ? 0.16 : 0.09), t, 0.06);
+      } else this.tG.gain.setTargetAtTime(this.boost * this.boost * (inCar ? 0.018 : 0.01), t, 0.06);
     }
     const v = car.speed;
     this.gearW.frequency.setTargetAtTime(200 + v * 22, t, 0.05);
@@ -384,7 +494,8 @@ export class Sound {
     const sq = clamp((slide - 0.12) * 1.6, 0, 1) * sv * (1 - grass - gravel);
     this.sqA.frequency.setTargetAtTime(860 + slide * 220 + Math.sin(t * 13) * 40 + Math.random() * 30, t, 0.04);
     this.sqB.frequency.setTargetAtTime(1380 + slide * 260 + Math.sin(t * 7.3) * 60, t, 0.04);
-    this.sqG.gain.setTargetAtTime(sq * 0.5, t, 0.035);
+    this.sqG.gain.setTargetAtTime(sq * (this.sqS ? 0.6 : 0.5), t, 0.035);
+    if (this.sqS) this.sqS.playbackRate.setTargetAtTime(0.85 + slide * 0.25 + v * 0.002, t, 0.06);
     this.lockF.frequency.setTargetAtTime(380 + v * 6, t, 0.05);
     this.lockG.gain.setTargetAtTime(lock * sv * 0.35, t, 0.03);
     this.rollF.frequency.setTargetAtTime(160 + v * 7, t, 0.1);
@@ -401,7 +512,8 @@ export class Sound {
     this.windF.frequency.setTargetAtTime(300 + v * 9, t, 0.15);
     // strisciata contro il muro: decade in fretta se non ci sono nuovi contatti
     this.scrape *= Math.exp(-dt * 9);
-    this.scrG.gain.setTargetAtTime(Math.min(0.6, this.scrape), t, 0.03);
+    this.scrG.gain.setTargetAtTime(Math.min(0.6, this.scrape) * (this.scrS ? 1.3 : 1), t, 0.03);
+    if (this.scrS) this.scrS.playbackRate.setTargetAtTime(clamp(0.7 + v / 40, 0.7, 1.6), t, 0.05);
     this.scrF.frequency.setTargetAtTime(1800 + v * 40, t, 0.05);
     if (this.hissG) {
       this.hissG.gain.setTargetAtTime(Math.min(0.32, v * 0.0042 * WX.wet) * (car.inPit ? 0.4 : 1), t, 0.12);
@@ -433,7 +545,8 @@ export class Sound {
       const ux = (c.x - L.x) / d, uz = (c.z - L.z) / d;
       const vr = (c.vx - L.vx) * ux + (c.vz - L.vz) * uz;          // >0 si allontana
       const dop = clamp(343 / (343 + vr), 0.75, 1.3);
-      v.s.playbackRate.setTargetAtTime(clamp(c.rpm * E.rpmMul, 1500, 13500) / REF_RPM * dop, t, 0.03);
+      if (this.voiceRef) v.s.playbackRate.setTargetAtTime(clamp(c.rpm * BANK.mul / this.voiceRef, 0.5, 1.5) * dop, t, 0.03);
+      else v.s.playbackRate.setTargetAtTime(clamp(c.rpm * E.rpmMul, 1500, 13500) / REF_RPM * dop, t, 0.03);
       const k = 1 / (1 + (d / 14) ** 2);
       v.g.gain.setTargetAtTime(k * (0.35 + 0.65 * c.thr) * 0.9, t, 0.05);
       v.f.frequency.setTargetAtTime(700 + 9000 * Math.exp(-d / 45), t, 0.05);
@@ -480,6 +593,17 @@ export class Sound {
     const s = clamp(strength, 0, 1.5);
     if (s < 0.04) return;
     const car = kind === 'car';
+    if (this.sfx && this.sfx.crash01) {
+      // botte di lamiera e carbonio registrate: leggere, medie, forti (più strati se l'urto è grande)
+      const pick = a => this.sfx[`crash${String(a[Math.floor(Math.random() * a.length)]).padStart(2, '0')}`];
+      const light = [1, 2, 3, 4, 5], mid = [6, 8, 9, 10, 12], heavy = [7, 11];
+      const set = s < 0.35 ? light : s < 0.8 ? mid : heavy;
+      this.play(pick(set), Math.min(1.1, 0.25 + s * 0.8), 0.9 + Math.random() * 0.2);
+      if (s > 0.8) this.play(pick(mid), 0.5 * s, 0.85 + Math.random() * 0.2, 0.05 + Math.random() * 0.08);
+      if (s > 0.5 && this.sfx.scrap) this.play(this.sfx.scrap, 0.35 * s, 0.9 + Math.random() * 0.2, 0.1);
+      this.thump(car ? 160 : 110, 38, 0.2 + s * 0.3, Math.min(1, 0.25 + s * 0.4));     // colpo sordo sotto
+      return;
+    }
     this.thump(car ? 160 : 110, 38, 0.2 + s * 0.3, Math.min(1, 0.4 + s * 0.7));
     this.burst(0.25 + s * 0.4, 'lowpass', 900 + s * 3000, 0.7, Math.min(0.9, 0.25 + s * 0.6));
     const shards = Math.round(2 + s * (car ? 6 : 12));

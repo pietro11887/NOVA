@@ -33,3 +33,12 @@ Da [Poly Haven](https://polyhaven.com), licenza **CC0** (pubblico dominio), ridi
 Ricostruita da zero con dati pubblici: tracciato, corsia box, boschi, prati, strade ed edifici da
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL); quote del terreno dal modello
 EU-DEM 25 m (Copernicus Land Monitoring Service, via OpenTopoData). Il modulo `src/tracks/spaData.js` è generato da questi dati.
+
+## Suoni (`sounds/`)
+- `eng-f1/1..10.mp3` (V12 "v12d") e `eng-gt/1..8.mp3` (6 in linea "b-i6r"): motori registrati a giri costanti (1000 giri per file)
+  da **CryHam** per [Stunt Rally 3](https://github.com/stuntrally/stuntrally3) con engine-sim — licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- `sfx/turbo.mp3`: CryHam (Stunt Rally), CC0.
+- `sfx/crash01..12.mp3`, `sfx/scrap.mp3`, `sfx/screech.mp3`, `sfx/shift.mp3`: **Halleck** su Freesound (metal hits, roll cage hits, metal screech),
+  tagliati per Stunt Rally — licenza [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Le versioni convertite qui restano CC BY-SA 3.0.
+- `sfx/squeal.mp3`: "Car tire squeal skid loop" di **qubodup** su [OpenGameArt](https://opengameart.org/content/car-tire-squeal-skid-loop) — CC BY 3.0.
+Modifiche: conversione in mp3 mono; nel gioco i file vengono resi ciclici (dissolvenza tra fine e inizio) e uniformati di volume.
