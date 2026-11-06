@@ -891,7 +891,15 @@ class Game {
     if (this.post) this.post.setNight(night);
     // in pieno giorno si chiude il diaframma: le alte luci non devono
     // bruciare e le ombre devono restare leggibili
-    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27;
+    /*
+     * In pieno giorno si chiude il diaframma: le alte luci non devono
+     * bruciare e le ombre devono restare leggibili. Ma la formula guardava
+     * solo quanto e' giorno, e all'ora d'oro — che per il conteggio del
+     * giorno vale poco piu' di mezzo — lasciava la citta' sottoesposta
+     * proprio mentre il sole la colora. Un fotografo al tramonto apre, non
+     * chiude.
+     */
+    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27 + this.sky.dusk * 0.24;
 
     if (this.interiors.current) {   // dentro un locale l'illuminazione e' costante
       this.sky.sun.intensity = 0.5;

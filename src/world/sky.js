@@ -126,8 +126,23 @@ export class SkySystem {
 
     const u = this.sky.material.uniforms;
     u.sunPosition.value.copy(this.sunDir);
-    const day = clamp((elev + 9) / 20, 0, 1);            // 0 = notte, 1 = giorno pieno
-    const dusk = clamp(1 - Math.abs(elev + 2) / 16, 0, 1); // massimo all'alba/tramonto
+    /*
+     * L'ora d'oro, allargata.
+     *
+     * `dusk` saliva al massimo solo quando il sole stava esattamente a due
+     * gradi sotto l'orizzonte: un istante. E `day` lo spegneva a nove gradi
+     * sotto, cioe' la luce calda arrivava al suo meglio proprio mentre il
+     * sole moriva. Risultato: la citta' passava da mezzogiorno piatto e
+     * bianco alla notte senza mai fermarsi sul momento in cui una strada e'
+     * bella — sole basso, ombre lunghe, pietra arancione.
+     *
+     * Adesso il massimo e' un altopiano, non una punta: resta pieno per una
+     * quindicina di gradi di elevazione, cioe' tre quarti d'ora di gioco, e
+     * sfuma su venticinque. E il sole continua a illuminare mentre succede.
+     */
+    const basso = Math.abs(elev + 2);
+    const day = clamp((elev + 14) / 24, 0, 1);           // 0 = notte, 1 = giorno pieno
+    const dusk = clamp(1 - Math.max(0, basso - 7) / 19, 0, 1);
     this.day = day; this.dusk = dusk; this.night = 1 - day;
 
     u.turbidity.value = lerp(2.2, 9.5, dusk);
@@ -138,8 +153,15 @@ export class SkySystem {
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.3);
-    this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
+    /*
+     * Il sole dell'ora d'oro non e' un sole spento: e' un sole BASSO, caldo
+     * e ancora forte. Prima lo si smorzava di un terzo proprio quando si
+     * colorava, e la citta' sprofondava nel buio nel momento in cui avrebbe
+     * dovuto essere piu' bella. E il colore restava su un pesca slavato:
+     * adesso e' arancio vero.
+     */
+    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.12);
+    this.sun.color.setHSL(lerp(0.11, 0.045, dusk), lerp(0.25, 0.95, dusk), lerp(0.96, 0.66, dusk));
     // l'ambiente arriva soprattutto dalla env map: l'emisferica e' solo di appoggio
     // di notte l'emisferica non scende quasi: senza, la citta' e' un muro nero
     /*
@@ -177,9 +199,15 @@ export class SkySystem {
     const horizon = new THREE.Color()
       .setHex(0x27354e)
       .lerp(new THREE.Color(0xbfd6e8), day)
-      .lerp(new THREE.Color(0xe8a071), dusk * 0.75);
+      .lerp(new THREE.Color(0xf0a265), dusk * 0.92);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(0.0018, 0.00062, day) + dusk * 0.0005;
+    /*
+     * La foschia dell'ora d'oro si deve VEDERE. A cinque decimillesimi non
+     * tingeva niente nemmeno in fondo a un viale: il calore c'era nei numeri
+     * e non nell'immagine. E' quella che stacca i palazzi lontani da quelli
+     * vicini e fa sembrare la citta' profonda.
+     */
+    this.fog.density = lerp(0.0018, 0.00062, day) + dusk * 0.0016;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new THREE.Color(0xffffff), day * 0.7);
     this.clouds.rotation.y += 0.00004;
