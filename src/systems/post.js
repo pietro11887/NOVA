@@ -39,11 +39,21 @@ const GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1.0 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.18 },
-    vibrance: { value: 0.45 },
-    warmth: { value: 0.025 },
-    contrast: { value: 1.08 },
-    lift: { value: 0.0 },
+    /*
+     * Saturazione sotto l'unita'.
+     *
+     * Spingere il colore a 1,18 sembra renderlo piu' ricco e invece fa
+     * l'opposto: il verde dei prati e l'azzurro del cielo saltano fuori dal
+     * resto e l'immagine diventa un cartone. Le riprese vere, e i giochi che
+     * ci somigliano, DESATURANO un filo e recuperano il colpo d'occhio col
+     * contrasto e col viraggio di ombre e luci. La vividezza selettiva resta,
+     * ma piu' bassa: serve a non spegnere l'erba, non a farla brillare.
+     */
+    saturation: { value: 0.97 },
+    vibrance: { value: 0.22 },
+    warmth: { value: 0.02 },
+    contrast: { value: 1.1 },
+    lift: { value: 0.006 },
     time: { value: 0 },
   },
   vertexShader: `
@@ -64,10 +74,20 @@ const GradeShader = {
        */
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-      // separazione di tinta: ombre verso il blu, luci verso l'ambra
-      vec3 shadowTint = vec3(0.94, 0.98, 1.09);
-      vec3 lightTint  = vec3(1.07, 1.02, 0.93);
-      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.02, 0.35, l));
+      /*
+       * Separazione di tinta: ombre verso il blu, luci verso l'ambra.
+       *
+       * La soglia andava presa su una luminanza PERCETTIVA, non su quella
+       * lineare. In lineare qualunque cosa sopra 0,35 e' gia' alta luce, e
+       * con una soglia cosi' bassa quasi tutta l'immagine finiva nel tono
+       * caldo: il viraggio era scritto nel codice ma non separava niente.
+       * La radice avvicina la luminanza a come la vede l'occhio, e cosi' il
+       * grigio medio sta davvero in mezzo.
+       */
+      float lp = sqrt(l / (1.0 + l));
+      vec3 shadowTint = vec3(0.93, 0.975, 1.10);
+      vec3 lightTint  = vec3(1.08, 1.02, 0.92);
+      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.18, 0.62, lp));
 
       // contrasto attorno al grigio medio lineare (0.18, non 0.5)
       c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);

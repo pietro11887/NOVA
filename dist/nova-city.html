@@ -14801,8 +14801,9 @@ var SkySystem = class {
     this.elevation = elev;
     const u2 = this.sky.material.uniforms;
     u2.sunPosition.value.copy(this.sunDir);
-    const day = clamp((elev + 9) / 20, 0, 1);
-    const dusk = clamp(1 - Math.abs(elev + 2) / 16, 0, 1);
+    const basso = Math.abs(elev + 2);
+    const day = clamp((elev + 14) / 24, 0, 1);
+    const dusk = clamp(1 - Math.max(0, basso - 7) / 19, 0, 1);
     this.day = day;
     this.dusk = dusk;
     this.night = 1 - day;
@@ -14812,8 +14813,8 @@ var SkySystem = class {
     this.sun.position.copy(this.sunDir).multiplyScalar(260).add(focus);
     this.sunTarget.position.copy(focus);
     this.sunTarget.updateMatrixWorld();
-    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.3);
-    this.sun.color.setHSL(lerp(0.11, 0.055, dusk), lerp(0.25, 0.75, dusk), lerp(0.96, 0.62, dusk));
+    this.sun.intensity = lerp(0.04, 3.7, day) * (1 - dusk * 0.12);
+    this.sun.color.setHSL(lerp(0.11, 0.045, dusk), lerp(0.25, 0.95, dusk), lerp(0.96, 0.66, dusk));
     this.hemi.intensity = lerp(0.58, 0.3, day);
     this.hemi.color.setHex(day > 0.5 ? 12376319 : 4874124);
     this.hemi.groundColor.setHex(day > 0.4 ? 9075294 : 2830914);
@@ -14835,9 +14836,9 @@ var SkySystem = class {
       this.sun.position.z = Math.round(this.sun.position.z / texel) * texel;
       c2.updateProjectionMatrix();
     }
-    const horizon = new Kr().setHex(2569550).lerp(new Kr(12572392), day).lerp(new Kr(15245425), dusk * 0.75);
+    const horizon = new Kr().setHex(2569550).lerp(new Kr(12572392), day).lerp(new Kr(15770213), dusk * 0.92);
     this.fog.color.copy(horizon);
-    this.fog.density = lerp(18e-4, 62e-5, day) + dusk * 5e-4;
+    this.fog.density = lerp(18e-4, 62e-5, day) + dusk * 16e-4;
     this.clouds.material.opacity = lerp(0.18, 0.5, day);
     this.clouds.material.color.copy(horizon).lerp(new Kr(16777215), day * 0.7);
     this.clouds.rotation.y += 4e-5;
@@ -16058,11 +16059,21 @@ var GradeShader = {
     tDiffuse: { value: null },
     amount: { value: 1 },
     vignette: { value: 0.9 },
-    saturation: { value: 1.18 },
-    vibrance: { value: 0.45 },
-    warmth: { value: 0.025 },
-    contrast: { value: 1.08 },
-    lift: { value: 0 },
+    /*
+     * Saturazione sotto l'unita'.
+     *
+     * Spingere il colore a 1,18 sembra renderlo piu' ricco e invece fa
+     * l'opposto: il verde dei prati e l'azzurro del cielo saltano fuori dal
+     * resto e l'immagine diventa un cartone. Le riprese vere, e i giochi che
+     * ci somigliano, DESATURANO un filo e recuperano il colpo d'occhio col
+     * contrasto e col viraggio di ombre e luci. La vividezza selettiva resta,
+     * ma piu' bassa: serve a non spegnere l'erba, non a farla brillare.
+     */
+    saturation: { value: 0.97 },
+    vibrance: { value: 0.22 },
+    warmth: { value: 0.02 },
+    contrast: { value: 1.1 },
+    lift: { value: 6e-3 },
     time: { value: 0 }
   },
   vertexShader: `
@@ -16083,10 +16094,20 @@ var GradeShader = {
        */
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-      // separazione di tinta: ombre verso il blu, luci verso l'ambra
-      vec3 shadowTint = vec3(0.94, 0.98, 1.09);
-      vec3 lightTint  = vec3(1.07, 1.02, 0.93);
-      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.02, 0.35, l));
+      /*
+       * Separazione di tinta: ombre verso il blu, luci verso l'ambra.
+       *
+       * La soglia andava presa su una luminanza PERCETTIVA, non su quella
+       * lineare. In lineare qualunque cosa sopra 0,35 e' gia' alta luce, e
+       * con una soglia cosi' bassa quasi tutta l'immagine finiva nel tono
+       * caldo: il viraggio era scritto nel codice ma non separava niente.
+       * La radice avvicina la luminanza a come la vede l'occhio, e cosi' il
+       * grigio medio sta davvero in mezzo.
+       */
+      float lp = sqrt(l / (1.0 + l));
+      vec3 shadowTint = vec3(0.93, 0.975, 1.10);
+      vec3 lightTint  = vec3(1.08, 1.02, 0.92);
+      c.rgb *= mix(shadowTint, lightTint, smoothstep(0.18, 0.62, lp));
 
       // contrasto attorno al grigio medio lineare (0.18, non 0.5)
       c.rgb = max(vec3(0.0), (c.rgb - 0.18) * contrast + 0.18 + lift);
@@ -25141,7 +25162,7 @@ var Game = class {
     this.city.setNight(night);
     this.city.animate(this.time);
     if (this.post) this.post.setNight(night);
-    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27;
+    this.renderer.toneMappingExposure = 0.95 - this.sky.day * 0.27 + this.sky.dusk * 0.24;
     if (this.interiors.current) {
       this.sky.sun.intensity = 0.5;
       this.sky.hemi.intensity = 1;
