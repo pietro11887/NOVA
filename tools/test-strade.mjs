@@ -9,12 +9,13 @@
  *   node tools/test-strade.mjs [secondi]
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { CHROMIUM } from './chromium.mjs';
 
 const SECONDI = Number(process.argv[2] || 90);
 const URL = process.env.NOVA_URL || 'http://127.0.0.1:8123/index.html?q=2&shot=1';
 
 const b = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: CHROMIUM,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const p = await b.newPage({ viewport: { width: 480, height: 270 } });

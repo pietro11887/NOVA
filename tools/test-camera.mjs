@@ -5,9 +5,10 @@
  * cambia, il giocatore e' inchiodato a guardare la nuca del tassista.
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { CHROMIUM } from './chromium.mjs';
 
 const b = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: CHROMIUM,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const p = await b.newPage({ viewport: { width: 420, height: 240 } });

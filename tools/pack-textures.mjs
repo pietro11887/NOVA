@@ -16,6 +16,7 @@
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { CHROMIUM } from './chromium.mjs';
 
 const [srcRoot, outDir] = process.argv.slice(2);
 if (!srcRoot || !outDir) {
@@ -33,7 +34,7 @@ const find = (dir, suffix) => {
 };
 const dataUri = (file) => `data:image/jpeg;base64,${fs.readFileSync(file).toString('base64')}`;
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await chromium.launch({ executablePath: CHROMIUM });
 const page = await browser.newPage();
 await page.goto('about:blank');
 

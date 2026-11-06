@@ -11,6 +11,7 @@
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import fs from 'node:fs';
+import { CHROMIUM } from './chromium.mjs';
 
 const args = process.argv.slice(2);
 const out = args[0];
@@ -21,7 +22,7 @@ const opt = (k, d) => {
 
 const url = opt('url', 'http://127.0.0.1:8123/index.html?q=3&shot=1');
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: CHROMIUM,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });

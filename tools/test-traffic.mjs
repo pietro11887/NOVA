@@ -9,11 +9,12 @@
  *   node tools/test-traffic.mjs [secondi]
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { CHROMIUM } from './chromium.mjs';
 
 const SECONDS = Number(process.argv[2] || 120);
 
 const b = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: CHROMIUM,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const p = await b.newPage({ viewport: { width: 480, height: 270 } });

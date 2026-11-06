@@ -8,12 +8,13 @@
  *   node tools/test-ride.mjs [corse] [secondi per corsa]
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { CHROMIUM } from './chromium.mjs';
 
 const RUNS = Number(process.argv[2] || 5);
 const LIMIT = Number(process.argv[3] || 200);
 
 const b = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: CHROMIUM,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const p = await b.newPage({ viewport: { width: 420, height: 240 } });
