@@ -12,7 +12,7 @@ for tid, c in sorted(C.items(), key=lambda kv: kv[1].get('round', 99)):
     outline = [[round(p[0]), round(p[2])] for p in P[::k]]
     out.append({'id': tid, 'name': c['name'], 'short': c.get('short'), 'place': c['place'], 'flag': c['flag'], 'km': c['km'], 'corners': c['corners'],
                 'info': c['info'], 'round': c.get('round'), 'climate': c.get('climate', 'temperate'), 'street': bool(c.get('street')), 'hw': c.get('hw', 6.5),
-                'fans': c.get('fans'), 'outline': outline})
+                'fans': c.get('fans'), 'outline': outline, **({'armco': True} if c.get('armco') else {})})
 with open(os.path.join(ROOT, 'src', 'tracks', 'realList.js'), 'w') as f:
     f.write('// Circuiti veri del calendario costruiti con tools/build_track.py (scritto da tools/make_catalog.py)\n')
     f.write('export const REAL_TRACKS = ' + json.dumps(out, ensure_ascii=False, separators=(',', ':')) + ';\n')

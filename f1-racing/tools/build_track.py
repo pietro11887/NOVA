@@ -595,7 +595,7 @@ def main():
     if cw != want_cw: P = P[::-1]
 
     # corsia box
-    pseq = pit_chain({w: ways[w] for w in pit_ways if w in ways} if pit_ways else ways, nodes, xy, force=bool(pit_ways))
+    pseq = None if cfg.get("pit_synth") else pit_chain({w: ways[w] for w in pit_ways if w in ways} if pit_ways else ways, nodes, xy, force=bool(pit_ways))
     pit = None
     if pseq and len(pseq) > 3:
         pit = [xy[n] for n in pseq]
@@ -664,6 +664,8 @@ def main():
             i_, d_ = nearest_i(cx, cz)
             if d_ < 90 and (best is None or A > best[0]): best = (A, i_, cx, cz)
         start_i = best[1] if best else 0
+        if cfg.get('start_ll'):             # traguardo scelto: la corsia va lì (Nordschleife: Döttinger Höhe)
+            start_i, _ = nearest_i((cfg['start_ll'][1] - lon0) * kx, -(cfg['start_ll'][0] - lat0) * kz); best = None
         si = start_i
         tx, tz = R[(si + 1) % nR][0] - R[si - 1][0], R[(si + 1) % nR][1] - R[si - 1][1]
         if best:
@@ -722,7 +724,7 @@ def main():
     if cfg.get('flat'): m = sum(sm) / nR; sm = [m + (h - m) * cfg['flat'] for h in sm]
     # pendenza massima (il modello del terreno in città vede i palazzi): oltre si appiattisce
     mg = cfg.get('max_grade', 0.12)
-    for it in range(40):
+    for it in range(300):
         ch = False
         for i in range(nR):
             j = (i + 1) % nR
@@ -824,6 +826,35 @@ def main():
     buildings.sort(key=lambda b: dtrack(b['p'][0]))
     buildings = [b for b in buildings if dtrack(b['p'][0]) < cfg.get('bmax_d', 1400)][:cfg.get('bmax', 2600)]
     roads = roads[:2500]; trees = trees[:1500]
+    # nomi delle curve (vie del circuito con un nome, punti panoramici): posizione lungo il giro
+    names = []
+    def near_R(x, z, lim):
+        bi, bd = None, lim
+        for k in range(0, nR):
+            d_ = math.hypot(points[k][0] - x, points[k][2] - z)
+            if d_ < bd: bi, bd = k, d_
+        return bi
+    for wid, (nds, t) in ways.items():
+        nm = t.get('name')
+        if not nm or t.get('highway') != 'raceway' or nm.lower().startswith(('nürburgring', 'anbindung', 'boxengasse', 'variante', 'rallycross')): continue
+        if any(n[1] == nm for n in names): continue
+        P_ = [xy[n] for n in nds if n in xy]
+        if len(P_) < 2: continue
+        hits = [near_R(x, z, 8) for x, z in P_]
+        hits = [h for h in hits if h is not None]
+        if len(hits) >= max(2, len(P_) // 2): names.append([min(hits) * 4, nm])
+    for nid, (la, lo, t) in nodes.items():
+        nm = t.get('name')
+        if nm and t.get('tourism') == 'viewpoint' and not any(n[1] in nm or nm in n[1] for n in names):
+            x, z = xy[nid]; k = near_R(x, z, 70)
+            if k is not None: names.append([k * 4, nm])
+    names.sort()
+    # curve sopraelevate (Karussell): [inizio, fine, pendenza trasversale]
+    banks = []
+    for la, lo, w, sl in cfg.get('banks', []):
+        x, z = (lo - lon0) * kx, -(la - lat0) * kz; k = near_R(x, z, 80)
+        if k is not None: banks.append([k * 4 - w / 2, k * 4 + w / 2, sl])
+    if names: print(f'  nomi delle curve: {len(names)}, sopraelevate: {len(banks)}')
     out = {
         'source': 'OpenStreetMap contributors (ODbL); Terrarium terrain tiles (SRTM, GMTED, ETOPO1 – Mapzen/AWS)',
         'lat0': lat0, 'lon0': lon0, 'length': round(L, 1), 'base': base, 'points': points,
@@ -831,6 +862,7 @@ def main():
         'grid': {'x0': x0, 'z0': z0, 'step': step, 'nx': nx, 'nz': nz, 'h': grid_h},
         'buildings': buildings, 'forest': forest, 'meadow': meadow, 'water': water, 'roads': roads, 'trees': trees, 'corners': {},
         'tunnels': [[a * 4, b * 4] for a, b in runs(tunnel_mask)],
+        'names': names, 'banks': banks,
     }
     fn = os.path.join(ROOT, 'src', 'tracks', f'{tid}Data.js')
     with open(fn, 'w') as f:

@@ -119,7 +119,7 @@ def main():
             far = last - e[i]
             # barriera: la linea scura vista nella foto (rete, guard-rail) oppure, se non si vede, oltre la
             # via di fuga con un prato largo come sulle piste vere
-            wall[i] = min(32, max(e[i] + 12, last + 2.5)) if not street else e[i] + 1.0
+            wall[i] = min(32, max(e[i] + cfg.get('wall_gap', 12), last + 2.5)) if not street else e[i] + 1.0
             if bar is not None and not street and bar > max(e[i] + 4, last - 1): wall[i] = min(wall[i], bar)
             tot = cnt.sum()
             if street: typ[i] = 3
@@ -147,6 +147,18 @@ def main():
     if np.mean([e[2] for e in edges]) < 0.06 and np.mean([e[3] for e in edges]) < 0.06:
         for p in range(npt):
             k = int(cmask[p]); edges[p][2] = edges[p][3] = k; sides[p][0] = sides[p][1] = k
+    # macchie isolate lontano dalla pista (alberi, ombre, stradine): restano prato
+    for i in range(n):
+        for sd, nm in ((1, 'L'), (-1, 'R')):
+            gap = 0; cut = False
+            for k in range(int(E[nm][i] / RES), int(W / RES) + 1):
+                j = c0 + sd * k
+                if not (0 <= j < m): break
+                if cut: c[i, j] = S.GRASS; continue
+                if c[i, j] in RUNOFF: gap = 0
+                else:
+                    gap += RES
+                    if gap > 6: cut = True
     D['edges'] = edges
     if not street:
         D['side'] = sides

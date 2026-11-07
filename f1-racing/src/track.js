@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt } from './trackData.js';
+import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js';
 import * as tex from './textures.js';
 import { texSet, triplanar } from './pbr.js';
 import { WX } from './wx.js';
@@ -16,6 +16,25 @@ export const SURF_PROPS = [
   { grip: 0.55, roll: 0.09 },
   { grip: 0.42, roll: 0.45 },
 ];
+
+// guard-rail (Nordschleife): lame d'acciaio zincato a doppia onda su paletti, con righe di sporco
+let _armco = null;
+function armcoMat() {
+  if (_armco) return _armco;
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#5b5f62'; g.fillRect(0, 0, 256, 128);                    // paletti e ombra dietro
+  for (const [y0, y1] of [[34, 70], [78, 114]]) {                           // due lame a onda
+    const gr = g.createLinearGradient(0, y0, 0, y1);
+    gr.addColorStop(0, '#d9dde0'); gr.addColorStop(0.3, '#a7adb2'); gr.addColorStop(0.5, '#eef1f3'); gr.addColorStop(0.75, '#8d9398'); gr.addColorStop(1, '#c4c9cd');
+    g.fillStyle = gr; g.fillRect(0, y0, 256, y1 - y0);
+  }
+  g.fillStyle = '#3d4144'; for (const x of [6, 134]) g.fillRect(x, 0, 10, 34);   // paletti sopra le lame
+  g.fillStyle = 'rgba(60,50,40,0.25)'; for (let k = 0; k < 40; k++) g.fillRect(Math.random() * 256, 60 + Math.random() * 50, 6 + Math.random() * 30, 2);
+  for (let k = 0; k < 14; k++) { g.fillStyle = `rgba(30,30,30,${0.15 + Math.random() * 0.3})`; g.fillRect(Math.random() * 256, 40 + Math.random() * 60, 20 + Math.random() * 60, 3); }   // segni delle gomme
+  const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return (_armco = new THREE.MeshStandardMaterial({ map: t, metalness: 0.55, roughness: 0.45, side: THREE.DoubleSide }));
+}
 
 export class Track {
   constructor() {
@@ -140,6 +159,7 @@ export class Track {
   surface(pr, out = {}) {
     this.surfaceType(pr, out);
     const S = this.samples, p = S[pr.i0 ?? pr.i];
+    if (p.bank) out.h += bankAt(p, pr.d);
     if (p.prof) {
       const q = S[((pr.i0 ?? pr.i) + 1) % S.length], f = pr.f || 0;
       const [o0, st] = TRACK.profOff, m = p.prof.length - 1;
@@ -236,7 +256,7 @@ export class Track {
     // materiali fotografici: Baku e le piste disegnate (le piste da modello 3D hanno già i loro)
     this.hq = this.quality !== 'low' && !TRACK.model;
     // piste disegnate senza sponsor: un marchio per tratto (come nei circuiti veri e in F1 25)
-    if (this.hq && !this.street && !TRACK.model && !TRACK.sponsors) {
+    if (this.hq && !this.street && !TRACK.model && !TRACK.sponsors && !TRACK.armco) {
       const pairs = [['aramco', 'aramco'], ['pirelli', 'pirelli'], ['dhl', 'heineken'], ['lenovo', 'lenovo'], ['aws', 'crypto'], ['msc', 'salesforce'], ['qatar', 'qatar'], ['amex', 'tag']];
       const seg = 420, out = [];
       for (let a = 0, k = 0; a < this.length; a += seg, k++) out.push([a, Math.min(this.length + 1, a + seg), ...pairs[k % pairs.length]]);
@@ -438,7 +458,7 @@ export class Track {
       for (let k = 0; k < m; k++) {
         const [d0, h] = prof[k];
         const d = typeof d0 === 'function' ? d0(s) : d0;
-        pos.push(s.x + s.nx * d, s.y + h + 0.02, s.z + s.nz * d);
+        pos.push(s.x + s.nx * d, s.y + h + 0.02 + bankAt(s, d), s.z + s.nz * d);
         uv.push(k / (m - 1), s.s / vScale);
       }
     };
@@ -539,7 +559,7 @@ export class Track {
         for (let k = 0; k <= steps; k++) {
           const d = d0 + (d1 - d0) * k / steps;
           const h = -Math.min(0.08, (d - edge) * 0.03) - (isGravel ? 0.04 : 0);
-          pos.push(s.x + s.nx * d * side, s.y + h + 0.02, s.z + s.nz * d * side);
+          pos.push(s.x + s.nx * d * side, s.y + h + 0.02 + bankAt(s, d * side), s.z + s.nz * d * side);
           uv.push(d / 6, s.s / 6);
           if (surf) su.push(s.su + suOff + 0.5, (d * side + this.surfInfo.w) / this.surfInfo.res + 0.5);
         }
@@ -598,9 +618,10 @@ export class Track {
         const x = s.x + s.nx * w * side, z = s.z + s.nz * w * side;
         // ss: distanza continua anche a cavallo del traguardo
         const ss = ii === n ? s.s + this.length : s.s;
-        if (last && sub > 1) for (let k = 1; k < sub; k++) { const t = k / sub; put(last[0] + (x - last[0]) * t, last[1] + (s.y - last[1]) * t, last[2] + (z - last[2]) * t, last[3] + (ss - last[3]) * t); }
-        put(x, s.y, z, ss);
-        last = [x, s.y, z, ss];
+        const sy = s.y + bankAt(s, side * 99);
+        if (last && sub > 1) for (let k = 1; k < sub; k++) { const t = k / sub; put(last[0] + (x - last[0]) * t, last[1] + (sy - last[1]) * t, last[2] + (z - last[2]) * t, last[3] + (ss - last[3]) * t); }
+        put(x, sy, z, ss);
+        last = [x, sy, z, ss];
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -613,7 +634,7 @@ export class Track {
     };
     const isTyre = s => (side > 0 ? s.gravelL || s.escL : s.gravelR || s.escR);
     const shared = s => (side > 0 ? s.sharedL : s.sharedR);
-    const barrierMat = new THREE.MeshStandardMaterial({ map: this.street ? tex.bakuWall() : barrierT, roughness: this.street ? 0.9 : 0.7, side: THREE.DoubleSide });
+    const barrierMat = TRACK.armco ? armcoMat() : new THREE.MeshStandardMaterial({ map: this.street ? tex.bakuWall() : barrierT, roughness: this.street ? 0.9 : 0.7, side: THREE.DoubleSide });
     const tyreMat = new THREE.MeshStandardMaterial({ map: this.street ? tecPro() : tyreT, roughness: this.street ? 0.55 : 0.9, side: THREE.DoubleSide });
     // barriere morbide: si ammaccano dove le colpisci (e restano così)
     tyreMat.onBeforeCompile = sh => {
@@ -642,7 +663,7 @@ export class Track {
     };
     const hiQ = this.hq;
     // muri in cemento veri: grana, rilievo e sporco (anche sotto gli sponsor)
-    if (hiQ) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
+    if (hiQ && !TRACK.armco) triplanar(barrierMat, 'concrete', { scale: 2, strength: 0.55, normal: 0.8 });
     if (this.street || TRACK.autoSponsors) {
       // muri rivestiti con gli sponsor (pannelli da 6 m), leggibili dalla pista;
       // lo spartitraffico tra due carreggiate resta bianco (si vede da entrambi i lati)
@@ -656,12 +677,14 @@ export class Track {
       }
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !sponsorAt(s.s, side) && !isTyre(s) && !shared(s) && !median(s)));
       grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s) && median(s)));
-    } else grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
+    } else if (TRACK.armco) grp.add(make(-0.3, 0.78, barrierMat, 4, s => !isTyre(s) && !shared(s)));     // guard-rail a doppia lama
+    else grp.add(make(-1.5, 1.05, barrierMat, 4, s => !isTyre(s) && !shared(s)));
     grp.add(make(-1.5, 1.1, tyreMat, 2.2, s => isTyre(s) && !shared(s), 0, false, 1, 4, 8));
     const fine = this.quality !== 'low' && !TRACK.model;
     // rete fine: semitrasparente (da lontano diventa un velo grigio, come quella vera)
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: fine ? 0.02 : 0.25, depthWrite: !fine, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
-    grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
+    if (!TRACK.armco) grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
+    else grp.add(make(0.78, 3.2, fenceMat, 3, s => !shared(s) && Math.floor(s.s / 250) % 3 === 0, 0.6));      // reti solo nei punti per il pubblico
     // muretto box tra pista e corsia box (dal lato dei box)
     if (side === (TRACK.pit.side || -1)) {
       const pwT = TRACK.pitWallBrand ? tex.sponsorWall(TRACK.pitWallBrand) : null;

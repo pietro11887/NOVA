@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SpaScenery } from './scenerySpa.js';
-import { TRACK } from './trackData.js';
+import { TRACK, bankAt } from './trackData.js';
 import { meadow, triplanar } from './pbr.js';
 import { buildTrees } from './trees.js';
 
@@ -88,8 +88,117 @@ export class RealScenery extends SpaScenery {
     this.tunnelSamples();
     super.build();
     this.tunnels();
+    if ((this.meta.id || TRACK.id) === 'nordschleife') this.graffiti();
+    this.cornerSigns();
   }
   colorsFor() { /* (i colori si leggono in terrain()) */ }
+
+  // cartelli con il nome delle curve (dalle mappe), a destra prima di ogni curva, rivolti a chi arriva
+  cornerSigns() {
+    const N = this.data.names || [];
+    if (!N.length) return;
+    const RH = 64, cv = document.createElement('canvas'); cv.width = 1024; cv.height = Math.min(4096, RH * N.length);
+    const g = cv.getContext('2d');
+    N.forEach(([, nm], k) => {
+      const y = k * RH;
+      g.fillStyle = '#f4f4f0'; g.fillRect(0, y, 1024, RH);
+      g.fillStyle = '#1a6b3a'; g.fillRect(0, y, 1024, 7); g.fillRect(0, y + RH - 7, 1024, 7);
+      g.fillStyle = '#111'; g.font = `900 40px 'Titillium Web', Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(nm.toUpperCase(), 512, y + RH / 2 + 1, 980);
+    });
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const S = this.track.samples, n = S.length, DL = this.data.points.length * 4;
+    const pos = [], uv = [], idx = [], posts = [];
+    N.forEach(([so, nm], k) => {
+      // campione della pista più vicino al punto dei dati, 40 m prima della curva
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < n; i++) { let d = Math.abs(S[i].fo * DL - (so - 40)); d = Math.min(d, DL - d); if (d < bd) { bd = d; bi = i; } }
+      const s = S[bi], off = -((s.wallRVis ?? s.wallR) + 1.6);
+      const cx = s.x + s.nx * off, cz = s.z + s.nz * off, y0 = s.y + bankAt(s, -99);
+      const W = Math.min(7, 2.2 + nm.length * 0.32), H = 0.85, y1 = y0 + 2.1;
+      // la faccia guarda indietro (verso chi arriva): larghezza lungo la normale
+      const ax = -s.nx, az = -s.nz;                    // da sinistra a destra per chi guarda il cartello
+      const base = pos.length / 3, v0 = 1 - (k + 1) * RH / cv.height, v1 = 1 - k * RH / cv.height;
+      for (const [u, v, dy] of [[0, v0, 0], [1, v0, 0], [1, v1, H], [0, v1, H]]) {
+        pos.push(cx + ax * (u - 0.5) * W - s.tx * 0.05, y1 + dy, cz + az * (u - 0.5) * W - s.tz * 0.05); uv.push(u, v);
+      }
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      posts.push([cx + ax * W * 0.4, cz + az * W * 0.4, y0], [cx - ax * W * 0.4, cz - az * W * 0.4, y0]);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide }));
+    m.castShadow = true; this.group.add(m);
+    const pg = new THREE.CylinderGeometry(0.06, 0.06, 3, 6), pm = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.6, roughness: 0.4 });
+    const im = new THREE.InstancedMesh(pg, pm, posts.length), o = new THREE.Object3D();
+    posts.forEach(([x, z, y], k) => { o.position.set(x, y + 1.5, z); o.updateMatrix(); im.setMatrixAt(k, o.matrix); });
+    this.group.add(im);
+  }
+
+  // scritte dei tifosi sull'asfalto (Nordschleife): vernice spray bianca e gialla, consumata dalle gomme
+  graffiti() {
+    const TXT = ['VOLLGAS', 'GRÜNE HÖLLE', 'GREEN HELL', 'FLAT OUT', 'GO GO GO', 'NOVA', 'FORZA!', 'ALLEZ', 'VAMOS', 'EIFEL',
+      '24H', 'NO LIFT', 'SEND IT', 'BRAKE? NO', 'KEEP LEFT', '>>>', '<3', ':)', '#1', 'TOP!', 'PIETRO', 'HOLA', 'DANKE', 'WOW',
+      'RING', 'HERO', 'GAS!', 'P1', 'LUCKY 7', 'OLÉ', 'MAX', 'HIER!'];
+    const C = 256, COLS = 8, ROWS = 4, cv = document.createElement('canvas');
+    cv.width = C * COLS; cv.height = C * ROWS;
+    const g = cv.getContext('2d');
+    const rnd = rand(20832);
+    const cells = [];
+    for (let k = 0; k < COLS * ROWS; k++) {
+      const cx = (k % COLS) * C, cy = Math.floor(k / COLS) * C, t = TXT[k % TXT.length];
+      g.save(); g.translate(cx + C / 2, cy + C / 2); g.rotate((rnd() - 0.5) * 0.25);
+      const col = rnd() < 0.62 ? '255,255,255' : rnd() < 0.7 ? '255,214,40' : rnd() < 0.5 ? '255,90,60' : '90,200,255';
+      const fs = Math.min(150, (C * 0.92) / Math.max(1.6, t.length * 0.62));
+      g.font = `900 ${fs}px Impact, 'Arial Black', sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = `rgba(${col},0.9)`; g.shadowBlur = 7;                      // alone dello spray
+      g.fillStyle = `rgba(${col},0.95)`; g.fillText(t, 0, 0);
+      g.shadowBlur = 0;
+      // colature e schizzi
+      for (let q = 0; q < 40; q++) { g.globalAlpha = 0.25 + rnd() * 0.5; g.fillRect((rnd() - 0.5) * C * 0.9, (rnd() - 0.5) * C * 0.5, 1 + rnd() * 3, 1 + rnd() * 3); }
+      if (rnd() < 0.5) { g.globalAlpha = 0.9; g.lineWidth = 6; g.strokeStyle = `rgba(${col},0.9)`; g.beginPath(); g.moveTo(-C * 0.4, fs * 0.62); g.lineTo(C * 0.4, fs * 0.62); g.stroke(); }
+      g.restore();
+      // consumo: le gomme tolgono la vernice a strisce
+      g.save(); g.globalCompositeOperation = 'destination-out';
+      for (let q = 0; q < 90; q++) { g.globalAlpha = 0.15 + rnd() * 0.5; g.fillRect(cx + rnd() * C, cy, 2 + rnd() * 10, C); }
+      for (let q = 0; q < 300; q++) { g.globalAlpha = rnd(); g.fillRect(cx + rnd() * C, cy + rnd() * C, 2, 2); }
+      g.restore();
+      cells.push([cx / cv.width, 1 - (cy + C) / cv.height, C / cv.width, C / cv.height, t.length]);     // (la texture è capovolta in verticale)
+    }
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const S = this.track.samples, n = S.length, L = this.track.length, step = L / n;
+    const at = (ss, d) => {
+      ss = ((ss % L) + L) % L; const f = ss / step, i = Math.floor(f) % n, k = f - Math.floor(f), a = S[i], b = S[(i + 1) % n];
+      const nx = a.nx + (b.nx - a.nx) * k, nz = a.nz + (b.nz - a.nz) * k;
+      return [a.x + (b.x - a.x) * k + nx * d, a.y + (b.y - a.y) * k + 0.03 + bankAt(a, d), a.z + (b.z - a.z) * k + nz * d];
+    };
+    const pos = [], uv = [], idx = [];
+    let ss = 90;
+    while (ss < L - 60) {
+      const s0 = S[Math.floor(ss / step) % n], hwL = s0.hwL ?? s0.hw, hwR = s0.hwR ?? s0.hw;
+      const [u0, v0, du, dv, len] = cells[Math.floor(rnd() * cells.length)];
+      const long = 2.6 + Math.min(4.5, len * 0.55) + rnd() * 1.2, wide = Math.min(hwL + hwR - 1.5, long * 0.7);
+      // la scritta si legge andando avanti: la base verso chi arriva, larga di traverso
+      const dc = -hwR + 0.8 + wide / 2 + rnd() * Math.max(0, hwL + hwR - 1.6 - wide);
+      const segs = 4, base = pos.length / 3;
+      for (let a = 0; a <= segs; a++) for (let b = 0; b <= 1; b++) {
+        const sa = ss - long / 2 + long * a / segs, d = dc + (b ? 1 : -1) * wide / 2;
+        pos.push(...at(sa, d));
+        // u lungo la larghezza del testo (destra -> sinistra della pista), v dal basso (chi arriva) verso l'alto
+        uv.push(u0 + du * (b ? 0 : 1), v0 + dv * (a / segs));
+      }
+      for (let a = 0; a < segs; a++) { const q = base + a * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+      ss += 28 + rnd() * 70;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.88, roughness: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.renderOrder = 2;
+    this.group.add(m);
+  }
 
   // campioni della pista in galleria (servono anche ai palazzi che ci stanno sopra)
   tunnelSamples() {

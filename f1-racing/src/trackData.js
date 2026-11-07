@@ -112,11 +112,14 @@ export function spaTrack(data) {
 
 // circuito vero costruito dalla fabbrica di piste (tools/build_track.py): il primo punto dei dati è sul
 // traguardo vero; la linea del cronometro è 200 m prima, così tutta la griglia sta tra la linea e la prima curva
+// quota in più per la sopraelevazione a distanza laterale d (oltre il bordo resta quella del bordo)
+export function bankAt(s, d) { return s.bank ? s.bank * Math.max(-(s.hwR ?? s.hw) - 0.6, Math.min((s.hwL ?? s.hw) + 0.6, d)) : 0; }
+
 export function realTrack(meta, data) {
   return {
     id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, data, meta,
     // bordi, cordoli, vie di fuga e barriere misurati sulle foto satellitari
-    side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined,
+    side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined, armco: !!meta.armco,
     lineShift: 200,
     pitPath: data.pit || undefined,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: data.pitSide || 1, boxGap: 12 },
@@ -529,8 +532,9 @@ export function buildTrack(points) {
       // barriere del modello, più argini ripidi e fine del terreno
       let wL = d[4], wR = d[5];
       if (def.gwall) { wL = Math.min(wL, def.gwall[j][0] / 10); wR = Math.min(wR, def.gwall[j][1] / 10); }
-      if (s.curv < 0 && wL > 0.75 * R) wL = 32;
-      if (s.curv > 0 && wR > 0.75 * R) wR = 32;
+      // (barriere misurate sulle foto: all'interno restano dove sono, al massimo a 3/4 del raggio)
+      if (s.curv < 0 && wL > 0.75 * R) wL = def.surf ? Math.max(0.75 * R, (s.hwL ?? s.hw) + 2) : 32;
+      if (s.curv > 0 && wR > 0.75 * R) wR = def.surf ? Math.max(0.75 * R, (s.hwR ?? s.hw) + 2) : 32;
       s.wallL = Math.max((s.hwL ?? s.hw) + 3, Math.min(32, wL)); s.wallR = Math.max((s.hwR ?? s.hw) + 3, Math.min(32, wR));
     });
     // barriere misurate sulle foto: mai oltre metà strada verso un altro tratto di pista
@@ -550,6 +554,15 @@ export function buildTrack(points) {
   // riga della mappa delle superfici (foto satellitari) di ogni campione
   if (def.surf) { const nD = def.points.length, rows = nD * 4 / (def.surf.ds || 1); samples.forEach((s, i) => { s.su = sOrig(i) / length * rows; }); }
   samples.forEach((s, i) => { s.fo = sOrig(i) / length; });       // posizione nel giro dei dati originali (0..1)
+  // curve sopraelevate (Karussell): pendenza trasversale, raccordata in 25 m alle estremità
+  const banks = def.data && def.data.banks;
+  if (banks && banks.length) {
+    const DL = def.points.length * 4;
+    samples.forEach(s => {
+      const so = s.fo * DL;
+      for (const [a, b, sl] of banks) if (so > a && so < b) { const t = Math.min(1, (so - a) / 25, (b - so) / 25); s.bank = sl * t * t * (3 - 2 * t); }
+    });
+  }
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;

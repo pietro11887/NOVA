@@ -691,5 +691,51 @@
   ],
   "short": "EIFEL GP",
   "max_grade": 0.18
+ },
+ "nordschleife": {
+  "name": "Nürburgring Nordschleife",
+  "lat": 50.355,
+  "lon": 6.965,
+  "half": 4600,
+  "length": 20832,
+  "dir": "cw",
+  "hw": 4.6,
+  "climate": "temperate",
+  "place": "Germania · Eifel",
+  "flag": [
+   "#000000",
+   "#dd0000",
+   "#ffce00"
+  ],
+  "km": "20,83",
+  "corners": 73,
+  "info": "L'Inferno Verde: 73 curve nel bosco, Fuchsröhre, Karussell, salti del Flugplatz e del Pflanzgarten",
+  "fans": [
+   "ger",
+   "ger",
+   "ger",
+   "ned",
+   "bel",
+   "gbr"
+  ],
+  "short": "NORDSCHLEIFE",
+  "max_grade": 0.19,
+  "smooth": 70,
+  "bmax": 1600,
+  "pit_synth": true,
+  "start_ll": [
+   50.3478,
+   6.9712
+  ],
+  "banks": [
+   [
+    50.37189,
+    6.98538,
+    150,
+    -0.2
+   ]
+  ],
+  "armco": true,
+  "wall_gap": 3.5
  }
 }
