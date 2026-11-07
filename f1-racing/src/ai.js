@@ -394,7 +394,11 @@ export class AIDriver {
 
     // bloccato (in testacoda, contro un muro): si riparte
     if (raceT > 3 && v < 1.5) this.stuck += dt; else this.stuck = 0;
-    const needRescue = this.stuck > 3.5;
+    // perso lontano dalla pista (vie di fuga larghe, prato): dopo un po' si rimette in pista
+    const prL = this.phys.prCG, sL = this.phys.track.samples[prL.i];
+    if (raceT > 3 && Math.abs(prL.d) > ((prL.d > 0 ? sL.hwL : sL.hwR) ?? sL.hw) + 7) this.lost = (this.lost || 0) + dt; else this.lost = 0;
+    const needRescue = this.stuck > 3.5 || this.lost > 8;
+    if (needRescue) this.lost = 0;
     if (needRescue) { this.stuck = 0; this.mistake = null; this.attack = null; this.lane = this.laneTarget = 0; }
 
     return { throttle, brake, steer, shiftUp: false, shiftDown: false, autoGear: true, tc, abs, needRescue };

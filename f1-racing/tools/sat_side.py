@@ -76,10 +76,15 @@ def main():
     for sd, nm in ((1, 'L'), (-1, 'R')):
         e = edge_side(sd)
         e = runmed(e, 21)
-        lo, hi = hw_row * 0.88, hw_row * (1.5 if street else 1.8)
+        lo, hi = hw_row * 0.88, hw_row * (1.4 if street else 1.45)
         e = np.where(np.isnan(e), hw_row, e)
         e = np.clip(e, lo, hi)
         e = runmed(e, 9)
+        # la larghezza cambia gradualmente (al massimo 0,12 m per metro): niente gradini dove la pista
+        # si allarga verso la corsia box o una via di fuga senza riga bianca
+        for _ in range(2):
+            for i in range(1, n): e[i] = min(e[i], e[i - 1] + 0.12)
+            for i in range(n - 2, -1, -1): e[i] = min(e[i], e[i + 1] + 0.12)
         E[nm] = e
     # barriere e reti: linee sottili scure (ombra di rete e guard-rail) parallele alla pista
     dk = (raw == S.DARK).astype(np.float32)

@@ -662,5 +662,34 @@
   ],
   "short": "ABU DHABI GP",
   "flat": 0.4
+ },
+ "nurburgring": {
+  "name": "Nürburgring",
+  "lat": 50.3335,
+  "lon": 6.944,
+  "half": 1500,
+  "length": 5148,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "temperate",
+  "place": "Germania · Eifel",
+  "flag": [
+   "#000000",
+   "#dd0000",
+   "#ffce00"
+  ],
+  "km": "5,15",
+  "corners": 15,
+  "info": "GP-Strecke nell'Eifel: Mercedes-Arena, chicane Veedol, boschi e saliscendi",
+  "fans": [
+   "ger",
+   "ger",
+   "ger",
+   "ned",
+   "aut",
+   "gbr"
+  ],
+  "short": "EIFEL GP",
+  "max_grade": 0.18
  }
 }
