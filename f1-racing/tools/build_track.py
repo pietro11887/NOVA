@@ -145,6 +145,128 @@ class DEM:
         return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + e * u) * v
 
 
+class ElevAPI:
+    """Rilievi ufficiali ad alta risoluzione (terreno nudo, senza palazzi né alberi), a punti.
+    ign: IGN RGE ALTI 1-5 m (Francia e Monaco); usgs: 3DEP 1-10 m (Stati Uniti); gsi: DEM 5 m (Giappone).
+    Dove il servizio non ha dati si usa il modello mondiale."""
+
+    def __init__(self, kind, cache, fallback):
+        self.kind = kind; self.fb = fallback
+        self.fn = os.path.join(cache, f'elev_{kind}.json')
+        self.mem = json.load(open(self.fn)) if os.path.exists(self.fn) else {}
+        self.gsi = {}
+
+    @staticmethod
+    def key(lat, lon): return f'{lat:.6f},{lon:.6f}'
+
+    def many(self, pts):
+        todo = [p for p in pts if self.key(*p) not in self.mem]
+        B = 180 if self.kind == 'ign' else 100
+        for i in range(0, len(todo), B):
+            chunk = todo[i:i + B]
+            vals = None
+            if self.kind == 'ign':
+                url = ('https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?resource=ign_rge_alti_wld&zonly=true'
+                       '&lon=' + '|'.join(f'{lo:.6f}' for la, lo in chunk) + '&lat=' + '|'.join(f'{la:.6f}' for la, lo in chunk))
+                r = curl(url)
+                try: vals = json.loads(r)['elevations']
+                except Exception: vals = None
+            elif self.kind == 'usgs':
+                geo = json.dumps({'points': [[lo, la] for la, lo in chunk], 'spatialReference': {'wkid': 4326}})
+                import urllib.parse
+                url = ('https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/getSamples?geometryType=esriGeometryMultipoint'
+                       '&returnFirstValueOnly=true&f=json&geometry=' + urllib.parse.quote(geo))
+                r = curl(url)
+                try:
+                    smp = json.loads(r)['samples']; vals = [None] * len(chunk)
+                    for q in smp: vals[q['locationId']] = float(q['value'])
+                except Exception: vals = None
+            elif self.kind == 'gsi':
+                vals = [self.gsi_at(la, lo) for la, lo in chunk]
+            elif self.kind == 'es':
+                vals = [self.es_at(la, lo) for la, lo in chunk]
+            if not vals: vals = [None] * len(chunk)
+            for (la, lo), v in zip(chunk, vals):
+                self.mem[self.key(la, lo)] = v if (v is not None and v > -500) else None
+            if i % (B * 10) == 0: json.dump(self.mem, open(self.fn, 'w'))
+        json.dump(self.mem, open(self.fn, 'w'))
+        out = []
+        for la, lo in pts:
+            v = self.mem[self.key(la, lo)]
+            out.append(v if v is not None else self.fb.at(la, lo))
+        return out
+
+    def es_at(self, lat, lon):
+        """IGN España MDT 5 m (WCS, riquadri di 0,01°)"""
+        S = 0.01; k = (math.floor(lat / S), math.floor(lon / S))
+        if k not in self.gsi:
+            fn = os.path.join(os.path.dirname(self.fn), f'es_{k[0]}_{k[1]}.tif')
+            la0, lo0 = k[0] * S, k[1] * S
+            if not os.path.exists(fn):
+                curl('https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&REQUEST=GetCoverage&VERSION=2.0.1&COVERAGEID=Elevacion4258_5'
+                     f'&SUBSET=Lat({la0 - 0.0003:.5f},{la0 + S + 0.0003:.5f})&SUBSET=Long({lo0 - 0.0003:.5f},{lo0 + S + 0.0003:.5f})&FORMAT=image/tiff', fn)
+            try:
+                import tifffile
+                pg = tifffile.TiffFile(fn).pages[0]
+                sc = pg.tags[33550].value; tp = pg.tags[33922].value
+                self.gsi[k] = (pg.asarray(), sc, tp)
+            except Exception: self.gsi[k] = None
+        t = self.gsi[k]
+        if t is None: return None
+        a, sc, tp = t
+        fx = (lon - tp[3]) / sc[0] - 0.5; fy = (tp[4] - lat) / sc[1] - 0.5
+        x0, y0 = int(fx), int(fy); u, v = fx - x0, fy - y0
+        if not (0 <= x0 < a.shape[1] - 1 and 0 <= y0 < a.shape[0] - 1): return None
+        q = [float(a[y0, x0]), float(a[y0, x0 + 1]), float(a[y0 + 1, x0]), float(a[y0 + 1, x0 + 1])]
+        if min(q) < -500: return None
+        return (q[0] * (1 - u) + q[1] * u) * (1 - v) + (q[2] * (1 - u) + q[3] * u) * v
+
+    def gsi_at(self, lat, lon):
+        Z = 15; n = 2 ** Z
+        fx = (lon + 180) / 360 * n * 256; lr = math.radians(lat)
+        fy = (1 - math.log(math.tan(lr) + 1 / math.cos(lr)) / math.pi) / 2 * n * 256
+        x0, y0 = int(fx - 0.5), int(fy - 0.5); u, v = fx - 0.5 - x0, fy - 0.5 - y0
+
+        def px(X, Y):
+            k = (X // 256, Y // 256)
+            if k not in self.gsi:
+                fn = os.path.join(os.path.dirname(self.fn), f'gsi_{Z}_{k[0]}_{k[1]}.png')
+                if not os.path.exists(fn):
+                    ok = curl(f'https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{Z}/{k[0]}/{k[1]}.png', fn)
+                    if ok is not True:
+                        ok = curl(f'https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/{k[0] // 2}/{k[1] // 2}.png', None)
+                        self.gsi[k] = None
+                if k not in self.gsi:
+                    try: w, h, bpp, d = png_rgb(open(fn, 'rb').read()); self.gsi[k] = (w, bpp, d)
+                    except Exception: self.gsi[k] = None
+            t = self.gsi[k]
+            if t is None: return None
+            w, bpp, d = t; o = ((Y % 256) * w + (X % 256)) * bpp
+            r, g, b = d[o], d[o + 1], d[o + 2]
+            if (r, g, b) == (128, 0, 0): return None
+            x = r * 65536 + g * 256 + b
+            return (x - 2 ** 24 if x >= 2 ** 23 else x) * 0.01
+        a, b, c, e = px(x0, y0), px(x0 + 1, y0), px(x0, y0 + 1), px(x0 + 1, y0 + 1)
+        if None in (a, b, c, e): return None
+        return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + e * u) * v
+
+
+def runs(mask):
+    """tratti consecutivi veri di una maschera ad anello: [inizio, fine) in indici"""
+    n = len(mask); out = []
+    if all(mask): return [[0, n]]
+    st = next(i for i in range(n) if not mask[i])
+    i = 0
+    while i < n:
+        k = (st + i) % n
+        if mask[k]:
+            j = i
+            while j < n and mask[(st + j) % n]: j += 1
+            out.append([k, k + (j - i)]); i = j
+        else: i += 1
+    return out
+
+
 # ------------------------------------------------------------------ geometria
 def loop_len(P):
     return sum(math.hypot(P[(i + 1) % len(P)][0] - P[i][0], P[(i + 1) % len(P)][1] - P[i][1]) for i in range(len(P)))
@@ -453,6 +575,13 @@ def main():
         print('  la relazione non chiude un anello: provo con le vie raceway')
         seq, vote = race_loop(ways, nodes, xy, cfg['length'], cfg)
     P = [xy[n] for n in seq]
+    # tratti in galleria o su ponte: la quota non è quella del terreno sopra/sotto, si raccorda tra gli imbocchi
+    cov = {}
+    for w, (nds, t) in ways.items():
+        tun = t.get('tunnel') in ('yes', 'building_passage', 'covered') or t.get('covered') == 'yes'
+        if tun or t.get('bridge') not in (None, 'no'):
+            for a, b in zip(nds, nds[1:]): cov[(a, b)] = cov[(b, a)] = 'T' if tun else 'B'
+    cov_seg = [(xy[a], xy[b], cov[(a, b)]) for a, b in zip(seq, seq[1:] + seq[:1]) if (a, b) in cov]
     area = signed_area(P)             # x est, z sud: area > 0 = senso orario visto dall'alto
     cw = area > 0
     want_cw = None
@@ -559,7 +688,28 @@ def main():
     # quote: terreno lungo la pista, molto lisciato (il modello del terreno ha ±5 m di rumore e in città i palazzi)
     print('  quote del terreno…')
     dem = DEM(os.path.join(cache, 'dem'))
-    raw = [dem.at(*to_ll(x, z)) for x, z in R]
+    hires = ElevAPI(cfg['dem'], cache, dem) if cfg.get('dem') else None
+    raw = hires.many([to_ll(x, z) for x, z in R]) if hires else [dem.at(*to_ll(x, z)) for x, z in R]
+    raw = [h + cfg.get('dem_off', 0) for h in raw] if hires else raw
+
+    def seg_d(p, a, b):
+        dx, dz = b[0] - a[0], b[1] - a[1]; L2 = dx * dx + dz * dz or 1
+        t = max(0, min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2))
+        return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz)
+    covered = [any(seg_d(p, a, b) < 3 for a, b, k in cov_seg) for p in R]
+    tunnel_mask = [any(seg_d(p, a, b) < 3 for a, b, k in cov_seg if k == 'T') for p in R]
+    i = 0; ncov = 0
+    while i < nR:
+        if covered[i] and not covered[i - 1]:
+            j = i
+            while covered[j % nR] and j - i < nR: j += 1
+            a, b = (i - 3) % nR, (j + 2) % nR; n = (b - a) % nR
+            for k in range(1, n):
+                t = k / n; t = t * t * (3 - 2 * t)
+                raw[(a + k) % nR] = raw[a] + (raw[b] - raw[a]) * t
+            ncov += n * 4; i = j
+        else: i += 1
+    if ncov: print(f'  gallerie e ponti: {ncov} m raccordati tra gli imbocchi')
     sea = cfg.get('min_y')
     if sea is not None: raw = [max(sea, h) for h in raw]
     W = int(cfg.get('smooth', 140) / 4)
@@ -606,9 +756,11 @@ def main():
     x0 = math.floor((min(xs) - pad) / step) * step; z0 = math.floor((min(zs) - pad) / step) * step
     nx = int((max(xs) + pad - x0) / step) + 1; nz = int((max(zs) + pad - z0) / step) + 1
     grid_h = []
-    for j in range(nz):
-        for i in range(nx):
-            grid_h.append(round(dem.at(*to_ll(x0 + i * step, z0 + j * step)) - base, 1))
+    gll = [to_ll(x0 + i * step, z0 + j * step) for j in range(nz) for i in range(nx)]
+    gfast = hires and hires.kind in ('ign', 'gsi', 'es')       # 3DEP a punti è lento: il terreno lontano dal modello mondiale (negli USA è già 3DEP)
+    gh = hires.many(gll) if gfast else [dem.at(*q) for q in gll]
+    off = cfg.get('dem_off', 0) if gfast else 0
+    for h in gh: grid_h.append(round(h + off - base, 1))
     # area utile per edifici e vegetazione
     X0, X1, Z0, Z1 = x0 + 60, x0 + (nx - 1) * step - 60, z0 + 60, z0 + (nz - 1) * step - 60
     inside = lambda p: X0 < p[0] < X1 and Z0 < p[1] < Z1
@@ -678,10 +830,12 @@ def main():
         'pit': [[round(x, 2), round(z, 2)] for x, z in pit[::2]] if pit else None, 'pitSide': pit_side,
         'grid': {'x0': x0, 'z0': z0, 'step': step, 'nx': nx, 'nz': nz, 'h': grid_h},
         'buildings': buildings, 'forest': forest, 'meadow': meadow, 'water': water, 'roads': roads, 'trees': trees, 'corners': {},
+        'tunnels': [[a * 4, b * 4] for a, b in runs(tunnel_mask)],
     }
     fn = os.path.join(ROOT, 'src', 'tracks', f'{tid}Data.js')
     with open(fn, 'w') as f:
-        f.write(f'// {cfg["name"]} — dati da OpenStreetMap (© OpenStreetMap contributors, ODbL) e quote Terrarium (SRTM/GMTED/ETOPO1).\n')
+        DEMS = {'ign': 'IGN RGE ALTI (Francia/Monaco, Licence Ouverte)', 'usgs': 'USGS 3DEP (pubblico dominio)', 'gsi': 'GSI Giappone DEM 5 m', 'es': 'IGN España MDT05 (CC BY 4.0)'}
+        f.write(f'// {cfg["name"]} — dati da OpenStreetMap (© OpenStreetMap contributors, ODbL) e quote {DEMS.get(cfg.get("dem"), "Terrarium (SRTM/GMTED/ETOPO1)")}.\n')
         f.write('// Generato da tools/build_track.py: coordinate in metri, x verso est, z verso sud, ordine di gara.\n')
         f.write('export default ' + json.dumps(out, separators=(',', ':')) + ';\n')
     print(f'  scritto {fn}: {os.path.getsize(fn) // 1024} KB · giro {L:.0f} m · box {"sì" if pit else "NO"} lato {pit_side} · edifici {len(buildings)} · boschi {len(forest)} · prati {len(meadow)} · acqua {len(water)} · strade {len(roads)}')

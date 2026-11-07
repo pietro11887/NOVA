@@ -86,7 +86,9 @@
   ],
   "short": "JAPANESE GP",
   "bridge": 8.0,
-  "max_grade": 0.18
+  "max_grade": 0.18,
+  "dem": "gsi",
+  "smooth": 80
  },
  "bahrain": {
   "name": "Bahrain International Circuit",
@@ -176,7 +178,8 @@
    "gbr"
   ],
   "short": "MIAMI GP",
-  "flat": 0.3
+  "dem": "usgs",
+  "smooth": 60
  },
  "montreal": {
   "name": "Circuit Gilles Villeneuve",
@@ -218,8 +221,7 @@
   "hw": 4.8,
   "street": true,
   "climate": "urban",
-  "smooth": 90,
-  "min_y": 0.5,
+  "smooth": 40,
   "round": 8,
   "place": "Monaco · Monte Carlo",
   "flag": [
@@ -238,7 +240,8 @@
    "gbr"
   ],
   "short": "MONACO GP",
-  "max_grade": 0.18
+  "max_grade": 0.2,
+  "dem": "ign"
  },
  "barcelona": {
   "name": "Circuit de Barcelona-Catalunya",
@@ -266,7 +269,9 @@
    "gbr",
    "ita"
   ],
-  "short": "BARCELONA GP"
+  "short": "BARCELONA GP",
+  "dem": "es",
+  "smooth": 80
  },
  "spielberg": {
   "name": "Red Bull Ring",
@@ -442,7 +447,8 @@
    "mex"
   ],
   "short": "SPANISH GP",
-  "flat": 0.7
+  "dem": "es",
+  "smooth": 60
  },
  "singapore": {
   "name": "Marina Bay Street Circuit",
@@ -503,7 +509,9 @@
    "gbr"
   ],
   "short": "UNITED STATES GP",
-  "max_grade": 0.18
+  "max_grade": 0.18,
+  "dem": "usgs",
+  "smooth": 80
  },
  "mexico": {
   "name": "Autódromo Hermanos Rodríguez",
@@ -592,7 +600,8 @@
    "ned"
   ],
   "short": "LAS VEGAS GP",
-  "flat": 0.2
+  "dem": "usgs",
+  "smooth": 60
  },
  "lusail": {
   "name": "Lusail International Circuit",

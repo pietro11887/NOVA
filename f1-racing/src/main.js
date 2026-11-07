@@ -347,6 +347,7 @@ const padNav = new PadNav({
   tab: d => cycleTab(d),
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
+let tunPr = null, tunK = 0, tunBase = null;
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
@@ -3791,6 +3792,15 @@ function frame(now) {
       if (th) setTimeout(() => sounds.thunder(th.power), th.delay * 1000);
       hemi.intensity = hemiBase + lightning.flash * 4;
       renderer.toneMappingExposure = expBase * (1 + lightning.flash * 0.6);
+    }
+    // in galleria (Monaco) il sole non entra e la luce cala: si vedono le lampade del soffitto
+    if (scenery && scenery.tunnelSet) {
+      tunPr = track.project(camera.position.x, camera.position.z, tunPr ? tunPr.i : -1, tunPr || {}, 12);
+      const inT = scenery.tunnelSet.has(tunPr.i) && Math.abs(camera.position.y - track.samples[tunPr.i].y) < 6;
+      tunK += ((inT ? 1 : 0) - tunK) * Math.min(1, rdt * 4);
+      if (!tunBase) tunBase = { sun: sun.intensity, hemi: hemi.intensity };
+      sun.intensity = tunBase.sun * (1 - tunK);
+      if (!lightning) hemi.intensity = tunBase.hemi * (1 - 0.7 * tunK);
     }
     rain.lensOn = mode !== 'menu' && mode !== 'pause' && !(garage && garage.active);
     // luci rosse da pioggia sul retro di tutte le vetture

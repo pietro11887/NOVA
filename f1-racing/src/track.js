@@ -29,6 +29,55 @@ export class Track {
     this.street = !!TRACK.street;
     this.name = TRACK.name;
     this.group = new THREE.Group();
+    if (TRACK.surf && !this.street) this.loadSurf(TRACK.surf);
+  }
+
+  // mappa delle superfici attorno alla pista (dalle foto satellitari): righe ogni metro lungo il
+  // giro, colonne ogni 0,5 m di traverso. Classi: 0 prato, 1 asfalto, 2 ghiaia, 3 vernice rossa,
+  // 4 bianco, 5 vernice blu, 6 vernice verde, 7 alberi/ombra (prato)
+  loadSurf(sf) {
+    if (typeof Image === 'undefined') return;          // (simulazioni senza browser)
+    this.surfInfo = sf;
+    const W = 1, H = 1;
+    this.surfTex = new THREE.DataTexture(new Uint8Array(4), W, H, THREE.RGBAFormat);
+    this.surfDim = { value: new THREE.Vector4(1, 1, 1, 1) };
+    this.surfRows = Math.round(TRACK.points.length * 4 / (sf.ds || 1));
+    const img = new Image();
+    img.onload = () => {
+      const w = img.width, h = img.height;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, w, h).data;
+      const cls = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) cls[i] = Math.min(7, Math.round(d[i * 4] / 32));
+      // la texture è divisa in blocchi affiancati (i telefoni non reggono texture alte più di 4096)
+      const k = Math.ceil(h / 4000), bh = Math.ceil(h / k);
+      const px = new Uint8Array(w * k * bh * 4);
+      const MAP = [[0, 0, 0, 0], [0, 255, 0, 0], [255, 0, 0, 0], [0, 255, 255, 0], [0, 255, 255, 85], [0, 255, 255, 170], [0, 255, 255, 255], [0, 0, 0, 0]];
+      for (let r = 0; r < h; r++) {
+        const b = Math.floor(r / bh), y = r - b * bh;
+        for (let c = 0; c < w; c++) {
+          const o = (y * w * k + b * w + c) * 4, m = MAP[cls[r * w + c]];
+          px[o] = m[0]; px[o + 1] = m[1]; px[o + 2] = m[2]; px[o + 3] = m[3];
+        }
+      }
+      const t = new THREE.DataTexture(px, w * k, bh, THREE.RGBAFormat);
+      t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+      this.surfTex.image = t.image; this.surfTex.magFilter = this.surfTex.minFilter = THREE.LinearFilter; this.surfTex.needsUpdate = true;
+      this.surfDim.value.set(w, bh, k, h);
+      this.surfCls = cls; this.surfW = w; this.surfH = h;
+    };
+    img.src = 'data:image/png;base64,' + sf.png;
+  }
+
+  // classe della superficie sotto un punto proiettato (pr: i0/i, f, d)
+  surfClass(pr) {
+    const S = this.samples, n = this.count, i = pr.i0 ?? pr.i, a = S[i], b = S[(i + 1) % n];
+    let db = b.su - a.su; if (db < 0) db += this.surfH;
+    const row = Math.round(a.su + db * (pr.f || 0)) % this.surfH;
+    const col = Math.round((pr.d + this.surfInfo.w) / this.surfInfo.res);
+    if (col < 0 || col >= this.surfW) return 0;
+    return this.surfCls[row * this.surfW + col];
   }
 
   // ---------- query ----------
@@ -148,6 +197,14 @@ export class Track {
       out.type = SURF.SAUSAGE;
       return out;
     }
+    // superfici vere (foto satellitari): ghiaia, vie di fuga in asfalto o dipinte, prato
+    if (this.surfCls) {
+      const c = this.surfClass(pr);
+      if (c === 2) { out.type = SURF.GRAVEL; out.h = -0.05; return out; }
+      if (c >= 1 && c <= 6) { out.h = -0.01; return out; }
+      out.type = SURF.GRASS; out.h = -0.03 + 0.02 * Math.sin(pr.s * 0.45);
+      return out;
+    }
     // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato); così anche le vie
     // di fuga asfaltate delle piste moderne
     if (this.street || (left ? s.pavedL : s.pavedR)) { out.h = -0.01; return out; }
@@ -171,7 +228,7 @@ export class Track {
 
     // Asfalto
     const asphalt = tex.asphalt(); asphalt.anisotropy = aniso;
-    const E = (sd, off) => s => sd * s.hw + off;      // distanza dal centro relativa al bordo
+    const E = (sd, off) => s => sd * ((sd > 0 ? s.hwL : s.hwR) ?? s.hw) + off;      // distanza dal centro relativa al bordo (di quel lato)
     // asfalto a grana fine in coordinate del mondo (niente ripetizioni visibili), con macchie larghe
     // e un filo di lucentezza: col sole basso l'asfalto brilla controluce come in TV
     const fine = tex.trackAsphalt(); fine.anisotropy = aniso;
@@ -310,7 +367,7 @@ export class Track {
     g.add(this.ribbon([[E(1, -0.55), 0.012], [E(1, -0.05), 0.012]], null, white));
     g.add(this.ribbon([[E(-1, 0.05), 0.012], [E(-1, 0.55), 0.012]], null, white));
     // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
-    if (!this.street) {
+    if (!this.street && !this.surfTex) {
       const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
       if (this.hq) { darkGrass.color.set(0x3b6334); triplanar(darkGrass, 'grass', { scale: 3, strength: 0.75, normal: 0.8, vary: true }); }
       g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
@@ -414,30 +471,77 @@ export class Track {
     return mesh;
   }
 
+  // prato con sopra le superfici vere (ghiaia, asfalto, vernici) lette dalla mappa delle foto
+  surfMaterial(grassMat) {
+    if (this._surfMat) return this._surfMat;
+    const m = grassMat.clone(), prev = grassMat.onBeforeCompile, gr = texSet('gravel'), as = texSet('asphalt'), self = this;
+    m.onBeforeCompile = (sh, r) => {
+      if (prev) prev.call(m, sh, r);
+      sh.uniforms.uSurf = { value: self.surfTex }; sh.uniforms.uSurfDim = self.surfDim;
+      sh.uniforms.uSGr = { value: gr.c }; sh.uniforms.uSAs = { value: as.c };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aSu; varying vec2 vSu; varying vec3 vSW;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSu = aSu; vSW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        uniform sampler2D uSurf, uSGr, uSAs; uniform vec4 uSurfDim; varying vec2 vSu; varying vec3 vSW;
+        float sfh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+        float sfn(vec2 q){ vec2 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f); return mix(mix(sfh(i), sfh(i + vec2(1.0, 0.0)), f.x), mix(sfh(i + vec2(0.0, 1.0)), sfh(i + 1.0), f.x), f.y); }
+        vec4 surfAt(vec2 su) {
+          float r = mod(su.x, uSurfDim.w), b = floor(r / uSurfDim.y), y = r - b * uSurfDim.y;
+          return texture2D(uSurf, vec2((b * uSurfDim.x + clamp(su.y, 0.5, uSurfDim.x - 0.5)) / (uSurfDim.x * uSurfDim.z), y / uSurfDim.y));
+        }`)
+        .replace('#include <roughnessmap_fragment>', `
+        float sRough = 1.0;
+        { vec4 sw = surfAt(vSu);
+          float nn = sfn(vSW.xz * 0.9) * 0.6 + sfn(vSW.xz * 3.7) * 0.4 - 0.5;
+          float wg = smoothstep(0.38, 0.62, sw.r + nn * 0.35), wa = smoothstep(0.4, 0.6, sw.g + nn * 0.12), wp = smoothstep(0.42, 0.58, sw.b) * wa;
+          vec3 grav = vec3(0.74, 0.66, 0.52) * clamp(texture2D(uSGr, vSW.xz * 0.45).rgb / vec3(0.425, 0.402, 0.349), 0.4, 1.8);
+          float al = clamp(dot(texture2D(uSAs, vSW.xz * 0.18).rgb, vec3(0.33)) / 0.014, 0.5, 1.6);
+          vec3 asph = vec3(0.3, 0.3, 0.31) * al;
+          float h = sw.a;
+          vec3 pc = h < 0.33 ? mix(vec3(0.6, 0.07, 0.06), vec3(0.6, 0.6, 0.58), h / 0.33) : h < 0.67 ? mix(vec3(0.6, 0.6, 0.58), vec3(0.07, 0.2, 0.52), (h - 0.33) / 0.34) : mix(vec3(0.07, 0.2, 0.52), vec3(0.1, 0.4, 0.2), (h - 0.67) / 0.33);
+          diffuseColor.rgb = mix(diffuseColor.rgb, grav, wg);
+          diffuseColor.rgb = mix(diffuseColor.rgb, asph, wa * (1.0 - wg));
+          diffuseColor.rgb = mix(diffuseColor.rgb, pc * (0.8 + 0.2 * al), wp * (1.0 - wg));
+          sRough = mix(1.0, 0.8, wa); }
+        #include <roughnessmap_fragment>
+        roughnessFactor *= sRough;`);
+    };
+    const key = grassMat.customProgramCacheKey ? grassMat.customProgramCacheKey() : '';
+    m.customProgramCacheKey = () => 'surf' + key;
+    return (this._surfMat = m);
+  }
+
   // fascia laterale: erba (o ghiaia) dal bordo pista al muro
   sideRibbon(side, grassMat, gravMat) {
     const S = this.samples, n = this.count;
     const grp = new THREE.Group();
+    const surf = !!this.surfTex;
     const build = (isGravel) => {
-      const pos = [], uv = [], idx = [];
+      const pos = [], uv = [], idx = [], su = [];
+      let suOff = 0, suPrev = -1;
       let prev = -1;
       for (let ii = 0; ii <= n; ii++) {
         const i = ii % n, s = S[i];
         const gravel = side > 0 ? s.gravelL : s.gravelR;
         const wall = isGravel ? (side > 0 ? s.wallL : s.wallR) : (side > 0 ? s.wallLVis ?? s.wallL : s.wallRVis ?? s.wallR);
         const kerb = side > 0 ? s.kerbL : s.kerbR;
-        const edge = s.hw + (kerb ? K : 0.6);
-        const gStart = s.hw + K + 4;
+        const hS = (side > 0 ? s.hwL : s.hwR) ?? s.hw;
+        const edge = hS + (kerb ? K : 0.6);
+        const gStart = hS + K + 4;
         let d0, d1;
-        if (isGravel) { if (!gravel) { prev = -1; continue; } d0 = gStart; d1 = wall; }
-        else { d0 = edge; d1 = gravel ? gStart : wall; }
-        const steps = 4;
+        if (isGravel) { if (!gravel || surf) { prev = -1; continue; } d0 = gStart; d1 = wall; }
+        else { d0 = edge; d1 = gravel && !surf ? gStart : wall; }
+        // all'interno delle curve la fascia non può superare il centro della curva (si ripiegherebbe)
+        if (surf && s.curv * side < 0) d1 = Math.max(d0 + 0.3, Math.min(d1, 0.8 / Math.max(1e-4, Math.abs(s.curv))));
+        const steps = surf ? 14 : 4;
+        if (surf) { if (s.su + suOff < suPrev - this.surfRows / 2) suOff += this.surfRows; suPrev = s.su + suOff; }
         const row = pos.length / 3 / (steps + 1);
         for (let k = 0; k <= steps; k++) {
           const d = d0 + (d1 - d0) * k / steps;
           const h = -Math.min(0.08, (d - edge) * 0.03) - (isGravel ? 0.04 : 0);
           pos.push(s.x + s.nx * d * side, s.y + h + 0.02, s.z + s.nz * d * side);
           uv.push(d / 6, s.s / 6);
+          if (surf) su.push(s.su + suOff + 0.5, (d * side + this.surfInfo.w) / this.surfInfo.res + 0.5);
         }
         if (prev >= 0) for (let k = 0; k < steps; k++) {
           const a = prev * (steps + 1) + k, b = a + 1, c = row * (steps + 1) + k, e = c + 1;
@@ -448,9 +552,10 @@ export class Track {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      if (surf && !isGravel) geo.setAttribute('aSu', new THREE.Float32BufferAttribute(su, 2));
       geo.setIndex(idx);
       geo.computeVertexNormals();
-      const m = new THREE.Mesh(geo, isGravel ? gravMat : grassMat);
+      const m = new THREE.Mesh(geo, isGravel ? gravMat : surf ? this.surfMaterial(grassMat) : grassMat);
       m.receiveShadow = true;
       return m;
     };

@@ -115,6 +115,8 @@ export function spaTrack(data) {
 export function realTrack(meta, data) {
   return {
     id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, data, meta,
+    // bordi, cordoli, vie di fuga e barriere misurati sulle foto satellitari
+    side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined,
     lineShift: 200,
     pitPath: data.pit || undefined,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: data.pitSide || 1, boxGap: 12 },
@@ -355,12 +357,26 @@ export function buildTrack(points) {
       else if (dist < si.clearR) { si.clearR = dist; si.nearR = j; }
     }
   }
+  // larghezza vera per lato (foto satellitari) sui circuiti cittadini; le piste permanenti la
+  // prendono più avanti insieme a cordoli, vie di fuga e barriere
+  if (def.edges && !def.side) {
+    const D = def.edges, nD = D.length;
+    samples.forEach((s, i) => {
+      const u = sOrig(i) / length * nD, j0 = Math.floor(u) % nD, j1 = (j0 + 1) % nD, f = u - Math.floor(u);
+      s.hwL = D[j0][0] + (D[j1][0] - D[j0][0]) * f; s.hwR = D[j0][1] + (D[j1][1] - D[j0][1]) * f;
+      s.hw = Math.min(s.hwL, s.hwR);
+    });
+  }
   if (street) {
     const target = samples.map(s => Math.min(s.hw, Math.min(s.clearL, s.clearR) / 2 - 0.7));
     const lo = target.map((_, i) => { let m = Infinity; for (let j = -10; j <= 10; j++) m = Math.min(m, target[(i + j + count) % count]); return m; });
     samples.forEach((s, i) => {
       let acc = 0; for (let j = -6; j <= 6; j++) acc += lo[(i + j + count) % count];
       s.hw = Math.max(3.2, Math.min(s.hw, acc / 13, target[i]));
+      if (s.hwL != null) {
+        s.hwL = Math.max(3.2, Math.min(s.hwL, s.clearL / 2 - 0.7)); s.hwR = Math.max(3.2, Math.min(s.hwR, s.clearR / 2 - 0.7));
+        s.hw = Math.min(s.hw, s.hwL, s.hwR);
+      }
     });
   }
 
@@ -386,9 +402,9 @@ export function buildTrack(points) {
     if (street) {
       // città: muri di cemento subito dopo il bordo (o il cordolo); tra due tratti affiancati
       // un solo muro a metà strada
-      const base = si.hw + 1.1;
-      si.wallL = Math.min(base + (si.kerbL ? KERB_WIDTH : 0), clearL / 2);
-      si.wallR = Math.min(base + (si.kerbR ? KERB_WIDTH : 0), clearR / 2);
+      const bL = (si.hwL ?? si.hw) + 1.1, bR = (si.hwR ?? si.hw) + 1.1;
+      si.wallL = Math.min(bL + (si.kerbL ? KERB_WIDTH : 0), clearL / 2);
+      si.wallR = Math.min(bR + (si.kerbR ? KERB_WIDTH : 0), clearR / 2);
     } else {
       si.wallL = Math.max(minRun, Math.min(maxRun, clearL / 2 - 2));
       si.wallR = Math.max(minRun, Math.min(maxRun, clearR / 2 - 2));
@@ -513,6 +529,11 @@ export function buildTrack(points) {
       if (s.curv > 0 && wR > 0.75 * R) wR = 32;
       s.wallL = Math.max((s.hwL ?? s.hw) + 3, Math.min(32, wL)); s.wallR = Math.max((s.hwR ?? s.hw) + 3, Math.min(32, wR));
     });
+    // barriere misurate sulle foto: mai oltre metà strada verso un altro tratto di pista
+    if (def.surf) samples.forEach(s => {
+      s.wallL = Math.max((s.hwL ?? s.hw) + 1.5, Math.min(s.wallL, s.clearL / 2 - 1));
+      s.wallR = Math.max((s.hwR ?? s.hw) + 1.5, Math.min(s.wallR, s.clearR / 2 - 1));
+    });
     for (let pass = 0; pass < 3; pass++) {
       const wl = samples.map((_, i) => Math.min(...[-2, -1, 0, 1, 2].map(k => samples[(i + k + count) % count].wallL)));
       const wr = samples.map((_, i) => Math.min(...[-2, -1, 0, 1, 2].map(k => samples[(i + k + count) % count].wallR)));
@@ -522,6 +543,9 @@ export function buildTrack(points) {
 
   // corsia box: il muretto box separa la pista dalla corsia, la barriera esterna (solo grafica)
   // sta oltre la corsia
+  // riga della mappa delle superfici (foto satellitari) di ogni campione
+  if (def.surf) { const nD = def.points.length, rows = nD * 4 / (def.surf.ds || 1); samples.forEach((s, i) => { s.su = sOrig(i) / length * rows; }); }
+  samples.forEach((s, i) => { s.fo = sOrig(i) / length; });       // posizione nel giro dei dati originali (0..1)
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;

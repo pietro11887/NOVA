@@ -86,8 +86,65 @@ export class RealScenery extends SpaScenery {
     // i colori del terreno arrivano dal clima del circuito
     this.colorsFor();
     super.build();
+    this.tunnels();
   }
   colorsFor() { /* (i colori si leggono in terrain()) */ }
+
+  // gallerie vere (Monaco: il tunnel sotto l'hotel): pareti, soffitto con le luci e la massa sopra
+  tunnels() {
+    const T = this.data.tunnels || [];
+    if (!T.length) return;
+    const L = this.data.points.length * 4, S = this.track.samples, n = S.length;
+    const wall = new THREE.MeshStandardMaterial({ color: 0xc9c2b4, roughness: 0.85 });
+    const roof = new THREE.MeshStandardMaterial({ color: 0x55524d, roughness: 0.95 });
+    const top = new THREE.MeshStandardMaterial({ color: 0xd8cbb4, roughness: 0.9 });
+    const lamp = new THREE.MeshBasicMaterial({ color: 0xffe6b0 });
+    if (!this.low) { triplanar(wall, 'concrete', { scale: 2.5, strength: 0.6, normal: 0.9 }); triplanar(top, 'concrete', { scale: 3, strength: 0.5 }); }
+    const H = 6.2;
+    for (const [a, b] of T) {
+      if (b - a < 30) continue;                         // passaggi brevi (ponti pedonali): niente
+      const idx = [];
+      for (let i = 0; i < n; i++) { const f = S[i].fo * L; if (f >= a - 2 && f <= b + 2) idx.push(i); }
+      if (idx.length < 3) continue;
+      // in ordine lungo il giro (il tratto può attraversare la fine del giro)
+      idx.sort((p, q) => ((S[p].fo * L - a + L) % L) - ((S[q].fo * L - a + L) % L));
+      const pos = { w: [], r: [], t: [] };
+      const row = (arr, pts) => arr.push(pts);
+      for (const i of idx) {
+        const s = S[i], wl = (s.wallLVis ?? s.wallL) + 0.4, wr = (s.wallRVis ?? s.wallR) + 0.4;
+        const P = (d, y) => [s.x + s.nx * d, s.y + y, s.z + s.nz * d];
+        row(pos.w, [P(wl, -0.5), P(wl, H), P(-wr, -0.5), P(-wr, H)]);
+        row(pos.r, [P(wl, H), P(-wr, H)]);
+        row(pos.t, [P(wl + 3, H + 0.6), P(wl + 3, H + 14), P(-wr - 3, H + 0.6), P(-wr - 3, H + 14), P(wl + 3, H + 14), P(-wr - 3, H + 14)]);
+      }
+      const strip = (rows, pairs, mat, flip) => {
+        const v = [], id = [];
+        rows.forEach((r, k) => { r.forEach(p => v.push(...p)); });
+        const m = rows[0].length;
+        for (let k = 0; k + 1 < rows.length; k++) for (const [u, w] of pairs) {
+          const a0 = k * m + u, a1 = k * m + w, b0 = (k + 1) * m + u, b1 = (k + 1) * m + w;
+          if (flip) id.push(a0, a1, b0, a1, b1, b0); else id.push(a0, b0, a1, a1, b0, b1);
+        }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(id); g.computeVertexNormals();
+        const me = new THREE.Mesh(g, mat); me.castShadow = true; me.receiveShadow = true; me.material.side = THREE.DoubleSide; this.group.add(me);
+      };
+      strip(pos.w, [[0, 1], [2, 3]], wall, false);
+      strip(pos.r, [[0, 1]], roof, false);
+      strip(pos.t, [[0, 1], [2, 3], [4, 5]], top, false);
+      // file di luci sul soffitto
+      const lg = new THREE.BoxGeometry(1.2, 0.08, 0.25), lamps = [];
+      for (let k = 0; k < idx.length; k += 2) {
+        const s = S[idx[k]];
+        for (const d of [(s.hw) * 0.55, -(s.hw) * 0.55]) lamps.push([s.x + s.nx * d, s.y + H - 0.1, s.z + s.nz * d, Math.atan2(s.tx, s.tz)]);
+      }
+      const im = new THREE.InstancedMesh(lg, lamp, lamps.length), o = new THREE.Object3D();
+      lamps.forEach(([x, y, z, r], k) => { o.position.set(x, y, z); o.rotation.set(0, r + Math.PI / 2, 0); o.updateMatrix(); im.setMatrixAt(k, o.matrix); });
+      this.group.add(im);
+      // dentro è buio: il sole non entra (l'ombra la fa il soffitto) e la luce ambiente cala
+      this.tunnelSet = this.tunnelSet || new Set();
+      for (const i of idx) if (S[i].fo * L >= a + 8 && S[i].fo * L <= b - 8) this.tunnelSet.add(i);
+    }
+  }
 
   terrain() {
     // come Spa, con i colori del posto e acqua: si riusa il terreno di Spa e si ricolorano i vertici
@@ -205,7 +262,12 @@ export class RealScenery extends SpaScenery {
       if (n >= maxB) break;
       const p = b.p;
       let ok = true;
-      for (const [x, z] of p) if (this.clearance(x, z).d < 2.5) { ok = false; break; }
+      // in città i palazzi stanno a filo del marciapiede: si scartano solo quelli che entrano in pista
+      const lim = this.track.street ? 0.6 : 2.5;
+      for (let i = 0; i < p.length && ok; i++) {
+        const [x, z] = p[i], q = p[(i + 1) % p.length];
+        if (this.clearance(x, z).d < lim || this.clearance((x + q[0]) / 2, (z + q[1]) / 2).d < lim) ok = false;
+      }
       if (!ok) continue;
       n++;
       let gmin = Infinity; for (const [x, z] of p) gmin = Math.min(gmin, this.heightAt(x, z));
