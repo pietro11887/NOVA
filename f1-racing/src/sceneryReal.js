@@ -26,6 +26,8 @@ function pip(poly, x, z) {
 function bbox(p) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, z] of p) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return { x0, x1, z0, z1 }; }
 
 // colori del terreno e degli edifici per clima
+const DEFAULT_H = new Set([9, 7, 12, 18, 30, 20, 3.5, 3, 10, 8, 14]);
+
 export const CLIMATES = {
   temperate: { grass: 0x5f7d46, meadow: 0x6e8a4e, forest: 0x3b4a2e, far: 0x3a4733, walls: [0xe9e6df, 0xd9d4ca, 0xc9c3b8, 0xb9b2a6, 0xece8e0, 0x9b9184], roof: 0x5b4a44, trees: 'mixed', palms: 0 },
   dry: { grass: 0x8c8a5a, meadow: 0x7f8a52, forest: 0x4d5a36, far: 0x8a7d62, walls: [0xefe6d6, 0xe3d6bf, 0xd8c7a8, 0xf2ece0, 0xcdbb9a], roof: 0x9a5a3c, trees: 'broad', palms: 0.15 },
@@ -208,9 +210,17 @@ export class RealScenery extends SpaScenery {
       n++;
       let gmin = Infinity; for (const [x, z] of p) gmin = Math.min(gmin, this.heightAt(x, z));
       const stand = b.k === 'grandstand';
-      const tower = b.h > 16 && !stand;
+      // altezza non segnata nei dati (valori predefiniti della fabbrica di piste): in città si stima dalla
+      // grandezza dell'edificio (i palazzi grandi sono più alti), in campagna resta bassa
+      let hh = b.h;
+      if (DEFAULT_H.has(hh) && (this.track.street || this.meta.climate === 'urban') && !stand) {
+        let A2 = 0; for (let i = 0; i < p.length; i++) { const a = p[i], c = p[(i + 1) % p.length]; A2 += a[0] * c[1] - c[0] * a[1]; }
+        const area = Math.abs(A2) / 2;
+        hh = 8 + r() * 10 + Math.min(1, area / 2500) * (14 + r() * 30);
+      }
+      const h = Math.min(hh, 180), base = gmin - 1.5, top = gmin + h;
+      const tower = h > 16 && !stand;
       const big = stand || ['commercial', 'industrial', 'retail', 'warehouse', 'hangar', 'office', 'hotel', 'apartments', 'stadium', 'public', 'civic'].includes(b.k) || tower;
-      const h = Math.min(b.h, 180), base = gmin - 1.5, top = gmin + h;
       const wc = stand ? new THREE.Color(0xd9dde2) : WALLS[Math.floor(r() * WALLS.length)];
       const gc = GLASS[Math.floor(r() * GLASS.length)];
       let A = 0; for (let i = 0; i < p.length; i++) { const a = p[i], c = p[(i + 1) % p.length]; A += a[0] * c[1] - c[0] * a[1]; }

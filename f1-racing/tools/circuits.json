@@ -27,7 +27,8 @@
    "ita",
    "chk"
   ],
-  "short": "AUSTRALIAN GP"
+  "short": "AUSTRALIAN GP",
+  "flat": 0.4
  },
  "shanghai": {
   "name": "Shanghai International Circuit",
@@ -84,7 +85,8 @@
    "gbr"
   ],
   "short": "JAPANESE GP",
-  "bridge": 8.0
+  "bridge": 8.0,
+  "max_grade": 0.18
  },
  "bahrain": {
   "name": "Bahrain International Circuit",
@@ -142,7 +144,8 @@
    "ned",
    "esp"
   ],
-  "short": "SAUDI ARABIAN GP"
+  "short": "SAUDI ARABIAN GP",
+  "flat": 0.3
  },
  "miami": {
   "name": "Miami International Autodrome",
@@ -172,7 +175,8 @@
    "ned",
    "gbr"
   ],
-  "short": "MIAMI GP"
+  "short": "MIAMI GP",
+  "flat": 0.3
  },
  "montreal": {
   "name": "Circuit Gilles Villeneuve",
@@ -201,7 +205,8 @@
    "ned",
    "gbr"
   ],
-  "short": "CANADIAN GP"
+  "short": "CANADIAN GP",
+  "flat": 0.4
  },
  "monaco": {
   "name": "Circuit de Monaco",
@@ -232,7 +237,8 @@
    "ned",
    "gbr"
   ],
-  "short": "MONACO GP"
+  "short": "MONACO GP",
+  "max_grade": 0.18
  },
  "barcelona": {
   "name": "Circuit de Barcelona-Catalunya",
@@ -288,7 +294,8 @@
    "ger",
    "gbr"
   ],
-  "short": "AUSTRIAN GP"
+  "short": "AUSTRIAN GP",
+  "max_grade": 0.18
  },
  "silverstone": {
   "name": "Silverstone Circuit",
@@ -375,7 +382,8 @@
    "ned",
    "bel"
   ],
-  "short": "DUTCH GP"
+  "short": "DUTCH GP",
+  "max_grade": 0.18
  },
  "monza": {
   "name": "Autodromo Nazionale Monza",
@@ -433,7 +441,8 @@
    "gbr",
    "mex"
   ],
-  "short": "SPANISH GP"
+  "short": "SPANISH GP",
+  "flat": 0.7
  },
  "singapore": {
   "name": "Marina Bay Street Circuit",
@@ -463,7 +472,8 @@
    "aus",
    "jpn"
   ],
-  "short": "SINGAPORE GP"
+  "short": "SINGAPORE GP",
+  "flat": 0.1
  },
  "austin": {
   "name": "Circuit of The Americas",
@@ -492,7 +502,8 @@
    "ned",
    "gbr"
   ],
-  "short": "UNITED STATES GP"
+  "short": "UNITED STATES GP",
+  "max_grade": 0.18
  },
  "mexico": {
   "name": "Autódromo Hermanos Rodríguez",
@@ -549,7 +560,8 @@
    "ned",
    "gbr"
   ],
-  "short": "SÃO PAULO GP"
+  "short": "SÃO PAULO GP",
+  "max_grade": 0.18
  },
  "lasvegas": {
   "name": "Las Vegas Strip Circuit",
@@ -579,7 +591,8 @@
    "gbr",
    "ned"
   ],
-  "short": "LAS VEGAS GP"
+  "short": "LAS VEGAS GP",
+  "flat": 0.2
  },
  "lusail": {
   "name": "Lusail International Circuit",
@@ -638,6 +651,7 @@
    "ita",
    "chk"
   ],
-  "short": "ABU DHABI GP"
+  "short": "ABU DHABI GP",
+  "flat": 0.4
  }
 }

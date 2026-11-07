@@ -472,7 +472,35 @@ def main():
         pit = [xy[n] for n in pseq]
     else:
         print('  ATTENZIONE: corsia box non trovata nei dati')
-    # tracciato ricampionato ogni 4 m
+    # pulizia: tratti "andata e ritorno" (la catena di strade entra in una via e torna indietro sullo stesso punto)
+    R, L = resample(P, 4.0)
+    for it in range(6):
+        n0 = len(R); cut = None
+        for i in range(n0):
+            for j in range(i + 6, min(i + 90, i + n0 - 6)):
+                q = R[j % n0]
+                if math.hypot(q[0] - R[i][0], q[1] - R[i][1]) < 5:
+                    cut = (i, j); break
+            if cut: break
+        if not cut: break
+        i, j = cut
+        idx = [(i + 1 + k) % n0 for k in range(j - i - 1)]
+        drop = set(idx)
+        R = [p for k, p in enumerate(R) if k not in drop]
+        print(f'  tolto uno spuntone di {len(drop) * 4} m')
+    # angoli vivi tra due strade (incroci a 90° in città): si arrotondano un po', le curve vere restano
+    for it in range(cfg.get('round_passes', 2)):
+        n0 = len(R); Rn = []
+        for i in range(n0):
+            ax, az = R[i - 1]; bx, bz = R[i]; cx, cz = R[(i + 1) % n0]
+            h1 = math.atan2(bz - az, bx - ax); h2 = math.atan2(cz - bz, cx - bx)
+            d = abs((h2 - h1 + math.pi) % (2 * math.pi) - math.pi)
+            if d > 0.12:          # oltre ~7° in 4 m (raggio < 33 m): media con i vicini
+                xs = [R[(i + k) % n0] for k in range(-3, 4)]
+                Rn.append((sum(p[0] for p in xs) / 7, sum(p[1] for p in xs) / 7))
+            else: Rn.append(R[i])
+        R = Rn
+    P = R
     R, L = resample(P, 4.0)
     nR = len(R)
     def nearest_i(x, z):
@@ -542,6 +570,17 @@ def main():
             w = math.exp(-(k / (W * 0.5)) ** 2); acc += raw[(i + k) % nR] * w; wsum += w
         sm.append(acc / wsum)
     if cfg.get('flat'): m = sum(sm) / nR; sm = [m + (h - m) * cfg['flat'] for h in sm]
+    # pendenza massima (il modello del terreno in città vede i palazzi): oltre si appiattisce
+    mg = cfg.get('max_grade', 0.12)
+    for it in range(40):
+        ch = False
+        for i in range(nR):
+            j = (i + 1) % nR
+            dlt = sm[j] - sm[i]
+            if abs(dlt) > mg * 4:
+                ex = (abs(dlt) - mg * 4) / 2 * (1 if dlt > 0 else -1)
+                sm[i] += ex; sm[j] -= ex; ch = True
+        if not ch: break
     if cfg.get('bridge'):
         # tracciato a otto: dove la pista si incrocia, il passaggio più avanti nel giro sale su un ponte
         def inter(a, b, c, d):
