@@ -147,6 +147,8 @@ export function buildPitComplex(sc, track, opts) {
     if (transparent) { m.material.polygonOffset = true; m.material.polygonOffsetFactor = -2; m.renderOrder = 1; }
     texMeshes.push(m);
   };
+  // niente costruzioni sopra la pista (Monaco: la corsia box corre a pochi metri dal tracciato)
+  const onTrack = (x, z, r) => sc.clearance && sc.clearance(x, z).d < r;
   const r = mulberry(31337);
   for (let k = -1; k <= N_BOXES; k++) {
     const T = k >= 0 && k < N_BOXES ? teams[k] : null;
@@ -157,6 +159,7 @@ export function buildPitComplex(sc, track, opts) {
     // punto locale (x lungo la corsia, z verso la corsia) -> mondo
     const P = (x, z) => [ox + lx * x + fx * z, oz + lz * x + fz * z];
     const add = (geo, m, x, yy, z, sx, sy, sz, color, rx = 0, rz = 0, dry = 0) => { const [wx, wz] = P(x, z); M.add(geo, m, wx, y + yy, wz, ry + dry, sx, sy, sz, rx, rz, color); };
+    if ([P(-W / 2, -D), P(W / 2, -D), P(0, -D / 2), P(-W / 2, -D / 2), P(W / 2, -D / 2)].some(([x, z]) => onTrack(x, z, 0.5))) continue;
     if (sc.clearBuildings) sc.clearBuildings(...P(0, -D / 2), Math.max(gap, D) * 0.75);
     const c1 = T ? T.c1 : 0x9aa1ab, c2 = T ? T.c2 : 0xffffff, c3 = T ? T.c3 : 0x333333;
     // ---- guscio del box
@@ -263,7 +266,7 @@ export function buildPitComplex(sc, track, opts) {
     const p = at(PIT.boxFrom - 2.6 * gap);
     const ry = Math.atan2(-p.nx * sd, -p.nz * sd), fx = Math.sin(ry), fz = Math.cos(ry);
     const cx = p.x + p.nx * sd * (hw + 0.9 + 7), cz = p.z + p.nz * sd * (hw + 0.9 + 7);
-    if (!(sc.inBuilding && sc.inBuilding(cx, cz, 6))) {
+    if (!(sc.inBuilding && sc.inBuilding(cx, cz, 6)) && !onTrack(cx, cz, gap * 0.9 + 2)) {
       M.add(B, mat, cx, p.y + 7, cz, ry, gap * 1.6, 14, 14, 0, 0, 0xf2f3f5);
       M.add(B, glass, cx + fx * 7.05, p.y + 10, cz + fz * 7.05, ry, gap * 1.5, 3.2, 0.1, 0, 0, 0x2e3e52);
       M.add(B, mat, cx, p.y + 14.2, cz, ry, gap * 1.7, 0.5, 15, 0, 0, 0xd8231f);
@@ -286,6 +289,7 @@ export function buildPitComplex(sc, track, opts) {
       const yy = sc.heightAt ? sc.heightAt(cx, cz) : p.y;
       if (sc.isLand && !sc.isLand(cx, cz)) continue;
       if (sc.inBuilding && sc.inBuilding(cx, cz, 6)) continue;
+      if (onTrack(cx, cz, gap + 6)) continue;
       const P = (x, z) => [cx + lx * x - fx * z, cz + lz * x - fz * z];
       const add = (geo, m, x, h, z, sx, sy, sz, color, dry = 0) => { const [wx, wz] = P(x, z); M.add(geo, m, wx, yy + h, wz, ry + dry, sx, sy, sz, 0, 0, color); };
       const L = gap * 2 - 3;

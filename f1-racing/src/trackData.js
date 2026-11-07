@@ -391,7 +391,11 @@ export function buildTrack(points) {
   samples.forEach((s, i) => {
     s.kerbL = ext[i]; s.kerbR = ext[i];
     // in città niente cordolo sul lato di un tratto affiancato (c'è solo il muro in mezzo)
-    if (street) { if (s.clearL < 2 * s.hw + 6) s.kerbL = false; if (s.clearR < 2 * s.hw + 6) s.kerbR = false; }
+    if (street) {
+      if (s.clearL < 2 * s.hw + 6) s.kerbL = false; if (s.clearR < 2 * s.hw + 6) s.kerbR = false;
+      // in città il cordolo sta solo all'interno della curva (all'esterno c'è subito il guard-rail)
+      if (s.curv > -0.004) s.kerbL = false; if (s.curv < 0.004) s.kerbR = false;
+    }
   });
 
   // 5) distanza delle barriere: limitata dallo spazio verso altre parti di pista

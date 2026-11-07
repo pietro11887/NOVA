@@ -3794,9 +3794,9 @@ function frame(now) {
       renderer.toneMappingExposure = expBase * (1 + lightning.flash * 0.6);
     }
     // in galleria (Monaco) il sole non entra e la luce cala: si vedono le lampade del soffitto
-    if (scenery && scenery.tunnelSet) {
+    if (scenery && scenery.tunnelDark) {
       tunPr = track.project(camera.position.x, camera.position.z, tunPr ? tunPr.i : -1, tunPr || {}, 12);
-      const inT = scenery.tunnelSet.has(tunPr.i) && Math.abs(camera.position.y - track.samples[tunPr.i].y) < 6;
+      const inT = scenery.tunnelDark.has(tunPr.i) && Math.abs(camera.position.y - track.samples[tunPr.i].y) < 6;
       tunK += ((inT ? 1 : 0) - tunK) * Math.min(1, rdt * 4);
       if (!tunBase) tunBase = { sun: sun.intensity, hemi: hemi.intensity };
       sun.intensity = tunBase.sun * (1 - tunK);

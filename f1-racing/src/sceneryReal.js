@@ -85,10 +85,21 @@ export class RealScenery extends SpaScenery {
   build() {
     // i colori del terreno arrivano dal clima del circuito
     this.colorsFor();
+    this.tunnelSamples();
     super.build();
     this.tunnels();
   }
   colorsFor() { /* (i colori si leggono in terrain()) */ }
+
+  // campioni della pista in galleria (servono anche ai palazzi che ci stanno sopra)
+  tunnelSamples() {
+    const T = this.data.tunnels || [], L = this.data.points.length * 4, S = this.track.samples;
+    for (const [a, b] of T) {
+      if (b - a < 30) continue;
+      this.tunnelSet = this.tunnelSet || new Set();
+      S.forEach((s, i) => { const f = s.fo * L; if (f >= a - 2 && f <= b + 2) this.tunnelSet.add(i); });
+    }
+  }
 
   // gallerie vere (Monaco: il tunnel sotto l'hotel): pareti, soffitto con le luci e la massa sopra
   tunnels() {
@@ -141,8 +152,8 @@ export class RealScenery extends SpaScenery {
       lamps.forEach(([x, y, z, r], k) => { o.position.set(x, y, z); o.rotation.set(0, r + Math.PI / 2, 0); o.updateMatrix(); im.setMatrixAt(k, o.matrix); });
       this.group.add(im);
       // dentro è buio: il sole non entra (l'ombra la fa il soffitto) e la luce ambiente cala
-      this.tunnelSet = this.tunnelSet || new Set();
-      for (const i of idx) if (S[i].fo * L >= a + 8 && S[i].fo * L <= b - 8) this.tunnelSet.add(i);
+      this.tunnelDark = this.tunnelDark || new Set();
+      for (const i of idx) if (S[i].fo * L >= a + 8 && S[i].fo * L <= b - 8) this.tunnelDark.add(i);
     }
   }
 
@@ -268,9 +279,28 @@ export class RealScenery extends SpaScenery {
         const [x, z] = p[i], q = p[(i + 1) % p.length];
         if (this.clearance(x, z).d < lim || this.clearance((x + q[0]) / 2, (z + q[1]) / 2).d < lim) ok = false;
       }
+      // palazzi che scavalcano la strada (sopra il tunnel, passaggi coperti): sopra la galleria
+      // partono dal suo tetto, altrove non si costruiscono (sarebbero muri in mezzo alla pista)
+      let over = null;
+      if (ok) {
+        let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+        for (const [x, z] of p) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+        const S = this.track.samples;
+        for (let i = 0; i < S.length && ok; i++) {
+          const t = S[i]; if (t.x < x0 - 20 || t.x > x1 + 20 || t.z < z0 - 20 || t.z > z1 + 20) continue;
+          for (let d = -(t.wallR + 0.6); d <= t.wallL + 0.6; d += 0.8) {
+            const x = t.x + t.nx * d, z = t.z + t.nz * d;
+            if (x < x0 || x > x1 || z < z0 || z > z1 || !pip(p, x, z)) continue;
+            if (this.tunnelSet && this.tunnelSet.has(i)) over = Math.max(over ?? -Infinity, t.y + 7.2);
+            else ok = false;
+            break;
+          }
+        }
+      }
       if (!ok) continue;
       n++;
       let gmin = Infinity; for (const [x, z] of p) gmin = Math.min(gmin, this.heightAt(x, z));
+      if (over != null) gmin = Math.max(gmin, over);
       const stand = b.k === 'grandstand';
       // altezza non segnata nei dati (valori predefiniti della fabbrica di piste): in città si stima dalla
       // grandezza dell'edificio (i palazzi grandi sono più alti), in campagna resta bassa
