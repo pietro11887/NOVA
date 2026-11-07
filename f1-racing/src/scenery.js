@@ -78,6 +78,15 @@ const FLAG_DRAW = {
   aus: g => { g.fillStyle = '#00008b'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; for (const [x, y] of [[44, 18], [52, 34], [40, 46], [48, 54], [16, 48]]) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); } },
   aze: g => { ['#0092bc', '#e4002b', '#00af66'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); g.fillStyle = '#fff'; g.beginPath(); g.arc(30, 32, 7, 0, 7); g.fill(); g.fillStyle = '#e4002b'; g.beginPath(); g.arc(32, 32, 6, 0, 7); g.fill(); },
   bel: g => { ['#000', '#fdda24', '#ef3340'].forEach((c, k) => { g.fillStyle = c; g.fillRect(k * 21.3, 0, 22, 64); }); },
+  chn: g => { g.fillStyle = '#de2910'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#ffde00'; g.beginPath(); g.arc(14, 16, 7, 0, 7); g.fill(); for (const [x, y] of [[28, 8], [33, 15], [33, 24], [28, 30]]) { g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); } },
+  bhr: g => { g.fillStyle = '#ce1126'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, 0); g.lineTo(22, 0); for (let k = 0; k < 5; k++) { g.lineTo(32, k * 12.8 + 6.4); g.lineTo(22, (k + 1) * 12.8); } g.lineTo(0, 64); g.fill(); },
+  ksa: g => { g.fillStyle = '#006c35'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; g.fillRect(14, 22, 36, 4); g.fillRect(16, 38, 32, 3); },
+  usa: g => { for (let k = 0; k < 7; k++) { g.fillStyle = k % 2 ? '#fff' : '#b22234'; g.fillRect(0, k * 9.2, 64, 9.2); } g.fillStyle = '#3c3b6e'; g.fillRect(0, 0, 28, 28); },
+  aut: g => { ['#ed2939', '#fff', '#ed2939'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); },
+  hun: g => { ['#ce2939', '#fff', '#477050'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 21.3, 64, 22); }); },
+  sgp: g => { g.fillStyle = '#ef3340'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#fff'; g.fillRect(0, 32, 64, 32); g.beginPath(); g.arc(14, 16, 8, 0, 7); g.fill(); g.fillStyle = '#ef3340'; g.beginPath(); g.arc(17, 16, 7, 0, 7); g.fill(); },
+  qat: g => { g.fillStyle = '#8a1538'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, 0); g.lineTo(18, 0); for (let k = 0; k < 9; k++) { g.lineTo(26, k * 7.1 + 3.5); g.lineTo(18, (k + 1) * 7.1); } g.lineTo(0, 64); g.fill(); },
+  uae: g => { ['#00732f', '#fff', '#000'].forEach((c, k) => { g.fillStyle = c; g.fillRect(16, k * 21.3, 48, 22); }); g.fillStyle = '#ff0000'; g.fillRect(0, 0, 16, 64); },
   chk: g => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#111' : '#fff'; g.fillRect(x * 16, y * 16, 16, 16); } },
 };
 const FLAG_SETS = { def: ['ita', 'ned', 'gbr', 'esp', 'ger', 'fra', 'bra', 'mex', 'mon', 'jpn', 'can', 'aus', 'chk', 'ita', 'ned', 'gbr'] };

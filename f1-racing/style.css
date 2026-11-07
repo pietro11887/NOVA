@@ -1054,3 +1054,5 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .chChamp { grid-column: 1 / -1; text-align: center; padding: 14px; border-radius: 16px; background: linear-gradient(120deg, #ffd21e, #ff9a33); color: #141414; }
 .chChamp b { display: block; font-size: 26px; font-style: italic; font-weight: 900; letter-spacing: 1px; }
 @media (max-width: 760px) { .champBody { grid-template-columns: 1fr; } }
+
+.trackCardBig .tcRound { position: absolute; top: 16px; right: 16px; font-size: 10px; font-weight: 900; letter-spacing: 2px; color: rgba(255,255,255,0.55); }

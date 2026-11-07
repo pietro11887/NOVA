@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, TRACK, PIT } from './trackData.js';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js';
+import { RealScenery, CLIMATES } from './sceneryReal.js';
 import { buildTrackDetail } from './trackDetail.js';
 import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
@@ -238,6 +239,11 @@ const sunTmp = new THREE.Vector3(), sunU = new THREE.Vector3(), sunV = new THREE
 if (settings.track === 'baku') {
   try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
   catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
+} else if (TRACKS.find(t => t.id === settings.track && t.real)) {
+  // circuito vero del calendario (fabbrica di piste)
+  const meta = TRACKS.find(t => t.id === settings.track);
+  try { const mod = await import(`./tracks/${meta.id}Data.js`); selectTrack(realTrack(meta, mod.default)); }
+  catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
   try {
@@ -264,7 +270,22 @@ const LOOKS = {
   nova: { top: 0x2c68bf, hor: 0xb6cbe0, sunC: 0xfff1de, sun: 3.3, sky: 0xc6dcf5, gnd: 0x5c6844, hemi: 0.9, fog: [0xb8cbdf, 600, 3800], exp: 1.0,
     grade: { sat: 0.94, con: 1.06, lift: 0.008, shadow: [0.96, 1.0, 1.05], high: [1.04, 1.0, 0.96] } },
 };
-const LOOK = !SUNSET ? LOOKS[TRACK.id] || LOOKS.nova : null;
+// circuiti veri: luce del posto secondo il clima (deserto caldo e velato, tropici umidi, città, dune sul mare…)
+Object.assign(LOOKS, {
+  temperate: { top: 0x3368b8, hor: 0xbccbd8, sunC: 0xfff2e0, sun: 3.3, sky: 0xc4d6ea, gnd: 0x56643f, hemi: 0.88, fog: [0xbfccd8, 450, 3300], exp: 1.0,
+    grade: { sat: 0.92, con: 1.06, lift: 0.01, shadow: [0.96, 1.0, 1.05], high: [1.04, 1.0, 0.96] } },
+  dry: { top: 0x3a76c4, hor: 0xd6d2c2, sunC: 0xffefd6, sun: 3.5, sky: 0xcbd8e6, gnd: 0x7a6e54, hemi: 0.86, fog: [0xd4cfbf, 450, 3200], exp: 0.98,
+    grade: { sat: 0.94, con: 1.07, lift: 0.01, shadow: [0.96, 1.0, 1.05], high: [1.05, 1.0, 0.94] } },
+  desert: { top: 0x4580c4, hor: 0xe6d6b8, sunC: 0xffe9c8, sun: 3.7, sky: 0xd2dce6, gnd: 0xa08a64, hemi: 0.84, fog: [0xe2d4b6, 380, 2900], exp: 0.96,
+    grade: { sat: 0.96, con: 1.08, lift: 0.014, shadow: [0.97, 1.0, 1.04], high: [1.06, 1.0, 0.92] } },
+  tropical: { top: 0x2f72c8, hor: 0xc8dbe8, sunC: 0xfff4e2, sun: 3.4, sky: 0xc6dcf0, gnd: 0x4e6a3a, hemi: 0.92, fog: [0xc6d6e2, 400, 3000], exp: 1.0,
+    grade: { sat: 1.0, con: 1.05, lift: 0.01, shadow: [0.95, 1.0, 1.05], high: [1.03, 1.0, 0.97] } },
+  urban: { top: 0x3a6db4, hor: 0xc9cfd4, sunC: 0xfff0dc, sun: 3.3, sky: 0xc8d4e2, gnd: 0x6a665c, hemi: 0.88, fog: [0xc6ccd2, 380, 2800], exp: 1.0,
+    grade: { sat: 0.92, con: 1.07, lift: 0.012, shadow: [0.95, 1.0, 1.05], high: [1.04, 1.0, 0.96] } },
+  dunes: { top: 0x3d6fb4, hor: 0xc9d3da, sunC: 0xfff3e6, sun: 3.2, sky: 0xc6d4e2, gnd: 0x7c8058, hemi: 0.9, fog: [0xc7d0d8, 420, 3000], exp: 1.0,
+    grade: { sat: 0.9, con: 1.05, lift: 0.012, shadow: [0.95, 1.0, 1.06], high: [1.03, 1.0, 0.97] } },
+});
+const LOOK = !SUNSET ? LOOKS[TRACK.id] || (TRACK.meta && LOOKS[TRACK.meta.climate]) || LOOKS.nova : null;
 function gradeToneMapping(G) {
   const v = a => `vec3(${a.map(x => x.toFixed(3)).join(',')})`;
   THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
@@ -333,7 +354,7 @@ function build() {
   track.quality = settings.quality;
   track.tod = settings.tod === 'sunset' ? 'sunset' : 'day';
   scene.add(track.build(renderer));
-  scenery = new (TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
+  scenery = new (TRACK.meta ? RealScenery : TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
 
   // riflessi ambientali generati dal cielo
@@ -2800,8 +2821,10 @@ $('recordsBack').addEventListener('click', () => showMenuPage('menuHome'));
 const CH_KEY = 'novaf1.champ.v1' + (IS_F1 ? '.f1' : '.gt');
 let champ = store.get(CH_KEY);
 const champSave = () => store.set(CH_KEY, champ);
-const CH_CAL = { 3: ['nova', 'spa', 'baku'], 6: ['nova', 'spa', 'baku', 'nova', 'spa', 'baku'] };
-const chNew = { cal: 3, laps: 5, bots: Math.min(19, Math.max(5, settings.raceBots)), strength: settings.raceStrength, osq: true };
+// calendario del campionato: le piste del 2026 in ordine di gara; con meno gare se ne prendono di distribuite su tutta la stagione
+const SEASON = TRACKS.filter(t => t.id !== 'nova' && t.round).map(t => t.id);
+const champCal = n => n >= SEASON.length ? SEASON.slice() : Array.from({ length: n }, (_, i) => SEASON[Math.floor(i * SEASON.length / n + SEASON.length / n / 2)]);
+const chNew = { cal: Math.min(6, SEASON.length), laps: 5, bots: Math.min(19, Math.max(5, settings.raceBots)), strength: settings.raceStrength, osq: true };
 const trackLabel = id => { const t = TRACKS.find(x => x.id === id) || TRACKS[0]; return t.name.toUpperCase(); };
 function champTables() {
   const names = Object.keys(champ.pts);
@@ -2819,7 +2842,7 @@ function renderChamp() {
     $('champSteps').innerHTML = `<b class="on">${IS_F1 ? 'FORMULA 1' : 'GT3'}</b>`;
     B.className = 'champBody setup';
     B.innerHTML = `<div class="chCard">
-      <div class="chOpt"><div><b>CALENDARIO</b><small>${CH_CAL[chNew.cal].map(trackLabel).join(' · ')}</small></div>${chips('cal', [3, 6], v => v + ' GARE')}</div>
+      <div class="chOpt"><div><b>CALENDARIO</b><small>${champCal(chNew.cal).map(trackLabel).join(' · ')}</small></div>${chips('cal', [...new Set([3, 6, 12, SEASON.length].filter(v => v <= SEASON.length))], v => v === SEASON.length && v > 12 ? 'TUTTE (' + v + ')' : v + ' GARE')}</div>
       <div class="chOpt"><div><b>GIRI PER GARA</b><small>${chNew.laps >= 8 ? 'con soste ai box' : 'gare sprint'}</small></div>${chips('laps', [3, 5, 8, 12], v => v)}</div>
       <div class="chOpt"><div><b>AVVERSARI</b><small>${chNew.bots + 1} vetture in griglia</small></div>${chips('bots', [5, 9, 15, 19], v => v)}</div>
       <div class="chOpt"><div><b>LIVELLO IA</b><small>${tier(chNew.strength)}</small></div>${chips('strength', [40, 60, 80, 100, 110], v => v)}</div>
@@ -2866,7 +2889,7 @@ function renderChamp() {
 function openChamp() { sounds.ui && sounds.ui(); renderChamp(); showMenuPage('menuChamp'); }
 function champGo() {
   if (!champ) {
-    champ = { v: 1, cal: CH_CAL[chNew.cal].slice(), round: 0, laps: chNew.laps, bots: chNew.bots, strength: chNew.strength, osq: chNew.osq,
+    champ = { v: 1, cal: champCal(chNew.cal), round: 0, laps: chNew.laps, bots: chNew.bots, strength: chNew.strength, osq: chNew.osq,
       team: IS_F1 ? settings.f1Team : null, grid: IS_F1 ? f1Grid(settings.f1Team, chNew.bots).map(e => ({ name: e.name, team: e.team.id })) : null,
       results: [], pts: {}, wins: {}, info: {}, done: false };
     champSave();
@@ -2933,7 +2956,7 @@ function renderTrackList() {
     b.dataset.track = t.id;
     const { d, start } = outlinePath(t, 300, 170, 12);
     const rec = trackRecord(t.id);
-    b.innerHTML = `<span class="tcFlag">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+    b.innerHTML = `<span class="tcFlag">${t.flag.map(c => `<i style="background:${c}"></i>`).join('')}</span>${t.round ? `<span class="tcRound">GARA ${t.round}</span>` : ''}
       <svg viewBox="0 0 300 170" aria-hidden="true"><path d="${d}" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="12" stroke-linejoin="round"/>
       <path d="${d}" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/><circle cx="${start[0]}" cy="${start[1]}" r="8" fill="#ff8a1c"/></svg>
       <b>${t.name.toUpperCase()}</b><small>${t.place}</small>
@@ -2944,6 +2967,9 @@ function renderTrackList() {
   }
   const t = TRACKS.find(x => x.id === wizTrack);
   $('trackHint').textContent = t ? t.name + ' · ' + t.place : '';
+  // la pista scelta in vista (sono tante: si scorrono di lato, anche con la rotellina del mouse)
+  const sel = box.querySelector('.sel'); if (sel) requestAnimationFrame(() => sel.scrollIntoView({ inline: 'center', block: 'nearest' }));
+  if (!box.dataset.wheel) { box.dataset.wheel = 1; box.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { box.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); }
 }
 function openTrackPage() { wizTrack = settings.track; renderTrackList(); showMenuPage('menuTrack'); }
 function trackContinue() {

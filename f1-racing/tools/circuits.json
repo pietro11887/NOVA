@@ -1,0 +1,643 @@
+{
+ "melbourne": {
+  "name": "Albert Park Circuit",
+  "lat": -37.8497,
+  "lon": 144.968,
+  "half": 1900,
+  "length": 5278,
+  "dir": "cw",
+  "hw": 6.2,
+  "street": true,
+  "climate": "temperate",
+  "round": 1,
+  "place": "Australia · Melbourne",
+  "flag": [
+   "#00008b",
+   "#ffffff",
+   "#e4002b"
+  ],
+  "km": "5,28",
+  "corners": 14,
+  "info": "Parco cittadino attorno al lago: veloce e scorrevole, muri vicini",
+  "fans": [
+   "aus",
+   "aus",
+   "gbr",
+   "ned",
+   "ita",
+   "chk"
+  ],
+  "short": "AUSTRALIAN GP"
+ },
+ "shanghai": {
+  "name": "Shanghai International Circuit",
+  "lat": 31.3389,
+  "lon": 121.2197,
+  "half": 1700,
+  "length": 5451,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "temperate",
+  "round": 2,
+  "place": "Cina · Shanghai",
+  "flag": [
+   "#de2910",
+   "#ffde00"
+  ],
+  "km": "5,45",
+  "corners": 16,
+  "info": "Curva 1 a chiocciola che si stringe e rettilineo di 1,2 km",
+  "fans": [
+   "chn",
+   "chn",
+   "chn",
+   "gbr",
+   "ger",
+   "ned"
+  ],
+  "short": "CHINESE GP"
+ },
+ "suzuka": {
+  "name": "Suzuka International Racing Course",
+  "lat": 34.8431,
+  "lon": 136.541,
+  "half": 1700,
+  "length": 5807,
+  "dir": "cw",
+  "hw": 6.0,
+  "climate": "temperate",
+  "round": 3,
+  "place": "Giappone · Suzuka",
+  "flag": [
+   "#ffffff",
+   "#bc002d"
+  ],
+  "km": "5,81",
+  "corners": 18,
+  "info": "Le Esse, Degner, Spoon e 130R: l'unico tracciato a otto",
+  "fans": [
+   "jpn",
+   "jpn",
+   "jpn",
+   "jpn",
+   "ned",
+   "gbr"
+  ],
+  "short": "JAPANESE GP",
+  "bridge": 8.0
+ },
+ "bahrain": {
+  "name": "Bahrain International Circuit",
+  "lat": 26.0325,
+  "lon": 50.5106,
+  "half": 1700,
+  "length": 5412,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "desert",
+  "round": 4,
+  "place": "Bahrain · Sakhir",
+  "flag": [
+   "#ce1126",
+   "#ffffff"
+  ],
+  "km": "5,41",
+  "corners": 15,
+  "info": "Nel deserto: frenate forti, trazione e sabbia portata dal vento",
+  "fans": [
+   "bhr",
+   "bhr",
+   "gbr",
+   "ned",
+   "ita",
+   "esp"
+  ],
+  "short": "BAHRAIN GP"
+ },
+ "jeddah": {
+  "name": "Jeddah Corniche Circuit",
+  "lat": 21.6319,
+  "lon": 39.1044,
+  "half": 2400,
+  "length": 6174,
+  "dir": "ccw",
+  "hw": 6.0,
+  "street": true,
+  "climate": "desert",
+  "min_y": 0.5,
+  "round": 5,
+  "place": "Arabia Saudita · Gedda",
+  "flag": [
+   "#006c35",
+   "#ffffff"
+  ],
+  "km": "6,17",
+  "corners": 27,
+  "info": "Cittadino velocissimo sul lungomare: curve cieche tra i muri",
+  "fans": [
+   "ksa",
+   "ksa",
+   "ksa",
+   "gbr",
+   "ned",
+   "esp"
+  ],
+  "short": "SAUDI ARABIAN GP"
+ },
+ "miami": {
+  "name": "Miami International Autodrome",
+  "lat": 25.9581,
+  "lon": -80.2389,
+  "half": 1500,
+  "length": 5412,
+  "dir": "ccw",
+  "hw": 6.5,
+  "street": true,
+  "climate": "tropical",
+  "round": 6,
+  "place": "Stati Uniti · Miami",
+  "flag": [
+   "#b22234",
+   "#ffffff",
+   "#3c3b6e"
+  ],
+  "km": "5,41",
+  "corners": 19,
+  "info": "Intorno allo stadio, tra palme e la finta marina",
+  "fans": [
+   "usa",
+   "usa",
+   "usa",
+   "mex",
+   "ned",
+   "gbr"
+  ],
+  "short": "MIAMI GP"
+ },
+ "montreal": {
+  "name": "Circuit Gilles Villeneuve",
+  "lat": 45.5005,
+  "lon": -73.5263,
+  "half": 1900,
+  "length": 4361,
+  "dir": "cw",
+  "hw": 6.0,
+  "street": true,
+  "climate": "temperate",
+  "round": 7,
+  "place": "Canada · Montréal",
+  "flag": [
+   "#d52b1e",
+   "#ffffff"
+  ],
+  "km": "4,36",
+  "corners": 14,
+  "info": "Isola nel fiume: chicane, tornante e il Muro dei Campioni",
+  "fans": [
+   "can",
+   "can",
+   "can",
+   "fra",
+   "ned",
+   "gbr"
+  ],
+  "short": "CANADIAN GP"
+ },
+ "monaco": {
+  "name": "Circuit de Monaco",
+  "lat": 43.7375,
+  "lon": 7.4245,
+  "half": 1200,
+  "length": 3337,
+  "dir": "cw",
+  "hw": 4.8,
+  "street": true,
+  "climate": "urban",
+  "smooth": 90,
+  "min_y": 0.5,
+  "round": 8,
+  "place": "Monaco · Monte Carlo",
+  "flag": [
+   "#ce1126",
+   "#ffffff"
+  ],
+  "km": "3,34",
+  "corners": 19,
+  "info": "Casinò, tornante, tunnel e piscina tra i palazzi: nessun errore",
+  "fans": [
+   "mon",
+   "mon",
+   "fra",
+   "ita",
+   "ned",
+   "gbr"
+  ],
+  "short": "MONACO GP"
+ },
+ "barcelona": {
+  "name": "Circuit de Barcelona-Catalunya",
+  "lat": 41.57,
+  "lon": 2.2611,
+  "half": 1500,
+  "length": 4657,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "dry",
+  "round": 9,
+  "place": "Spagna · Barcellona",
+  "flag": [
+   "#c60b1e",
+   "#ffc400"
+  ],
+  "km": "4,66",
+  "corners": 14,
+  "info": "Il circuito che le squadre conoscono a memoria",
+  "fans": [
+   "esp",
+   "esp",
+   "esp",
+   "ned",
+   "gbr",
+   "ita"
+  ],
+  "short": "BARCELONA GP"
+ },
+ "spielberg": {
+  "name": "Red Bull Ring",
+  "lat": 47.2197,
+  "lon": 14.7647,
+  "half": 1400,
+  "length": 4318,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "temperate",
+  "round": 10,
+  "place": "Austria · Spielberg",
+  "flag": [
+   "#ed2939",
+   "#ffffff"
+  ],
+  "km": "4,32",
+  "corners": 10,
+  "info": "Pochi metri di curve tra le montagne, salite e discese",
+  "fans": [
+   "aut",
+   "aut",
+   "ned",
+   "ned",
+   "ger",
+   "gbr"
+  ],
+  "short": "AUSTRIAN GP"
+ },
+ "silverstone": {
+  "name": "Silverstone Circuit",
+  "lat": 52.0786,
+  "lon": -1.0169,
+  "half": 2400,
+  "length": 5891,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "temperate",
+  "round": 11,
+  "place": "Regno Unito · Silverstone",
+  "flag": [
+   "#012169",
+   "#ffffff",
+   "#c8102e"
+  ],
+  "km": "5,89",
+  "corners": 18,
+  "info": "Maggotts, Becketts e Chapel: le curve veloci più famose",
+  "fans": [
+   "gbr",
+   "gbr",
+   "gbr",
+   "gbr",
+   "ned",
+   "ita"
+  ],
+  "short": "BRITISH GP"
+ },
+ "hungaroring": {
+  "name": "Hungaroring",
+  "lat": 47.5789,
+  "lon": 19.2486,
+  "half": 1400,
+  "length": 4381,
+  "dir": "cw",
+  "hw": 6.5,
+  "climate": "dry",
+  "round": 13,
+  "place": "Ungheria · Budapest",
+  "flag": [
+   "#ce2939",
+   "#ffffff",
+   "#477050"
+  ],
+  "km": "4,38",
+  "corners": 14,
+  "info": "Tortuoso e lento: un kartodromo gigante, sorpassi difficili",
+  "fans": [
+   "hun",
+   "hun",
+   "ned",
+   "ger",
+   "gbr",
+   "chk"
+  ],
+  "short": "HUNGARIAN GP"
+ },
+ "zandvoort": {
+  "name": "Circuit Zandvoort",
+  "lat": 52.3888,
+  "lon": 4.5409,
+  "half": 1400,
+  "length": 4259,
+  "dir": "cw",
+  "hw": 6.0,
+  "climate": "dunes",
+  "round": 14,
+  "place": "Paesi Bassi · Zandvoort",
+  "flag": [
+   "#ae1c28",
+   "#ffffff",
+   "#21468b"
+  ],
+  "km": "4,26",
+  "corners": 14,
+  "info": "Tra le dune sul mare, curve sopraelevate e marea arancione",
+  "fans": [
+   "ned",
+   "ned",
+   "ned",
+   "ned",
+   "ned",
+   "bel"
+  ],
+  "short": "DUTCH GP"
+ },
+ "monza": {
+  "name": "Autodromo Nazionale Monza",
+  "lat": 45.6156,
+  "lon": 9.2811,
+  "half": 2000,
+  "length": 5793,
+  "dir": "cw",
+  "hw": 6.5,
+  "climate": "temperate",
+  "round": 15,
+  "place": "Italia · Monza",
+  "flag": [
+   "#009246",
+   "#ffffff",
+   "#ce2b37"
+  ],
+  "km": "5,79",
+  "corners": 11,
+  "info": "Il tempio della velocità: rettilinei nel parco, Lesmo e Parabolica",
+  "fans": [
+   "ita",
+   "ita",
+   "ita",
+   "ita",
+   "ned",
+   "gbr"
+  ],
+  "short": "ITALIAN GP"
+ },
+ "madrid": {
+  "name": "Madring",
+  "lat": 40.4655,
+  "lon": -3.6155,
+  "half": 1700,
+  "length": 5474,
+  "dir": "ccw",
+  "hw": 6.5,
+  "street": true,
+  "climate": "dry",
+  "round": 16,
+  "place": "Spagna · Madrid",
+  "flag": [
+   "#c60b1e",
+   "#ffc400"
+  ],
+  "km": "5,47",
+  "corners": 22,
+  "info": "Nuovo cittadino attorno alla fiera, con la curva sopraelevata",
+  "fans": [
+   "esp",
+   "esp",
+   "esp",
+   "ned",
+   "gbr",
+   "mex"
+  ],
+  "short": "SPANISH GP"
+ },
+ "singapore": {
+  "name": "Marina Bay Street Circuit",
+  "lat": 1.2914,
+  "lon": 103.864,
+  "half": 1500,
+  "length": 4927,
+  "dir": "ccw",
+  "hw": 6.0,
+  "street": true,
+  "climate": "urban",
+  "min_y": 0.5,
+  "round": 18,
+  "place": "Singapore · Marina Bay",
+  "flag": [
+   "#ef3340",
+   "#ffffff"
+  ],
+  "km": "4,93",
+  "corners": 19,
+  "info": "Gara di notte tra i grattacieli, caldo e umidità",
+  "fans": [
+   "sgp",
+   "sgp",
+   "gbr",
+   "ned",
+   "aus",
+   "jpn"
+  ],
+  "short": "SINGAPORE GP"
+ },
+ "austin": {
+  "name": "Circuit of The Americas",
+  "lat": 30.1328,
+  "lon": -97.6411,
+  "half": 1700,
+  "length": 5513,
+  "dir": "ccw",
+  "hw": 7.0,
+  "climate": "dry",
+  "round": 19,
+  "place": "Stati Uniti · Austin",
+  "flag": [
+   "#b22234",
+   "#ffffff",
+   "#3c3b6e"
+  ],
+  "km": "5,51",
+  "corners": 20,
+  "info": "Salita verso la curva 1 e le esse alla Maggotts",
+  "fans": [
+   "usa",
+   "usa",
+   "usa",
+   "mex",
+   "ned",
+   "gbr"
+  ],
+  "short": "UNITED STATES GP"
+ },
+ "mexico": {
+  "name": "Autódromo Hermanos Rodríguez",
+  "lat": 19.4042,
+  "lon": -99.0907,
+  "half": 1600,
+  "length": 4304,
+  "dir": "cw",
+  "hw": 6.5,
+  "climate": "dry",
+  "round": 20,
+  "place": "Messico · Città del Messico",
+  "flag": [
+   "#006847",
+   "#ffffff",
+   "#ce1126"
+  ],
+  "km": "4,30",
+  "corners": 17,
+  "info": "A 2200 m di quota, finale nello stadio pieno",
+  "fans": [
+   "mex",
+   "mex",
+   "mex",
+   "mex",
+   "ned",
+   "usa"
+  ],
+  "short": "MEXICO CITY GP"
+ },
+ "interlagos": {
+  "name": "Autódromo José Carlos Pace",
+  "lat": -23.7036,
+  "lon": -46.6997,
+  "half": 1300,
+  "length": 4309,
+  "dir": "ccw",
+  "hw": 6.5,
+  "climate": "tropical",
+  "round": 21,
+  "place": "Brasile · San Paolo",
+  "flag": [
+   "#009c3b",
+   "#ffdf00"
+  ],
+  "km": "4,31",
+  "corners": 15,
+  "info": "Senso antiorario, Senna S e salita al traguardo",
+  "fans": [
+   "bra",
+   "bra",
+   "bra",
+   "bra",
+   "ned",
+   "gbr"
+  ],
+  "short": "SÃO PAULO GP"
+ },
+ "lasvegas": {
+  "name": "Las Vegas Strip Circuit",
+  "lat": 36.1147,
+  "lon": -115.168,
+  "half": 2200,
+  "length": 6201,
+  "dir": "ccw",
+  "hw": 6.5,
+  "street": true,
+  "climate": "desert",
+  "round": 22,
+  "place": "Stati Uniti · Las Vegas",
+  "flag": [
+   "#b22234",
+   "#ffffff",
+   "#3c3b6e"
+  ],
+  "km": "6,20",
+  "corners": 17,
+  "info": "Di notte sulla Strip, rettilineo di quasi 2 km",
+  "fans": [
+   "usa",
+   "usa",
+   "usa",
+   "mex",
+   "gbr",
+   "ned"
+  ],
+  "short": "LAS VEGAS GP"
+ },
+ "lusail": {
+  "name": "Lusail International Circuit",
+  "lat": 25.49,
+  "lon": 51.4542,
+  "half": 1600,
+  "length": 5419,
+  "dir": "cw",
+  "hw": 7.0,
+  "climate": "desert",
+  "round": 23,
+  "place": "Qatar · Lusail",
+  "flag": [
+   "#8a1538",
+   "#ffffff"
+  ],
+  "km": "5,42",
+  "corners": 16,
+  "info": "Curve medio-veloci nel deserto, sotto le luci",
+  "fans": [
+   "qat",
+   "qat",
+   "ned",
+   "gbr",
+   "ita",
+   "esp"
+  ],
+  "short": "QATAR GP"
+ },
+ "yasmarina": {
+  "name": "Yas Marina Circuit",
+  "lat": 24.4672,
+  "lon": 54.6031,
+  "half": 1800,
+  "length": 5281,
+  "dir": "ccw",
+  "hw": 7.0,
+  "climate": "desert",
+  "min_y": 0.5,
+  "round": 24,
+  "place": "Emirati Arabi · Abu Dhabi",
+  "flag": [
+   "#00732f",
+   "#ffffff",
+   "#000000",
+   "#ff0000"
+  ],
+  "km": "5,28",
+  "corners": 16,
+  "info": "Gran finale al tramonto, sotto l'hotel sulla pista",
+  "fans": [
+   "uae",
+   "uae",
+   "ned",
+   "gbr",
+   "ita",
+   "chk"
+  ],
+  "short": "ABU DHABI GP"
+ }
+}

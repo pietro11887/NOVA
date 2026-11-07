@@ -110,6 +110,18 @@ export function spaTrack(data) {
   };
 }
 
+// circuito vero costruito dalla fabbrica di piste (tools/build_track.py): il primo punto dei dati è sul
+// traguardo vero; la linea del cronometro è 200 m prima, così tutta la griglia sta tra la linea e la prima curva
+export function realTrack(meta, data) {
+  return {
+    id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, data, meta,
+    lineShift: 200,
+    pitPath: data.pit || undefined,
+    pit: { halfW: 3.0, speed: 80 / 3.6, side: data.pitSide || 1, boxGap: 12 },
+    grid: { pole: 200, gap: 8, lat: 3.0 },
+  };
+}
+
 // marchio sul muro a distanza s (lato +1 sinistra, -1 destra)
 export function sponsorAt(s, side) {
   for (const [a, b, l, r] of TRACK.sponsors || []) if (s >= a && s < b) return side > 0 ? l : r;
@@ -335,6 +347,7 @@ export function buildTrack(points) {
       const sj = samples[j];
       const dx = sj.x - si.x, dz = sj.z - si.z;
       if (Math.abs(dx) > 200 || Math.abs(dz) > 200) continue;
+      if (Math.abs(sj.y - si.y) > 4) continue;            // tratto su un ponte (Suzuka): non è un ostacolo
       const dist = Math.hypot(dx, dz);
       const along = Math.abs(dx * si.tx + dz * si.tz);
       if (along > dist * 0.8) continue;
