@@ -4,6 +4,7 @@ import { TRACK, bankAt } from './trackData.js';
 import { meadow, triplanar } from './pbr.js';
 import { buildTrees } from './trees.js';
 import { ENV } from './scenery.js';
+import { landmarkSkip } from './landmarks.js';
 
 // Circuiti veri del calendario costruiti dalla "fabbrica di piste" (tools/build_track.py): stessi dati di Spa
 // (tracciato, corsia box, edifici, strade, boschi, prati, acqua e terreno veri) con l'aspetto del posto:
@@ -390,6 +391,7 @@ export class RealScenery extends SpaScenery {
     for (const b of this.data.buildings) {
       if (n >= maxB) break;
       const p = b.p;
+      if (landmarkSkip(TRACK.id, b, p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length)) continue;
       let ok = true;
       // in città i palazzi stanno a filo del marciapiede: si scartano solo quelli che entrano in pista
       const lim = this.track.street ? 0.6 : 2.5;

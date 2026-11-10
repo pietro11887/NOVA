@@ -39,6 +39,7 @@ import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
 import { addNightLights, nightShading } from './nightLights.js';
+import { addLandmarks } from './landmarks.js';
 import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -378,6 +379,7 @@ const padNav = new PadNav({
   onConnect: () => showBanner('🎮 CONTROLLER COLLEGATO', 'green', 2.5, true),
 });
 let tunPr = null, tunK = 0, tunBase = null;
+let landmarks = null;
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
@@ -388,6 +390,7 @@ function build() {
   scenery = new (TRACK.meta ? RealScenery : TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
   if (NIGHT) addNightLights(scene, track, scenery);
+  try { landmarks = addLandmarks(scene, TRACK.id, scenery, track, NIGHT); } catch (e) { console.warn('monumenti non disponibili', e); }
 
   // riflessi ambientali generati dal cielo
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -3835,6 +3838,7 @@ function frame(now) {
   renderer.shadowMap.autoUpdate = false;
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
+  if (landmarks) landmarks.update(mode === 'pause' ? 0 : dt);
   if (rain) {
     const rdt = mode === 'pause' ? 0 : dt;
     const fc = mode === 'menu' && attract && attract.shot ? attract.shot.car.phys : phys;
