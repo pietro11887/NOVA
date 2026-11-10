@@ -220,14 +220,15 @@ export class AIDriver {
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
       const room = Math.max(0, bestGap - 4.0 - 1.5 * (1 - this.aggr) * (1 - 0.6 * this.craft) - Math.max(0, closing) * (0.45 - 0.2 * this.craft));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
-      const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
+      // (e se accelera, come al via, si accelera con lei invece di aspettare)
+      const ovEff = Math.max(0, ov + blocker.phys.gLong * 9.81 * (blocker.phys.gLong < 0 ? 0.5 : 0.35));
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
       const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v);
       const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
       // sul dritto si esce dalla scia senza alzare il piede (si frena solo se proprio attaccati dietro)
       const pullOut = straight && brakeIdx < 0 && !hazard && raceT > 12 && lat > 1.5 && blocker.phys.gLong > -0.3 && this.profile[(i + 60) % n] > v;
       if (pullOut) { if (bestGap < 8 && lat < 1.8) vCap = Math.min(vCap, ov + 1); }
-      else if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
+      else if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ovEff + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
@@ -257,6 +258,17 @@ export class AIDriver {
     // senza traffico, o prima di una staccata, si torna sulla traiettoria ideale
     if (!hazard && !this.attack && (!blocker || brakeIdx >= 0)) this.laneTarget *= Math.max(0, 1 - dt * (brakeIdx >= 0 ? 2.5 : 0.4));
     if (this.attack) this.laneTarget = this.attack.side * (lim - 0.3) - this.line.off[i];
+    // partenza: ognuno resta nella sua fila della griglia (niente trenino tutti a sinistra che lascia
+    // libero un lato): si arriva alla prima staccata affiancati e ci si stringe solo negli ultimi 100 m
+    if (this.gridLane == null) this.gridLane = myD;
+    if (!this.startDone) {
+      if (raceT > 40 || (nA >= 0 && distBrake < 50)) this.startDone = true;
+      else if (!hazard && !this.attack) {
+        const w = Math.max(0, Math.min(1, (distBrake - 25) / 110));
+        const tgt = Math.max(-lim, Math.min(lim, this.gridLane)) - this.line.off[i];
+        this.laneTarget = tgt * w + this.laneTarget * (1 - w);
+      }
+    }
 
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)

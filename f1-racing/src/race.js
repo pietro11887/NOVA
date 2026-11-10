@@ -230,8 +230,17 @@ export class Race {
       if (!c.ai || !c.phys.hasErs) continue;
       const p = c.phys, ai = c.ai, n = this.track.count;
       const straight = ai.profile[(p.prCG.i + 40) % n] > p.speed + 4 && ai.profile[(p.prCG.i + 15) % n] > p.speed;
-      const attack = (ai.blockGap ?? 999) < 45, defend = ai.chaserNear;
-      const want = straight && p.speed > 30 && !this.noOT && (attack ? p.battery > 0.05 : defend ? p.battery > 0.3 : p.battery > 0.85);
+      const attack = (ai.blockGap ?? 999) < 45;
+      // difesa: chiunque arrivi da dietro o di fianco (anche su un'altra traiettoria), non solo chi è in scia
+      let defend = ai.chaserNear;
+      if (!defend) for (const o of this.cars) {
+        if (o === c || o.gone || o.phys.inPit) continue;
+        let g = this.progress(o) - this.progress(c);
+        if (g > -35 && g < 6 && o.phys.speed > p.speed - 3) { defend = true; break; }
+      }
+      // partenza: Boost fino alla prima staccata, come fanno tutti
+      const start = this.t < 25 && !ai.startDone;
+      const want = straight && p.speed > 15 && !this.noOT && (start ? p.battery > 0.05 : attack ? p.battery > 0.05 : defend ? p.battery > 0.15 : p.battery > 0.85);
       p.deploy = want;
     }
     for (const c of this.cars) {
