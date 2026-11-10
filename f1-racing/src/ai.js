@@ -15,10 +15,10 @@ export function skillParams(strength, street = false) {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
     mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
-    grip: 1 + 0.2 * boost,            // 110 → +14% di aderenza
-    power: 1 + 0.26 * boost,           // 110 → +20% di potenza (più veloci anche sul dritto)
+    grip: 1 + 0.32 * boost,           // 110 → +32% di aderenza
+    power: 1 + 0.42 * boost,           // 110 → +42% di potenza (molto più veloci anche sul dritto)
     brake: 0.92 + 0.06 * t,           // frazione della frenata massima
-    reaction: 0.3 - 0.25 * t,         // secondi di ritardo allo spegnimento dei semafori
+    reaction: 0.3 - 0.27 * t,         // secondi di ritardo allo spegnimento dei semafori
     wobble: 0.15 * (1 - t),            // imprecisione sulla traiettoria (m)
   };
 }
@@ -215,16 +215,19 @@ export class AIDriver {
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati. In scia, pronti a uscire, si sta più vicini.
       const lat = Math.abs((od - lineOff(blocker.phys.prCG.i)) - myLD);
-      const want = (5.0 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.2 * this.craft));
+      const want = (4.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.45 * this.craft));
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
-      const room = Math.max(0, bestGap - 4.0 - 1.5 * (1 - this.aggr) - Math.max(0, closing) * 0.45);
+      const room = Math.max(0, bestGap - 4.0 - 1.5 * (1 - this.aggr) * (1 - 0.6 * this.craft) - Math.max(0, closing) * (0.45 - 0.2 * this.craft));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       const ovEff = Math.max(0, ov + Math.min(0, blocker.phys.gLong * 9.81) * 0.5);
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
       const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v);
       const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
-      if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
+      // sul dritto si esce dalla scia senza alzare il piede (si frena solo se proprio attaccati dietro)
+      const pullOut = straight && brakeIdx < 0 && !hazard && raceT > 12 && lat > 1.5 && blocker.phys.gLong > -0.3 && this.profile[(i + 60) % n] > v;
+      if (pullOut) { if (bestGap < 8 && lat < 1.8) vCap = Math.min(vCap, ov + 1); }
+      else if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ov + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta
       if (!hazard && ov < v - 15 && bestGap < 80) {
         const side = od > 0 ? -1 : 1;
@@ -234,16 +237,16 @@ export class AIDriver {
     const nA = this.nextApex[i], distBrake = nA >= 0 ? ((nA - i + n) % n) * tr.step : 999;
     // 3b) difesa sul rettilineo: chi è davanti, con uno in scia, fa una sola mossa verso l'interno
     // della curva successiva (come in F1: niente zig-zag)
-    if (!this.street && !this.sc && raceT > 20 && !this.attack && !this.mistake && chaser && chaserGap > -18 && distBrake > 150 && this.defStraight !== nA) {
+    if (!this.street && !this.sc && raceT > 2 && !this.attack && !this.mistake && chaser && chaserGap > -(18 + 14 * this.craft) && distBrake > 120 && this.defStraight !== nA) {
       this.defStraight = nA;
       const cl = chaser.phys.speed - v, clat = Math.abs(chaser.phys.prCG.d - myD);
-      if (cl > 0.3 && clat < 2.2 && this.rand() < 0.55 * (0.6 + 0.6 * this.aggr) * (0.7 + 0.5 * this.craft)) {
+      if (cl > 0.3 && clat < 3.2 && this.rand() < Math.min(0.97, 0.55 * (0.6 + 0.6 * this.aggr) * (0.7 + 0.5 * this.craft) + 0.45 * this.craft)) {
         this.mistake = { type: 'defend', until: this.t + Math.min(6, distBrake / Math.max(20, v)), side: nA >= 0 ? this.insideAt(nA) : 1 };
       }
     }
     // switchback: chi viene attaccato all'interno in staccata cede un po' (niente porta chiusa),
     // tiene l'esterno e poi incrocia in uscita, dove ha più trazione, per riprovarci sul dritto
-    if (!this.street && !this.sc && !this.attack && brakeIdx >= 0 && distBrake < 90 && this.aggr < 0.85) {
+    if (!this.street && !this.sc && !this.attack && brakeIdx >= 0 && distBrake < 90 && this.aggr < 0.85 - 0.5 * this.craft) {
       const ins = this.insideAt(brakeIdx);
       for (const a of along) {
         const rel = (a.d - myD) * ins;                      // > 0: è dalla parte interna
@@ -258,7 +261,7 @@ export class AIDriver {
     // 3) difesa: chi è dietro e vicino prima di una staccata -> si copre l'interno
     // (una sola mossa, e solo se chi segue non è già affiancato né all'attacco)
     // (si chiude anche quando chi segue sta già uscendo dalla scia: finché non è affiancato)
-    if (!this.sc && raceT > 8 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && !this.chicane[brakeIdx] && this.defZone !== brakeIdx && chaserGap > -34 - 14 * this.craft && chaserGap < -1.5) {
+    if (!this.sc && raceT > 2 && !this.attack && !this.mistake && chaser && brakeIdx >= 0 && !this.chicane[brakeIdx] && this.defZone !== brakeIdx && chaserGap > -34 - 14 * this.craft && chaserGap < -1.5) {
       this.defZone = brakeIdx;
       if (this.rand() < Math.min(0.99, (0.85 + 0.2 * this.aggr) * (0.95 + 0.4 * this.craft))) { this.mistake = { type: 'defend', until: this.t + 4, side: this.insideAt(brakeIdx), apex: brakeIdx }; }
     }

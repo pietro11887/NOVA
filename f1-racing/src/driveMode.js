@@ -8,8 +8,8 @@
 export const ARCADE = {
   grip: 1.22,          // aderenza in più
   aiGrip: 1.10,        // quanto ne sfruttano i bot nel calcolo della velocità in curva (forza bassa)
-  aiGripTop: 1.22,     // ...e alla forza massima: a 110 vanno come un giocatore perfetto
-  aiPower: 0.2,        // potenza in più dei bot alla forza massima
+  aiGripTop: 1.34,     // ...e alla forza massima: a 110 vanno più forte di un giocatore perfetto
+  aiPower: 0.32,       // potenza in più dei bot alla forza massima
   rear: 1.12,          // posteriore più piantato: niente sovrasterzo
   brake: 1.12,         // frenata più forte
   engineBrake: 1.8,    // freno motore (si frena poco, si alza il piede)
