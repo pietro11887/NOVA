@@ -62,7 +62,16 @@ const SPECS = {
 SPECS.r26 = {
   ...SPECS.f1,
   label: 'RENAULT R26 · 2006',
-  // carrozzeria: per ora quella della monoposto del gioco (stesse misure di ruote e ingombri)
+  // misure del modello R26: passo 3,1 m, carreggiata 1,44 m, ruote da 0,335 m
+  geom: { axleF: 1.55, axleR: -1.545, halfTrack: 0.72, wheelR: 0.335, cgHeight: 0.3 },
+  hull: [
+    [2.45, -0.7, 'fwL'], [2.45, 0.7, 'fwR'], [2.5, 0, 'nose'],
+    [1.55, -0.92, 'wFL'], [1.55, 0.92, 'wFR'],
+    [0.0, -0.75, 'sideL'], [0.0, 0.75, 'sideR'],
+    [-1.545, -0.92, 'wRL'], [-1.545, 0.92, 'wRR'],
+    [-2.13, -0.45, 'rw'], [-2.13, 0.45, 'rw'],
+  ],
+  circles: [[1.6, 0.92], [0.0, 0.92], [-1.6, 0.92]],
   car: { mass: 605, ClA: 3.5, CdA: 1.12, mu: 1.6, torque: 440, brake: 30500 },
   inertia: { Iz: 900, Ipitch: 760, Iroll: 240 },
   susp: { springK: 120000, damperC: 6000, arbK: [100000, 48000] },

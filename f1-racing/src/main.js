@@ -149,7 +149,7 @@ function ultraCar(model, env = null) {
         p.defines = { STANDARD: '', PHYSICAL: '' };
         const matte = m.roughness > 0.38;                          // livree opache (alcune F1): trasparente satinato
         p.clearcoat = matte ? 0.3 : 1; p.clearcoatRoughness = matte ? 0.35 : 0.04; p.roughness = Math.max(0.2, m.roughness);
-        if (model.kind !== 'f1') p.metalness = Math.max(p.metalness, 0.2);    // GT: vernice metallizzata (senza scurire il colore)
+        if (model.kind !== 'f1' && model.kind !== 'r26') p.metalness = Math.max(p.metalness, 0.2);    // GT: vernice metallizzata (senza scurire il colore)
         p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey;
         paintShader(p, U);
       } else if (env) { p = m.clone(); p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey; }
@@ -1344,7 +1344,7 @@ function updateCamera(dt) {
     car.root.updateMatrixWorld(true);
     // T-Cam (F1): la telecamera obbligatoria sulla "T" in cima alla presa d'aria, sopra la testa del pilota.
     // Fissata alla vettura (sobbalza e si inclina con lei), guarda avanti e un po' in basso: halo, muso e gomme
-    const local = IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
+    const local = IS_R26 ? (camMode === 2 ? tmpV.set(-0.32, 0.6, 0) : tmpV.set(-0.06, 0.4, 0)) : IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
@@ -1378,6 +1378,7 @@ let cockpitLoading = false;
 const eyeTmp = new THREE.Vector3(), qPitch = new THREE.Quaternion(), qLook = new THREE.Quaternion(), axY = new THREE.Vector3(0, 1, 0), axZ = new THREE.Vector3(0, 0, 1);
 function cockpitView(dt) {
   if (!car.cockpit) {
+    if (IS_R26) return false;   // R26: visuale dalla testa del pilota (abitacolo del modello)
     if (!cockpitLoading) {
       cockpitLoading = true;
       showBanner('CARICAMENTO ABITACOLO…', 'yellow', 1.5, true);
@@ -3123,9 +3124,9 @@ async function openHub() {
   $('hubWx').innerHTML = `<b>${S.tod === 'sunset' ? 'TRAMONTO' : 'GIORNO'}</b><span>${wxm === 'heavy' ? '⛈' : wxm === 'light' ? '🌧' : '☀'} ${S.tod === 'sunset' ? '19:30' : '14:00'} · ${wxm === 'dry' ? (S.tod === 'sunset' ? '21' : '24') : wxm === 'light' ? '17' : '14'} °C · ${WX_NAMES[wxm]}</span>`;
   showMenuPage('menuHub');
   // la tua vettura nel box
-  const kind = IS_F1 ? 'f1' : 'gt';
+  const kind = IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
   try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (e) { return; }
-  let m = kind === 'f1' ? createGT({ kind, team: tm }) : createGT({ kind });
+  let m = kind !== 'gt' ? createGT({ kind, team: tm }) : createGT({ kind });
   if (ARC()) m = cartoonize(m);
   garage.setCar(m, tm ? tm.colors[1] : '#ff8a1c');
 }
@@ -3593,7 +3594,7 @@ function openGarage(pick = false) {
 }
 let gToken = 0;
 async function showGarageCar() {
-  const cat = gState.cat, kind = cat === 'gt' ? 'gt' : 'f1', tok = ++gToken;
+  const cat = gState.cat, kind = cat === 'gt' ? 'gt' : cat === 'r26' ? 'r26' : 'f1', tok = ++gToken;
   document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.classList.toggle('sel', b.dataset.cat === cat));
   const list = gList(), e = list[gState.idx];
   $('gCount').textContent = `${gState.idx + 1} / ${list.length}`;
@@ -3601,9 +3602,9 @@ async function showGarageCar() {
   try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (err) { $('gLoading').textContent = 'VETTURA NON DISPONIBILE'; return; }
   if (tok !== gToken) return;
   $('gLoading').classList.add('hidden');
-  let m = kind === 'f1' ? createGT({ kind, team: e }) : createGT({ kind, ...(e.primary != null ? { primary: e.primary, accent: e.acc2 } : {}) });
+  let m = kind !== 'gt' ? createGT({ kind, team: e }) : createGT({ kind, ...(e.primary != null ? { primary: e.primary, accent: e.acc2 } : {}) });
   if (cat === 'toon') m = cartoonize(m);
-  garage.setCar(m, kind === 'f1' ? e.colors[1] : e.accent);
+  garage.setCar(m, kind !== 'gt' ? e.colors[1] : e.accent);
   // schede
   if (cat === 'r26') {
     // MACCHINE SPECIALI: Renault R26 2006 (gli altri sono i colori delle squadre 2006 sulla stessa vettura)

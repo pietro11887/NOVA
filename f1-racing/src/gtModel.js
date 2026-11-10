@@ -2,13 +2,12 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
-import { CAR_CLASS as CLS } from './vehicle.js';
-// la Renault R26 (macchine speciali) usa la carrozzeria della monoposto con i colori del 2006
-const CAR_CLASS = CLS === 'r26' ? 'f1' : CLS;
+import { CAR_CLASS } from './vehicle.js';
 import { liveryTexture } from './f1Teams.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
+// Renault R26 2006 — modello di Dave Love (Sketchfab), licenza CC BY 4.0 (tools/build_r26.mjs).
 // Ottimizzati per il gioco (abitacolo semplificato, poligoni ridotti, texture compresse).
 // Qui viene convertito nel formato delle vetture del gioco: muso verso +X, destra verso +Z,
 // terreno a y = -(cgHeight + 0.02); ruote separate che girano e sterzano; splitter e
@@ -16,7 +15,7 @@ import { liveryTexture } from './f1Teams.js';
 
 const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };
 // posizione del casco nella RB22 (coordinate del gioco, prima della scala)
-const HELMET = { x: 0.36, y: 0.38 };   // ordine del gioco: AS, AD, PS, PD
+const HELMET = { f1: { x: 0.36, y: 0.38 }, r26: { x: 0.02, y: 0.33 } };   // ordine del gioco: AS, AD, PS, PD
 
 let templates = null;
 
@@ -67,7 +66,7 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'] };
 
 export function loadGT() {
   const loader = new GLTFLoader();
@@ -121,6 +120,13 @@ function tuneMaterial(src) {
   else if (/Emissive_Light_Front/.test(n)) { m.emissive = new THREE.Color(0xffffff); m.emissiveMap = m.map; m.emissiveIntensity = 0.35; }
   else if (/Glass_Emissive/.test(n)) { m.roughness = 0.05; m.metalness = 0.4; }
   else if (/Disc/.test(n)) { m.metalness = 0.6; m.roughness = 0.45; }
+  // Renault R26 (2006)
+  else if (/^WC(CARBODY|EXTRA0|EXTRA1|WING)$/.test(n)) { m.roughness = 0.26; m.metalness = 0.15; m.color.set(0xffffff); m.userData.livery = true; }
+  else if (/^CARBFBD/.test(n)) { m.roughness = 0.42; m.metalness = 0.3; }
+  else if (/^REN(RIM|SPOKES|HUB)$/.test(n)) { m.roughness = 0.35; m.metalness = 0.6; }
+  else if (n === 'WGLASS' || n === 'WCWINDOW') { m.map = null; m.transparent = true; m.opacity = 0.4; m.color.set(0x1a2230); m.roughness = 0.05; }
+  else if (n === 'MIRROR' || n === 'CHROME' || n === 'argent') { m.roughness = 0.1; m.metalness = 0.85; m.color.set(0xa0a8b0); }
+  else if (n === 'Light') { m.emissive = new THREE.Color(0xff2a1a); m.emissiveMap = m.map; m.emissiveIntensity = 0.5; }
   if (m.map) m.map.anisotropy = 4;
   return m;
 }
@@ -132,6 +138,15 @@ function partOf(cx, cy, cz, kind) {
     if (cx < -1.72 && cy > 0.2) return 'rw';
     if (cx > 2.02 && cy < 0.12) {
       if (Math.abs(cz) > 0.78) return cz < 0 ? 'fwLe' : 'fwRe';
+      return cz < 0 ? 'fwL' : 'fwR';
+    }
+    return 'body';
+  }
+  if (kind === 'r26') {
+    // R26: ala anteriore bassa davanti alle ruote (alette laterali oltre 0,6 m), ala posteriore alta dietro
+    if (cx < -1.9 && cy > 0.18) return 'rw';
+    if (cx > 1.92 && cy < -0.02) {
+      if (Math.abs(cz) > 0.6) return cz < 0 ? 'fwLe' : 'fwRe';
       return cz < 0 ? 'fwL' : 'fwR';
     }
     return 'body';
@@ -168,7 +183,7 @@ function prepare(scene, lowPoly, kind = 'gt') {
     for (let v = 0; v < n; v += 3) {
       tmp.set(0, 0, 0);
       for (let q = 0; q < 3; q++) tmp.x += P.getX(v + q) / 3, tmp.y += P.getY(v + q) / 3, tmp.z += P.getZ(v + q) / 3;
-      const k = kind === 'f1' ? partOf(tmp.x, tmp.y, tmp.z, 'f1') : mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
+      const k = kind !== 'gt' ? partOf(tmp.x, tmp.y, tmp.z, kind) : mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
       (buckets[k] || (buckets[k] = [])).push(v);
     }
     for (const [k, list] of Object.entries(buckets)) {
@@ -270,6 +285,38 @@ function liveryF1(base, primary, accent, size = 1024) {
   return t;
 }
 
+// Livrea R26 per le altre squadre del 2006: azzurro -> colore principale, blu scuro -> secondo,
+// giallo -> terzo (le sfumature restano). La Renault tiene la grafica del modello.
+function liveryR26(base, cols, size = 1024) {
+  const key = 'r26_' + base.uuid + '_' + cols.join('_') + '_' + size;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const sz = Math.min(size, base.image.width || size);
+  const c = document.createElement('canvas'); c.width = c.height = sz;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, sz, sz);
+  const img = g.getImageData(0, 0, sz, sz), d = img.data;
+  const [Az, Nv, Ye] = cols.map(x => new THREE.Color(x));
+  const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  const put = (i, C, k) => { d[i] = toS(C.r * k); d[i + 1] = toS(C.g * k); d[i + 2] = toS(C.b * k); };
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, ch = mx - mn;
+    const sat = ch === 0 ? 0 : ch / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (ch > 0) h = mx === r ? ((gg - b) / ch) % 6 : mx === gg ? (b - r) / ch + 2 : (r - gg) / ch + 4;
+    h *= 60; if (h < 0) h += 360;
+    if (sat > 0.35 && h > 185 && h < 212 && l > 0.14) put(i, Az, Math.min(1.1, 0.35 + l * 0.95));          // azzurro
+    else if (sat > 0.3 && h >= 212 && h < 262 && mx > 0.08) put(i, Nv, Math.min(1.1, 0.55 + l * 1.6));      // blu scuro
+    else if (sat > 0.4 && h > 36 && h < 80 && l > 0.1) put(i, Ye, Math.min(1.1, 0.3 + l));                  // giallo
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = base.wrapS; t.wrapT = base.wrapT; t.channel = base.channel; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
   const tpl = opts.kind && opts.kind !== CAR_CLASS ? templates['x_' + opts.kind] : opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
@@ -280,7 +327,12 @@ export function createGT(opts = {}) {
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   const swap = new Map();
-  if (tpl.kind === 'f1' && opts.team && !opts.team.original) {
+  if (tpl.kind === 'r26') {
+    // R26: Renault con la livrea del modello, le altre squadre 2006 ridipinte con i loro colori
+    if (opts.team && opts.team.r26) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
+      const c = m.clone(); c.map = liveryR26(m.map, opts.team.r26, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
+    }
+  } else if (tpl.kind === 'f1' && opts.team && !opts.team.original) {
     // scuderia vera: carrozzeria e ali ridipinte, niente adesivi Red Bull
     const size = opts.lod === 'mid' ? 512 : 1024;
     for (const m of tpl.mats.values()) {
@@ -360,11 +412,12 @@ export function createGT(opts = {}) {
   });
   // Formula 1: il pilota (casco nell'abitacolo aperto)
   const helmet = [];
-  if (tpl.kind === 'f1') {
+  if (tpl.kind === 'f1' || tpl.kind === 'r26') {
+    const HP = HELMET[tpl.kind];
     const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.team ? opts.team.colors[1] : opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
     const visor = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });
     const h = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), hm);
-    h.scale.set(1.12, 1, 1); h.position.set(HELMET.x, HELMET.y, 0); h.castShadow = !ghost;
+    h.scale.set(1.12, 1, 1); h.position.set(HP.x, HP.y, 0); h.castShadow = !ghost;
     const v = new THREE.Mesh(new THREE.SphereGeometry(0.137, 20, 8, Math.PI - 0.9, 1.8, 1.15, 0.5), visor);
     v.rotation.y = 0; h.add(v);
     body.add(h); helmet.push(h);
@@ -379,6 +432,8 @@ export function createGT(opts = {}) {
 const INT_FILES = { gt: 'gt3r_int.glb', f1: 'f1_rb22_int.glb' };
 const interiorTpl = {}, interiorJob = {};
 export function loadInterior(kind = CAR_CLASS) {
+  // la R26 non ha un abitacolo separato: si guida dalla camera sulla testa del pilota
+  if (!INT_FILES[kind]) return Promise.reject(new Error('nessun abitacolo'));
   if (!interiorJob[kind]) {
     const loader = new GLTFLoader();
     loader.register(inlineImages);

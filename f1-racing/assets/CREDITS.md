@@ -8,6 +8,14 @@ File in questa cartella (`gt3r_hi.glb`, `gt3r_mid.glb`, `gt3r_int.glb` = abitaco
 abitacolo rimosso, numero di poligoni ridotto (meshoptimizer), texture ridimensionate e convertite in WebP.
 Queste versioni modificate sono distribuite con la stessa licenza CC BY-NC-SA 4.0. Uso non commerciale.
 
+**2006 Renault R26** — autore: [Dave Love](https://sketchfab.com/Tyler_Dave) (Sketchfab), CC BY 4.0
+Fonte: https://sketchfab.com/3d-models/2006-renault-r26-23a73ec3a9234017b393362fc58b6c10
+Licenza: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+File `r26_hi.glb`, `r26_mid.glb` = versioni modificate per il gioco (script `tools/build_r26.mjs`): ruote separate in
+quattro, gomme rifatte più leggere, ruote "mosse" finte tolte, poligoni ridotti, texture ridimensionate (jpg/png);
+nel gioco le livree delle altre squadre 2006 sono ridipinte sulla texture originale.
+
 **2026 Red Bull Racing RB22** — autore: [Dave Love](https://sketchfab.com/Tyler_Dave)
 Fonte: https://sketchfab.com/3d-models/2026-red-bull-racing-rb22-8e5a68a7991c4a46bd66a879c060b3c5
 Licenza: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
