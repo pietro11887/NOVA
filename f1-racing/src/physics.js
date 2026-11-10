@@ -1,5 +1,5 @@
 import { GEOM, CAR_SCALE, IZ_K } from './carModel.js';
-import { SPEC, IS_F1 } from './vehicle.js';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
 import { WX, wetGrip } from './wx.js';
@@ -71,11 +71,14 @@ export class CarPhysics {
     this.reverseRatio = 14;
     this.maxRpm = 12500;
     this.idleRpm = 4000;
+    // Renault R26: V8 aspirato fino a 19.000 giri, 7 marce (rapporti più corti per i giri alti)
+    if (IS_R26) { this.gears = [24.6, 19.6, 16.2, 13.5, 11.4, 9.7, 8.25].map(g => g * 1.03); this.maxRpm = 19000; this.idleRpm = 5500; }
+    this.rpmK = this.maxRpm / 12500;   // soglie di cambiata e curva di coppia in proporzione ai giri massimi
     this.peakTorque = CAR.torque;
     this.powerScale = 1;
     this.otBoost = 0;         // F1 2026: Overtake Mode attivo (energia elettrica in più)
     // batteria (F1 2026): si ricarica in frenata e in rilascio, si spende col Boost quando vuoi
-    this.hasErs = IS_F1;
+    this.hasErs = IS_F1 && !IS_R26;   // la R26 del 2006 non ha batteria né Boost
     this.battery = 1;         // carica 0..1 (4 MJ)
     this.deploy = false;      // Boost richiesto (tasto del giocatore o decisione del bot)
     this.ersOn = 0;           // Boost che sta davvero spingendo
@@ -192,7 +195,7 @@ export class CarPhysics {
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara
-    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000));
+    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000 / this.rpmK));
     this.mass = this.baseMass + this.fuel;
     const m = this.mass, dmg = this.damage, A = this.arcade;
     // arcade: controllo trazione e ABS sempre attivi
@@ -222,17 +225,17 @@ export class CarPhysics {
     if (this.shiftTimer > 0) this.shiftTimer -= dt;
     if (this.gear > 0) {
       const gb = dmg.gearbox * this.fx;
-      if (inp.shiftUp && this.gear < 8) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
+      if (inp.shiftUp && this.gear < this.gears.length) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
       if (inp.shiftDown && this.gear > 1) {
         const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
         if (nr < this.maxRpm + 300) { this.gear--; this.shiftTimer = 0.04; }
       }
       if (inp.autoGear) {
-        if (this.gear < 8 && this.shiftTimer <= 0 && ((this.rpm > 11850 && throttle > 0.2) || this.rpm > 12400)) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
+        if (this.gear < this.gears.length && this.shiftTimer <= 0 && ((this.rpm > 11850 * this.rpmK && throttle > 0.2) || this.rpm > 12400 * this.rpmK)) { this.gear++; this.shiftTimer = 0.05 + gb * 0.25; }
         else if (this.gear > 1 && this.shiftTimer <= 0) {
           const nr = Math.abs(vxl) / this.R * this.gears[this.gear - 2] / this.gearLong * 60 / (2 * Math.PI);
-          const low = throttle > 0.5 ? 7200 : 8600;
-          if (this.rpm < low && nr < 11300) { this.gear--; this.shiftTimer = 0.04; }
+          const low = (throttle > 0.5 ? 7200 : 8600) * this.rpmK;
+          if (this.rpm < low && nr < 11300 * this.rpmK) { this.gear--; this.shiftTimer = 0.04; }
         }
       }
     }
@@ -243,9 +246,9 @@ export class CarPhysics {
     let rpmWheel = Math.abs(vxl) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
     let rpmTarget = rpmWheel;
     const clutchSlip = this.gear === 1 || this.gear === -1;
-    if (clutchSlip) rpmTarget = Math.max(rpmWheel, this.idleRpm + throttle * 5500);
+    if (clutchSlip) rpmTarget = Math.max(rpmWheel, this.idleRpm + throttle * 5500 * this.rpmK);
     const spinning = this.wheels[2].spinning || this.wheels[3].spinning;
-    if (spinning) rpmTarget = Math.max(rpmWheel, Math.min(this.maxRpm, this.rpm + throttle * 12000 * dt * 4));
+    if (spinning) rpmTarget = Math.max(rpmWheel, Math.min(this.maxRpm, this.rpm + throttle * 12000 * this.rpmK * dt * 4));
     rpmTarget = Math.max(this.idleRpm, rpmTarget);
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
@@ -267,13 +270,13 @@ export class CarPhysics {
       if (this.battery < 1) this.battery = Math.min(1, this.battery + (brake * 0.13 + (throttle < 0.05 ? 0.03 : 0)) * k * dt);
       if (this.battery <= 0) eMul = 0.91;
     }
-    let torque = torqueAt(this.rpm) * this.peakTorque * this.powerScale * eMul * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
+    let torque = torqueAt(this.rpm / this.rpmK) * this.peakTorque * this.powerScale * eMul * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
-    if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm * 0.0045) * (A ? ARCADE.engineBrake : 1);
+    if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm / this.rpmK * 0.0045) * (A ? ARCADE.engineBrake : 1);
     if (this.shiftTimer > 0) torque *= 0.1;
     // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
-    const heat = 6 * throttle * (this.rpm / 12000);
+    const heat = 6 * throttle * (this.rpm / (IS_R26 ? 18000 : 12000));
     const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
     this.engTemp += (heat - cool) * dt;
     if (this.engTemp > 128 && dfx && !A) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);

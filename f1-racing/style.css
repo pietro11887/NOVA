@@ -1056,3 +1056,5 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 @media (max-width: 760px) { .champBody { grid-template-columns: 1fr; } }
 
 .trackCardBig .tcRound { position: absolute; top: 16px; right: 16px; font-size: 10px; font-weight: 900; letter-spacing: 2px; color: rgba(255,255,255,0.55); }
+/* MACCHINE SPECIALI: scheda a tutta larghezza sotto le categorie */
+.gTabs button[data-cat="r26"] { grid-column: 1 / -1; letter-spacing: 0.08em; }

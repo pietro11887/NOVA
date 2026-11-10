@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
-import { CAR_CLASS } from './vehicle.js';
+import { CAR_CLASS as CLS } from './vehicle.js';
+// la Renault R26 (macchine speciali) usa la carrozzeria della monoposto con i colori del 2006
+const CAR_CLASS = CLS === 'r26' ? 'f1' : CLS;
 import { liveryTexture } from './f1Teams.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.

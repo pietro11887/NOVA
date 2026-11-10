@@ -31,11 +31,14 @@ import { Online, NET_VER } from './online.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
-import { CAR_CLASS, IS_F1, SPEC } from './vehicle.js';
+import { CAR_CLASS, IS_F1, IS_R26, SPEC } from './vehicle.js';
+// chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
+const CLS_KEY = IS_R26 ? '.r26' : IS_F1 ? '.f1' : '';
+const CLS_LABEL = IS_R26 ? 'RENAULT R26' : 'FORMULA 1';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
-import { TEAMS, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
+import { TEAMS, TEAMS_2026, TEAMS_2006, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -57,7 +60,7 @@ const settings = Object.assign({ auto: true, tc: true, abs: true, ghost: true, c
 // modalità di guida: realistica (simulazione) o arcade (driveMode.js)
 const ARC = () => settings.driveMode === 'arcade';
 // arcade con la GT3 salvata (non dovrebbe succedere): si passa alla Formula 1
-if (settings.driveMode === 'arcade' && !IS_F1) { settings.carClass = 'f1'; store.set('novaf1.settings', settings); location.reload(); }
+if (settings.driveMode === 'arcade' && (!IS_F1 || IS_R26)) { settings.carClass = 'f1'; store.set('novaf1.settings', settings); location.reload(); }
 // in arcade i danni "simulazione" diventano una barra di salute senza forature né guasti
 // arcade: solo F1 in versione cartoon (stile iRacing Arcade)
 // protezione della grafica Ultra: se l'ultima volta il gioco si è bloccato mentre partiva in Ultra
@@ -194,7 +197,7 @@ function fillLoading(id) {
   $('ldFlag').innerHTML = t.flag.map(c => `<i style="background:${c}"></i>`).join('');
   const { d, start } = outlinePath(t, 600, 400, 16);
   $('ldMap').innerHTML = `<path d="${d}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="22" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round" class="ldPath"/><circle cx="${start[0]}" cy="${start[1]}" r="10" fill="#ff8a1c"/>`;
-  const rec = store.get('novaf1.best.v3' + (id && id !== 'nova' ? '.' + id : '') + (IS_F1 ? '.f1' : '') + (settings.driveMode === 'arcade' ? '.arc' : ''));
+  const rec = store.get('novaf1.best.v3' + (id && id !== 'nova' ? '.' + id : '') + CLS_KEY + (settings.driveMode === 'arcade' ? '.arc' : ''));
   const km = parseFloat(t.km.replace(',', '.')), race = settings.gameType !== 'trial';
   const st = [['LUNGHEZZA', t.km + ' km'], ['CURVE', t.corners]];
   if (race) st.push(['GIRI', settings.raceLaps], ['DISTANZA', (km * settings.raceLaps).toFixed(1).replace('.', ',') + ' km']);
@@ -251,7 +254,7 @@ if (settings.track === 'baku') {
     selectTrack(spaTrack(mod.default));
   } catch (e) { console.warn('Spa non caricata', e); settings.track = 'nova'; }
 }
-const keyOf = id => (id && id !== 'nova' ? '.' + id : '') + (IS_F1 ? '.f1' : '');
+const keyOf = id => (id && id !== 'nova' ? '.' + id : '') + CLS_KEY;
 const trackKey = keyOf(settings.track);   // record separati per circuito e categoria
 const track = new Track();
 // Baku e Nova: luce del tramonto: sole basso e caldo, ombre lunghe, cielo che sfuma nell'arancio,
@@ -466,7 +469,7 @@ function build() {
   const a2c = new Set();
   scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) if (m.alphaTest > 0 && !m.transparent && !a2c.has(m)) { a2c.add(m); m.alphaToCoverage = true; m.needsUpdate = true; } });
   $('trackLen').textContent = (track.length / 1000).toFixed(2).replace('.', ',') + ' KM';
-  $('trackName').textContent = track.name + ' · ' + (IS_F1 ? 'FORMULA 1' : 'GT3');
+  $('trackName').textContent = track.name + ' · ' + (IS_F1 ? CLS_LABEL : 'GT3');
 }
 
 // ---------------------------------------------------------------- stato di gioco
@@ -1851,16 +1854,16 @@ function updateHud(dt) {
   setText('speed', String(kmh));
   setText('gear', phys.gear === -1 ? 'R' : (phys.speed < 0.5 && phys.throttleOut < 0.05 ? 'N' : String(phys.gear)));
   // led dei giri motore
-  const frac = (phys.rpm - 8500) / (12100 - 8500);
+  const frac = (phys.rpm / phys.rpmK - 8500) / (12100 - 8500);
   const on = Math.max(0, Math.min(15, Math.round(frac * 15)));
-  const flash = phys.rpm > 12000 && (performance.now() % 160 < 80);
+  const flash = phys.rpm > 12000 * phys.rpmK && (performance.now() % 160 < 80);
   for (let i = 0; i < 15; i++) {
     const c = i < on ? (i < 5 ? 'g' : i < 10 ? 'r' : 'b') : '';
     if (ledEls[i].className !== c) ledEls[i].className = c;
   }
   $('leds').classList.toggle('flash', flash);
   // anello dei giri motore e numero
-  const rf = Math.max(0, Math.min(1, phys.rpm / 12500));
+  const rf = Math.max(0, Math.min(1, phys.rpm / phys.maxRpm));
   const rk = Math.round(rf * 60);
   if (hudCache.rpmArc !== rk) { hudCache.rpmArc = rk; $('rpmArc').style.strokeDasharray = `${(rf * 198).toFixed(1)} 264`; $('rpmArc').classList.toggle('hot', rf > 0.93); }
   setText('rpmTxt', String(Math.round(phys.rpm / 10) * 10));
@@ -1917,7 +1920,7 @@ function updateHud(dt) {
   // integrità: percentuale e voci principali
   const hp = Math.round(100 * (1 - phys.totalDamage()));
   const hpCol = hp > 85 ? 'var(--green)' : hp > 55 ? 'var(--yellow)' : hp > 30 ? '#ff8a1c' : 'var(--red)';
-  if (IS_F1) {
+  if (IS_F1 && !IS_R26) {
     // F1: l'integrità è la linea attorno al riquadro della marcia; a sinistra la batteria dell'Overtake
     if (hudCache.hp !== hp) {
       hudCache.hp = hp;
@@ -2438,7 +2441,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
 function setDriveMode(m) {
   settings.driveMode = m; saveSettings();
   // in arcade ci sono solo le F1 cartoon: dalla GT3 si ricarica in Formula 1
-  if (m === 'arcade' && !IS_F1) {
+  if (m === 'arcade' && (!IS_F1 || IS_R26)) {
     settings.carClass = 'f1'; saveSettings();
     const inPlay = !$('menuGarage').classList.contains('hidden') && gState.pick;
     try { sessionStorage.setItem('novaf1.next', inPlay ? 'track' : 'menu'); } catch (e) { /* niente */ }
@@ -2572,7 +2575,7 @@ function onStatus(text, kind = '') { const el = $('onStatus'); el.textContent = 
 function onLobbyView(on) { $('onStart').classList.toggle('hidden', on); $('onLobby').classList.toggle('hidden', !on); }
 function onConfigText() {
   const t = TRACKS.find(x => x.id === settings.track);
-  return `${t ? t.name : track.name} · ${IS_F1 ? (ARC() ? 'F1 CARTOON' : 'FORMULA 1') : 'GT3'} · ${settings.raceLaps} giri · ${settings.raceBots + 1} vetture · IA ${settings.raceStrength}`;
+  return `${t ? t.name : track.name} · ${IS_F1 ? (ARC() ? 'F1 CARTOON' : CLS_LABEL) : 'GT3'} · ${settings.raceLaps} giri · ${settings.raceBots + 1} vetture · IA ${settings.raceStrength}`;
 }
 function onPlayersHtml() {
   const me = `<div class="ok"><b>${netName()}</b><span>${net && net.role === 'host' ? 'HOST' : 'PRONTO'}</span></div>`;
@@ -2778,7 +2781,7 @@ function carLabel() { return IS_F1 ? (teamById(settings.f1Team) || {}).name || '
 function renderRecords() {
   document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
   const arc = recMode === 'arc' ? '.arc' : '';
-  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1']];
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['r26', 'R26', '.r26']];
   let html = '';
   for (const t of TRACKS) {
     const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
@@ -2819,7 +2822,7 @@ $('recordsBack').addEventListener('click', () => showMenuPage('menuHome'));
 // ---------------- CAMPIONATO: più gare di fila sulle piste del calendario, punti F1 (25-18-15-12-10-8-6-4-2-1,
 // +1 al giro più veloce se nei primi 10), classifica piloti e (in F1) costruttori. Salvato sul dispositivo:
 // si può smettere e riprendere quando si vuole. Uno per categoria (F1 e GT3).
-const CH_KEY = 'novaf1.champ.v1' + (IS_F1 ? '.f1' : '.gt');
+const CH_KEY = 'novaf1.champ.v1' + (CLS_KEY || '.gt');
 let champ = store.get(CH_KEY);
 const champSave = () => store.set(CH_KEY, champ);
 // calendario del campionato: le piste del 2026 in ordine di gara; con meno gare se ne prendono di distribuite su tutta la stagione
@@ -2840,7 +2843,7 @@ function renderChamp() {
   const chips = (key, opts, fmtv) => `<div class="chChips">${opts.map(v => `<button data-k="${key}" data-v="${v}" class="${chNew[key] === v ? 'sel' : ''}">${fmtv(v)}</button>`).join('')}</div>`;
   if (!champ) {
     $('champTitle').textContent = 'NUOVO CAMPIONATO';
-    $('champSteps').innerHTML = `<b class="on">${IS_F1 ? 'FORMULA 1' : 'GT3'}</b>`;
+    $('champSteps').innerHTML = `<b class="on">${IS_F1 ? CLS_LABEL : 'GT3'}</b>`;
     B.className = 'champBody setup';
     B.innerHTML = `<div class="chCard">
       <div class="chOpt"><div><b>CALENDARIO</b><small>${champCal(chNew.cal).map(trackLabel).join(' · ')}</small></div>${chips('cal', [...new Set([3, 6, 12, SEASON.length].filter(v => v <= SEASON.length))], v => v === SEASON.length && v > 12 ? 'TUTTE (' + v + ')' : v + ' GARE')}</div>
@@ -2860,7 +2863,7 @@ function renderChamp() {
   }
   const N = champ.cal.length, { drv, teams } = champTables();
   $('champTitle').textContent = champ.done ? 'CAMPIONATO CONCLUSO' : `CAMPIONATO · GARA ${champ.round + 1} DI ${N}`;
-  $('champSteps').innerHTML = `<b class="on">${IS_F1 ? 'FORMULA 1' : 'GT3'}</b> · ${champ.laps} giri · IA ${champ.strength}`;
+  $('champSteps').innerHTML = `<b class="on">${IS_F1 ? CLS_LABEL : 'GT3'}</b> · ${champ.laps} giri · IA ${champ.strength}`;
   B.className = 'champBody';
   let html = '';
   if (champ.done && drv[0]) html += `<div class="chChamp"><small>${drv[0].n === 'TU' ? 'SEI CAMPIONE!' : 'CAMPIONE'}</small><b>🏆 ${drv[0].n === 'TU' ? 'TU' : drv[0].n} · ${drv[0].pts} PUNTI</b></div>`;
@@ -3516,7 +3519,7 @@ function newShot() {
   }
   A.shot = shot;
   const fade = $('menuFade'); fade.classList.add('on'); setTimeout(() => fade.classList.remove('on'), 160);
-  const who = car.team ? `${car.name} · ${car.team.name}` : car.isPlayer ? (IS_F1 ? 'FORMULA 1' : 'GT3') : car.name;
+  const who = car.team ? `${car.name} · ${car.team.name}` : car.isPlayer ? (IS_F1 ? CLS_LABEL : 'GT3') : car.name;
   $('liveText').textContent = `${track.name} · ${who}`;
 }
 function attractStep(dt) {
@@ -3570,15 +3573,16 @@ const GT_LIVERIES = [
   { name: 'VERDE CORSA', team: 'PORSCHE 992 GT3 R', primary: 0x0a7d3e, accent: '#2ee06f', acc2: 0xffffff },
   { name: 'ROSSO FUOCO', team: 'PORSCHE 992 GT3 R', primary: 0xd8231f, accent: '#ff3b30', acc2: 0xffffff },
 ];
-const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : TEAMS);
+const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? TEAMS_2006 : TEAMS_2026);
+const gIdx = () => Math.max(0, gList().findIndex(t => t.id === settings.f1Team));
 // pick = true: primo passo del Gran Premio / prova a tempo (scegli la scuderia, poi avanti)
 function openGarage(pick = false) {
   if (!gtReady()) return;
   if (!garage) { garage = new Garage(renderer, scene.environment); }
   garage.resize(innerWidth, innerHeight);
   gState.pick = pick;
-  gState.cat = ARC() ? 'toon' : IS_F1 ? 'f1' : 'gt';
-  gState.idx = gState.cat === 'gt' ? 0 : Math.max(0, TEAMS.findIndex(t => t.id === settings.f1Team));
+  gState.cat = ARC() ? 'toon' : IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
+  gState.idx = gState.cat === 'gt' ? 0 : gIdx();
   $('gSteps').innerHTML = pick ? '<b class="on">SCUDERIA</b><span> › CIRCUITO › IMPOSTAZIONI</span>' : '<b class="on">GARAGE</b>';
   $('gTitle').classList.toggle('hidden', !pick);
   $('gTitle').textContent = settings.gameType === 'trial' ? 'PROVA A TEMPO · SCEGLI LA VETTURA' : 'GRAN PREMIO · SCEGLI LA SCUDERIA';
@@ -3601,7 +3605,12 @@ async function showGarageCar() {
   if (cat === 'toon') m = cartoonize(m);
   garage.setCar(m, kind === 'f1' ? e.colors[1] : e.accent);
   // schede
-  if (kind === 'f1') {
+  if (cat === 'r26') {
+    // MACCHINE SPECIALI: Renault R26 2006 (gli altri sono i colori delle squadre 2006 sulla stessa vettura)
+    $('gTeam').textContent = e.id === 'r06_renault' ? 'MACCHINE SPECIALI · 2006' : `${e.name} · 2006`;
+    $('gName').textContent = e.id === 'r06_renault' ? 'Renault R26 · 2006' : `${e.car} (R26)`;
+    $('gDrivers').textContent = e.drivers.map((d, k) => `${d} #${e.numbers[k]}`).join(' · ') + ' · V8 2,4 L 19.000 giri';
+  } else if (kind === 'f1') {
     $('gTeam').textContent = cat === 'toon' ? `${e.name} · CARTOON` : e.name;
     $('gName').textContent = e.car;
     $('gDrivers').textContent = e.drivers.join(' · ');
@@ -3610,6 +3619,7 @@ async function showGarageCar() {
   }
   const st = cat === 'gt'
     ? [['POTENZA', 0.56, '~560 CV'], ['PESO', 0.62, '1240 kg'], ['VELOCITÀ', 0.78, '~280 km/h'], ['CARICO', 0.35, 'BASSO'], ['FRENATA', 0.6, '31 kN']]
+    : cat === 'r26' ? [['POTENZA', 0.9, '~750 CV'], ['PESO', 0.25, '605 kg'], ['VELOCITÀ', 0.95, '~330 km/h'], ['CARICO', 0.72, 'MEDIO'], ['GOMME', 0.6, 'SCANALATE']]
     : [['POTENZA', 1, '~1000 CV'], ['PESO', 0.4, '798 kg'], ['VELOCITÀ', 0.97, '~340 km/h'], ['CARICO', 0.95, 'ALTO'], ['FRENATA', 0.95, '41 kN']];
   if (cat === 'toon') st.push(['GUIDA', 1, 'ARCADE']);
   else if (kind === 'f1') st.push(['SQUADRA', Math.min(1, 0.45 + e.tier * 0.18), ['', 'MEDIA', 'BUONA', 'TOP', 'TOP'][e.tier] || '']);
@@ -3617,7 +3627,7 @@ async function showGarageCar() {
 }
 document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.addEventListener('click', () => {
   gState.cat = b.dataset.cat;
-  gState.idx = gState.cat === 'gt' ? 0 : Math.max(0, TEAMS.findIndex(t => t.id === settings.f1Team));
+  gState.idx = gState.cat === 'gt' ? 0 : gIdx();
   showGarageCar();
 }));
 $('gPrev').addEventListener('click', () => { const L = gList().length; gState.idx = (gState.idx - 1 + L) % L; showGarageCar(); });
@@ -3625,9 +3635,9 @@ $('gNext').addEventListener('click', () => { const L = gList().length; gState.id
 // "Guidala": modalità, categoria e scuderia della vettura che stai guardando, poi il pregara
 $('garageUse').addEventListener('click', () => {
   const cat = gState.cat, e = gList()[gState.idx];
-  const cls = cat === 'gt' ? 'gt' : 'f1';
+  const cls = cat === 'gt' ? 'gt' : cat === 'r26' ? 'r26' : 'f1';
   if (!gState.pick) { settings.gameType = 'race'; gState.pick = true; }
-  if (cls === 'f1') settings.f1Team = e.id;
+  if (cls !== 'gt') settings.f1Team = e.id;
   settings.driveMode = cat === 'toon' ? 'arcade' : 'sim';
   if (cls !== CAR_CLASS) {
     settings.carClass = cls; saveSettings();

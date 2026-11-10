@@ -2,7 +2,7 @@ import { CarPhysics } from './physics.js';
 import { bestCompound } from './wx.js';
 import { AIDriver } from './ai.js';
 import { CAR_SCALE, IZ_K } from './carModel.js';
-import { SPEC, IS_F1 } from './vehicle.js';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js';
 import { PitStop } from './pit.js';
 import { PIT, TRACK } from './trackData.js';
 import { TOW_LEVELS } from './driveMode.js';
@@ -38,7 +38,7 @@ export class Race {
     this.playerPlan = null;     // strategia del giocatore: { compound, repair } (dal menu box)
     this.cars = [];
     this.street = !!track.street;
-    this.otOn = IS_F1;           // solo le Formula 1
+    this.otOn = IS_F1 && !IS_R26;   // solo le Formula 1 2026 (la R26 non ha Overtake)
     this.noOT = false;          // con la safety car in pista non vale
     this.t = 0;              // secondi dalla partenza
     this.started = false;

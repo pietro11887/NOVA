@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js';
+import { IS_R26 } from './vehicle.js';
 
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.
 // Ogni livrea è una funzione del punto della vettura (posizione e normale): così i colori
@@ -25,7 +26,7 @@ const frontWing = p => p.s === 'wing' && p.z > 1.9;
 const rearWing = p => p.s === 'wing' && p.z < -1.6;
 const endplate = p => p.ax > 0.78;
 
-export const TEAMS = [
+export const TEAMS_2026 = [
   {
     id: 'redbull', name: 'Red Bull Racing', car: 'RB22', drivers: ['VERSTAPPEN', 'HADJAR'], tier: 2,
     colors: ['#1b2a5a', '#ff8a1c', '#d6202a'], original: true, gloss: true,
@@ -174,6 +175,73 @@ export const TEAMS = [
   },
 ];
 
+// ------------------------------------------------------------------ MACCHINE SPECIALI: stagione 2006
+// Gara "anni 2000": tutti guidano la stessa monoposto d'epoca (Renault R26) con i colori delle
+// squadre del 2006 (colori semplici, senza marchi di sigarette).
+const r06 = (b, top, side, wing, extra = {}) => p => {
+  const B = hex(b), T = hex(top), S = hex(side), Wg = hex(wing);
+  if (frontWing(p)) return endplate(p) ? S : Wg;
+  if (rearWing(p)) return endplate(p) ? B : (p.y > 0.9 ? Wg : B);
+  if (extra.nose && nose(p) && p.ny > 0.2) return hex(extra.nose);
+  if (airbox(p)) return T;
+  if (sidepod(p) && p.y > 0.24 && p.ny < 0.6) return S;
+  if (engineCover(p)) return T;
+  if (lower(p, 0.18)) return extra.low ? hex(extra.low) : B;
+  return B;
+};
+export const TEAMS_2006 = [
+  {
+    id: 'r06_renault', name: 'Renault', car: 'R26 · 2006', drivers: ['ALONSO', 'FISICHELLA'], numbers: [1, 2], tier: 3, gloss: true,
+    colors: ['#0a3a8c', '#ffd400', '#3fa9f5'],
+    decals: [{ at: 'side', text: 'RENAULT', color: '#ffffff', y: [0.36, 0.58] }, { at: 'wing', text: 'RENAULT', color: '#ffd400' }],
+    paint(p) {
+      // blu Renault, muso e fianchi gialli, pance e cofano azzurri
+      const B = hex('#0b3d91'), Y = hex('#ffd400'), Az = hex('#3fa9f5');
+      if (frontWing(p)) return endplate(p) ? Y : B;
+      if (rearWing(p)) return endplate(p) ? Y : (p.y > 0.9 ? B : Y);
+      if (nose(p) && p.y > 0.18) return p.ny > 0.35 ? Y : B;
+      if (airbox(p)) return Y;
+      if (sidepod(p) && p.y > 0.24 && p.ny < 0.6) return Az;
+      if (sidepod(p) && p.ny >= 0.6) return Y;
+      if (engineCover(p)) return p.ax < 0.12 ? Y : Az;
+      if (lower(p, 0.2)) return B;
+      return B;
+    },
+  },
+  { id: 'r06_ferrari', name: 'Ferrari', car: '248 F1', drivers: ['SCHUMACHER', 'MASSA'], numbers: [5, 6], tier: 3, gloss: true,
+    colors: ['#d40000', '#ffffff', '#111111'], decals: [{ at: 'side', text: 'FERRARI', color: '#ffffff', y: [0.36, 0.58] }],
+    paint: r06('#d40000', '#d40000', '#d40000', '#d40000', { low: '#151515' }) },
+  { id: 'r06_mclaren', name: 'McLaren', car: 'MP4-21', drivers: ['RAIKKONEN', 'MONTOYA'], numbers: [3, 4], tier: 3, gloss: true,
+    colors: ['#c3c7cc', '#e10600', '#151515'], decals: [{ at: 'side', text: 'McLaren', color: '#e10600', y: [0.36, 0.58] }],
+    paint: r06('#c3c7cc', '#c3c7cc', '#1a1a1c', '#c3c7cc', { nose: '#c3c7cc', low: '#1a1a1c' }) },
+  { id: 'r06_honda', name: 'Honda', car: 'RA106', drivers: ['BUTTON', 'BARRICHELLO'], numbers: [12, 11], tier: 2,
+    colors: ['#f2f2f2', '#d40000', '#151515'], decals: [{ at: 'side', text: 'HONDA', color: '#d40000', y: [0.36, 0.58] }],
+    paint: r06('#f2f2f2', '#151515', '#f2f2f2', '#f2f2f2', { low: '#151515' }) },
+  { id: 'r06_toyota', name: 'Toyota', car: 'TF106', drivers: ['R. SCHUMACHER', 'TRULLI'], numbers: [7, 8], tier: 2,
+    colors: ['#f2f2f2', '#cc0a1e', '#111111'], decals: [{ at: 'side', text: 'TOYOTA', color: '#cc0a1e', y: [0.36, 0.58] }],
+    paint: r06('#f2f2f2', '#cc0a1e', '#cc0a1e', '#f2f2f2', { nose: '#f2f2f2' }) },
+  { id: 'r06_bmw', name: 'BMW Sauber', car: 'F1.06', drivers: ['HEIDFELD', 'KUBICA'], numbers: [16, 17], tier: 2,
+    colors: ['#f2f2f2', '#1c4fa0', '#c8102e'], decals: [{ at: 'side', text: 'BMW', color: '#1c4fa0', y: [0.36, 0.58] }],
+    paint: r06('#1c4fa0', '#f2f2f2', '#f2f2f2', '#1c4fa0', { nose: '#f2f2f2' }) },
+  { id: 'r06_williams', name: 'Williams', car: 'FW28', drivers: ['WEBBER', 'ROSBERG'], numbers: [9, 10], tier: 1,
+    colors: ['#0b1f5c', '#ffffff', '#3a8ddb'], decals: [{ at: 'side', text: 'WILLIAMS', color: '#0b1f5c', y: [0.36, 0.58] }],
+    paint: r06('#0b1f5c', '#f2f2f2', '#f2f2f2', '#0b1f5c', { nose: '#f2f2f2' }) },
+  { id: 'r06_redbull', name: 'Red Bull', car: 'RB2', drivers: ['COULTHARD', 'KLIEN'], numbers: [14, 15], tier: 1,
+    colors: ['#14215a', '#d6202a', '#ffcc00'], decals: [{ at: 'side', text: 'Red Bull', color: '#d6202a', y: [0.36, 0.58] }],
+    paint: r06('#14215a', '#14215a', '#14215a', '#14215a', { nose: '#ffcc00' }) },
+  { id: 'r06_tororosso', name: 'Toro Rosso', car: 'STR1', drivers: ['LIUZZI', 'SPEED'], numbers: [20, 21], tier: 0,
+    colors: ['#14215a', '#c8102e', '#ffcc00'], decals: [{ at: 'side', text: 'TORO ROSSO', color: '#c8102e', y: [0.36, 0.58] }],
+    paint: r06('#14215a', '#c8102e', '#14215a', '#14215a') },
+  { id: 'r06_midland', name: 'Midland', car: 'M16', drivers: ['MONTEIRO', 'ALBERS'], numbers: [18, 19], tier: 0,
+    colors: ['#c8102e', '#e8e8e8', '#111111'], decals: [{ at: 'side', text: 'MIDLAND', color: '#ffffff', y: [0.36, 0.58] }],
+    paint: r06('#c8102e', '#e8e8e8', '#c8102e', '#e8e8e8', { low: '#1a1a1a' }) },
+  { id: 'r06_aguri', name: 'Super Aguri', car: 'SA06', drivers: ['SATO', 'IDE'], numbers: [22, 23], tier: 0,
+    colors: ['#f2f2f2', '#c8102e', '#111111'], decals: [{ at: 'side', text: 'SUPER AGURI', color: '#c8102e', y: [0.36, 0.58] }],
+    paint: r06('#f2f2f2', '#c8102e', '#f2f2f2', '#f2f2f2', { low: '#c8102e' }) },
+];
+
+// squadre della categoria scelta (F1 2026 oppure, con la R26, la stagione 2006)
+export const TEAMS = IS_R26 ? TEAMS_2006 : TEAMS_2026;
 export const teamById = id => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 // ------------------------------------------------------------------ pittura

@@ -13,7 +13,7 @@ import { WX } from './wx.js';
 // con effetto doppler e posizione destra/sinistra, pubblico, box (limitatore, pistole delle
 // gomme, cric) e radio del box con la voce.
 
-import { IS_F1 } from './vehicle.js';
+import { IS_F1, IS_R26 } from './vehicle.js';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
 
@@ -21,7 +21,9 @@ const REF_RPM = 6000;                 // giri a cui è costruito il buffer del m
 // Si suonano i due più vicini ai giri attuali, mescolati e accelerati/rallentati di poco: suono vero a ogni regime.
 // F1: V12 fino a 10.000 giri (portato a 10.500 al limitatore); GT3: 6 cilindri in linea da corsa fino a 8.000.
 const SND = 'assets/sounds/';
-const BANK = IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+// Renault R26 (V8 2006): stesso V12 ma fino a 19.000 giri (x0,83 -> il campione da 10.000 accelerato
+// fino a ~1,6 volte): a fondo scala urla come i V8/V10 di quegli anni
+const BANK = IS_R26 ? { dir: 'eng-f1', n: 10, mul: 0.83, voice: 9, max: 16500, k: 19000 / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
 const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;
@@ -157,7 +159,9 @@ export class Sound {
     this.bankSum = this.gain(1);
     this.bankLP = this.filt('lowpass', 8000, 0.6);
     const lowShelf = this.filt('lowshelf', 160, 0.7, IS_F1 ? 2 : 4);       // un po' di "pancia"
-    this.chain(this.bankSum, lowShelf, this.bankLP, this.eCut);
+    // R26: un filo di acuti in più (lo strillo metallico dei motori aspirati 2006)
+    if (IS_R26) this.chain(this.bankSum, lowShelf, this.filt('highshelf', 3200, 0.7, 4), this.bankLP, this.eCut);
+    else this.chain(this.bankSum, lowShelf, this.bankLP, this.eCut);
     this.bank = bufs.map((b, i) => {
       const s = this.ctx.createBufferSource(); s.buffer = b; s.loop = true;
       const g = this.gain(0);
@@ -443,10 +447,10 @@ export class Sound {
   update(car, running, dt = 1 / 60) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, E = ENGINE, P = this.prev, inCar = this.view === 'in';
-    const rpm = clamp(car.rpm * E.rpmMul, 1500, 13500);
+    const rpm = clamp(car.rpm / (BANK.k || 1) * E.rpmMul, 1500, 13500);
     const thr = clamp(car.throttleOut || 0, 0, 1);
     const rate = rpm / REF_RPM;
-    const rn = clamp((car.rpm - 4000) / 8500, 0, 1);
+    const rn = clamp((car.rpm / (BANK.k || 1) - 4000) / 8500, 0, 1);
     this.eOn.playbackRate.setTargetAtTime(rate, t, 0.012);
     this.eOff.playbackRate.setTargetAtTime(rate * 0.998, t, 0.012);
     // in tiro / in rilascio
@@ -455,7 +459,7 @@ export class Sound {
     this.gOn.gain.setTargetAtTime(syn * (0.15 + 0.85 * Math.pow(load, 0.7)), t, 0.03);
     this.gOff.gain.setTargetAtTime(syn * 0.75 * (1 - load * 0.85), t, 0.03);
     if (this.bank) {
-      const B = this.bank, r = clamp(car.rpm * BANK.mul, 800, 11500);
+      const B = this.bank, r = clamp(car.rpm * BANK.mul, 800, BANK.max || 11500);
       let i = 0;
       while (i < B.length - 2 && r > B[i + 1].rpm) i++;
       const f = clamp((r - B[i].rpm) / (B[i + 1].rpm - B[i].rpm), 0, 1);
@@ -575,7 +579,7 @@ export class Sound {
       const ux = (c.x - L.x) / d, uz = (c.z - L.z) / d;
       const vr = (c.vx - L.vx) * ux + (c.vz - L.vz) * uz;          // >0 si allontana
       const dop = clamp(343 / (343 + vr), 0.75, 1.3);
-      if (this.voiceRef) v.s.playbackRate.setTargetAtTime(clamp(c.rpm * BANK.mul / this.voiceRef, 0.5, 1.5) * dop, t, 0.03);
+      if (this.voiceRef) v.s.playbackRate.setTargetAtTime(clamp(c.rpm * BANK.mul / this.voiceRef, 0.5, IS_R26 ? 1.85 : 1.5) * dop, t, 0.03);
       else v.s.playbackRate.setTargetAtTime(clamp(c.rpm * E.rpmMul, 1500, 13500) / REF_RPM * dop, t, 0.03);
       const k = 1 / (1 + (d / 14) ** 2);
       v.g.gain.setTargetAtTime(k * (0.35 + 0.65 * c.thr) * 0.9, t, 0.05);

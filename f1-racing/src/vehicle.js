@@ -5,11 +5,13 @@
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && s.carClass === 'f1') cls = 'f1';
+  if (s && (s.carClass === 'f1' || s.carClass === 'r26')) cls = s.carClass;
 } catch (e) { /* storage non disponibile: GT */ }
 
 export const CAR_CLASS = cls;
-export const IS_F1 = cls === 'f1';
+// la Renault R26 (macchine speciali) è una monoposto: per telecamere, box e griglia vale come F1
+export const IS_R26 = cls === 'r26';
+export const IS_F1 = cls === 'f1' || IS_R26;
 
 const SPECS = {
   // GT3: pesante, poco carico aerodinamico, staccate lunghe e scia che conta
@@ -52,6 +54,20 @@ const SPECS = {
     ai: { hazard: [15, 5, 0.0015], follow: 30, pit: 22 },
     dirtyAir: 0.12,
   },
+};
+
+// Renault R26 2006 (macchine speciali): V8 2,4 L da 19.000 giri, ~750 CV, 605 kg, niente ibrido.
+// Più spinta delle F1 2026 (scarica la batteria) ma gomme scanalate, meno carico e meno
+// aderenza meccanica: staccate più lunghe e retrotreno più nervoso in uscita di curva.
+SPECS.r26 = {
+  ...SPECS.f1,
+  label: 'RENAULT R26 · 2006',
+  // carrozzeria: per ora quella della monoposto del gioco (stesse misure di ruote e ingombri)
+  car: { mass: 605, ClA: 3.5, CdA: 1.12, mu: 1.6, torque: 440, brake: 30500 },
+  inertia: { Iz: 900, Ipitch: 760, Iroll: 240 },
+  susp: { springK: 120000, damperC: 6000, arbK: [100000, 48000] },
+  heat: { slide: 60000, roll: 0.06 },
+  dirtyAir: 0.09,
 };
 
 export const SPEC = SPECS[cls];
