@@ -1086,3 +1086,7 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
   .garagePanel .mFoot { gap: 8px; }
   .garagePanel .mFoot button { padding: 8px 12px; font-size: 13px; min-height: 0; }
 }
+/* podio 3D: i gradini veri sono nella scena, qui restano solo nomi e distacchi */
+#podium.stage .pod .blk { display: none; }
+#podium.stage .podSteps { gap: min(12vw, 120px); }
+#podium.stage .pod { background: rgba(8,10,16,0.55); border-radius: 6px; padding: 6px 10px; border-top: 3px solid var(--accent); }

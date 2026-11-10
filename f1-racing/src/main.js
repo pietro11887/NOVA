@@ -40,6 +40,7 @@ import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
 import { addNightLights, nightShading } from './nightLights.js';
 import { addLandmarks } from './landmarks.js';
+import { PodiumStage } from './podium3d.js';
 import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -574,7 +575,7 @@ function startCountdown() {
 
 function clearRace() {
   trialCar = null;
-  podium = null; $('podium').classList.add('hidden');
+  if (podium && podium.stage) podium.stage.dispose(); podium = null; $('podium').classList.add('hidden');
   if (recorder && !recorder.stopped && recorder.frames.length > HZ_MIN_FRAMES) saveReplay(recorder.pack());
   recorder = null;
   if (race) for (const c of race.cars) if (c.model) scene.remove(c.model.root);
@@ -2287,7 +2288,9 @@ function showPodium() {
   $('podFl').innerHTML = fl ? `⏱ GIRO PIÙ VELOCE · <b>${fl.isPlayer ? 'TU' : fl.name}</b> ${fmt(fl.bestLap)}` : '';
   $('podium').classList.remove('hidden');
   $('hud').classList.add('hidden');
-  podium = { car: st[0], t: 0 };
+  podium = { car: st[0], t: 0, stage: null };
+  try { podium.stage = new PodiumStage(st.map(c => c && { color: c.color, name: c.name }), track.name.toUpperCase(), NIGHT); } catch (e) { console.warn('podio 3D non disponibile', e); }
+  $('podium').classList.toggle('stage', !!podium.stage);
   sounds.cheerUp && sounds.cheerUp(1);
 }
 function podiumCamera(dt) {
@@ -2300,7 +2303,7 @@ function podiumCamera(dt) {
   void m;
 }
 $('podNext').addEventListener('click', () => {
-  $('podium').classList.add('hidden'); podium = null; camState.init = false;
+  $('podium').classList.add('hidden'); if (podium && podium.stage) podium.stage.dispose(); podium = null; camState.init = false;
   $('hud').classList.remove('hidden');
   showResults();
 });
@@ -3880,7 +3883,8 @@ function frame(now) {
   if (tufts) tufts.userData.update(mode === 'pause' ? 0 : dt);
   ultraReflections();
   if (shadowNow) renderer.shadowMap.needsUpdate = true;     // dopo i riflessi: le ombre si calcolano per l'immagine principale
-  if (post) {
+  if (podium && podium.stage) { podium.stage.update(dt); podium.stage.render(renderer); }
+  else if (post) {
     // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
     post.draw(dt, camera, sp, postFx());
