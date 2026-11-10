@@ -3,6 +3,7 @@ import { SpaScenery } from './scenerySpa.js';
 import { TRACK, bankAt } from './trackData.js';
 import { meadow, triplanar } from './pbr.js';
 import { buildTrees } from './trees.js';
+import { ENV } from './scenery.js';
 
 // Circuiti veri del calendario costruiti dalla "fabbrica di piste" (tools/build_track.py): stessi dati di Spa
 // (tracciato, corsia box, edifici, strade, boschi, prati, acqua e terreno veri) con l'aspetto del posto:
@@ -374,6 +375,14 @@ export class RealScenery extends SpaScenery {
     const WALLS = cl.walls.map(h => new THREE.Color(h)), ROOF = new THREE.Color(cl.roof), FLAT = new THREE.Color(0x8d9096);
     const GLASS = [new THREE.Color(0x2c3e52), new THREE.Color(0x34495e), new THREE.Color(0x3d5566), new THREE.Color(0x2b3440)];
     const pos = [], col = [];
+    // di notte: finestre accese (luce calda o fredda d'ufficio) sui vetri dei palazzi
+    const night = !!ENV.night, wpos = [], wuv = [];
+    const win = (a, c, y0, y1, u0) => {
+      if (!night) return;
+      const L = Math.hypot(c[0] - a[0], c[1] - a[1]), u1 = u0 + L / 2.6 / 8, v0 = y0 / 3.4 / 8, v1 = y1 / 3.4 / 8;
+      wpos.push(a[0], y0, a[1], c[0], y0, c[1], c[0], y1, c[1], a[0], y0, a[1], c[0], y1, c[1], a[0], y1, a[1]);
+      wuv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
+    };
     const tri = (a, b, c, cc) => { pos.push(...a, ...b, ...c); for (let q = 0; q < 3; q++) col.push(cc.r, cc.g, cc.b); };
     const quad = (a, c, y0, y1, cc) => { tri([a[0], y0, a[1]], [c[0], y0, c[1]], [c[0], y1, c[1]], cc); tri([a[0], y0, a[1]], [c[0], y1, c[1]], [a[0], y1, a[1]], cc); };
     let n = 0;
@@ -430,14 +439,15 @@ export class RealScenery extends SpaScenery {
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i], c = pts[(i + 1) % pts.length];
         const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
-        if (glassy) { quad(a, c, base, top, gc); continue; }
+        const u0 = Math.floor(Math.abs(Math.sin(a[0] * 12.9898 + a[1] * 78.233)) * 64) / 8;
+        if (glassy) { quad(a, c, base, top, gc); win(a, c, gmin + 3, top - 1, u0); continue; }
         if (big && h > 7 && L > 4 && !stand) {
           // piani: fascia di muro + fila di finestre (3,4 m per piano)
           quad(a, c, base, gmin + 1.2, wc);
           for (let y = gmin + 1.2; y < top - 0.6; y += 3.4) {
             const y1 = Math.min(top, y + 1.1);
             quad(a, c, y, y1, wc);
-            if (y1 < top) quad(a, c, y1, Math.min(top, y + 3.4), gc);
+            if (y1 < top) { quad(a, c, y1, Math.min(top, y + 3.4), gc); win(a, c, y1, Math.min(top, y + 3.4), u0); }
           }
         } else quad(a, c, base, top, wc);
       }
@@ -473,5 +483,34 @@ export class RealScenery extends SpaScenery {
     g.computeVertexNormals();
     const m = new THREE.Mesh(g, this.colored); m.castShadow = true; m.receiveShadow = true;
     this.group.add(m);
+    if (wpos.length) {
+      const wg = new THREE.BufferGeometry();
+      wg.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
+      wg.setAttribute('uv', new THREE.Float32BufferAttribute(wuv, 2));
+      const wm = new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ map: windowsTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide, fog: true }));
+      this.group.add(wm);
+    }
   }
+}
+
+// finestre di notte: una tessera con 8×8 finestre, alcune accese (giallo caldo o bianco d'ufficio), le altre buie
+let _win = null;
+function windowsTex() {
+  if (_win) return _win;
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d'), r = rand(311);
+  g.fillStyle = '#000'; g.fillRect(0, 0, N, N);
+  const cw = N / 8, ch = N / 8;
+  for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) {
+    const v = r();
+    if (v > 0.42) continue;
+    const warm = r() < 0.65, k = 0.55 + r() * 0.45;
+    g.fillStyle = warm ? `rgba(255,${190 + r() * 40 | 0},${110 + r() * 50 | 0},${k})` : `rgba(${200 + r() * 40 | 0},${225 + r() * 25 | 0},255,${k * 0.85})`;
+    g.fillRect(i * cw + cw * 0.15, j * ch + ch * 0.2, cw * 0.7, ch * 0.6);
+  }
+  _win = new THREE.CanvasTexture(c);
+  _win.wrapS = _win.wrapT = THREE.RepeatWrapping; _win.colorSpace = THREE.SRGBColorSpace;
+  _win.anisotropy = 4;
+  return _win;
 }

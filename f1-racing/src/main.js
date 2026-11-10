@@ -38,6 +38,7 @@ const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
+import { addNightLights, nightShading } from './nightLights.js';
 import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
@@ -260,6 +261,11 @@ const track = new Track();
 // Baku e Nova: luce del tramonto: sole basso e caldo, ombre lunghe, cielo che sfuma nell'arancio,
 // foschia dorata in lontananza (in campagna il terreno riflette una luce più verde e si vede più lontano)
 const SUNSET = !TRACK.model && settings.tod === 'sunset';
+// notturna (come Singapore, Bahrein, Las Vegas): cielo nero con stelle e luna, pista illuminata a giorno dai fari
+const NIGHT = !TRACK.model && settings.tod === 'night';
+const TOD_NAME = { day: 'GIORNO', sunset: 'TRAMONTO', night: 'NOTTURNA' };
+const nextTod = t => t === 'sunset' ? 'night' : t === 'night' ? 'day' : 'sunset';
+
 // "look" di ogni pista di giorno, come le riprese TV: luce più contrastata (sole forte, ombre più
 // profonde), foschia dello stesso colore del cielo all'orizzonte e correzione colore propria
 const LOOKS = {
@@ -288,7 +294,7 @@ Object.assign(LOOKS, {
   dunes: { top: 0x3d6fb4, hor: 0xc9d3da, sunC: 0xfff3e6, sun: 3.2, sky: 0xc6d4e2, gnd: 0x7c8058, hemi: 0.9, fog: [0xc7d0d8, 420, 3000], exp: 1.0,
     grade: { sat: 0.9, con: 1.05, lift: 0.012, shadow: [0.95, 1.0, 1.06], high: [1.03, 1.0, 0.97] } },
 });
-const LOOK = !SUNSET ? LOOKS[TRACK.id] || (TRACK.meta && LOOKS[TRACK.meta.climate]) || LOOKS.nova : null;
+const LOOK = !SUNSET && !NIGHT ? LOOKS[TRACK.id] || (TRACK.meta && LOOKS[TRACK.meta.climate]) || LOOKS.nova : null;
 function gradeToneMapping(G) {
   const v = a => `vec3(${a.map(x => x.toFixed(3)).join(',')})`;
   THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
@@ -305,7 +311,7 @@ function gradeToneMapping(G) {
     }`);
   renderer.toneMapping = THREE.CustomToneMapping;
 }
-if (!TRACK.model && !SUNSET) {
+if (!TRACK.model && !SUNSET && !NIGHT) {
   // giorno (come F1 25): sole alto di pomeriggio, cielo azzurro con nuvole
   const L = LOOK;
   ENV.skyTop = L.top; ENV.horizon = L.hor;
@@ -323,7 +329,21 @@ if (SUNSET) {
   scene.fog = track.street ? new THREE.Fog(0xe9c39a, 260, 2300) : new THREE.Fog(0xe9c39a, 420, 3200);
   renderer.toneMappingExposure = 1.02;
 }
+if (NIGHT) {
+  ENV.night = 1;
+  ENV.skyTop = 0x02040b; ENV.horizon = track.street ? 0x1c1820 : 0x0a0e18;
+  ENV.moonDir = new THREE.Vector3(-0.45, 0.42, 0.62).normalize();
+  // i fari stanno in alto tutt'intorno: luce quasi a picco, ombre corte sotto le macchine
+  ENV.sunDir.set(0.16, 0.95, -0.27).normalize();
+  sun.color.set(0xf2f0ff); sun.intensity = 2.3;
+  hemi.color.set(0x3a4766); hemi.groundColor.set(0x1c1a17); hemi.intensity = 0.62;
+  scene.fog = new THREE.Fog(ENV.horizon, 140, 1300);
+  renderer.toneMappingExposure = 1.05;
+  nightShading(track);
+}
+const NIGHT_GRADE = { sat: 0.92, con: 1.1, lift: 0.0, shadow: [0.9, 0.96, 1.1], high: [1.05, 1.0, 0.94] };
 document.body.classList.toggle('wet', WET);
+document.body.classList.toggle('night', NIGHT);
 // pioggia: cielo coperto, niente sole diretto (ombre leggere), foschia d'acqua che accorcia la vista,
 // colori spenti e un po' freddi come nelle gare bagnate in TV
 const WET_GRADE = { sat: 0.74, con: 1.05, lift: 0.014, shadow: [0.95, 0.99, 1.05], high: [0.98, 1.0, 1.03] };
@@ -331,13 +351,20 @@ if (WET && !TRACK.model) {
   const R = WX.rain, heavy = R > 0.7;
   ENV.rain = R;
   const fogC = heavy ? 0x737b84 : 0xa7aeb5;
+  if (NIGHT) {
+    // pioggia di notte: niente stelle, la luce dei fari si perde nell'acqua
+    ENV.horizon = 0x0e1118; ENV.skyTop = 0x05070c;
+    sun.intensity = heavy ? 1.5 : 1.9; hemi.intensity = 0.55;
+    scene.fog = new THREE.Fog(0x0e1118, heavy ? 30 : 90, heavy ? 600 : 1100);
+  } else {
   ENV.horizon = fogC; ENV.skyTop = heavy ? 0x4a525c : 0x6f7984;
   sun.color.set(SUNSET ? 0xd9b59a : 0xdfe6ee); sun.intensity = heavy ? 0.55 : 1.25;
   hemi.color.set(heavy ? 0xaeb8c3 : 0xbcc6d1); hemi.groundColor.set(track.street ? 0x4a4842 : 0x3d4537); hemi.intensity = heavy ? 1.25 : 1.15;
   scene.fog = new THREE.Fog(fogC, heavy ? 40 : 140, heavy ? 850 : 2000);
   renderer.toneMappingExposure = heavy ? 0.98 : 1.04;
+  }
 }
-const GRADE = WET && !TRACK.model ? WET_GRADE : LOOK ? LOOK.grade : null;
+const GRADE = WET && !TRACK.model ? WET_GRADE : NIGHT ? NIGHT_GRADE : LOOK ? LOOK.grade : null;
 const sounds = new Sound();
 sounds.level = settings.audio; sounds.radioOn = settings.radio;
 // l'audio del browser parte solo dopo un tocco: lo si accende al primo gesto
@@ -356,10 +383,11 @@ let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = n
 
 function build() {
   track.quality = settings.quality;
-  track.tod = settings.tod === 'sunset' ? 'sunset' : 'day';
+  track.tod = SUNSET ? 'sunset' : NIGHT ? 'night' : 'day';
   scene.add(track.build(renderer));
   scenery = new (TRACK.meta ? RealScenery : TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
   scenery.build();
+  if (NIGHT) addNightLights(scene, track, scenery);
 
   // riflessi ambientali generati dal cielo
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -387,7 +415,7 @@ function build() {
 
   // effetti da ripresa TV (bagliore, colori, sfocatura in velocità): solo con grafica alta
   if (HIQ && settings.post !== false) {
-    try { post = new Post(renderer, scene, camera, { ultra: ULTRA, warm: SUNSET ? 1 : WET ? 0 : 0.15, bloom: SUNSET ? 0.38 : WET ? 0.3 : 0.22, natural: !SUNSET, rays: !TRACK.model && !WET, ao: true }); post.setSize(innerWidth, innerHeight); if (GRADE) post.setLook(GRADE); }
+    try { post = new Post(renderer, scene, camera, { ultra: ULTRA, warm: SUNSET ? 1 : WET || NIGHT ? 0 : 0.15, bloom: NIGHT ? 0.55 : SUNSET ? 0.38 : WET ? 0.3 : 0.22, natural: !SUNSET, rays: !TRACK.model && !WET && !NIGHT, ao: true }); post.setSize(innerWidth, innerHeight); if (GRADE) post.setLook(GRADE); }
     catch (e) { console.warn('effetti non disponibili', e); post = null; }
   }
   // senza effetti (grafica leggera) i colori della pista si applicano direttamente nella resa finale, senza costi
@@ -2388,7 +2416,7 @@ const SET_LABELS = {
   abs: v => `ABS: ${v ? 'ON' : 'OFF'}`,
   ghost: v => `Fantasma record: ${v ? 'ON' : 'OFF'}`,
   post: v => `Effetti TV: ${v !== false ? 'ON' : 'OFF'}`,
-  tod: v => `Ora: ${v === 'sunset' ? 'TRAMONTO' : 'GIORNO'}`,
+  tod: v => `Ora: ${TOD_NAME[v] || 'GIORNO'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
   quality: v => `Grafica: ${v === 'ultra' ? 'Ultra (massima)' : v === 'high' ? 'Alta' : 'Leggera'}`,
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
@@ -2424,7 +2452,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'radio') { settings.radio = !settings.radio; sounds.radioOn = settings.radio; if (settings.radio) sounds.radio('Radio controllo.'); }
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'post') { settings.post = settings.post === false; saveSettings(); location.reload(); return; }
-  else if (k === 'tod') { settings.tod = settings.tod === 'sunset' ? 'day' : 'sunset'; saveSettings(); location.reload(); return; }
+  else if (k === 'tod') { settings.tod = nextTod(settings.tod); saveSettings(); location.reload(); return; }
   else if (k === 'quality') { settings.quality = settings.quality === 'low' ? 'high' : settings.quality === 'high' ? 'ultra' : 'low'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = cyc(TYRES_ALL, settings.raceTyre, 1); }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
@@ -3019,7 +3047,7 @@ function setRows() {
       R.push({ l: 'LIVELLO IA', v: String(S.raceStrength), s: tier(S.raceStrength) + ' · da 0 a 110 come in F1 25', f: d => clampS('raceStrength', S.raceStrength + d * 5, 1, 110) });
       if (S.weekend !== 'osq') R.push({ l: 'POSIZIONE IN GRIGLIA', v: S.raceStart + '°', s: S.raceStart === 1 ? 'pole position' : `di ${S.raceBots + 1}`, f: d => clampS('raceStart', S.raceStart + d, 1, S.raceBots + 1) });
     }
-    R.push({ l: 'ORA DEL GIORNO', v: S.tod === 'sunset' ? 'TRAMONTO' : 'GIORNO', s: 'luce, ombre e cielo', f: () => { S.tod = S.tod === 'sunset' ? 'day' : 'sunset'; pendingReload = true; } });
+    R.push({ l: 'ORA DEL GIORNO', v: TOD_NAME[S.tod] || 'GIORNO', s: 'giorno, tramonto o notturna coi fari', f: () => { S.tod = nextTod(S.tod); pendingReload = true; } });
     R.push({ l: 'METEO', v: WX_NAMES[S.weather || 'dry'], s: S.weather === 'heavy' ? 'tanta acqua: gomme da bagnato, spruzzi, poca visibilità' : S.weather === 'light' ? 'pista umida: gomme intermedie' : 'pista asciutta, gomme slick',
       f: d => { S.weather = cyc(['dry', 'light', 'heavy'], S.weather || 'dry', d); S.raceTyre = S.weather === 'heavy' ? 'W' : S.weather === 'light' ? 'I' : 'M'; pendingReload = true; } });
     if (trial) R.push({ l: 'FANTASMA DEL RECORD', v: S.ghost ? 'SÌ' : 'NO', s: 'la vettura trasparente del tuo giro migliore', f: () => { S.ghost = !S.ghost; } });
@@ -3121,7 +3149,7 @@ async function openHub() {
   $('hubQuali').classList.toggle('hidden', !q);
   if (q) $('hubQuali').innerHTML = '<div class="hqHead">RISULTATI QUALIFICA</div>' + q.results.map((r, k) => `<div class="hq${r.me ? ' me' : ''}"><span>${k + 1}</span><i style="background:${r.col}"></i><b>${r.name}</b><em>${r.time ? fmt(r.time) : 'NESSUN TEMPO'}</em></div>`).join('');
   const wxm = S.weather || 'dry';
-  $('hubWx').innerHTML = `<b>${S.tod === 'sunset' ? 'TRAMONTO' : 'GIORNO'}</b><span>${wxm === 'heavy' ? '⛈' : wxm === 'light' ? '🌧' : '☀'} ${S.tod === 'sunset' ? '19:30' : '14:00'} · ${wxm === 'dry' ? (S.tod === 'sunset' ? '21' : '24') : wxm === 'light' ? '17' : '14'} °C · ${WX_NAMES[wxm]}</span>`;
+  $('hubWx').innerHTML = `<b>${TOD_NAME[S.tod] || 'GIORNO'}</b><span>${wxm === 'heavy' ? '⛈' : wxm === 'light' ? '🌧' : S.tod === 'night' ? '🌙' : '☀'} ${S.tod === 'night' ? '21:00' : S.tod === 'sunset' ? '19:30' : '14:00'} · ${wxm === 'dry' ? (S.tod === 'night' ? '19' : S.tod === 'sunset' ? '21' : '24') : wxm === 'light' ? '17' : '14'} °C · ${WX_NAMES[wxm]}</span>`;
   showMenuPage('menuHub');
   // la tua vettura nel box
   const kind = CLASSIC ? CAR_CLASS : IS_F1 ? 'f1' : 'gt';

@@ -250,10 +250,11 @@ export class Scenery {
       uniforms: {
         top: { value: new THREE.Color(ENV.skyTop) }, horizon: { value: new THREE.Color(ENV.horizon) },
         sunDir: { value: ENV.sunDir.clone() }, time: { value: 0 }, rain: { value: ENV.rain || 0 },
+        night: { value: ENV.night || 0 }, moonDir: { value: (ENV.moonDir || ENV.sunDir).clone() },
       },
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position.z = gl_Position.w; }',
       fragmentShader: `
-        uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform float time; uniform float rain; varying vec3 vP;
+        uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform float time; uniform float rain; uniform float night; uniform vec3 moonDir; varying vec3 vP;
         float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
         float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(h21(i), h21(i + vec2(1,0)), f.x), mix(h21(i + vec2(0,1)), h21(i + vec2(1,1)), f.x), f.y); }
@@ -261,6 +262,29 @@ export class Scenery {
         void main(){
           vec3 d = normalize(vP);
           float h = d.y;
+          if (night > 0.5) {
+            // notte: blu profondissimo, alone della città all'orizzonte, stelle, luna e nuvole scure
+            vec3 c = mix(horizon, top, pow(max(h, 0.0), 0.4));
+            c = mix(c, horizon * 0.7, smoothstep(0.0, -0.15, h));
+            if (h > 0.0) {
+              vec3 q = d * 380.0, iq = floor(q), fq = fract(q) - 0.5;
+              float r1 = h21(iq.xy * 0.173 + vec2(iq.z * 1.71, iq.z * 0.37));
+              float r2 = h21(iq.zy * 0.291 + vec2(iq.x * 0.53, 3.1));
+              float st = step(0.9955, r1) * smoothstep(0.03, 0.3, h) * smoothstep(0.42, 0.1, length(fq));
+              c += vec3(0.85, 0.9, 1.0) * st * (0.5 + 1.6 * r2) * (0.75 + 0.25 * sin(time * 3.0 + r2 * 60.0)) * (1.0 - rain);
+              vec2 uv = d.xz / (h + 0.35) * 2.2 + vec2(time * 0.006, time * 0.002);
+              float n = fbm(uv) * 0.8 + fbm(uv * 3.1 + 7.0) * 0.2;
+              float cov = max(smoothstep(0.5, 0.66, n), rain) * smoothstep(0.02, 0.2, h);
+              float md0 = max(dot(d, normalize(moonDir)), 0.0);
+              c = mix(c, vec3(0.035, 0.04, 0.055) + vec3(0.1, 0.11, 0.13) * pow(md0, 12.0), cov * 0.85);
+            }
+            float md = max(dot(d, normalize(moonDir)), 0.0);
+            float disc = smoothstep(0.99978, 0.99985, md);
+            c += vec3(0.95, 0.96, 1.0) * disc * 2.4 * (1.0 - 0.9 * rain) + vec3(0.5, 0.56, 0.7) * (pow(md, 400.0) * 0.4 + pow(md, 25.0) * 0.05) * (1.0 - 0.7 * rain);
+            gl_FragColor = vec4(c, 1.0);
+            #include <colorspace_fragment>
+            return;
+          }
           vec3 col = mix(horizon, top, pow(max(h, 0.0), 0.5));
           col = mix(col, horizon * 0.92, smoothstep(0.0, -0.15, h));
           float sd = max(dot(d, normalize(sunDir)), 0.0);
@@ -301,6 +325,7 @@ export class Scenery {
   mountains() {
     const sun = ENV.sunDir;
     const haze = new THREE.Color(0xa8c2db);
+    const nightHaze = new THREE.Color(ENV.horizon).multiplyScalar(1.3);
     const forest = new THREE.Color(0x3d6a3e), meadow = new THREE.Color(0x6f9a52), rock = new THREE.Color(0x7c8189), snow = new THREE.Color(0xf6f8fb);
     const band = (R0, width, hMax, hazeK, seed, segA, segR, snowLine) => {
       const r = rand(seed);
@@ -338,8 +363,9 @@ export class Scenery {
         else if (f > 0.42 || slope > 0.55) c.copy(rock).offsetHSL(0, 0, (r() - 0.5) * 0.05);
         else if (f > 0.18) c.copy(forest).offsetHSL(0, 0, (r() - 0.5) * 0.04);
         else c.copy(meadow);
-        const light = 0.55 + 0.6 * Math.max(0, nrm.dot(sun));
-        c.multiplyScalar(light).lerp(haze, hazeK);
+        // di notte solo la luna: sagome scure blu che si staccano appena dal cielo
+        const light = ENV.night ? 0.07 + 0.12 * Math.max(0, nrm.dot(ENV.moonDir || sun)) : 0.55 + 0.6 * Math.max(0, nrm.dot(sun));
+        c.multiplyScalar(light).lerp(ENV.night ? nightHaze : haze, hazeK * (ENV.night ? 0.6 : 1));
         for (let q = 0; q < 3; q++) col.set([c.r, c.g, c.b], (v + q) * 3);
       }
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));

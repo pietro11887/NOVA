@@ -267,7 +267,8 @@ export class BakuScenery extends Scenery {
       nrm.set(N.getX(v), N.getY(v), N.getZ(v)).normalize();
       const hy = (P.getY(v) + P.getY(v + 1) + P.getY(v + 2)) / 3 - y0;
       c.copy(1 - nrm.y > 0.4 ? rock : hy > 90 ? sand : scrub).offsetHSL(0, 0, (r() - 0.5) * 0.05);
-      c.multiplyScalar(0.6 + 0.55 * Math.max(0, nrm.dot(sun))).lerp(haze, 0.45);
+      if (ENV.night) c.multiplyScalar(0.08 + 0.1 * Math.max(0, nrm.dot(ENV.moonDir || sun))).lerp(new THREE.Color(ENV.horizon), 0.3);
+      else c.multiplyScalar(0.6 + 0.55 * Math.max(0, nrm.dot(sun))).lerp(haze, 0.45);
       for (let q = 0; q < 3; q++) col.set([c.r, c.g, c.b], (v + q) * 3);
     }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
