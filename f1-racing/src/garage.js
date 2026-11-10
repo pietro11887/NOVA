@@ -36,8 +36,10 @@ export class Garage {
       const s = new THREE.Mesh(new THREE.BoxGeometry(0.08, 4.5, 0.08), stripMat);
       s.position.set(Math.cos(a) * 11, 2.25, Math.sin(a) * 11); scene.add(s);
     }
-    this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
-    this.yaw = 0.7; this.pitch = 0.2; this.dist = 11.5; this.spin = 0.18; this.car = null; this.drag = null;
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
+    // zoom: 1 = la vettura riempie lo spazio libero; rotella e due dita lo cambiano
+    this.yaw = 0.7; this.pitch = 0.2; this.zoom = 1; this.spin = 0.18; this.car = null; this.drag = null;
+    this.carLen = 5; this.freeLeft = 0; this.freeBottom = 0;
     this.bindInput();
   }
 
@@ -60,12 +62,12 @@ export class Garage {
         pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
         const [c, d] = [...pts.values()];
         const after = Math.hypot(c.x - d.x, c.y - d.y);
-        this.dist = Math.max(6.5, Math.min(18, this.dist * before / Math.max(1, after)));
+        this.zoom = Math.max(0.6, Math.min(1.7, this.zoom * before / Math.max(1, after)));
         return;
       }
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     });
-    el.addEventListener('wheel', e => { if (!this.active) return; this.dist = Math.max(6.5, Math.min(18, this.dist * (1 + e.deltaY * 0.001))); }, { passive: true });
+    el.addEventListener('wheel', e => { if (!this.active) return; this.zoom = Math.max(0.6, Math.min(1.7, this.zoom * (1 + e.deltaY * 0.001))); }, { passive: true });
   }
 
   // mette sulla pedana un nuovo modello (le ruote toccano la pedana)
@@ -78,24 +80,33 @@ export class Garage {
     const box = new THREE.Box3().setFromObject(root);
     root.position.y = 0.12 - box.min.y;
     root.position.x = -(box.min.x + box.max.x) / 2;
+    root.position.z = -(box.min.z + box.max.z) / 2;
+    // ingombro massimo mentre gira (diagonale in pianta)
+    this.carLen = Math.hypot(box.max.x - box.min.x, box.max.z - box.min.z);
     root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.stand.add(root);
     if (accent) { this.ringMat.color.set(accent); this.warm.color.set(accent); }
   }
 
-  resize(w, h) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+  resize(w, h) { this.W = w; this.H = h; this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+  // spazio coperto dal pannello (px dello schermo): a sinistra fino a freeLeft, in basso freeBottom (telefono in verticale)
+  setFree(left, bottom = 0) { this.freeLeft = left; this.freeBottom = bottom; }
 
   render(dt) {
     // la pedana gira da sola se non la stai toccando
     if (!this.drag || performance.now() - this.drag > 2500) this.stand.rotation.y += dt * this.spin;
-    const narrow = this.camera.aspect < 1.2;
-    const d = this.dist * (narrow ? 1.35 : 1);
-    const c = this.camera;
+    const c = this.camera, W = this.W || innerWidth, H = this.H || innerHeight;
+    // zona libera dello schermo (a destra del pannello, oppure sopra se il pannello sta in basso)
+    const fx0 = Math.min(W * 0.7, this.freeLeft), fh = H - this.freeBottom;
+    const fw = W - fx0, cx = fx0 + fw / 2, cy = fh / 2;
+    // distanza per far stare la vettura (che gira) nel 90% della zona libera, in larghezza e in altezza
+    const tv = Math.tan(THREE.MathUtils.degToRad(c.fov) / 2), th = tv * W / H;
+    const need = Math.max(this.carLen * 0.5 / (0.9 * (fw / W) * th), 1.6 / (0.9 * (fh / H) * tv));
+    const d = need * this.zoom;
     c.position.set(Math.cos(this.yaw) * Math.cos(this.pitch) * d, 0.6 + Math.sin(this.pitch) * d, Math.sin(this.yaw) * Math.cos(this.pitch) * d);
-    // la vettura sta nella parte destra dello schermo (a sinistra c'è il pannello)
-    const look = new THREE.Vector3(0, 0.55, 0);
-    c.lookAt(look);
-    if (!narrow) { c.setViewOffset(1000, 1000, -190, 30, 1000, 1000); } else c.clearViewOffset();
+    c.lookAt(0, 0.55, 0);
+    // la vettura al centro della zona libera, senza deformarla (finestra di vista con le misure vere dello schermo)
+    c.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H);
     this.renderer.render(this.scene, c);
   }
 }

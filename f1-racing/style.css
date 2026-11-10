@@ -1058,3 +1058,31 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .trackCardBig .tcRound { position: absolute; top: 16px; right: 16px; font-size: 10px; font-weight: 900; letter-spacing: 2px; color: rgba(255,255,255,0.55); }
 /* MACCHINE SPECIALI: scheda a tutta larghezza sotto le categorie */
 .gTabs button[data-cat="r26"] { grid-column: 1 / -1; letter-spacing: 0.08em; }
+
+/* garage sul telefono in orizzontale: pannello compatto, tutto visibile senza scorrere */
+@media (max-height: 500px) {
+  .garagePanel { top: max(10px, env(safe-area-inset-top)); bottom: max(10px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left));
+    width: min(42vw, 330px); padding: 10px 12px; gap: 6px; border-radius: 16px; overflow-y: auto; scrollbar-width: none;
+    bottom: auto; max-height: calc(100% - 20px); }
+  .garagePanel::-webkit-scrollbar { display: none; }
+  .garagePanel .steps { display: none; }
+  .gTabs { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .gTabs button { padding: 6px 2px; font-size: 9.5px; letter-spacing: 0; border-radius: 8px; }
+  .gTabs button[data-cat="r26"] { grid-column: auto; letter-spacing: 0; font-size: 0; }
+  .gTabs button[data-cat="r26"]::after { content: 'SPECIALI'; font-size: 9.5px; }
+  .gInfo { gap: 2px; }
+  .gTeam { font-size: 9.5px; letter-spacing: 2px; }
+  .gName { font-size: 21px; }
+  .gDrivers { font-size: 10px; letter-spacing: 0.5px; line-height: 1.25; }
+  .gStats { gap: 3px; margin-top: 3px; }
+  .gStat { grid-template-columns: 62px 1fr 74px; gap: 6px; font-size: 9.5px; letter-spacing: 0.5px; }
+  .gStat .bar { height: 5px; }
+  .gStat b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gNav { margin-top: 2px; }
+  .gNav button { height: 30px; width: 40px; font-size: 18px; border-radius: 9px; }
+  .gNav span { font-size: 11px; }
+  .gHint { display: none; }
+  .gReplay { margin: 0; padding: 6px; font-size: 11px; }
+  .garagePanel .mFoot { gap: 8px; }
+  .garagePanel .mFoot button { padding: 8px 12px; font-size: 13px; min-height: 0; }
+}

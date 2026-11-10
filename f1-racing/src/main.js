@@ -3676,7 +3676,15 @@ function frame(now) {
   const inp = input.update(dt);
   padNav.update(dt);
   // garage: si disegna solo lo showroom
-  if (garage && garage.active) { renderer.shadowMap.autoUpdate = true; garage.render(dt); input.endFrame(); return; }
+  if (garage && garage.active) {
+    // spazio libero per la vettura: a destra del pannello (o sopra, se il pannello occupa la parte bassa)
+    const pan = [...document.querySelectorAll('.garagePanel, .hubPanel')].find(e => e.offsetParent);
+    if (pan) {
+      const r = pan.getBoundingClientRect();
+      if (r.width > innerWidth * 0.62) garage.setFree(0, innerHeight - r.top); else garage.setFree(r.right + 8, 0);
+    } else garage.setFree(0, 0);
+    renderer.shadowMap.autoUpdate = true; garage.render(dt); input.endFrame(); return;
+  }
 
   if (input.consume('KeyM')) { sounds.setMuted(!sounds.muted); }
   if (input.consume('KeyP') || input.consume('Escape')) { if (mode === 'pause') togglePause(false); else togglePause(true); }
