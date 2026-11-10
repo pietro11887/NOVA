@@ -22,6 +22,22 @@ const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
 await doc.transform(flatten());
 for (const n of root.listNodes()) if (n.getMesh()) clearNodeTransform(n);
+// trasformazioni delle texture (KHR_texture_transform, es. la livrea della RB8): si applicano alle UV
+for (const m of root.listMaterials()) {
+  const info = m.getBaseColorTextureInfo(), tt = info && info.getExtension('KHR_texture_transform');
+  if (!tt) continue;
+  const [sx, sy] = tt.getScale(), [ox, oy] = tt.getOffset(), r = tt.getRotation() || 0, set = tt.getTexCoord() ?? info.getTexCoord();
+  const cr = Math.cos(r), sr = Math.sin(r), done = new Set();
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) {
+    if (p.getMaterial() !== m) continue;
+    const a = p.getAttribute('TEXCOORD_' + set); if (!a || done.has(a)) continue; done.add(a);
+    const v = [];
+    for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); const x = v[0] * sx, y = v[1] * sy; a.setElement(i, [cr * x + sr * y + ox, -sr * x + cr * y + oy]); }
+    if (set !== 0) p.setAttribute('TEXCOORD_0', a);
+  }
+  info.setExtension('KHR_texture_transform', null);
+  console.log('trasformazione UV applicata a', m.getName(), sx.toFixed(3), sy.toFixed(3), ox.toFixed(3), oy.toFixed(3));
+}
 for (const m of root.listMaterials()) {
   for (const e of m.listExtensions()) m.setExtension(e.extensionName, null);
   m.setNormalTexture(null); m.setMetallicRoughnessTexture(null); m.setOcclusionTexture(null); m.setEmissiveTexture(null);
