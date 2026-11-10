@@ -1,5 +1,5 @@
 import { GEOM, CAR_SCALE, IZ_K } from './carModel.js';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js';
+import { SPEC, IS_F1, IS_R26, IS_MP45 } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
 import { WX, wetGrip } from './wx.js';
@@ -73,6 +73,8 @@ export class CarPhysics {
     this.idleRpm = 4000;
     // Renault R26: V8 aspirato fino a 19.000 giri, 7 marce (rapporti più corti per i giri alti)
     if (IS_R26) { this.gears = [24.6, 19.6, 16.2, 13.5, 11.4, 9.7, 8.25].map(g => g * 1.03); this.maxRpm = 19000; this.idleRpm = 5500; }
+    // McLaren MP4/5: V10 fino a 13.500 giri, 6 marce (stesse velocità per marcia, rapporti in proporzione)
+    if (IS_MP45) { this.gears = [24.6, 19.0, 15.3, 12.6, 10.4, 8.25].map(g => g * 1.03 * 13500 / 19000); this.maxRpm = 13500; this.idleRpm = 4200; }
     this.rpmK = this.maxRpm / 12500;   // soglie di cambiata e curva di coppia in proporzione ai giri massimi
     this.peakTorque = CAR.torque;
     this.powerScale = 1;
@@ -276,7 +278,7 @@ export class CarPhysics {
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm / this.rpmK * 0.0045) * (A ? ARCADE.engineBrake : 1);
     if (this.shiftTimer > 0) torque *= 0.1;
     // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
-    const heat = 6 * throttle * (this.rpm / (IS_R26 ? 18000 : 12000));
+    const heat = 6 * throttle * (this.rpm / (IS_R26 ? this.maxRpm - 1000 : 12000));
     const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
     this.engTemp += (heat - cool) * dt;
     if (this.engTemp > 128 && dfx && !A) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);

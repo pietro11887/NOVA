@@ -54,3 +54,7 @@ Modifiche: conversione in mp3 mono; nel gioco i file vengono resi ciclici (disso
 - `amb/thunder.mp3`: "Thunder, Very Close, Rain, 01" di **InspectorJ** (www.jshaw.co.uk) — CC BY 3.0 (tagliato, dissolvenza).
 - `amb/rain.mp3`: "Rain (loopable)" di ylmir — CC0. `amb/water.mp3`: "40 CC0 water/splash" di rubberduck — CC0.
 - `amb/gun1-2.mp3`, `drop`, `jack`, `clatter`: "68 Workshop Sounds" di Bart Kelsey — CC0. `amb/static.mp3`: "Static" di xhunterko — CC0.
+
+- `mp45_hi.glb`, `mp45_mid.glb`: "McLaren MP4/5 || Formula 1" di **dark_igorek** ([Sketchfab](https://sketchfab.com/3d-models/mclaren-mp45-formula-1-3059d4532ecd48ca8da41e1cac971f22)),
+  licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modificato (tools/build_mp45.mjs): scala vera, ruote separate,
+  poligoni ridotti, texture compresse, scritte dello sponsor di sigarette tolte dalla livrea.

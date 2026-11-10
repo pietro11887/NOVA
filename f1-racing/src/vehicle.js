@@ -5,12 +5,15 @@
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && (s.carClass === 'f1' || s.carClass === 'r26')) cls = s.carClass;
+  if (s && ['f1', 'r26', 'mp45'].includes(s.carClass)) cls = s.carClass;
 } catch (e) { /* storage non disponibile: GT */ }
 
 export const CAR_CLASS = cls;
 // la Renault R26 (macchine speciali) è una monoposto: per telecamere, box e griglia vale come F1
-export const IS_R26 = cls === 'r26';
+// macchine speciali d'epoca: Renault R26 (2006) e McLaren MP4/5 (1989). IS_R26 vale per tutte e due
+// (niente batteria né Overtake, motore aspirato che urla); IS_MP45 per quello che è solo della McLaren
+export const IS_MP45 = cls === 'mp45';
+export const IS_R26 = cls === 'r26' || IS_MP45;
 export const IS_F1 = cls === 'f1' || IS_R26;
 
 const SPECS = {
@@ -77,6 +80,28 @@ SPECS.r26 = {
   susp: { springK: 120000, damperC: 6000, arbK: [100000, 48000] },
   heat: { slide: 60000, roll: 0.06 },
   dirtyAir: 0.09,
+};
+
+// McLaren MP4/5 (1989): V10 Honda 3,5 L aspirato, ~685 CV a 13.500 giri, ~540 kg con il pilota,
+// cambio manuale a 6 marce; poco carico aerodinamico, gomme slick larghe, freni in carbonio.
+SPECS.mp45 = {
+  ...SPECS.r26,
+  label: 'McLAREN MP4/5 · 1989',
+  // misure del modello: passo 2,9 m, carreggiata 1,73 m davanti e 1,70 dietro, ruote da 0,32-0,345 m
+  geom: { axleF: 1.448, axleR: -1.448, halfTrack: 0.86, wheelR: 0.335, cgHeight: 0.28 },
+  hull: [
+    [2.4, -0.62, 'fwL'], [2.4, 0.62, 'fwR'], [2.42, 0, 'nose'],
+    [1.448, -1.04, 'wFL'], [1.448, 1.04, 'wFR'],
+    [-0.1, -0.74, 'sideL'], [-0.1, 0.74, 'sideR'],
+    [-1.448, -1.08, 'wRL'], [-1.448, 1.08, 'wRR'],
+    [-2.0, -0.45, 'rw'], [-2.0, 0.45, 'rw'],
+  ],
+  circles: [[1.5, 0.95], [0.0, 0.9], [-1.5, 0.98]],
+  car: { mass: 545, ClA: 2.7, CdA: 1.02, mu: 1.56, torque: 565, brake: 27500 },
+  inertia: { Iz: 820, Ipitch: 700, Iroll: 230 },
+  susp: { springK: 105000, damperC: 5600, arbK: [90000, 42000] },
+  heat: { slide: 60000, roll: 0.06 },
+  dirtyAir: 0.07,
 };
 
 export const SPEC = SPECS[cls];

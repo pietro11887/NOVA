@@ -13,7 +13,7 @@ import { WX } from './wx.js';
 // con effetto doppler e posizione destra/sinistra, pubblico, box (limitatore, pistole delle
 // gomme, cric) e radio del box con la voce.
 
-import { IS_F1, IS_R26 } from './vehicle.js';
+import { IS_F1, IS_R26, IS_MP45 } from './vehicle.js';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
 
@@ -23,7 +23,8 @@ const REF_RPM = 6000;                 // giri a cui è costruito il buffer del m
 const SND = 'assets/sounds/';
 // Renault R26 (V8 2006): stesso V12 ma fino a 19.000 giri (x0,83 -> il campione da 10.000 accelerato
 // fino a ~1,6 volte): a fondo scala urla come i V8/V10 di quegli anni
-const BANK = IS_R26 ? { dir: 'eng-f1', n: 10, mul: 0.83, voice: 9, max: 16500, k: 19000 / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+// MP4/5: V10 a 13.500 giri (stessa frequenza di scoppio di un V12 a ~11.200: suono pieno e acuto)
+const BANK = IS_MP45 ? { dir: 'eng-f1', n: 10, mul: 0.83, voice: 9, max: 12000, k: 13500 / 12500 } : IS_R26 ? { dir: 'eng-f1', n: 10, mul: 0.83, voice: 9, max: 16500, k: 19000 / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
 const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;

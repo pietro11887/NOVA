@@ -8,6 +8,7 @@ import { liveryTexture } from './f1Teams.js';
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
 // Renault R26 2006 — modello di Dave Love (Sketchfab), licenza CC BY 4.0 (tools/build_r26.mjs).
+// McLaren MP4/5 1989 — modello di dark_igorek (Sketchfab), licenza CC BY 4.0 (tools/build_mp45.mjs).
 // Ottimizzati per il gioco (abitacolo semplificato, poligoni ridotti, texture compresse).
 // Qui viene convertito nel formato delle vetture del gioco: muso verso +X, destra verso +Z,
 // terreno a y = -(cgHeight + 0.02); ruote separate che girano e sterzano; splitter e
@@ -15,7 +16,7 @@ import { liveryTexture } from './f1Teams.js';
 
 const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };
 // posizione del casco nella RB22 (coordinate del gioco, prima della scala)
-const HELMET = { f1: { x: 0.36, y: 0.38 }, r26: { x: 0.02, y: 0.33 } };   // ordine del gioco: AS, AD, PS, PD
+const HELMET = { f1: { x: 0.36, y: 0.38 }, r26: { x: 0.02, y: 0.33 }, mp45: { x: 0.06, y: 0.44 } };   // ordine del gioco: AS, AD, PS, PD
 
 let templates = null;
 
@@ -66,7 +67,7 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'] };
 
 export function loadGT() {
   const loader = new GLTFLoader();
@@ -127,6 +128,12 @@ function tuneMaterial(src) {
   else if (n === 'WGLASS' || n === 'WCWINDOW') { m.map = null; m.transparent = true; m.opacity = 0.4; m.color.set(0x1a2230); m.roughness = 0.05; }
   else if (n === 'MIRROR' || n === 'CHROME' || n === 'argent') { m.roughness = 0.1; m.metalness = 0.85; m.color.set(0xa0a8b0); }
   else if (n === 'Light') { m.emissive = new THREE.Color(0xff2a1a); m.emissiveMap = m.map; m.emissiveIntensity = 0.5; }
+  // McLaren MP4/5 (1989)
+  else if (n === 'body_mat') { m.roughness = 0.24; m.metalness = 0.1; m.color.set(0xffffff); m.userData.livery = true; }
+  else if (n === 'wheels_mat') { m.roughness = 0.62; m.metalness = 0.25; }
+  else if (n === 'bottom_details_mat') { m.roughness = 0.5; m.metalness = 0.3; }
+  else if (n === 'interior_mat') { m.roughness = 0.6; m.metalness = 0.1; }
+  else if (n === 'glass_details_mat') { m.transparent = true; m.roughness = 0.05; m.metalness = 0.3; m.depthWrite = false; }
   if (m.map) m.map.anisotropy = 4;
   return m;
 }
@@ -138,6 +145,15 @@ function partOf(cx, cy, cz, kind) {
     if (cx < -1.72 && cy > 0.2) return 'rw';
     if (cx > 2.02 && cy < 0.12) {
       if (Math.abs(cz) > 0.78) return cz < 0 ? 'fwLe' : 'fwRe';
+      return cz < 0 ? 'fwL' : 'fwR';
+    }
+    return 'body';
+  }
+  if (kind === 'mp45') {
+    // MP4/5: ala anteriore larga e bassa davanti alle ruote, alettone alto dietro le ruote posteriori
+    if (cx < -1.62 && cy > 0.42) return 'rw';
+    if (cx > 1.9 && cy < -0.1) {
+      if (Math.abs(cz) > 0.62) return cz < 0 ? 'fwLe' : 'fwRe';
       return cz < 0 ? 'fwL' : 'fwR';
     }
     return 'body';
@@ -317,6 +333,31 @@ function liveryR26(base, cols, size = 1024) {
   return t;
 }
 
+// Livrea MP4/5 per le altre squadre del 1989: rosso -> primo colore, bianco -> secondo
+// (nero, scritte e numeri restano). La McLaren tiene la grafica del modello.
+function liveryMP45(base, cols, size = 1024) {
+  const key = 'mp45_' + base.uuid + '_' + cols.join('_') + '_' + size;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const sz = Math.min(size, base.image.width || size);
+  const c = document.createElement('canvas'); c.width = c.height = sz;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, sz, sz);
+  const img = g.getImageData(0, 0, sz, sz), d = img.data;
+  const [P, Q] = cols.map(x => new THREE.Color(x));
+  const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+    if (r > 0.45 && r - gg > 0.3 && r - b > 0.3) { const k = 0.4 + r * 0.7; d[i] = toS(P.r * k); d[i + 1] = toS(P.g * k); d[i + 2] = toS(P.b * k); }
+    else if (mn > 0.72 && mx - mn < 0.08) { const k = 0.25 + mn * 0.8; d[i] = toS(Q.r * k); d[i + 1] = toS(Q.g * k); d[i + 2] = toS(Q.b * k); }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = base.wrapS; t.wrapT = base.wrapT; t.channel = base.channel; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
   const tpl = opts.kind && opts.kind !== CAR_CLASS ? templates['x_' + opts.kind] : opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
@@ -327,7 +368,12 @@ export function createGT(opts = {}) {
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   const swap = new Map();
-  if (tpl.kind === 'r26') {
+  if (tpl.kind === 'mp45') {
+    // MP4/5: McLaren con la livrea del modello, le altre squadre del 1989 ridipinte con i loro colori
+    if (opts.team && opts.team.mp45) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
+      const c = m.clone(); c.map = liveryMP45(m.map, opts.team.mp45, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
+    }
+  } else if (tpl.kind === 'r26') {
     // R26: Renault con la livrea del modello, le altre squadre 2006 ridipinte con i loro colori
     if (opts.team && opts.team.r26) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
       const c = m.clone(); c.map = liveryR26(m.map, opts.team.r26, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
@@ -412,7 +458,7 @@ export function createGT(opts = {}) {
   });
   // Formula 1: il pilota (casco nell'abitacolo aperto)
   const helmet = [];
-  if (tpl.kind === 'f1' || tpl.kind === 'r26') {
+  if (tpl.kind === 'f1' || tpl.kind === 'r26' || tpl.kind === 'mp45') {
     const HP = HELMET[tpl.kind];
     const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.team ? opts.team.colors[1] : opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
     const visor = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });

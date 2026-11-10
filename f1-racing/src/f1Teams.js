@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js';
-import { IS_R26 } from './vehicle.js';
+import { IS_R26, IS_MP45 } from './vehicle.js';
 
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.
 // Ogni livrea è una funzione del punto della vettura (posizione e normale): così i colori
@@ -240,8 +240,24 @@ export const TEAMS_2006 = [
     paint: r06('#f2f2f2', '#c8102e', '#f2f2f2', '#f2f2f2', { low: '#c8102e' }) },
 ];
 
-// squadre della categoria scelta (F1 2026 oppure, con la R26, la stagione 2006)
-export const TEAMS = IS_R26 ? TEAMS_2006 : TEAMS_2026;
+// Stagione 1989 (macchine speciali): la McLaren MP4/5 vera; le altre squadre sono i loro colori
+// sulla stessa carrozzeria (mp45: [al posto del rosso, al posto del bianco]). Solo colori, niente sponsor.
+const t89 = (id, name, car, drivers, numbers, tier, mp45, colors) => ({ id, name, car, drivers, numbers, tier, mp45, colors, gloss: true });
+export const TEAMS_1989 = [
+  { id: 'm89_mclaren', name: 'McLaren', car: 'MP4/5 · 1989', drivers: ['SENNA', 'PROST'], numbers: [1, 2], tier: 3, gloss: true, colors: ['#e10600', '#f2f2f2', '#151515'] },
+  t89('m89_ferrari', 'Ferrari', '640', ['MANSELL', 'BERGER'], [27, 28], 3, ['#c80000', '#d40000'], ['#d40000', '#f2f2f2', '#151515']),
+  t89('m89_williams', 'Williams', 'FW12C', ['BOUTSEN', 'PATRESE'], [5, 6], 2, ['#0b2a7a', '#f2f2f2'], ['#f2f2f2', '#0b2a7a', '#ffd200']),
+  t89('m89_benetton', 'Benetton', 'B189', ['NANNINI', 'HERBERT'], [19, 20], 2, ['#00843d', '#ffd200'], ['#00843d', '#ffd200', '#1c3f94']),
+  t89('m89_lotus', 'Lotus', '101', ['PIQUET', 'NAKAJIMA'], [11, 12], 1, ['#1c3f94', '#ffd200'], ['#ffd200', '#1c3f94', '#151515']),
+  t89('m89_tyrrell', 'Tyrrell', '018', ['ALESI', 'PALMER'], [4, 3], 1, ['#0b1f5c', '#f2f2f2'], ['#0b1f5c', '#f2f2f2', '#3a8ddb']),
+  t89('m89_arrows', 'Arrows', 'A11', ['WARWICK', 'CHEEVER'], [9, 10], 1, ['#e85d04', '#f2f2f2'], ['#f2f2f2', '#e85d04', '#151515']),
+  t89('m89_leyton', 'Leyton House', 'CG891', ['CAPELLI', 'GUGELMIN'], [16, 15], 1, ['#1f9fb4', '#2ab7c9'], ['#2ab7c9', '#151515', '#f2f2f2']),
+  t89('m89_brabham', 'Brabham', 'BT58', ['BRUNDLE', 'MODENA'], [7, 8], 0, ['#1c4fa0', '#f2f2f2'], ['#f2f2f2', '#1c4fa0', '#151515']),
+  t89('m89_minardi', 'Minardi', 'M189', ['MARTINI', 'SALA'], [23, 24], 0, ['#151515', '#ffd200'], ['#ffd200', '#151515', '#f2f2f2']),
+];
+
+// squadre della categoria scelta (F1 2026, oppure con le macchine speciali la stagione 2006 o 1989)
+export const TEAMS = IS_MP45 ? TEAMS_1989 : IS_R26 ? TEAMS_2006 : TEAMS_2026;
 export const teamById = id => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 // ------------------------------------------------------------------ pittura

@@ -31,14 +31,14 @@ import { Online, NET_VER } from './online.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
-import { CAR_CLASS, IS_F1, IS_R26, SPEC } from './vehicle.js';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, SPEC } from './vehicle.js';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
-const CLS_KEY = IS_R26 ? '.r26' : IS_F1 ? '.f1' : '';
-const CLS_LABEL = IS_R26 ? 'RENAULT R26' : 'FORMULA 1';
+const CLS_KEY = IS_MP45 ? '.mp45' : IS_R26 ? '.r26' : IS_F1 ? '.f1' : '';
+const CLS_LABEL = IS_MP45 ? 'McLAREN MP4/5' : IS_R26 ? 'RENAULT R26' : 'FORMULA 1';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
-import { TEAMS, TEAMS_2026, TEAMS_2006, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
+import { TEAMS, TEAMS_2026, TEAMS_2006, TEAMS_1989, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -149,7 +149,7 @@ function ultraCar(model, env = null) {
         p.defines = { STANDARD: '', PHYSICAL: '' };
         const matte = m.roughness > 0.38;                          // livree opache (alcune F1): trasparente satinato
         p.clearcoat = matte ? 0.3 : 1; p.clearcoatRoughness = matte ? 0.35 : 0.04; p.roughness = Math.max(0.2, m.roughness);
-        if (model.kind !== 'f1' && model.kind !== 'r26') p.metalness = Math.max(p.metalness, 0.2);    // GT: vernice metallizzata (senza scurire il colore)
+        if (model.kind !== 'f1' && model.kind !== 'r26' && model.kind !== 'mp45') p.metalness = Math.max(p.metalness, 0.2);    // GT: vernice metallizzata (senza scurire il colore)
         p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey;
         paintShader(p, U);
       } else if (env) { p = m.clone(); p.onBeforeCompile = m.onBeforeCompile; p.customProgramCacheKey = m.customProgramCacheKey; }
@@ -1344,7 +1344,7 @@ function updateCamera(dt) {
     car.root.updateMatrixWorld(true);
     // T-Cam (F1): la telecamera obbligatoria sulla "T" in cima alla presa d'aria, sopra la testa del pilota.
     // Fissata alla vettura (sobbalza e si inclina con lei), guarda avanti e un po' in basso: halo, muso e gomme
-    const local = IS_R26 ? (camMode === 2 ? tmpV.set(-0.32, 0.6, 0) : tmpV.set(-0.06, 0.4, 0)) : IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
+    const local = IS_MP45 ? (camMode === 2 ? tmpV.set(-0.28, 0.72, 0) : tmpV.set(-0.02, 0.52, 0)) : IS_R26 ? (camMode === 2 ? tmpV.set(-0.32, 0.6, 0) : tmpV.set(-0.06, 0.4, 0)) : IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
@@ -2782,7 +2782,7 @@ function carLabel() { return IS_F1 ? (teamById(settings.f1Team) || {}).name || '
 function renderRecords() {
   document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
   const arc = recMode === 'arc' ? '.arc' : '';
-  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['r26', 'R26', '.r26']];
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['r26', 'R26', '.r26'], ['mp45', 'MP4/5', '.mp45']];
   let html = '';
   for (const t of TRACKS) {
     const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
@@ -3124,7 +3124,7 @@ async function openHub() {
   $('hubWx').innerHTML = `<b>${S.tod === 'sunset' ? 'TRAMONTO' : 'GIORNO'}</b><span>${wxm === 'heavy' ? '⛈' : wxm === 'light' ? '🌧' : '☀'} ${S.tod === 'sunset' ? '19:30' : '14:00'} · ${wxm === 'dry' ? (S.tod === 'sunset' ? '21' : '24') : wxm === 'light' ? '17' : '14'} °C · ${WX_NAMES[wxm]}</span>`;
   showMenuPage('menuHub');
   // la tua vettura nel box
-  const kind = IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
+  const kind = IS_MP45 ? 'mp45' : IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
   try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (e) { return; }
   let m = kind !== 'gt' ? createGT({ kind, team: tm }) : createGT({ kind });
   if (ARC()) m = cartoonize(m);
@@ -3574,7 +3574,10 @@ const GT_LIVERIES = [
   { name: 'VERDE CORSA', team: 'PORSCHE 992 GT3 R', primary: 0x0a7d3e, accent: '#2ee06f', acc2: 0xffffff },
   { name: 'ROSSO FUOCO', team: 'PORSCHE 992 GT3 R', primary: 0xd8231f, accent: '#ff3b30', acc2: 0xffffff },
 ];
-const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? TEAMS_2006 : TEAMS_2026);
+// macchine speciali: prima le due vere (Renault R26 2006, McLaren MP4/5 1989), poi i colori delle altre squadre di quegli anni
+const SPECIALS = [TEAMS_2006[0], TEAMS_1989[0], ...TEAMS_2006.slice(1), ...TEAMS_1989.slice(1)];
+const specKind = e => (e && /^m89_/.test(e.id) ? 'mp45' : 'r26');
+const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? SPECIALS : TEAMS_2026);
 const gIdx = () => Math.max(0, gList().findIndex(t => t.id === settings.f1Team));
 // pick = true: primo passo del Gran Premio / prova a tempo (scegli la scuderia, poi avanti)
 function openGarage(pick = false) {
@@ -3594,9 +3597,10 @@ function openGarage(pick = false) {
 }
 let gToken = 0;
 async function showGarageCar() {
-  const cat = gState.cat, kind = cat === 'gt' ? 'gt' : cat === 'r26' ? 'r26' : 'f1', tok = ++gToken;
+  const cat = gState.cat, tok = ++gToken;
   document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.classList.toggle('sel', b.dataset.cat === cat));
   const list = gList(), e = list[gState.idx];
+  const kind = cat === 'gt' ? 'gt' : cat === 'r26' ? specKind(e) : 'f1';
   $('gCount').textContent = `${gState.idx + 1} / ${list.length}`;
   $('gLoading').classList.remove('hidden');
   try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (err) { $('gLoading').textContent = 'VETTURA NON DISPONIBILE'; return; }
@@ -3606,7 +3610,12 @@ async function showGarageCar() {
   if (cat === 'toon') m = cartoonize(m);
   garage.setCar(m, kind !== 'gt' ? e.colors[1] : e.accent);
   // schede
-  if (cat === 'r26') {
+  if (cat === 'r26' && kind === 'mp45') {
+    // MACCHINE SPECIALI: McLaren MP4/5 1989 (gli altri sono i colori delle squadre 1989 sulla stessa vettura)
+    $('gTeam').textContent = e.id === 'm89_mclaren' ? 'MACCHINE SPECIALI · 1989' : `${e.name} · 1989`;
+    $('gName').textContent = e.id === 'm89_mclaren' ? 'McLaren MP4/5 · 1989' : `${e.car} (MP4/5)`;
+    $('gDrivers').textContent = e.drivers.map((d, k) => `${d} #${e.numbers[k]}`).join(' · ') + ' · V10 3,5 L 13.500 giri';
+  } else if (cat === 'r26') {
     // MACCHINE SPECIALI: Renault R26 2006 (gli altri sono i colori delle squadre 2006 sulla stessa vettura)
     $('gTeam').textContent = e.id === 'r06_renault' ? 'MACCHINE SPECIALI · 2006' : `${e.name} · 2006`;
     $('gName').textContent = e.id === 'r06_renault' ? 'Renault R26 · 2006' : `${e.car} (R26)`;
@@ -3620,6 +3629,7 @@ async function showGarageCar() {
   }
   const st = cat === 'gt'
     ? [['POTENZA', 0.56, '~560 CV'], ['PESO', 0.62, '1240 kg'], ['VELOCITÀ', 0.78, '~280 km/h'], ['CARICO', 0.35, 'BASSO'], ['FRENATA', 0.6, '31 kN']]
+    : kind === 'mp45' ? [['POTENZA', 0.82, '~685 CV'], ['PESO', 0.2, '500 kg'], ['VELOCITÀ', 0.9, '~320 km/h'], ['CARICO', 0.45, 'BASSO'], ['CAMBIO', 0.5, 'MANUALE 6']]
     : cat === 'r26' ? [['POTENZA', 0.9, '~750 CV'], ['PESO', 0.25, '605 kg'], ['VELOCITÀ', 0.95, '~330 km/h'], ['CARICO', 0.72, 'MEDIO'], ['GOMME', 0.6, 'SCANALATE']]
     : [['POTENZA', 1, '~1000 CV'], ['PESO', 0.4, '798 kg'], ['VELOCITÀ', 0.97, '~340 km/h'], ['CARICO', 0.95, 'ALTO'], ['FRENATA', 0.95, '41 kN']];
   if (cat === 'toon') st.push(['GUIDA', 1, 'ARCADE']);
@@ -3636,7 +3646,7 @@ $('gNext').addEventListener('click', () => { const L = gList().length; gState.id
 // "Guidala": modalità, categoria e scuderia della vettura che stai guardando, poi il pregara
 $('garageUse').addEventListener('click', () => {
   const cat = gState.cat, e = gList()[gState.idx];
-  const cls = cat === 'gt' ? 'gt' : cat === 'r26' ? 'r26' : 'f1';
+  const cls = cat === 'gt' ? 'gt' : cat === 'r26' ? specKind(e) : 'f1';
   if (!gState.pick) { settings.gameType = 'race'; gState.pick = true; }
   if (cls !== 'gt') settings.f1Team = e.id;
   settings.driveMode = cat === 'toon' ? 'arcade' : 'sim';
