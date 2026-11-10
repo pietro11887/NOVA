@@ -76,6 +76,7 @@ export function loadGT() {
   // in Formula 1 serve comunque una GT leggera: la safety car
   const jobs = [get(FILES[CAR_CLASS][0]), get(FILES[CAR_CLASS][1])];
   if (CAR_CLASS !== 'gt') jobs.push(get(FILES.gt[1]));
+  if (CAR_CLASS === 'mp45') jobs.push(loadRivalsLivery().then(im => { mp45RivalsImg = im; }));
   return Promise.all(jobs).then(([hi, mid, gtMid]) => {
     templates = { hi: prepare(hi.scene, false, CAR_CLASS), mid: prepare(mid.scene, true, CAR_CLASS) };
     templates.gtMid = gtMid ? prepare(gtMid.scene, true, 'gt') : templates.mid;
@@ -87,6 +88,7 @@ export const gtReady = () => !!templates;
 // Garage: si possono vedere anche le vetture dell'altra categoria (caricate solo quando servono)
 const extraJobs = {};
 export function loadKind(kind) {
+  if (kind === 'mp45' && !mp45RivalsImg) return loadRivalsLivery().then(im => { mp45RivalsImg = im; return loadKind(kind); });
   if (kind === CAR_CLASS) return Promise.resolve(templates);
   if (!extraJobs[kind]) {
     const loader = new GLTFLoader();
@@ -335,13 +337,20 @@ function liveryR26(base, cols, size = 1024) {
 
 // Livrea MP4/5 per le altre squadre del 1989: rosso -> primo colore, bianco -> secondo
 // (nero, scritte e numeri restano). La McLaren tiene la grafica del modello.
+// livrea senza scritte dello sponsor per le altre squadre (le scritte Marlboro restano solo sulla McLaren)
+let mp45Rivals = null;
+function loadRivalsLivery() {
+  if (!mp45Rivals) mp45Rivals = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'assets/mp45_rivals.jpg'; });
+  return mp45Rivals;
+}
+let mp45RivalsImg = null;
 function liveryMP45(base, cols, size = 1024) {
   const key = 'mp45_' + base.uuid + '_' + cols.join('_') + '_' + size;
   if (liveryCache.has(key)) return liveryCache.get(key);
   const sz = Math.min(size, base.image.width || size);
   const c = document.createElement('canvas'); c.width = c.height = sz;
   const g = c.getContext('2d', { willReadFrequently: true });
-  g.drawImage(base.image, 0, 0, sz, sz);
+  g.drawImage(mp45RivalsImg || base.image, 0, 0, sz, sz);
   const img = g.getImageData(0, 0, sz, sz), d = img.data;
   const [P, Q] = cols.map(x => new THREE.Color(x));
   const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);

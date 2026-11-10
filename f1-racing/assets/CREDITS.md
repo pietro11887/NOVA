@@ -57,4 +57,4 @@ Modifiche: conversione in mp3 mono; nel gioco i file vengono resi ciclici (disso
 
 - `mp45_hi.glb`, `mp45_mid.glb`: "McLaren MP4/5 || Formula 1" di **dark_igorek** ([Sketchfab](https://sketchfab.com/3d-models/mclaren-mp45-formula-1-3059d4532ecd48ca8da41e1cac971f22)),
   licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modificato (tools/build_mp45.mjs): scala vera, ruote separate,
-  poligoni ridotti, texture compresse, scritte dello sponsor di sigarette tolte dalla livrea.
+  poligoni ridotti, texture compresse (livrea originale del modello).

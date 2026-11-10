@@ -1,6 +1,6 @@
 // McLaren MP4/5 (1989): modello di dark_igorek (Sketchfab), CC BY 4.0.
 // Scala vera (passo 2,9 m), ruote separate (WHEEL_xx_TIRE), poligoni e texture ridotti,
-// scritte dello sponsor di sigarette tolte dalla livrea (restano rosso e bianco).
+// livrea originale del modello (con CLEAN=1 si tolgono le scritte dello sponsor di sigarette).
 // Uso: node tools/build_mp45.mjs <sorgente.glb> <uscita.glb> [mid]
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
@@ -22,6 +22,8 @@ for (const m of root.listMaterials()) {
 for (const e of root.listExtensionsUsed()) if (e.extensionName !== 'KHR_mesh_quantization') e.dispose();
 // livrea: le scritte scure dentro le zone bianche dello sponsor diventano bianche
 const body = root.listMaterials().find(m => m.getName() === 'body_mat');
+// (di serie la livrea resta quella originale del modello; con CLEAN=1 si tolgono le scritte dello sponsor)
+// la copia senza scritte serve comunque alle altre squadre del 1989 (assets/mp45_rivals.jpg)
 {
   const tex = body.getBaseColorTexture();
   const img = sharp(Buffer.from(tex.getImage()));
@@ -43,7 +45,9 @@ const body = root.listMaterials().find(m => m.getName() === 'body_mat');
     }
   }
   console.log('pixel della scritta coperti', n);
-  tex.setImage(await sharp(data, { raw: { width: W, height: H, channels: ch } }).jpeg({ quality: 92 }).toBuffer()).setMimeType('image/jpeg');
+  const clean = await sharp(data, { raw: { width: W, height: H, channels: ch } }).jpeg({ quality: 92 }).toBuffer();
+  if (process.env.CLEAN === '1') tex.setImage(clean).setMimeType('image/jpeg');
+  if (!LOW) await sharp(clean).resize(1024, 1024).jpeg({ quality: 86 }).toFile(out.replace(/[^/]+$/, 'mp45_rivals.jpg'));
 }
 // scala e posizione: terra a y=0, centro tra gli assi a z=0, passo 2,896 m
 const nodeBy = name => root.listNodes().find(n => n.getName() === name);
