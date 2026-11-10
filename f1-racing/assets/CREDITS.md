@@ -46,6 +46,10 @@ EU-DEM 25 m (Copernicus Land Monitoring Service, via OpenTopoData). Il modulo `s
 - `eng-f1/1..10.mp3` (V12 "v12d") e `eng-gt/1..8.mp3` (6 in linea "b-i6r"): motori registrati a giri costanti (1000 giri per file)
   da **CryHam** per [Stunt Rally 3](https://github.com/stuntrally/stuntrally3) con engine-sim — licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - `sfx/turbo.mp3`: CryHam (Stunt Rally), CC0.
+- `eng-v10/*.mp3` (F1 classiche V10: MP4/5, F2002, F2004): registrazione `renault-v10.wav` di [TORCS](https://torcs.sourceforge.net/) /
+  [Speed Dreams](https://www.speed-dreams.net/) — licenza GPL (dati del gioco). Ricampionata a 10 regimi per il gioco.
+- `eng-v8/*.mp3` (F1 classiche V8: R26, RB8): `v8_formula.wav` di Speed Dreams (June Ravenmoon), da un passaggio di una vettura GT V8
+  registrato da [Heigh-hoo su Freesound](https://freesound.org/people/Heigh-hoo/sounds/128611/) — licenza CC0. Ricampionata a 10 regimi.
 - `sfx/crash01..12.mp3`, `sfx/scrap.mp3`, `sfx/screech.mp3`, `sfx/shift.mp3`: **Halleck** su Freesound (metal hits, roll cage hits, metal screech),
   tagliati per Stunt Rally — licenza [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Le versioni convertite qui restano CC BY-SA 3.0.
 - `sfx/squeal.mp3`: "Car tire squeal skid loop" di **qubodup** su [OpenGameArt](https://opengameart.org/content/car-tire-squeal-skid-loop) — CC BY 3.0.

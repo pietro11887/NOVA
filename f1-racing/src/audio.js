@@ -24,7 +24,9 @@ const SND = 'assets/sounds/';
 // Renault R26 (V8 2006): stesso V12 ma fino a 19.000 giri (x0,83 -> il campione da 10.000 accelerato
 // fino a ~1,6 volte): a fondo scala urla come i V8/V10 di quegli anni
 // MP4/5: V10 a 13.500 giri (stessa frequenza di scoppio di un V12 a ~11.200: suono pieno e acuto)
-const BANK = CLASSIC ? { dir: 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+// classiche V10/V8: registrazioni vere di V10 (TORCS/Speed Dreams) e V8 da corsa (CC0), un file ogni 1900 giri
+// fino a 19.000 (file 10): niente più V12 accelerato
+const BANK = CLASSIC ? { dir: CLASSIC.snd.bank || 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
 const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;
