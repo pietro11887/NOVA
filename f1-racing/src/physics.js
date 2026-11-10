@@ -1,5 +1,5 @@
 import { GEOM, CAR_SCALE, IZ_K } from './carModel.js';
-import { SPEC, IS_F1, IS_R26, IS_MP45 } from './vehicle.js';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js';
 import { SURF, SURF_PROPS } from './track.js';
 import { ARCADE } from './driveMode.js';
 import { WX, wetGrip } from './wx.js';
@@ -72,9 +72,8 @@ export class CarPhysics {
     this.maxRpm = 12500;
     this.idleRpm = 4000;
     // Renault R26: V8 aspirato fino a 19.000 giri, 7 marce (rapporti più corti per i giri alti)
-    if (IS_R26) { this.gears = [24.6, 19.6, 16.2, 13.5, 11.4, 9.7, 8.25].map(g => g * 1.03); this.maxRpm = 19000; this.idleRpm = 5500; }
-    // McLaren MP4/5: V10 fino a 13.500 giri, 6 marce (stesse velocità per marcia, rapporti in proporzione)
-    if (IS_MP45) { this.gears = [24.6, 19.0, 15.3, 12.6, 10.4, 8.25].map(g => g * 1.03 * 13500 / 19000); this.maxRpm = 13500; this.idleRpm = 4200; }
+    // macchine speciali d'epoca: giri e rapporti del loro motore (vehicle.js)
+    if (CLASSIC) { this.gears = CLASSIC.gears.slice(); this.maxRpm = CLASSIC.rpm; this.idleRpm = CLASSIC.idle; }
     this.rpmK = this.maxRpm / 12500;   // soglie di cambiata e curva di coppia in proporzione ai giri massimi
     this.peakTorque = CAR.torque;
     this.powerScale = 1;

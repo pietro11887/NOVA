@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
-import { CAR_CLASS } from './vehicle.js';
+import { CAR_CLASS, CLASSICS } from './vehicle.js';
 import { liveryTexture } from './f1Teams.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
 // Renault R26 2006 — modello di Dave Love (Sketchfab), licenza CC BY 4.0 (tools/build_r26.mjs).
 // McLaren MP4/5 1989 — modello di dark_igorek (Sketchfab), licenza CC BY 4.0 (tools/build_mp45.mjs).
+// Ferrari F2002, Ferrari F2004, Red Bull RB8 — modelli di Dave Love (Sketchfab), CC BY 4.0 (tools/build_classic.mjs).
 // Ottimizzati per il gioco (abitacolo semplificato, poligoni ridotti, texture compresse).
 // Qui viene convertito nel formato delle vetture del gioco: muso verso +X, destra verso +Z,
 // terreno a y = -(cgHeight + 0.02); ruote separate che girano e sterzano; splitter e
@@ -16,7 +17,8 @@ import { liveryTexture } from './f1Teams.js';
 
 const WHEEL_IDX = { LF: 0, RF: 1, LR: 2, RR: 3 };
 // posizione del casco nella RB22 (coordinate del gioco, prima della scala)
-const HELMET = { f1: { x: 0.36, y: 0.38 }, r26: { x: 0.02, y: 0.33 }, mp45: { x: 0.06, y: 0.44 } };   // ordine del gioco: AS, AD, PS, PD
+const HELMET = { f1: { x: 0.36, y: 0.38 } };
+for (const [k, c] of Object.entries(CLASSICS)) HELMET[k] = c.helmet;   // ordine del gioco: AS, AD, PS, PD
 
 let templates = null;
 
@@ -67,7 +69,7 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'] };
 
 export function loadGT() {
   const loader = new GLTFLoader();
@@ -132,6 +134,8 @@ function tuneMaterial(src) {
   else if (n === 'Light') { m.emissive = new THREE.Color(0xff2a1a); m.emissiveMap = m.map; m.emissiveIntensity = 0.5; }
   // McLaren MP4/5 (1989)
   else if (n === 'body_mat') { m.roughness = 0.24; m.metalness = 0.1; m.color.set(0xffffff); m.userData.livery = true; }
+  // Ferrari F2002 / F2004, Red Bull RB8: carrozzeria con la livrea
+  else if (/^car_chassis\.0|^Meshpart16Mtl|^wccarbody\.|_ext_44\./.test(n)) { m.roughness = 0.24; m.metalness = 0.12; m.color.set(0xffffff); m.userData.livery = true; }
   else if (n === 'wheels_mat') { m.roughness = 0.62; m.metalness = 0.25; }
   else if (n === 'bottom_details_mat') { m.roughness = 0.5; m.metalness = 0.3; }
   else if (n === 'interior_mat') { m.roughness = 0.6; m.metalness = 0.1; }
@@ -147,6 +151,16 @@ function partOf(cx, cy, cz, kind) {
     if (cx < -1.72 && cy > 0.2) return 'rw';
     if (cx > 2.02 && cy < 0.12) {
       if (Math.abs(cz) > 0.78) return cz < 0 ? 'fwLe' : 'fwRe';
+      return cz < 0 ? 'fwL' : 'fwR';
+    }
+    return 'body';
+  }
+  const W = CLASSICS[kind] && CLASSICS[kind].wings;
+  if (W) {
+    // F2002, F2004, RB8: ala anteriore bassa davanti alle ruote, alettone alto in coda
+    if (cx < W[2] && cy > W[3]) return 'rw';
+    if (cx > W[0] && cy < W[1]) {
+      if (Math.abs(cz) > 0.6) return cz < 0 ? 'fwLe' : 'fwRe';
       return cz < 0 ? 'fwL' : 'fwR';
     }
     return 'body';
@@ -367,6 +381,41 @@ function liveryMP45(base, cols, size = 1024) {
   return t;
 }
 
+// Livree delle altre squadre (F2002, F2004, RB8): i colori della livrea originale (rosso, bianco, blu scuro,
+// giallo) diventano quelli della squadra; nero, carbonio e scritte piccole restano
+function liveryRecolor(base, map, size = 1024) {
+  const key = 'rc_' + base.uuid + '_' + JSON.stringify(map) + '_' + size;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const sz = Math.min(size, base.image.width || size);
+  const c = document.createElement('canvas'); c.width = c.height = sz;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, sz, sz);
+  const img = g.getImageData(0, 0, sz, sz), d = img.data;
+  const C = {}; for (const [k, v] of Object.entries(map)) C[k] = new THREE.Color(v);
+  const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  const put = (i, col, k) => { d[i] = toS(col.r * k); d[i + 1] = toS(col.g * k); d[i + 2] = toS(col.b * k); };
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, ch = mx - mn;
+    const sat = ch === 0 ? 0 : ch / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (ch > 0) h = mx === r ? ((gg - b) / ch) % 6 : mx === gg ? (b - r) / ch + 2 : (r - gg) / ch + 4;
+    h *= 60; if (h < 0) h += 360;
+    if (C.red && sat > 0.45 && (h < 18 || h > 340) && mx > 0.25) put(i, C.red, Math.min(1.15, 0.35 + mx * 0.85));
+    else if (C.white && mn > 0.72 && ch < 0.1) put(i, C.white, 0.25 + mn * 0.8);
+    else if (C.navy && sat > 0.25 && h > 205 && h < 265 && mx > 0.06 && l < 0.4) put(i, C.navy, Math.min(1.2, 0.55 + l * 1.8));
+    else if (C.yellow && sat > 0.45 && h > 38 && h < 70 && l > 0.2) put(i, C.yellow, Math.min(1.1, 0.3 + l));
+    else if (C.teal && sat > 0.4 && h > 160 && h < 192 && l > 0.15) put(i, C.teal, Math.min(1.15, 0.3 + l * 1.1));
+    else if (C.dark && l < 0.24 && sat < 0.35) put(i, C.dark, 0.55 + l * 2.2);
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = base.wrapS; t.wrapT = base.wrapT; t.channel = base.channel; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
   const tpl = opts.kind && opts.kind !== CAR_CLASS ? templates['x_' + opts.kind] : opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi;
@@ -377,7 +426,12 @@ export function createGT(opts = {}) {
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   if (myPaint && opts.primary != null && myPaint.map) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   const swap = new Map();
-  if (tpl.kind === 'mp45') {
+  if (tpl.kind === 'f2002' || tpl.kind === 'f2004' || tpl.kind === 'rb8' || tpl.kind === 'w11') {
+    // la vera con la sua livrea, le altre squadre di quella stagione ridipinte
+    if (opts.team && opts.team.recolor) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
+      const c = m.clone(); c.map = liveryRecolor(m.map, opts.team.recolor, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
+    }
+  } else if (tpl.kind === 'mp45') {
     // MP4/5: McLaren con la livrea del modello, le altre squadre del 1989 ridipinte con i loro colori
     if (opts.team && opts.team.mp45) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
       const c = m.clone(); c.map = liveryMP45(m.map, opts.team.mp45, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
@@ -467,7 +521,7 @@ export function createGT(opts = {}) {
   });
   // Formula 1: il pilota (casco nell'abitacolo aperto)
   const helmet = [];
-  if (tpl.kind === 'f1' || tpl.kind === 'r26' || tpl.kind === 'mp45') {
+  if (tpl.kind === 'f1' || CLASSICS[tpl.kind]) {
     const HP = HELMET[tpl.kind];
     const hm = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: opts.team ? opts.team.colors[1] : opts.primary != null ? opts.accent ?? 0xffffff : 0x1b2a5a, roughness: 0.25, metalness: 0.2 });
     const visor = ghost ? ghostMat : new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });

@@ -31,14 +31,14 @@ import { Online, NET_VER } from './online.js';
 import { COMPOUNDS } from './physics.js';
 import { AIDriver } from './ai.js';
 import { TRACKS, outlinePath } from './tracks/catalog.js';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, SPEC } from './vehicle.js';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
-const CLS_KEY = IS_MP45 ? '.mp45' : IS_R26 ? '.r26' : IS_F1 ? '.f1' : '';
-const CLS_LABEL = IS_MP45 ? 'McLAREN MP4/5' : IS_R26 ? 'RENAULT R26' : 'FORMULA 1';
+const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
+const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
-import { TEAMS, TEAMS_2026, TEAMS_2006, TEAMS_1989, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -1344,7 +1344,7 @@ function updateCamera(dt) {
     car.root.updateMatrixWorld(true);
     // T-Cam (F1): la telecamera obbligatoria sulla "T" in cima alla presa d'aria, sopra la testa del pilota.
     // Fissata alla vettura (sobbalza e si inclina con lei), guarda avanti e un po' in basso: halo, muso e gomme
-    const local = IS_MP45 ? (camMode === 2 ? tmpV.set(-0.28, 0.72, 0) : tmpV.set(-0.02, 0.52, 0)) : IS_R26 ? (camMode === 2 ? tmpV.set(-0.32, 0.6, 0) : tmpV.set(-0.06, 0.4, 0)) : IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
+    const local = CLASSIC ? (camMode === 2 ? tmpV.set(CLASSIC.cam[2], CLASSIC.cam[3], 0) : tmpV.set(CLASSIC.cam[0], CLASSIC.cam[1], 0)) : IS_F1 ? (camMode === 2 ? tmpV.set(-0.05, 0.84, 0) : tmpV.set(0.05, 0.52, 0)) : (camMode === 2 ? tmpV.set(-0.6, 1.08, 0) : tmpV.set(-0.4, 0.68, -0.26));
     camera.position.copy(car.body.localToWorld(local));
     car.body.getWorldQuaternion(qTmp);
     camera.quaternion.copy(qTmp).multiply(qYaw);
@@ -2782,7 +2782,7 @@ function carLabel() { return IS_F1 ? (teamById(settings.f1Team) || {}).name || '
 function renderRecords() {
   document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
   const arc = recMode === 'arc' ? '.arc' : '';
-  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['r26', 'R26', '.r26'], ['mp45', 'MP4/5', '.mp45']];
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ...Object.entries(CLASSICS).map(([k, c]) => [k, c.name.replace(/^\S+ /, ''), '.' + k])];
   let html = '';
   for (const t of TRACKS) {
     const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
@@ -3124,7 +3124,7 @@ async function openHub() {
   $('hubWx').innerHTML = `<b>${S.tod === 'sunset' ? 'TRAMONTO' : 'GIORNO'}</b><span>${wxm === 'heavy' ? '⛈' : wxm === 'light' ? '🌧' : '☀'} ${S.tod === 'sunset' ? '19:30' : '14:00'} · ${wxm === 'dry' ? (S.tod === 'sunset' ? '21' : '24') : wxm === 'light' ? '17' : '14'} °C · ${WX_NAMES[wxm]}</span>`;
   showMenuPage('menuHub');
   // la tua vettura nel box
-  const kind = IS_MP45 ? 'mp45' : IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
+  const kind = CLASSIC ? CAR_CLASS : IS_F1 ? 'f1' : 'gt';
   try { await loadKind(kind); if (kind === 'f1') await loadLiveryMaps(); } catch (e) { return; }
   let m = kind !== 'gt' ? createGT({ kind, team: tm }) : createGT({ kind });
   if (ARC()) m = cartoonize(m);
@@ -3575,8 +3575,19 @@ const GT_LIVERIES = [
   { name: 'ROSSO FUOCO', team: 'PORSCHE 992 GT3 R', primary: 0xd8231f, accent: '#ff3b30', acc2: 0xffffff },
 ];
 // macchine speciali: prima le due vere (Renault R26 2006, McLaren MP4/5 1989), poi i colori delle altre squadre di quegli anni
-const SPECIALS = [TEAMS_2006[0], TEAMS_1989[0], ...TEAMS_2006.slice(1), ...TEAMS_1989.slice(1)];
-const specKind = e => (e && /^m89_/.test(e.id) ? 'mp45' : 'r26');
+// macchine speciali: prima le vere (una per stagione), poi i colori delle altre squadre di quegli anni
+const SPEC_ORDER = ['r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'];
+const SPECIALS = [...SPEC_ORDER.map(k => SEASONS[k][0]), ...SPEC_ORDER.flatMap(k => SEASONS[k].slice(1))];
+const specKind = e => kindOfTeam(e && e.id) || 'r26';
+// schede delle macchine speciali nel garage
+const SPEC_STATS = {
+  r26: [['POTENZA', 0.9, '~750 CV'], ['PESO', 0.25, '605 kg'], ['VELOCITÀ', 0.95, '~330 km/h'], ['CARICO', 0.72, 'MEDIO'], ['GOMME', 0.6, 'SCANALATE']],
+  mp45: [['POTENZA', 0.82, '~685 CV'], ['PESO', 0.2, '500 kg'], ['VELOCITÀ', 0.9, '~320 km/h'], ['CARICO', 0.45, 'BASSO'], ['CAMBIO', 0.5, 'MANUALE 6']],
+  f2002: [['POTENZA', 0.95, '~835 CV'], ['PESO', 0.24, '600 kg'], ['VELOCITÀ', 0.96, '~335 km/h'], ['CARICO', 0.7, 'MEDIO'], ['GOMME', 0.6, 'SCANALATE']],
+  f2004: [['POTENZA', 0.98, '~865 CV'], ['PESO', 0.25, '605 kg'], ['VELOCITÀ', 0.98, '~345 km/h'], ['CARICO', 0.76, 'MEDIO-ALTO'], ['GOMME', 0.6, 'SCANALATE']],
+  w11: [['POTENZA', 1, '~1000 CV IBRIDI'], ['PESO', 0.45, '746 kg'], ['VELOCITÀ', 0.98, '~350 km/h'], ['CARICO', 1, 'ALTISSIMO'], ['GOMME', 0.9, 'SLICK']],
+  rb8: [['POTENZA', 0.92, '~750 CV + KERS'], ['PESO', 0.3, '640 kg'], ['VELOCITÀ', 0.93, '~320 km/h'], ['CARICO', 0.88, 'ALTO'], ['GOMME', 0.85, 'SLICK']],
+};
 const gList = () => (gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? SPECIALS : TEAMS_2026);
 const gIdx = () => Math.max(0, gList().findIndex(t => t.id === settings.f1Team));
 // pick = true: primo passo del Gran Premio / prova a tempo (scegli la scuderia, poi avanti)
@@ -3610,16 +3621,12 @@ async function showGarageCar() {
   if (cat === 'toon') m = cartoonize(m);
   garage.setCar(m, kind !== 'gt' ? e.colors[1] : e.accent);
   // schede
-  if (cat === 'r26' && kind === 'mp45') {
-    // MACCHINE SPECIALI: McLaren MP4/5 1989 (gli altri sono i colori delle squadre 1989 sulla stessa vettura)
-    $('gTeam').textContent = e.id === 'm89_mclaren' ? 'MACCHINE SPECIALI · 1989' : `${e.name} · 1989`;
-    $('gName').textContent = e.id === 'm89_mclaren' ? 'McLaren MP4/5 · 1989' : `${e.car} (MP4/5)`;
-    $('gDrivers').textContent = e.drivers.map((d, k) => `${d} #${e.numbers[k]}`).join(' · ') + ' · V10 3,5 L 13.500 giri';
-  } else if (cat === 'r26') {
-    // MACCHINE SPECIALI: Renault R26 2006 (gli altri sono i colori delle squadre 2006 sulla stessa vettura)
-    $('gTeam').textContent = e.id === 'r06_renault' ? 'MACCHINE SPECIALI · 2006' : `${e.name} · 2006`;
-    $('gName').textContent = e.id === 'r06_renault' ? 'Renault R26 · 2006' : `${e.car} (R26)`;
-    $('gDrivers').textContent = e.drivers.map((d, k) => `${d} #${e.numbers[k]}`).join(' · ') + ' · V8 2,4 L 19.000 giri';
+  if (cat === 'r26') {
+    // MACCHINE SPECIALI: la vera di ogni stagione; le altre squadre sono i loro colori sulla stessa vettura
+    const C = CLASSICS[kind], hero = SEASONS[kind][0] === e;
+    $('gTeam').textContent = hero ? `MACCHINE SPECIALI · ${C.year}` : `${e.name} · ${C.year}`;
+    $('gName').textContent = hero ? `${C.name} · ${C.year}` : `${e.car} (${C.name.replace(/^\S+ /, '')})`;
+    $('gDrivers').textContent = e.drivers.map((d, k) => `${d} #${e.numbers[k]}`).join(' · ') + ' · ' + C.engine;
   } else if (kind === 'f1') {
     $('gTeam').textContent = cat === 'toon' ? `${e.name} · CARTOON` : e.name;
     $('gName').textContent = e.car;
@@ -3629,8 +3636,7 @@ async function showGarageCar() {
   }
   const st = cat === 'gt'
     ? [['POTENZA', 0.56, '~560 CV'], ['PESO', 0.62, '1240 kg'], ['VELOCITÀ', 0.78, '~280 km/h'], ['CARICO', 0.35, 'BASSO'], ['FRENATA', 0.6, '31 kN']]
-    : kind === 'mp45' ? [['POTENZA', 0.82, '~685 CV'], ['PESO', 0.2, '500 kg'], ['VELOCITÀ', 0.9, '~320 km/h'], ['CARICO', 0.45, 'BASSO'], ['CAMBIO', 0.5, 'MANUALE 6']]
-    : cat === 'r26' ? [['POTENZA', 0.9, '~750 CV'], ['PESO', 0.25, '605 kg'], ['VELOCITÀ', 0.95, '~330 km/h'], ['CARICO', 0.72, 'MEDIO'], ['GOMME', 0.6, 'SCANALATE']]
+    : cat === 'r26' ? SPEC_STATS[kind].map(r => r.slice())
     : [['POTENZA', 1, '~1000 CV'], ['PESO', 0.4, '798 kg'], ['VELOCITÀ', 0.97, '~340 km/h'], ['CARICO', 0.95, 'ALTO'], ['FRENATA', 0.95, '41 kN']];
   if (cat === 'toon') st.push(['GUIDA', 1, 'ARCADE']);
   else if (kind === 'f1') st.push(['SQUADRA', Math.min(1, 0.45 + e.tier * 0.18), ['', 'MEDIA', 'BUONA', 'TOP', 'TOP'][e.tier] || '']);

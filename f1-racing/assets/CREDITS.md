@@ -58,3 +58,17 @@ Modifiche: conversione in mp3 mono; nel gioco i file vengono resi ciclici (disso
 - `mp45_hi.glb`, `mp45_mid.glb`: "McLaren MP4/5 || Formula 1" di **dark_igorek** ([Sketchfab](https://sketchfab.com/3d-models/mclaren-mp45-formula-1-3059d4532ecd48ca8da41e1cac971f22)),
   licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modificato (tools/build_mp45.mjs): scala vera, ruote separate,
   poligoni ridotti, texture compresse (livrea originale del modello).
+
+**2002 Ferrari F2002**, **2004 Ferrari F2004**, **2012 Red Bull RB8** — autore: [Dave Love](https://sketchfab.com/Tyler_Dave) (Sketchfab), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+Fonti: https://sketchfab.com/3d-models/2002-ferrari-f2002-cf638e7ccd4d42a4bcfdbd4de7eaeddf ·
+https://sketchfab.com/3d-models/2004-ferrari-f2004-827e64acecba4f008759ae30a5bfeecc ·
+https://sketchfab.com/3d-models/2012-red-bull-rb8-b74446dcd93a49879546d756e3093b3f
+File `f2002_*.glb`, `f2004_*.glb`, `rb8_*.glb` = versioni modificate (script `tools/build_classic.mjs`): scala vera, ruote separate
+in quattro, ruote "mosse" finte tolte, gomme della F2004 rifatte leggere, poligoni ridotti, texture ridimensionate;
+nel gioco le livree delle altre squadre sono ridipinte sulla texture originale.
+
+**2020 F1 Mercedes-Benz W11** — autore: [OUTPISTON](https://sketchfab.com/outpiston)
+Fonte: https://sketchfab.com/3d-models/2020-f1-mercedes-benz-w11-6c0e669402c34133b4b516f4ca2ba9e4
+Licenza: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — uso non commerciale.
+File `w11_hi.glb`, `w11_mid.glb` = versioni modificate (script `tools/build_classic.mjs`): ruote separate in quattro,
+poligoni ridotti, texture ridimensionate; distribuite con la stessa licenza CC BY-NC-SA 4.0.

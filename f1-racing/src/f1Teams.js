@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js';
-import { IS_R26, IS_MP45 } from './vehicle.js';
+import { CAR_CLASS } from './vehicle.js';
 
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.
 // Ogni livrea è una funzione del punto della vettura (posizione e normale): così i colori
@@ -256,8 +256,64 @@ export const TEAMS_1989 = [
   t89('m89_minardi', 'Minardi', 'M189', ['MARTINI', 'SALA'], [23, 24], 0, ['#151515', '#ffd200'], ['#ffd200', '#151515', '#f2f2f2']),
 ];
 
-// squadre della categoria scelta (F1 2026, oppure con le macchine speciali la stagione 2006 o 1989)
-export const TEAMS = IS_MP45 ? TEAMS_1989 : IS_R26 ? TEAMS_2006 : TEAMS_2026;
+// Stagioni 2002, 2004 e 2012 (Ferrari F2002, Ferrari F2004, Red Bull RB8). Le altre squadre sono la stessa
+// carrozzeria ridipinta: recolor = { colore della livrea originale: colore nuovo } (rosso, bianco, blu, giallo)
+const tc = (id, name, car, drivers, numbers, tier, recolor, colors) => ({ id, name, car, drivers, numbers, tier, recolor, colors, gloss: true });
+export const TEAMS_2002 = [
+  { id: 'f02_ferrari', name: 'Ferrari', car: 'F2002 · 2002', drivers: ['M. SCHUMACHER', 'BARRICHELLO'], numbers: [1, 2], tier: 3, gloss: true, colors: ['#d40000', '#f2f2f2', '#151515'] },
+  tc('f02_williams', 'Williams', 'FW24', ['R. SCHUMACHER', 'MONTOYA'], [5, 6], 3, { red: '#f2f2f2', white: '#0b2a7a' }, ['#f2f2f2', '#0b2a7a', '#3a8ddb']),
+  tc('f02_mclaren', 'McLaren', 'MP4-17', ['COULTHARD', 'RAIKKONEN'], [3, 4], 3, { red: '#b8bcc2', white: '#e10600' }, ['#b8bcc2', '#151515', '#e10600']),
+  tc('f02_renault', 'Renault', 'R202', ['TRULLI', 'BUTTON'], [14, 15], 2, { red: '#3fa9f5', white: '#ffd400' }, ['#3fa9f5', '#ffd400', '#0b3d91']),
+  tc('f02_sauber', 'Sauber', 'C21', ['HEIDFELD', 'MASSA'], [7, 8], 2, { red: '#1b3f8f', white: '#7fc9e8' }, ['#1b3f8f', '#7fc9e8', '#f2f2f2']),
+  tc('f02_jordan', 'Jordan', 'EJ12', ['FISICHELLA', 'SATO'], [9, 10], 1, { red: '#ffd200', white: '#151515' }, ['#ffd200', '#151515', '#f2f2f2']),
+  tc('f02_bar', 'BAR', '004', ['VILLENEUVE', 'PANIS'], [11, 12], 1, { red: '#f2f2f2', white: '#d40000' }, ['#f2f2f2', '#d40000', '#151515']),
+  tc('f02_jaguar', 'Jaguar', 'R3', ['IRVINE', 'DE LA ROSA'], [16, 17], 1, { red: '#0a5c36', white: '#f2f2f2' }, ['#0a5c36', '#f2f2f2', '#151515']),
+  tc('f02_toyota', 'Toyota', 'TF102', ['SALO', 'McNISH'], [24, 25], 1, { red: '#f2f2f2', white: '#cc0a1e' }, ['#f2f2f2', '#cc0a1e', '#151515']),
+  tc('f02_minardi', 'Minardi', 'PS02', ['WEBBER', 'YOONG'], [23, 22], 0, { red: '#151515', white: '#f2f2f2' }, ['#151515', '#f2f2f2', '#ffd200']),
+];
+export const TEAMS_2004 = [
+  { id: 'f04_ferrari', name: 'Ferrari', car: 'F2004 · 2004', drivers: ['M. SCHUMACHER', 'BARRICHELLO'], numbers: [1, 2], tier: 3, gloss: true, colors: ['#d40000', '#f2f2f2', '#151515'] },
+  tc('f04_bar', 'BAR', '006', ['BUTTON', 'SATO'], [9, 10], 3, { red: '#f2f2f2', white: '#d40000' }, ['#f2f2f2', '#d40000', '#151515']),
+  tc('f04_renault', 'Renault', 'R24', ['TRULLI', 'ALONSO'], [7, 8], 3, { red: '#0b3d91', white: '#ffd400' }, ['#0b3d91', '#ffd400', '#3fa9f5']),
+  tc('f04_williams', 'Williams', 'FW26', ['R. SCHUMACHER', 'MONTOYA'], [3, 4], 2, { red: '#f2f2f2', white: '#0b2a7a' }, ['#f2f2f2', '#0b2a7a', '#3a8ddb']),
+  tc('f04_mclaren', 'McLaren', 'MP4-19', ['COULTHARD', 'RAIKKONEN'], [5, 6], 2, { red: '#b8bcc2', white: '#151515' }, ['#b8bcc2', '#151515', '#e10600']),
+  tc('f04_sauber', 'Sauber', 'C23', ['FISICHELLA', 'MASSA'], [11, 12], 1, { red: '#1b3f8f', white: '#7fc9e8' }, ['#1b3f8f', '#7fc9e8', '#f2f2f2']),
+  tc('f04_jaguar', 'Jaguar', 'R5', ['WEBBER', 'KLIEN'], [14, 15], 1, { red: '#0a5c36', white: '#f2f2f2' }, ['#0a5c36', '#f2f2f2', '#151515']),
+  tc('f04_toyota', 'Toyota', 'TF104', ['PANIS', 'DA MATTA'], [16, 17], 1, { red: '#f2f2f2', white: '#cc0a1e' }, ['#f2f2f2', '#cc0a1e', '#151515']),
+  tc('f04_jordan', 'Jordan', 'EJ14', ['HEIDFELD', 'PANTANO'], [18, 19], 0, { red: '#ffd200', white: '#151515' }, ['#ffd200', '#151515', '#f2f2f2']),
+  tc('f04_minardi', 'Minardi', 'PS04B', ['BAUMGARTNER', 'BRUNI'], [20, 21], 0, { red: '#151515', white: '#f2f2f2' }, ['#151515', '#f2f2f2', '#ffd200']),
+];
+export const TEAMS_2012 = [
+  { id: 'r12_redbull', name: 'Red Bull', car: 'RB8 · 2012', drivers: ['VETTEL', 'WEBBER'], numbers: [1, 2], tier: 3, gloss: true, colors: ['#1b2448', '#d6202a', '#ffcc00'] },
+  tc('r12_mclaren', 'McLaren', 'MP4-27', ['BUTTON', 'HAMILTON'], [3, 4], 3, { navy: '#9aa0a8', red: '#e10600', yellow: '#e10600' }, ['#9aa0a8', '#e10600', '#151515']),
+  tc('r12_ferrari', 'Ferrari', 'F2012', ['ALONSO', 'MASSA'], [5, 6], 3, { navy: '#c80000', red: '#f2f2f2', yellow: '#ffd200' }, ['#c80000', '#f2f2f2', '#151515']),
+  tc('r12_mercedes', 'Mercedes', 'W03', ['M. SCHUMACHER', 'ROSBERG'], [7, 8], 2, { navy: '#a7adb4', red: '#00a19c', yellow: '#00a19c' }, ['#a7adb4', '#00a19c', '#151515']),
+  tc('r12_lotus', 'Lotus', 'E20', ['RAIKKONEN', 'GROSJEAN'], [9, 10], 2, { navy: '#111111', red: '#c9a227', yellow: '#c9a227' }, ['#111111', '#c9a227', '#c9a227']),
+  tc('r12_forceindia', 'Force India', 'VJM05', ['DI RESTA', 'HULKENBERG'], [11, 12], 1, { navy: '#f2f2f2', red: '#ff7a00', yellow: '#0a7d3e' }, ['#f2f2f2', '#ff7a00', '#0a7d3e']),
+  tc('r12_sauber', 'Sauber', 'C31', ['KOBAYASHI', 'PEREZ'], [14, 15], 1, { navy: '#f2f2f2', red: '#151515', yellow: '#1b3f8f' }, ['#f2f2f2', '#151515', '#1b3f8f']),
+  tc('r12_williams', 'Williams', 'FW34', ['MALDONADO', 'SENNA'], [18, 19], 1, { navy: '#0b1f5c', red: '#f2f2f2', yellow: '#3a8ddb' }, ['#0b1f5c', '#f2f2f2', '#3a8ddb']),
+  tc('r12_tororosso', 'Toro Rosso', 'STR7', ['RICCIARDO', 'VERGNE'], [16, 17], 0, { navy: '#14215a', red: '#c8102e', yellow: '#c0c4ca' }, ['#14215a', '#c8102e', '#c0c4ca']),
+  tc('r12_caterham', 'Caterham', 'CT01', ['KOVALAINEN', 'PETROV'], [20, 21], 0, { navy: '#0a5c36', red: '#ffd200', yellow: '#ffd200' }, ['#0a5c36', '#ffd200', '#151515']),
+];
+export const TEAMS_2020 = [
+  { id: 'm20_mercedes', name: 'Mercedes', car: 'W11 · 2020', drivers: ['HAMILTON', 'BOTTAS'], numbers: [44, 77], tier: 3, gloss: true, colors: ['#151515', '#00d2be', '#c0c4ca'] },
+  tc('m20_redbull', 'Red Bull', 'RB16', ['VERSTAPPEN', 'ALBON'], [33, 23], 3, { dark: '#1b2448', teal: '#d6202a' }, ['#1b2448', '#d6202a', '#ffcc00']),
+  tc('m20_mclaren', 'McLaren', 'MCL35', ['SAINZ', 'NORRIS'], [55, 4], 2, { dark: '#ff8000', teal: '#47c7fc' }, ['#ff8000', '#47c7fc', '#151515']),
+  tc('m20_racingpoint', 'Racing Point', 'RP20', ['PEREZ', 'STROLL'], [11, 18], 2, { dark: '#f596c8', teal: '#2a5cd6' }, ['#f596c8', '#2a5cd6', '#f2f2f2']),
+  tc('m20_renault', 'Renault', 'R.S.20', ['RICCIARDO', 'OCON'], [3, 31], 2, { dark: '#ffd400', teal: '#151515' }, ['#ffd400', '#151515', '#f2f2f2']),
+  tc('m20_ferrari', 'Ferrari', 'SF1000', ['LECLERC', 'VETTEL'], [16, 5], 2, { dark: '#a6051a', teal: '#151515' }, ['#a6051a', '#151515', '#f2f2f2']),
+  tc('m20_alphatauri', 'AlphaTauri', 'AT01', ['GASLY', 'KVYAT'], [10, 26], 1, { dark: '#f2f2f2', teal: '#1b2448' }, ['#f2f2f2', '#1b2448', '#151515']),
+  tc('m20_alfa', 'Alfa Romeo', 'C39', ['RAIKKONEN', 'GIOVINAZZI'], [7, 99], 1, { dark: '#9b0000', teal: '#f2f2f2' }, ['#9b0000', '#f2f2f2', '#151515']),
+  tc('m20_haas', 'Haas', 'VF-20', ['GROSJEAN', 'MAGNUSSEN'], [8, 20], 0, { dark: '#2a2a2e', teal: '#c8102e' }, ['#2a2a2e', '#c8102e', '#f2f2f2']),
+  tc('m20_williams', 'Williams', 'FW43', ['RUSSELL', 'LATIFI'], [63, 6], 0, { dark: '#0a3e8c', teal: '#f2f2f2' }, ['#0a3e8c', '#f2f2f2', '#00a0de']),
+];
+// stagione di ogni macchina speciale (prima la vera, poi le altre squadre)
+export const SEASONS = { r26: TEAMS_2006, mp45: TEAMS_1989, f2002: TEAMS_2002, f2004: TEAMS_2004, rb8: TEAMS_2012, w11: TEAMS_2020 };
+// da quale macchina speciale viene una squadra (dal prefisso dell'id)
+export const kindOfTeam = id => ({ r06: 'r26', m89: 'mp45', f02: 'f2002', f04: 'f2004', r12: 'rb8', m20: 'w11' })[(id || '').slice(0, 3)] || null;
+
+// squadre della categoria scelta (F1 2026, oppure con una macchina speciale la sua stagione)
+export const TEAMS = SEASONS[CAR_CLASS] || TEAMS_2026;
 export const teamById = id => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 // ------------------------------------------------------------------ pittura
