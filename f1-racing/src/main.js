@@ -341,7 +341,7 @@ if (NIGHT) {
   hemi.color.set(0x3a4766); hemi.groundColor.set(0x1c1a17); hemi.intensity = 0.62;
   scene.fog = new THREE.Fog(ENV.horizon, 140, 1300);
   renderer.toneMappingExposure = 1.05;
-  nightShading(track);
+  try { nightShading(track); } catch (e) { console.warn('luce notturna non disponibile', e); }
 }
 const NIGHT_GRADE = { sat: 0.92, con: 1.1, lift: 0.0, shadow: [0.9, 0.96, 1.1], high: [1.05, 1.0, 0.94] };
 document.body.classList.toggle('wet', WET);
@@ -381,6 +381,23 @@ const padNav = new PadNav({
 });
 let tunPr = null, tunK = 0, tunBase = null;
 let landmarks = null;
+// errori: si scrivono in piccolo sullo schermo (così si può mandare una foto), una volta sola per messaggio
+const errSeen = new Set();
+function showErr(e) {
+  const msg = (e && (e.message || e.reason && e.reason.message || e.reason)) || String(e);
+  const where = e && e.stack ? String(e.stack).split('\n').slice(0, 3).join(' | ').replace(/https?:\/\/[^ )]*\//g, '') : (e && e.filename ? `${String(e.filename).split('/').pop()}:${e.lineno}` : '');
+  const key = msg + where;
+  if (errSeen.has(key) || errSeen.size > 4) return;
+  errSeen.add(key);
+  console.error(e);
+  let box = document.getElementById('errBox');
+  if (!box) { box = document.createElement('div'); box.id = 'errBox'; box.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;z-index:99;background:rgba(160,0,0,0.88);color:#fff;font:11px/1.35 monospace;padding:6px 8px;border-radius:4px;pointer-events:auto;white-space:pre-wrap;max-height:30vh;overflow:auto'; box.onclick = () => box.remove(); document.body.appendChild(box); }
+  box.textContent += `ERRORE: ${msg}\n${where}\n`;
+}
+addEventListener('error', e => showErr(e.error || e));
+addEventListener('unhandledrejection', e => showErr(e.reason || e));
+// anche gli shader che la scheda grafica rifiuta (finirebbero solo nella console)
+{ const ce = console.error.bind(console); console.error = (...a) => { ce(...a); const t = a.map(String).join(' '); if (/Shader Error|WebGL|Program Info Log/i.test(t) && !t.includes('GL Driver')) { const m = t.slice(0, 400); setTimeout(() => showErr({ message: m }), 0); } }; }
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
@@ -3841,7 +3858,7 @@ function frame(now) {
   renderer.shadowMap.autoUpdate = false;
   scenery.skyMesh.position.copy(camera.position);
   scenery.update(mode === 'pause' ? 0 : dt);
-  if (landmarks) landmarks.update(mode === 'pause' ? 0 : dt);
+  if (landmarks) { try { landmarks.update(mode === 'pause' ? 0 : dt); } catch (e) { showErr(e); landmarks = null; } }
   if (rain) {
     const rdt = mode === 'pause' ? 0 : dt;
     const fc = mode === 'menu' && attract && attract.shot ? attract.shot.car.phys : phys;
@@ -3883,7 +3900,9 @@ function frame(now) {
   if (tufts) tufts.userData.update(mode === 'pause' ? 0 : dt);
   ultraReflections();
   if (shadowNow) renderer.shadowMap.needsUpdate = true;     // dopo i riflessi: le ombre si calcolano per l'immagine principale
-  if (podium && podium.stage) { podium.stage.update(dt); podium.stage.render(renderer); }
+  let staged = false;
+  if (podium && podium.stage) { try { podium.stage.update(dt); podium.stage.render(renderer); staged = true; } catch (e) { showErr(e); podium.stage = null; $('podium').classList.remove('stage'); } }
+  if (staged) { /* podio 3D */ }
   else if (post) {
     // sfocatura radiale solo in gara e oltre i 150 km/h circa (più forte dall'abitacolo)
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
