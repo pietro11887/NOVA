@@ -354,7 +354,7 @@ function liveryR26(base, cols, size = 1024) {
 // livrea senza scritte dello sponsor per le altre squadre (le scritte Marlboro restano solo sulla McLaren)
 let mp45Rivals = null;
 function loadRivalsLivery() {
-  if (!mp45Rivals) mp45Rivals = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'assets/mp45_rivals.jpg'; });
+  if (!mp45Rivals) mp45Rivals = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = 'assets/mp45_rivals.jpg'; });
   return mp45Rivals;
 }
 let mp45RivalsImg = null;
@@ -364,8 +364,15 @@ function liveryMP45(base, cols, size = 1024) {
   const sz = Math.min(size, base.image.width || size);
   const c = document.createElement('canvas'); c.width = c.height = sz;
   const g = c.getContext('2d', { willReadFrequently: true });
-  g.drawImage(mp45RivalsImg || base.image, 0, 0, sz, sz);
-  const img = g.getImageData(0, 0, sz, sz), d = img.data;
+  let img;
+  // Safari non lascia leggere i pixel di un'immagine arrivata da un altro dominio (githack la rimanda su GitHub):
+  // in quel caso si riprova con la texture del modello, e se non va si tiene la livrea originale
+  try { g.drawImage(mp45RivalsImg || base.image, 0, 0, sz, sz); img = g.getImageData(0, 0, sz, sz); }
+  catch (e) {
+    try { g.clearRect(0, 0, sz, sz); g.drawImage(base.image, 0, 0, sz, sz); img = g.getImageData(0, 0, sz, sz); }
+    catch (e2) { console.warn('livrea MP4/5 non ricolorabile', e2); liveryCache.set(key, base); return base; }
+  }
+  const d = img.data;
   const [P, Q] = cols.map(x => new THREE.Color(x));
   const toS = v => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
   for (let i = 0; i < d.length; i += 4) {

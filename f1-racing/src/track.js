@@ -62,6 +62,7 @@ export class Track {
     this.surfDim = { value: new THREE.Vector4(1, 1, 1, 1) };
     this.surfRows = Math.round(TRACK.points.length * 4 / (sf.ds || 1));
     const img = new Image();
+    img.crossOrigin = 'anonymous';           // githack rimanda le immagini su GitHub (altro dominio)
     img.onload = () => {
       const w = img.width, h = img.height;
       const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
