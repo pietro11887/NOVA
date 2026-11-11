@@ -395,6 +395,24 @@ function showErr(e) {
   box.textContent += `ERRORE: ${msg}\n${where}\n`;
 }
 addEventListener('error', e => showErr(e.error || e));
+// diagnostica a schermo (link con &debug=1): fotogrammi, disegni, stato della scheda grafica, avvisi
+const DEBUG = /[?&]debug=1/.test(location.search);
+const dbgLog = [];
+if (DEBUG) for (const k of ['warn', 'log', 'error']) { const f = console[k].bind(console); console[k] = (...a) => { f(...a); const t = a.map(x => x && x.message ? x.message : String(x)).join(' ').slice(0, 220); if (k !== 'log' || /THREE|WebGL|shader|motore|disponibil/i.test(t)) { dbgLog.push(k[0].toUpperCase() + ': ' + t); if (dbgLog.length > 14) dbgLog.shift(); } }; }
+let dbgN = 0, dbgT = 0, dbgBox = null;
+function debugTick(now) {
+  dbgN++;
+  if (now - dbgT < 1000) return;
+  const fps = dbgN * 1000 / Math.max(1, now - dbgT); dbgN = 0; dbgT = now;
+  if (!dbgBox) { dbgBox = document.createElement('div'); dbgBox.style.cssText = 'position:fixed;left:4px;top:4px;z-index:100;background:rgba(0,0,0,0.8);color:#7f7;font:10px/1.3 monospace;padding:5px;max-width:70vw;white-space:pre-wrap;pointer-events:none'; document.body.appendChild(dbgBox); }
+  const gl = renderer.getContext(), I = renderer.info;
+  let px = '?';
+  try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
+  dbgBox.textContent = `v149 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+    + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
+    + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
+    + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');
+}
 addEventListener('unhandledrejection', e => showErr(e.reason || e));
 // anche gli shader che la scheda grafica rifiuta (finirebbero solo nella console)
 { const ce = console.error.bind(console); console.error = (...a) => { ce(...a); const t = a.map(String).join(' '); if (/Shader Error|WebGL|Program Info Log/i.test(t) && !t.includes('GL Driver')) { const m = t.slice(0, 400); setTimeout(() => showErr({ message: m }), 0); } }; }
@@ -3908,6 +3926,7 @@ function frame(now) {
     const sp = (mode === 'race' || mode === 'countdown') ? Math.max(0, Math.min(1, (phys.speed - 42) / 45)) * (camMode === 3 ? 1 : 0.55) : 0;
     post.draw(dt, camera, sp, postFx());
   } else renderer.render(scene, camera);
+  if (DEBUG) debugTick(now);
   input.endFrame();
 }
 
