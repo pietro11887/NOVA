@@ -1,3 +1,4 @@
+import { PUBLIC, PUB_BRANDS } from './edition.js';
 import * as THREE from 'three';
 
 // Texture procedurali generate su canvas (nessun file esterno).
@@ -268,6 +269,9 @@ export const BRANDS = {
   salesforce: { name: 'salesforce', bg: '#00a1e0', fg: '#ffffff', font: '700 {s}px Arial, sans-serif' },
   amex: { name: 'AMERICAN EXPRESS', bg: '#006fcf', fg: '#ffffff', font: '800 {s}px Arial, sans-serif', track: 0.04 },
 };
+
+// edizione pubblica: stessi colori, nomi inventati
+if (PUBLIC) for (const [k, n] of Object.entries(PUB_BRANDS)) if (BRANDS[k]) BRANDS[k].name = n;
 
 // disegna il pannello di un marchio nel rettangolo (x, y, w, h)
 export function drawBrand(g, b, x, y, w, h) {

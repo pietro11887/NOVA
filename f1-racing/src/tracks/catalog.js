@@ -1,3 +1,4 @@
+import { PUBLIC, PUB_TRACKS } from '../edition.js';
 import { CONTROL_POINTS } from '../trackData.js';
 import { REAL_TRACKS } from './realList.js';
 
@@ -39,6 +40,8 @@ export const TRACKS = [
 // Spa e Baku al loro posto nel calendario
 for (const [id, round] of [['baku', 17], ['spa', 12]]) { const t = TRACKS.find(x => x.id === id); if (t) t.round = round; }
 TRACKS.sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
+// edizione pubblica: nomi di luogo al posto dei nomi registrati dei circuiti
+if (PUBLIC) for (const t of TRACKS) { const o = PUB_TRACKS[t.id]; if (o) { t.name = o[0]; t.short = o[1]; } }
 
 // sagoma come percorso SVG nel riquadro w × h
 export function outlinePath(t, w, h, pad = 8) {

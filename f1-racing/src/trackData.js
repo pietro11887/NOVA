@@ -1,3 +1,4 @@
+import { PUBLIC, PUB_TRACKS } from './edition.js';
 // Definizione del tracciato "Circuito Nova": tratto finale ispirato a Spa, parte centrale tortuosa.
 // Punti di controllo [x, y(altezza), z] in metri, percorsi in senso di marcia.
 // La linea di traguardo è vicina al secondo punto.
@@ -78,7 +79,7 @@ export const NOVA = {
 // Baku City Circuit (dati OpenStreetMap): pista cittadina, muri a filo, box a sinistra
 export function bakuTrack(data) {
   return {
-    id: 'baku', name: 'BAKU CITY CIRCUIT', points: data.points, xzScale: 1, hw: 6.5, street: true, data,
+    id: 'baku', name: PUBLIC ? PUB_TRACKS.baku[0].toUpperCase() : 'BAKU CITY CIRCUIT', points: data.points, xzScale: 1, hw: 6.5, street: true, data,
     lineShift: 210,               // traguardo sul rettilineo, la griglia ci sta tutta prima della curva 1
     // vie di fuga (s dei dati originali, lato esterno): curve 1, 2, 3, 4, 15, 16
     escapes: [[150, 300, -1], [495, 610, -1], [1355, 1480, -1], [1575, 1700, 1], [3585, 3700, -1], [3940, 4060, -1]],
@@ -102,7 +103,7 @@ export function bakuTrack(data) {
 // da OpenStreetMap, quote dal modello del terreno EU-DEM (tracks/spaData.js, generato da build_spa.py)
 export function spaTrack(data) {
   return {
-    id: 'spa', name: 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 6.4, street: false, data,
+    id: 'spa', name: PUBLIC ? PUB_TRACKS.spa[0].toUpperCase() : 'SPA-FRANCORCHAMPS', points: data.points, xzScale: 1, hw: 6.4, street: false, data,
     lineShift: 230,               // traguardo tra la Bus Stop e la Source, la griglia ci sta tutta prima della Source
     pitPath: data.pit,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: -1, boxGap: 12 },

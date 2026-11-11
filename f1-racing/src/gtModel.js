@@ -3,7 +3,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEOM, CAR_SCALE } from './carModel.js';
 import { CAR_CLASS, CLASSICS } from './vehicle.js';
-import { liveryTexture } from './f1Teams.js';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js';
+import { PUBLIC } from './edition.js';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.
@@ -450,13 +451,14 @@ export function createGT(opts = {}) {
     if (opts.team && opts.team.r26) for (const m of tpl.mats.values()) if (m.userData.livery && m.map) {
       const c = m.clone(); c.map = liveryR26(m.map, opts.team.r26, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
     }
-  } else if (tpl.kind === 'f1' && opts.team && !opts.team.original) {
+  } else if (tpl.kind === 'f1' && (opts.team || PUBLIC) && !(opts.team && opts.team.original)) {
     // scuderia vera: carrozzeria e ali ridipinte, niente adesivi Red Bull
-    const size = opts.lod === 'mid' ? 512 : 1024;
+    // (edizione pubblica: sempre ridipinta, anche senza squadra)
+    const size = opts.lod === 'mid' ? 512 : 1024, team = opts.team || TEAMS_2026[0];
     for (const m of tpl.mats.values()) {
       if ((m.name === 'chasis' || m.name === 'chassis2') && m.map) {
-        const tex = liveryTexture(opts.team, m.name, size, m.map);
-        if (tex) { const c = m.clone(); c.map = tex; c.roughness = opts.team.gloss ? 0.22 : 0.42; swap.set(m, c); }
+        const tex = liveryTexture(team, m.name, size, m.map);
+        if (tex) { const c = m.clone(); c.map = tex; c.roughness = team.gloss ? 0.22 : 0.42; swap.set(m, c); }
       } else if (m.name === 'decal') { const c = m.clone(); c.visible = false; swap.set(m, c); }
     }
   } else if (tpl.kind === 'f1' && opts.primary != null && !(opts.team && opts.team.original)) {
@@ -464,6 +466,14 @@ export function createGT(opts = {}) {
       const c = m.clone(); c.map = liveryF1(m.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024); swap.set(m, c);
     }
   }
+  // edizione pubblica: via scritte e loghi veri rimasti nelle texture del modello (sponsor, gomme, vetro, vernice GT)
+  if (PUBLIC) for (const m of tpl.mats.values()) {
+    if (swap.has(m) && m.name !== 'decal') continue;
+    const n = m.name || '';
+    if (/^(redbull_detail|decal|EXT_Banner)$/.test(n)) { const c = m.clone(); c.visible = false; swap.set(m, c); }
+    else if (/^TIRE_SIDES$|^MI_Tyre/.test(n)) { const c = m.clone(); c.map = null; c.color.set(0x1b1b1d); swap.set(m, c); }
+  }
+  if (PUBLIC && myPaint) { myPaint.map = null; myPaint.color.set(opts.primary ?? 0xff8a1c); myPaint.roughness = 0.28; myPaint.metalness = 0.35; if (myPaint.clearcoat !== undefined) myPaint.clearcoat = 1; myPaint.needsUpdate = true; }
   const stripe = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.6 });
   const sidewall = ghost ? null : new THREE.MeshStandardMaterial({ map: sidewallTex(), color: 0xf5c518, transparent: true, depthWrite: false, roughness: 0.7,
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });

@@ -1,3 +1,4 @@
+import { PUBLIC } from './edition.js';
 import * as THREE from 'three';
 import { buildPitComplex } from './pitComplex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -94,7 +95,7 @@ export class BakuScenery extends Scenery {
     super(scene, track, renderer, quality);
     this.bannerTexts = ['BAKU ❤', 'ALGA!', 'FORZA!', 'GO GO GO!', 'P1!', 'VAMOS!', 'ALLEZ!', 'CITY CIRCUIT'];
     this.data = TRACK.data;
-    this.brand = { real: true, gantryBrand: 'qatar', stand: 'QATAR AIRWAYS', standBg: ['#5c0632', '#7a0a44'] };
+    this.brand = { real: true, gantryBrand: 'qatar', stand: PUBLIC ? 'SKYLINE AIR' : 'QATAR AIRWAYS', standBg: ['#5c0632', '#7a0a44'] };
     this.floorY = -3;
     const b = this.bounds, pad = this.low ? 650 : 850;
     this.terrainBox = { x0: b.minX - pad, x1: b.maxX + pad, z0: b.minZ - pad, z1: b.maxZ + pad };
@@ -1271,7 +1272,7 @@ export class BakuScenery extends Scenery {
     const g = c.getContext('2d');
     const rows = [
       ['#0a3d91', '#00b5e2', 'AZERBAIJAN GRAND PRIX', '#ffffff'],
-      ['#111111', '#2a2a2a', 'BAKU CITY CIRCUIT', '#ffd21e'],
+      ['#111111', '#2a2a2a', PUBLIC ? 'BAKU OLD TOWN' : 'BAKU CITY CIRCUIT', '#ffd21e'],
       ['#d0102b', '#a00b20', 'LAND OF FIRE', '#ffffff'],
       ['#f4f4f4', '#dcdcdc', 'FORMULA 1 · BAKU', '#d0102b'],
     ];

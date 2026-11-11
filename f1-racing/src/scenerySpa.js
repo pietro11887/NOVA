@@ -1,3 +1,4 @@
+import { PUBLIC } from './edition.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildPitComplex } from './pitComplex.js';
@@ -40,7 +41,7 @@ export class SpaScenery extends Scenery {
     this.floorY = Math.min(...G.h) - 20;
     this.forests = this.data.forest.map(p => ({ p, b: bbox(p) }));
     this.meadows = this.data.meadow.map(p => ({ p, b: bbox(p) }));
-    this.brand = { stand: 'SPA-FRANCORCHAMPS', standBg: ['#1a1a1a', '#e2001a'] };
+    this.brand = { stand: PUBLIC ? 'ARDENNES' : 'SPA-FRANCORCHAMPS', standBg: ['#1a1a1a', '#e2001a'] };
   }
 
   setupLake() { this.lake = null; }

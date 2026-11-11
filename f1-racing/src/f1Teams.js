@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js';
 import { CAR_CLASS } from './vehicle.js';
+import { PUBLIC, PUB_TEAMS } from './edition.js';
 
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.
 // Ogni livrea è una funzione del punto della vettura (posizione e normale): così i colori
@@ -308,6 +309,25 @@ export const TEAMS_2020 = [
   tc('m20_williams', 'Williams', 'FW43', ['RUSSELL', 'LATIFI'], [63, 6], 0, { dark: '#0a3e8c', teal: '#f2f2f2' }, ['#0a3e8c', '#f2f2f2', '#00a0de']),
 ];
 // stagione di ogni macchina speciale (prima la vera, poi le altre squadre)
+// edizione pubblica: nomi, piloti e sponsor inventati; la squadra "di casa" (che usava la livrea del modello,
+// con i loghi veri) viene dipinta come le altre: blu notte, rosso e giallo
+if (PUBLIC) for (const t of TEAMS_2026) {
+  const o = PUB_TEAMS[t.id]; if (!o) continue;
+  t.name = o.name; t.car = o.car; t.drivers = o.drivers.slice();
+  t.decals = [{ at: 'side', text: o.sponsor, color: t.colors[1] === t.colors[0] ? '#ffffff' : t.colors[1], y: [0.36, 0.58] }, { at: 'wing', text: o.sponsor, color: '#ffffff' }];
+  if (t.original) {
+    t.original = false;
+    t.decals[0].color = '#ffcc00';
+    t.paint = p => {
+      const N = hex('#16224f'), R = hex('#d6202a'), Y = hex('#ffcc00');
+      if (frontWing(p)) return endplate(p) ? R : N;
+      if (rearWing(p)) return endplate(p) ? R : (p.y > 0.9 ? Y : N);
+      if (nose(p) && p.y > 0.25 && p.ny > 0.2) return R;
+      if (sidepod(p) && band(p.y, 0.62, 0.03)) return R;
+      return N;
+    };
+  }
+}
 export const SEASONS = { r26: TEAMS_2006, mp45: TEAMS_1989, f2002: TEAMS_2002, f2004: TEAMS_2004, rb8: TEAMS_2012, w11: TEAMS_2020 };
 // da quale macchina speciale viene una squadra (dal prefisso dell'id)
 export const kindOfTeam = id => ({ r06: 'r26', m89: 'mp45', f02: 'f2002', f04: 'f2004', r12: 'rb8', m20: 'w11' })[(id || '').slice(0, 3)] || null;

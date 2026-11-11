@@ -2,10 +2,13 @@
 // Si legge una volta all'avvio dalle impostazioni salvate (cambiarla ricarica la pagina),
 // così fisica, modelli, linea ideale e bot usano tutti le stesse misure.
 
+import { PUBLIC } from './edition.js';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
   if (s && ['f1', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
+  if (PUBLIC && cls !== 'f1' && cls !== 'gt') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
 
 export const CAR_CLASS = cls;

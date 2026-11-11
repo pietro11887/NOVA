@@ -8,7 +8,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { SpaScenery } from './scenerySpa.js';
 import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=153';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=154';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -39,6 +39,7 @@ import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
 import { cartoonize } from './cartoon.js';
 import { Garage } from './garage.js';
 import { addNightLights, nightShading } from './nightLights.js';
+import { PUBLIC, pubText, pubPage } from './edition.js';
 import { addLandmarks } from './landmarks.js';
 import { PodiumStage } from './podium3d.js';
 import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
@@ -381,6 +382,8 @@ const padNav = new PadNav({
 });
 let tunPr = null, tunK = 0, tunBase = null;
 let landmarks = null;
+// edizione pubblica: testi senza marchi registrati, niente scheda delle F1 storiche
+if (PUBLIC) { pubPage(); const sp = document.querySelector('#gTabs [data-cat="r26"]'); if (sp) sp.remove(); document.body.classList.add('public'); }
 // errori: si scrivono in piccolo sullo schermo (così si può mandare una foto), una volta sola per messaggio
 const errSeen = new Set();
 function showErr(e) {
@@ -408,7 +411,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v153 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v154 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');
@@ -2877,11 +2880,11 @@ $('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
 $('creditsBtn').addEventListener('click', () => showMenuPage('menuCredits'));
 // --- i miei record: giro migliore per circuito e categoria (F1 / GT3), simulazione e arcade
 let recMode = ARC() ? 'arc' : 'norm';
-function carLabel() { return IS_F1 ? (teamById(settings.f1Team) || {}).name || 'F1' : '992 GT3 R'; }
+function carLabel() { return pubText(IS_F1 ? (teamById(settings.f1Team) || {}).name || 'F1' : '992 GT3 R'); }
 function renderRecords() {
   document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
   const arc = recMode === 'arc' ? '.arc' : '';
-  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ...Object.entries(CLASSICS).map(([k, c]) => [k, c.name.replace(/^\S+ /, ''), '.' + k])];
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ...(PUBLIC ? [] : Object.entries(CLASSICS).map(([k, c]) => [k, c.name.replace(/^\S+ /, ''), '.' + k]))];
   let html = '';
   for (const t of TRACKS) {
     const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
