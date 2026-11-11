@@ -4020,7 +4020,16 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
 }, 30)));
 // scheda video "persa" (memoria finita) con la grafica Ultra: si riparte su Alta
 canvas.addEventListener('webglcontextlost', e => {
-  if (!ULTRA) return;
+  // Alta su un telefono che non ce la fa: si scende a Leggera (una volta sola, poi si avvisa e basta)
+  if (!ULTRA) {
+    let last = 0; try { last = +localStorage.getItem('novaf1.lost') || 0; } catch (x) { /* niente */ }
+    if (settings.quality !== 'low' && Date.now() - last > 60000) {
+      e.preventDefault();
+      try { localStorage.setItem('novaf1.lost', String(Date.now())); settings.quality = 'low'; localStorage.setItem('novaf1.settings', JSON.stringify(settings)); } catch (x) { /* niente */ }
+      location.reload();
+    } else showErr({ message: 'La scheda grafica del telefono si è bloccata (memoria piena?). Grafica: ' + settings.quality });
+    return;
+  }
   e.preventDefault();
   try { settings.quality = 'high'; localStorage.setItem('novaf1.settings', JSON.stringify(settings)); localStorage.removeItem('novaf1.qguard'); } catch (x) { /* niente */ }
   location.reload();
