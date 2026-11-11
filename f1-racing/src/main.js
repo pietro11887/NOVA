@@ -8,7 +8,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { SpaScenery } from './scenerySpa.js';
 import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=151';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -408,7 +408,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v150 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v151 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');

@@ -354,7 +354,9 @@ function liveryR26(base, cols, size = 1024) {
 // livrea senza scritte dello sponsor per le altre squadre (le scritte Marlboro restano solo sulla McLaren)
 let mp45Rivals = null;
 function loadRivalsLivery() {
-  if (!mp45Rivals) mp45Rivals = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = 'assets/mp45_rivals.jpg'; });
+  // scaricata come dati e decodificata qui: un'immagine "di un altro sito" (githack la rimanda su GitHub)
+  // Safari non la lascerebbe leggere
+  if (!mp45Rivals) mp45Rivals = fetch('assets/mp45_rivals.jpg').then(r => r.ok ? r.blob() : null).then(b => b ? createImageBitmap(b) : null).catch(() => null);
   return mp45Rivals;
 }
 let mp45RivalsImg = null;
