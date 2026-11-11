@@ -8,7 +8,7 @@ import { Scenery, ENV } from './scenery.js';
 import { BakuScenery } from './sceneryBaku.js';
 import { SpaScenery } from './scenerySpa.js';
 import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=151';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=152';
 import { SafetyCar } from './safetyCar.js';
 import { CarPhysics } from './physics.js';
 import { Input } from './input.js';
@@ -408,7 +408,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v151 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v152 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');
@@ -465,6 +465,7 @@ function build() {
   ghostCar = gtReady() ? makeCar({ ghost: true }) : createCar({ ghost: true });
   ghostCar.root.visible = false;
   scene.add(ghostCar.root);
+  ghostKind = CAR_CLASS; loadTrackBest();
 
   pitLane = new PitLane(track);
   pitLane.build(scene);
@@ -550,6 +551,33 @@ let bestSectors = store.get('novaf1.bestSectors.v3' + recKey()) || [null, null, 
 function loadRecords() {
   best = store.get('novaf1.best.v3' + recKey());
   bestSectors = store.get('novaf1.bestSectors.v3' + recKey()) || [null, null, null];
+  loadTrackBest();
+}
+// fantasma: il giro più veloce in assoluto su questa pista, con qualunque vettura (GT3, F1, F1 speciali).
+// Il record resta per vettura; il fantasma da battere è sempre il migliore di tutti, con la forma della sua macchina.
+const GHOST_CLS = [['gt', ''], ['f1', '.f1'], ...Object.keys(CLASSICS).map(k => [k, '.' + k])];
+let gbest = null, ghostKind = null;
+function loadTrackBest() {
+  const base = settings.track && settings.track !== 'nova' ? '.' + settings.track : '', arc = ARC() ? '.arc' : '';
+  let b = null;
+  for (const [kind, k] of GHOST_CLS) {
+    const r = store.get('novaf1.best.v3' + base + k + arc);
+    if (r && r.ghost && r.ghost.length && (!b || r.time < b.time)) b = Object.assign({ kind }, r);
+  }
+  gbest = b;
+  setGhostKind(b && b.kind);
+}
+function setGhostKind(kind) {
+  kind = kind || CAR_CLASS;
+  if (!ghostCar || !gtReady() || ghostKind === kind) return;
+  ghostKind = kind;
+  const build = () => {
+    if (ghostKind !== kind) return;
+    let g; try { g = makeCar({ ghost: true, kind: kind === CAR_CLASS ? undefined : kind }); } catch (e) { console.warn('fantasma non disponibile', e); return; }
+    const vis = ghostCar.root.visible;
+    scene.remove(ghostCar.root); ghostCar = g; ghostCar.root.visible = vis; scene.add(g.root);
+  };
+  if (kind === CAR_CLASS) build(); else loadKind(kind).then(build).catch(e => console.warn('fantasma non disponibile', e));
 }
 let lap = null;
 let lastLap = null;
@@ -986,6 +1014,7 @@ function finishLap(time) {
       isBest = true;
       best = { time, sectors: lap.sectors.slice(), split: lap.split, ghost: lap.rec, date: Date.now(), car: carLabel() };
       store.set('novaf1.best.v3' + recKey(), best);
+      if (!gbest || time < gbest.time) { gbest = Object.assign({ kind: CAR_CLASS }, best); setGhostKind(CAR_CLASS); }
     }
   }
   if (isBest) { showBanner(`NUOVO RECORD  ${fmt(time)}`, 'purple', 3.5, true); if (gameType === 'trial') sounds.radio('Nuovo record! Giro fantastico.'); }
@@ -1034,10 +1063,10 @@ function updateModel(car, phys, dt) {
 }
 
 function updateGhost() {
-  const show = gameType === 'trial' && !quali && settings.ghost && best && best.ghost && lap && lap.active && mode !== 'menu';
+  const show = gameType === 'trial' && !quali && settings.ghost && gbest && gbest.ghost && lap && lap.active && mode !== 'menu';
   ghostCar.root.visible = !!show;
   if (!show) return;
-  const g = best.ghost, t = (simTime - lap.start) / 0.05;
+  const g = gbest.ghost, t = (simTime - lap.start) / 0.05;
   const i = Math.floor(t), f = t - i;
   const n = g.length / 7;
   if (i >= n - 1) { ghostCar.root.visible = false; return; }
@@ -2537,6 +2566,7 @@ function rebuildPlayerModels() {
   ghostCar = makeCar({ ghost: true });
   ghostCar.root.visible = vis;
   scene.add(ghostCar.root);
+  ghostKind = CAR_CLASS; loadTrackBest();
   updateCarVisual(0);
 }
 function refreshDriveMode() {
@@ -3179,7 +3209,7 @@ async function openHub() {
   $('hubCar').textContent = ARC() ? `F1 CARTOON${tm ? ' · ' + tm.name : ''}` : tm ? `${tm.name} · ${tm.car}` : 'PORSCHE 992 GT3 R';
   const q = wk.quali;
   const row = (on, name, info, done) => `<div class="hs${on ? ' on' : ''}${done ? ' done' : ''}"><b>${name}</b><span>${info}</span></div>`;
-  $('hubSched').innerHTML = trial ? row(true, 'PROVA A TEMPO', 'giri liberi · record ' + (best ? fmt(best.time) : '—'))
+  $('hubSched').innerHTML = trial ? row(true, 'PROVA A TEMPO', 'giri liberi · record ' + (best ? fmt(best.time) : '—') + (gbest && (!best || gbest.time < best.time - 0.001) ? ' · fantasma ' + (gbest.car || gbest.kind.toUpperCase()) + ' ' + fmt(gbest.time) : ''))
     : (osq ? row(!q, 'QUALIFICA SECCA', q ? `${q.pos}° · ${q.time ? fmt(q.time) : 'nessun tempo'}` : 'un giro lanciato', !!q) : '')
       + row(!osq || !!q, 'GARA', `${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'} · ${S.raceBots + 1} vetture · IA ${S.raceStrength}`);
   $('hubStart').textContent = trial ? 'INIZIA SESSIONE ›' : osq && !q ? 'INIZIA QUALIFICA ›' : 'INIZIA GARA ›';
@@ -4029,7 +4059,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, get net() { return net; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, get ghost() { return { kind: ghostKind, time: gbest && gbest.time, car: gbest && gbest.car, vis: ghostCar && ghostCar.root.visible }; }, get net() { return net; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);
