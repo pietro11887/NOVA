@@ -1,8 +1,8 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js';
-import { LINE_GRIP } from './wx.js';
-import { CAR } from './physics.js';
-import { SPEC, IS_F1 } from './vehicle.js';
-import { ARCADE } from './driveMode.js';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=156';
+import { LINE_GRIP } from './wx.js?v=d0b88a44';
+import { CAR } from './physics.js?v=156';
+import { SPEC, IS_F1 } from './vehicle.js?v=156';
+import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.

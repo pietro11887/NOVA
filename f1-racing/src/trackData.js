@@ -1,4 +1,4 @@
-import { PUBLIC, PUB_TRACKS } from './edition.js';
+import { PUBLIC, PUB_TRACKS } from './edition.js?v=f01fe25a';
 // Definizione del tracciato "Circuito Nova": tratto finale ispirato a Spa, parte centrale tortuosa.
 // Punti di controllo [x, y(altezza), z] in metri, percorsi in senso di marcia.
 // La linea di traguardo è vicina al secondo punto.

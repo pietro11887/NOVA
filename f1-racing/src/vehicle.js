@@ -2,7 +2,7 @@
 // Si legge una volta all'avvio dalle impostazioni salvate (cambiarla ricarica la pagina),
 // così fisica, modelli, linea ideale e bot usano tutti le stesse misure.
 
-import { PUBLIC } from './edition.js';
+import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');

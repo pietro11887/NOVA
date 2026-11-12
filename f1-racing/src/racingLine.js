@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js';
-import { CAR, CarPhysics } from './physics.js';
-import { GEOM } from './carModel.js';
-import { ARCADE } from './driveMode.js';
-import { IS_F1 } from './vehicle.js';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=156';
+import { CAR, CarPhysics } from './physics.js?v=156';
+import { GEOM } from './carModel.js?v=156';
+import { ARCADE } from './driveMode.js?v=68c3b840';
+import { IS_F1 } from './vehicle.js?v=156';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
-import { LINE_GRIP } from './wx.js';
+import { LINE_GRIP } from './wx.js?v=d0b88a44';
 const LINE_MU = IS_F1 ? 1.0 : 1.3 / 1.8, LINE_BRK = IS_F1 ? 0.9 : 0.72, LINE_HS = IS_F1 ? 0.35 : 0;
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.

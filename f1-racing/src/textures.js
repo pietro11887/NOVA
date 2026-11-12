@@ -1,4 +1,4 @@
-import { PUBLIC, PUB_BRANDS } from './edition.js';
+import { PUBLIC, PUB_BRANDS } from './edition.js?v=f01fe25a';
 import * as THREE from 'three';
 
 // Texture procedurali generate su canvas (nessun file esterno).

@@ -1,11 +1,11 @@
-import { PUBLIC } from './edition.js';
+import { PUBLIC } from './edition.js?v=f01fe25a';
 import * as THREE from 'three';
-import { buildPitComplex } from './pitComplex.js';
+import { buildPitComplex } from './pitComplex.js?v=156';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { Scenery, ENV } from './scenery.js';
-import { PIT, TRACK } from './trackData.js';
-import { texSet, triplanar, ground, addWorldPos, setAniso } from './pbr.js';
-import { buildTrees } from './trees.js';
+import { Scenery, ENV } from './scenery.js?v=156';
+import { PIT, TRACK } from './trackData.js?v=156';
+import { texSet, triplanar, ground, addWorldPos, setAniso } from './pbr.js?v=b890b6bc';
+import { buildTrees } from './trees.js?v=156';
 const _hsl = {};
 
 // Baku City Circuit: la città vera intorno alla pista, dai dati OpenStreetMap

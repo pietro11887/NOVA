@@ -1,48 +1,48 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js';
-import { RealScenery, CLIMATES } from './sceneryReal.js';
-import { buildTrackDetail } from './trackDetail.js';
-import { Scenery, ENV } from './scenery.js';
-import { BakuScenery } from './sceneryBaku.js';
-import { SpaScenery } from './scenerySpa.js';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=155';
-import { SafetyCar } from './safetyCar.js';
-import { CarPhysics } from './physics.js';
-import { Input } from './input.js';
-import { PadNav } from './padNav.js';
-import { Post } from './post.js';
-import { BakuFx } from './bakuFx.js';
-import { WallMarks } from './wallMarks.js';
-import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js';
-import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js';
-import { Sound } from './audio.js';
-import { Particles, SkidMarks, Debris } from './effects.js';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js';
-import { RacingLine } from './racingLine.js';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js';
-import { WX, WET, bestCompound } from './wx.js';
-import { PitLane, PitStop } from './pit.js';
-import { PitCrew } from './pitCrew.js';
-import { buildGrassTufts } from './grassTufts.js';
-import { Online, NET_VER } from './online.js';
-import { COMPOUNDS } from './physics.js';
-import { AIDriver } from './ai.js';
-import { TRACKS, outlinePath } from './tracks/catalog.js';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js';
+import { Track, SURF } from './track.js?v=156';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=156';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=156';
+import { buildTrackDetail } from './trackDetail.js?v=557c776b';
+import { Scenery, ENV } from './scenery.js?v=156';
+import { BakuScenery } from './sceneryBaku.js?v=156';
+import { SpaScenery } from './scenerySpa.js?v=156';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=156';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=156';
+import { SafetyCar } from './safetyCar.js?v=156';
+import { CarPhysics } from './physics.js?v=156';
+import { Input } from './input.js?v=343b1006';
+import { PadNav } from './padNav.js?v=9131f548';
+import { Post } from './post.js?v=66f4970a';
+import { BakuFx } from './bakuFx.js?v=156';
+import { WallMarks } from './wallMarks.js?v=156';
+import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
+import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
+import { Sound } from './audio.js?v=156';
+import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=156';
+import { RacingLine } from './racingLine.js?v=156';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=156';
+import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
+import { PitLane, PitStop } from './pit.js?v=156';
+import { PitCrew } from './pitCrew.js?v=156';
+import { buildGrassTufts } from './grassTufts.js?v=156';
+import { Online, NET_VER } from './online.js?v=c8ffb6da';
+import { COMPOUNDS } from './physics.js?v=156';
+import { AIDriver } from './ai.js?v=156';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=156';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=156';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
-import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js';
-import { cartoonize } from './cartoon.js';
-import { Garage } from './garage.js';
-import { addNightLights, nightShading } from './nightLights.js';
-import { PUBLIC, pubText, pubPage } from './edition.js';
-import { addLandmarks } from './landmarks.js';
-import { PodiumStage } from './podium3d.js';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js';
+import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js?v=68c3b840';
+import { cartoonize } from './cartoon.js?v=9c734d90';
+import { Garage } from './garage.js?v=2489f181';
+import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
+import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
+import { addLandmarks } from './landmarks.js?v=92cc6020';
+import { PodiumStage } from './podium3d.js?v=3db5a117';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=156';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -244,17 +244,17 @@ const sunTmp = new THREE.Vector3(), sunU = new THREE.Vector3(), sunV = new THREE
 
 // pista scelta: i dati di Baku (OpenStreetMap) si caricano solo se servono
 if (settings.track === 'baku') {
-  try { const mod = await import('./tracks/bakuData.js'); selectTrack(bakuTrack(mod.default)); }
+  try { const mod = await import('./tracks/bakuData.js?v=9d35ef21'); selectTrack(bakuTrack(mod.default)); }
   catch (e) { console.warn('Baku non caricata', e); settings.track = 'nova'; }
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=156`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
   try {
-    const mod = await import('./tracks/spaData.js');
+    const mod = await import('./tracks/spaData.js?v=d583012a');
     selectTrack(spaTrack(mod.default));
   } catch (e) { console.warn('Spa non caricata', e); settings.track = 'nova'; }
 }
@@ -411,7 +411,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v155 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v156 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');

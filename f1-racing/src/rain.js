@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WX } from './wx.js';
+import { WX } from './wx.js?v=d0b88a44';
 
 // Pioggia (come nei giochi di F1): gocce che cadono attorno alla telecamera e si allungano con la velocità,
 // schizzi che rimbalzano sull'asfalto, nuvole d'acqua dietro le vetture, luce rossa lampeggiante sul retro.

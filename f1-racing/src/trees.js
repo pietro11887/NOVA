@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { texSet, addWorldPos } from './pbr.js';
-import { ENV } from './scenery.js';
+import { texSet, addWorldPos } from './pbr.js?v=b890b6bc';
+import { ENV } from './scenery.js?v=156';
 
 // Alberi realistici: tronco e rami con corteccia fotografica, chioma fatta di tanti "ciuffi" di foglie vere
 // (foto CC0 di Poly Haven) con luce morbida come una chioma vera, vento e foglie che brillano in controluce.

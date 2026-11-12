@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js';
-import * as tex from './textures.js';
-import { texSet, triplanar } from './pbr.js';
-import { WX } from './wx.js';
+import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=156';
+import * as tex from './textures.js?v=156';
+import { texSet, triplanar } from './pbr.js?v=b890b6bc';
+import { WX } from './wx.js?v=d0b88a44';
 
 // ammaccature delle barriere morbide: [x, z, profondità, raggio] e [direzione verso l'esterno x, z, quota dell'urto]
 export const DENTS = { a: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, d: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, next: 0 };

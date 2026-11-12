@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js';
-import { CAR_CLASS, CLASSICS } from './vehicle.js';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js';
-import { PUBLIC } from './edition.js';
+import { GEOM, CAR_SCALE } from './carModel.js?v=156';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=156';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=156';
+import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
 // Red Bull RB22 2026 — modello di Dave Love (Sketchfab), licenza CC BY 4.0.

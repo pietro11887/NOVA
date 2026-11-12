@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Particles } from './effects.js';
+import { Particles } from './effects.js?v=ec1040de';
 
 // Effetti di Baku (si possono poi portare sulle altre piste):
 // - segni neri di frenata nelle staccate forti e detriti di gomma fuori traiettoria (crescono durante la gara)

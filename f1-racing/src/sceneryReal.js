@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { SpaScenery } from './scenerySpa.js';
-import { TRACK, bankAt } from './trackData.js';
-import { meadow, triplanar } from './pbr.js';
-import { buildTrees } from './trees.js';
-import { ENV } from './scenery.js';
-import { landmarkSkip } from './landmarks.js';
+import { SpaScenery } from './scenerySpa.js?v=156';
+import { TRACK, bankAt } from './trackData.js?v=156';
+import { meadow, triplanar } from './pbr.js?v=b890b6bc';
+import { buildTrees } from './trees.js?v=156';
+import { ENV } from './scenery.js?v=156';
+import { landmarkSkip } from './landmarks.js?v=92cc6020';
 
 // Circuiti veri del calendario costruiti dalla "fabbrica di piste" (tools/build_track.py): stessi dati di Spa
 // (tracciato, corsia box, edifici, strade, boschi, prati, acqua e terreno veri) con l'aspetto del posto:
