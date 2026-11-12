@@ -20,23 +20,25 @@ export const IS_MP45 = cls === 'mp45';
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
 // snd.mul porta i giri del motore sui campioni del V12: frequenza di scoppio = giri × cilindri / 120.
 // wings: [x minimo dell'ala anteriore, y massimo; x massimo dell'alettone, y minimo] (coordinate del gioco)
-const G = (n, rpm, k = 1) => (n === 6 ? [24.6, 19.0, 15.3, 12.6, 10.4, 8.25] : [24.6, 19.6, 16.2, 13.5, 11.4, 9.7, 8.25]).map(g => g * 1.03 * k * rpm / 19000);
+// k < 1 allunga le marce alte (la prima resta uguale): serve a dare a ogni vettura la sua velocità massima vera
+// (a Monza, al limitatore in ultima marcia), con le marce intermedie che si allungano via via
+const G = (n, rpm, k = 1) => (n === 6 ? [24.6, 19.0, 15.3, 12.6, 10.4, 8.25] : [24.6, 19.6, 16.2, 13.5, 11.4, 9.7, 8.25]).map((g, i, A) => g * 1.03 * Math.pow(k, i / (A.length - 1)) * rpm / 19000);
 export const CLASSICS = {
-  r26: { year: 2006, name: 'Renault R26', engine: 'V8 2,4 L · 19.000 giri', rpm: 19000, idle: 5500, gears: G(7, 19000),
+  r26: { year: 2006, name: 'Renault R26', engine: 'V8 2,4 L · 19.000 giri', rpm: 19000, idle: 5500, gears: G(7, 19000, 0.803),
     snd: { bank: 'eng-v8', mul: 0.526, max: 10000 }, helmet: { x: 0.02, y: 0.33 }, cam: [-0.06, 0.4, -0.32, 0.6], livery: /^WC(CARBODY|EXTRA0|EXTRA1|WING)$/ },
-  mp45: { year: 1989, name: 'McLaren MP4/5', engine: 'V10 Honda 3,5 L · 13.500 giri', rpm: 13500, idle: 4200, gears: G(6, 13500),
+  mp45: { year: 1989, name: 'McLaren MP4/5', engine: 'V10 Honda 3,5 L · 13.500 giri', rpm: 13500, idle: 4200, gears: G(6, 13500, 0.838),
     snd: { bank: 'eng-v10', mul: 0.526, max: 10000 }, helmet: { x: 0.06, y: 0.44 }, cam: [-0.02, 0.52, -0.28, 0.72], livery: /^body_mat$/ },
-  f2002: { year: 2002, name: 'Ferrari F2002', engine: 'V10 3,0 L · 18.300 giri', rpm: 18300, idle: 5200, gears: G(7, 18300),
+  f2002: { year: 2002, name: 'Ferrari F2002', engine: 'V10 3,0 L · 18.300 giri', rpm: 18300, idle: 5200, gears: G(7, 18300, 0.770),
     snd: { bank: 'eng-v10', mul: 0.526, max: 10000 }, helmet: { x: 0.0, y: 0.34 }, cam: [-0.08, 0.42, -0.34, 0.62], livery: /^car_chassis/,
     wings: [1.95, -0.12, -1.6, 0.36] },
-  f2004: { year: 2004, name: 'Ferrari F2004', engine: 'V10 3,0 L · 19.000 giri', rpm: 19000, idle: 5500, gears: G(7, 19000),
+  f2004: { year: 2004, name: 'Ferrari F2004', engine: 'V10 3,0 L · 19.000 giri', rpm: 19000, idle: 5500, gears: G(7, 19000, 0.680),
     snd: { bank: 'eng-v10', mul: 0.526, max: 10000 }, helmet: { x: 0.0, y: 0.34 }, cam: [-0.08, 0.42, -0.34, 0.62], livery: /^Meshpart16Mtl/,
     wings: [1.95, -0.12, -1.6, 0.36] },
-  rb8: { year: 2012, name: 'Red Bull RB8', engine: 'V8 Renault 2,4 L · 18.000 giri + KERS', rpm: 18000, idle: 5000, gears: G(7, 18000),
+  rb8: { year: 2012, name: 'Red Bull RB8', engine: 'V8 Renault 2,4 L · 18.000 giri + KERS', rpm: 18000, idle: 5000, gears: G(7, 18000, 0.813),
     snd: { bank: 'eng-v8', mul: 0.526, max: 10000 }, helmet: { x: 0.12, y: 0.32 }, cam: [0.04, 0.4, -0.22, 0.6], livery: /^wccarbody/,
     wings: [2.2, -0.12, -1.95, 0.38] },
   // V6 turbo ibrido: suona basso e pieno (frequenza di scoppio di un V6 a 12.500 giri = V12 a 6.250)
-  w11: { year: 2020, name: 'Mercedes W11', engine: 'V6 turbo ibrido 1,6 L · ~1000 CV', rpm: 12500, idle: 4500, gears: G(7, 12500),
+  w11: { year: 2020, name: 'Mercedes W11', engine: 'V6 turbo ibrido 1,6 L · ~1000 CV', rpm: 12500, idle: 4500, gears: G(7, 12500, 0.801),
     snd: { mul: 0.55, max: 8000 }, helmet: { x: 0.3, y: 0.38 }, cam: [0.22, 0.5, -0.05, 0.84], livery: /ext_44/,
     wings: [2.42, -0.12, -2.15, 0.4] },
 };
