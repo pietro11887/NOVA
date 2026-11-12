@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { KERB_WIDTH } from './trackData.js?v=156';
+import { KERB_WIDTH } from './trackData.js?v=157';
 
 // Erba vera ai bordi della pista (grafica ultra): migliaia di ciuffi di fili d'erba in 3D sul prato
 // tra il bordo pista e il muro, mossi leggermente dal vento. Un solo oggetto (instancing): pesa poco

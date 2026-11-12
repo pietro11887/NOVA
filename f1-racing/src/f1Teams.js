@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MAPS, RANGE, SIZE } from './f1LiveryMaps.js?v=fd629fc2';
-import { CAR_CLASS } from './vehicle.js?v=156';
+import { CAR_CLASS } from './vehicle.js?v=157';
 import { PUBLIC, PUB_TEAMS } from './edition.js?v=f01fe25a';
 
 // Scuderie e piloti della stagione 2026 di Formula 1, con le livree dipinte sulla RB22.

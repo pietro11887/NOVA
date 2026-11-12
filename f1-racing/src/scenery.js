@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { buildPitComplex } from './pitComplex.js?v=156';
+import { buildPitComplex } from './pitComplex.js?v=157';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import * as tex from './textures.js?v=156';
-import { sponsorAt } from './trackData.js?v=156';
+import * as tex from './textures.js?v=157';
+import { sponsorAt } from './trackData.js?v=157';
 import { setAniso, triplanar, meadow } from './pbr.js?v=b890b6bc';
-import { buildTrees } from './trees.js?v=156';
+import { buildTrees } from './trees.js?v=157';
 
 // Ambientazione attorno al circuito: cielo con nuvole e sole, montagne all'orizzonte,
 // campagna a campi coltivati, lago, boschi, tribune con bandiere, paddock, paese,
