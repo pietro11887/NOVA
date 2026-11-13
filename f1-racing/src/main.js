@@ -1,37 +1,37 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=159';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=159';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=159';
+import { Track, SURF } from './track.js?v=160';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=160';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=160';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=159';
-import { BakuScenery } from './sceneryBaku.js?v=159';
-import { SpaScenery } from './scenerySpa.js?v=159';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=159';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=159';
-import { SafetyCar } from './safetyCar.js?v=159';
-import { CarPhysics } from './physics.js?v=159';
+import { Scenery, ENV } from './scenery.js?v=160';
+import { BakuScenery } from './sceneryBaku.js?v=160';
+import { SpaScenery } from './scenerySpa.js?v=160';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=160';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=160';
+import { SafetyCar } from './safetyCar.js?v=160';
+import { CarPhysics } from './physics.js?v=160';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=159';
-import { WallMarks } from './wallMarks.js?v=159';
+import { BakuFx } from './bakuFx.js?v=160';
+import { WallMarks } from './wallMarks.js?v=160';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
-import { Sound } from './audio.js?v=159';
+import { Sound } from './audio.js?v=160';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=159';
-import { RacingLine } from './racingLine.js?v=159';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=159';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=160';
+import { RacingLine } from './racingLine.js?v=160';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=160';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=159';
-import { PitCrew } from './pitCrew.js?v=159';
-import { buildGrassTufts } from './grassTufts.js?v=159';
+import { PitLane, PitStop } from './pit.js?v=160';
+import { PitCrew } from './pitCrew.js?v=160';
+import { buildGrassTufts } from './grassTufts.js?v=160';
 import { Online, NET_VER } from './online.js?v=c8ffb6da';
-import { COMPOUNDS } from './physics.js?v=159';
-import { AIDriver } from './ai.js?v=159';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=159';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=159';
+import { COMPOUNDS } from './physics.js?v=160';
+import { AIDriver } from './ai.js?v=160';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=160';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=160';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -42,7 +42,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=159';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=160';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -230,7 +230,7 @@ const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
-const shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(6144, renderer.capabilities.maxTextureSize) : 4096;
+let shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(6144, renderer.capabilities.maxTextureSize) : 4096;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
 // con grafica alta l'ombra copre molto più spazio (palazzi e alberi lontani) con la stessa nitidezza
 const SHR = ULTRA ? 190 : HIQ ? 140 : 70;
@@ -249,7 +249,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=159`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=160`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -411,9 +411,10 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v159 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v160 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
+    + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
     + `cam ${camera.position.toArray().map(v => v.toFixed(0)).join(',')} scene ${scene.children.length} track ${TRACK.id}\n` + dbgLog.join('\n');
 }
 addEventListener('unhandledrejection', e => showErr(e.reason || e));
@@ -3929,7 +3930,8 @@ function frame(now) {
   // Se il dispositivo fa fatica (sotto ~50 fotogrammi al secondo) le ombre si ricalcolano a fotogrammi alterni.
   perfAvg += (Math.min(0.1, dt) - perfAvg) * 0.05;
   perfSlow = perfAvg > 1 / 50;
-  if (HIQ) dynRes(dt);
+  if (HIQ) govern(dt);
+  if (HIQ && (ULTRA || GOV.lvl >= GOV_MAX)) dynRes(dt);
   shadowTick++;
   const shadowNow = !perfSlow || shadowTick % 2 === 0;
   if (shadowNow) {
@@ -4004,6 +4006,39 @@ function frame(now) {
 // al secondo si disegna con meno pixel (gli effetti restano tutti); quando torna fluido si risale piano.
 // Si misura su finestre di 1,5 s, solo in pista (il menu e la pausa non contano).
 const DYN = { base: 0, scale: 1, t: 0, n: 0, sum: 0, good: 0, min: ULTRA ? 0.5 : 0.55 };
+// Grafica Alta su schede video deboli (integrate): se il gioco va sotto i ~48 fotogrammi al secondo si tolgono,
+// uno alla volta, gli effetti che costano tanto e si notano poco; la risoluzione si abbassa solo alla fine.
+//  1) ombre morbide negli angoli (AO) e scia di movimento  2) antialiasing multicampione (resta quello finale)
+//  3) ombre a 2048 punti invece di 4096  4) risoluzione al massimo 1x  -> poi, se serve, risoluzione dinamica
+const GOV_MAX = 4;
+const GOV = { lvl: 0, t: 0, n: 0, sum: 0, warm: 0 };
+const IGPU = (() => {
+  try {
+    const gl = renderer.getContext(), e = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = e ? String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL)) : '';
+    GOV.gpu = r;
+    return /Intel|UHD|Iris|Radeon\(TM\) Graphics|Radeon Graphics|Vega|Mali|Adreno|PowerVR/i.test(r) && !/RTX|GTX|Quadro|Radeon RX|Radeon Pro|Arc\(TM\) A|Arc A/i.test(r);
+  } catch (e) { return false; }
+})();
+function govApply() {
+  const l = GOV.lvl;
+  if (l >= 1 && post && post.ao && post.ao.enabled) { post.ao.enabled = false; if (post.mblur) post.mblur.enabled = false; }
+  if (l >= 2 && post && post.composer) for (const rt of [post.composer.renderTarget1, post.composer.renderTarget2]) if (rt && rt.samples) { rt.samples = 0; rt.dispose(); }
+  if (l >= 3 && shadowSize > 2048) { shadowSize = 2048; sun.shadow.mapSize.set(2048, 2048); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  if (l >= 4 && renderer.getPixelRatio() > 1) { DYN.base = 1; renderer.setPixelRatio(1 * DYN.scale); resize(); }
+}
+function govern(dt) {
+  if (ULTRA || GOV.lvl >= GOV_MAX || dt <= 0 || dt > 2 || mode === 'pause') return;   // (oltre 2 s: scheda cambiata)
+  // scheda integrata: si parte già senza AO (l'effetto più pesante)
+  if (IGPU && GOV.lvl === 0 && post) { GOV.lvl = 1; govApply(); }
+  if ((GOV.warm += dt) < 4) return;                  // i primi secondi (caricamenti, shader) non contano
+  GOV.t += dt; GOV.n++; GOV.sum += Math.min(dt, 0.5);
+  if (GOV.t < 2) return;
+  const avg = GOV.sum / GOV.n;
+  GOV.t = 0; GOV.n = 0; GOV.sum = 0;
+  if (avg > 1 / 48) { GOV.lvl++; govApply(); GOV.warm = 2; }
+}
+
 function dynRes(dt) {
   if (!DYN.base) DYN.base = renderer.getPixelRatio();
   if (mode !== 'race' || dt <= 0 || dt > 0.25) return;
@@ -4098,7 +4133,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
     get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
-    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, get ghost() { return { kind: ghostKind, time: gbest && gbest.time, car: gbest && gbest.car, vis: ghostCar && ghostCar.root.visible }; }, get net() { return net; },
+    replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, govTest(l) { GOV.lvl = l; govApply(); return [GOV.lvl, renderer.getPixelRatio(), shadowSize, post && post.ao && post.ao.enabled]; }, get ghost() { return { kind: ghostKind, time: gbest && gbest.time, car: gbest && gbest.car, vis: ghostCar && ghostCar.root.visible }; }, get net() { return net; },
     teleport(i, lateral = 0, speed = 0) { phys.reset(i, lateral, true); const s = track.samples[i]; phys.vx = s.tx * speed; phys.vz = s.tz * speed; camState.init = false; },
   };
   requestAnimationFrame(frame);

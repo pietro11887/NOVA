@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PIT, TRACK } from './trackData.js?v=159';
+import { PIT, TRACK } from './trackData.js?v=160';
 
 // Corsia box: percorso parallelo al rettilineo, limitatore a 80 km/h, piazzole e pit stop.
 // In corsia la vettura è "guidata" lungo il percorso (come fanno molti giochi di F1),
