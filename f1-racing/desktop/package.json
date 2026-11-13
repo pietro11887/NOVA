@@ -1,0 +1,10 @@
+{
+  "name": "nova-grand-prix",
+  "productName": "Nova Grand Prix",
+  "version": "1.0.0",
+  "description": "Nova Grand Prix - gioco di corse (versione per PC)",
+  "main": "main.cjs",
+  "author": "Nova",
+  "license": "UNLICENSED",
+  "private": true
+}
