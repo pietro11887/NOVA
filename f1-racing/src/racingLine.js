@@ -1,14 +1,21 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js?v=158';
-import { CAR, CarPhysics } from './physics.js?v=158';
-import { GEOM } from './carModel.js?v=158';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=159';
+import { CAR, CarPhysics } from './physics.js?v=159';
+import { GEOM } from './carModel.js?v=159';
 import { ARCADE } from './driveMode.js?v=68c3b840';
-import { IS_F1 } from './vehicle.js?v=158';
+import { IS_F1, CAR_CLASS } from './vehicle.js?v=159';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
 const LINE_MU = IS_F1 ? 1.0 : 1.3 / 1.8, LINE_BRK = IS_F1 ? 0.9 : 0.72, LINE_HS = IS_F1 ? 0.35 : 0;
+// aderenza laterale VERA di ogni vettura (misurata con la fisica del gioco in curve da 35 a 320 m di raggio):
+// accelerazione laterale massima = a0 + k·v² (m/s², v in m/s). Serve ai colori della linea, così il verde
+// dice davvero "in pieno" e il rosso arriva solo dove la vettura non ce la fa
+const LINE_CAL = {
+  f1: [17.92, 0.00233], gt: [15.10, -0.00045], r26: [16.57, 0.00157], mp45: [16.02, 0.00136],
+  f2002: [16.12, 0.00160], f2004: [16.86, 0.00168], rb8: [17.13, 0.00200], w11: [18.48, 0.00225],
+};
 
 // Linea ideale: traiettoria a curvatura minima entro i bordi pista e profilo di velocità.
 // Il colore di ogni tratto dipende dalla velocità attuale della vettura:
@@ -106,7 +113,17 @@ export class RacingLine {
     this.gripMap = new Float64Array(n).fill(1);
     this.version = 0;
     // 3) profilo di velocità (prudente, pensato per chi guida col telefono o la tastiera)
-    this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP, LINE_BRK * LINE_GRIP, 95, LINE_HS);
+    this.speed = this.guideProfile();
+  }
+
+  // velocità consigliata dai colori: aderenza vera della vettura, senza le correzioni "imparate" dalle
+  // scivolate dei bot (quelle valgono solo per i bot)
+  guideProfile() {
+    const a = this.arcadeOn ? ARCADE.grip : 1, sc = LINE_GRIP * a, b = this.arcadeOn ? ARCADE.brake : 1;
+    // GT (poco carico aerodinamico): aderenza misurata in tondo, affidabile. Monoposto: il modello con
+    // l'aerodinamica (in tondo ad alta velocità la prova sottostima: Curva Grande e Eau Rouge si fanno in pieno)
+    if (CAR_CLASS === 'gt') { const C = LINE_CAL.gt; return this.speedProfile(CAR.mu * LINE_GRIP * a, 0.9 * LINE_GRIP * b, 95, 0, { a0: C[0] * sc, k: C[1] * sc }); }
+    return this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP * a, LINE_BRK * LINE_GRIP * b, 95, LINE_HS, { noMap: true });
   }
 
   // profilo di velocità massima: mu = aderenza usata in curva, brakeFac = frazione della frenata massima
@@ -125,15 +142,19 @@ export class RacingLine {
   }
 
   // hs: aderenza in più nelle curve veloci (carico aerodinamico che il modello semplice sottostima, solo F1)
-  speedProfile(mu, brakeFac, vmax = 95, hs = 0) {
+  speedProfile(mu, brakeFac, vmax = 95, hs = 0, cal = null) {
     const n = this.track.count, curv = this.curv, ds = this.ds;
     const { kv, sl } = this.elevation();
     const v = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       // la velocità in curva dipende dall'aderenza, che dipende dalla velocità: qualche iterazione
-      const k = curv[i], g = this.gripMap ? this.gripMap[i] : 1;
+      const k = curv[i], g = this.gripMap && !cal ? this.gripMap[i] : 1, A0 = cal && cal.a0 != null;
       let vi = vmax;
-      for (let it = 0; it < 6; it++) {
+      if (A0) {
+        // aderenza misurata: a0 + k·v², in discesa meno, sui dossi l'aerodinamica "si stacca" un po'
+        const a0 = cal.a0 * (1 + 1.5 * Math.min(0, sl[i])), ka = cal.k + (cal.a0 / G) * Math.min(0, kv[i]);
+        vi = k > ka ? Math.min(vmax, Math.sqrt(a0 / (k - ka))) : vmax;
+      } else for (let it = 0; it < 6; it++) {
         // in discesa il carico va sull'avantreno e il retrotreno si alleggerisce: la curva si fa più piano
         const m = mu * g * loadMu(vi) * (1 + hs * Math.max(0, Math.min(1, (vi - 50) / 30))), mG = m * (1 + 1.5 * Math.min(0, sl[i])), kk = m * (K_AERO + Math.min(0, kv[i]));
         vi = k > kk ? Math.min(vmax, Math.sqrt(mG * G / (k - kk))) : vmax;
@@ -160,7 +181,9 @@ export class RacingLine {
       for (let j = 2 * n; j >= 0; j--) {
         const i = j % n, nx = (i + 1) % n;
         // cerchio di aderenza: se si sta già curvando, per frenare resta meno
-        const aMax = mu * (this.gripMap ? this.gripMap[nx] : 1) * loadMu(v[nx]) * (G + (K_AERO + Math.min(0, kv[nx])) * v[nx] * v[nx]);
+        // con l'aderenza misurata: in frenata le gomme danno circa il 20% in più che in curva (come nella fisica)
+        const aMax = cal && cal.a0 != null ? 1.2 * Math.max(4, cal.a0 + (cal.k + (cal.a0 / G) * Math.min(0, kv[nx])) * v[nx] * v[nx])
+          : mu * (this.gripMap ? this.gripMap[nx] : 1) * loadMu(v[nx]) * (G + (K_AERO + Math.min(0, kv[nx])) * v[nx] * v[nx]);
         const aLat = v[nx] * v[nx] * curv[nx];
         const dec = Math.max(2, brakeFac * aMax * Math.sqrt(Math.max(0.2, 1 - (FRIC * aLat / aMax) ** 2)) + G * sl[nx]);
         v[i] = Math.min(v[i], Math.sqrt(v[nx] * v[nx] + 2 * dec * ds[i]));
@@ -183,7 +206,7 @@ export class RacingLine {
     }
     if (changed) {
       this.version++;
-      this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP * (this.arcadeOn ? ARCADE.grip : 1), LINE_BRK * LINE_GRIP * (this.arcadeOn ? ARCADE.brake : 1), 95, LINE_HS);
+      // (i colori della linea restano quelli dell'aderenza vera: le scivolate dei bot correggono solo i bot)
     }
     return changed;
   }
@@ -198,7 +221,7 @@ export class RacingLine {
   setArcade(on) {
     if (this.arcadeOn === on) return;
     this.arcadeOn = on;
-    this.speed = this.speedProfile(LINE_MU * CAR.mu * LINE_GRIP * (on ? ARCADE.grip : 1), LINE_BRK * LINE_GRIP * (on ? ARCADE.brake : 1), 95, LINE_HS);
+    this.speed = this.guideProfile();
   }
 
   // velocità consigliata (m/s) e offset laterale in un punto (indice campione)
