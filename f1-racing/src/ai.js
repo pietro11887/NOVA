@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=160';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=161';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=160';
-import { SPEC, IS_F1 } from './vehicle.js?v=160';
+import { CAR } from './physics.js?v=161';
+import { SPEC, IS_F1 } from './vehicle.js?v=161';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -15,8 +15,10 @@ export function skillParams(strength, street = false) {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
     mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
-    grip: 1 + 0.32 * boost,           // 110 → +32% di aderenza
-    power: 1 + 0.42 * boost,           // 110 → +42% di potenza (molto più veloci anche sul dritto)
+    // bonus piccoli: a 110 un pilota perfetto con un filo di aderenza e cavalli in più (prima +32%/+42%,
+    // pensati quando per errore anche la vettura del giocatore riceveva metà dei bonus)
+    grip: 1 + 0.22 * boost,           // 110 → +22% di aderenza (il calcolo delle curve dei bot ne ha bisogno)
+    power: 1 + 0.10 * boost,           // 110 → +10% di potenza (stessa velocità massima: marce normali)
     brake: 0.92 + 0.06 * t,           // frazione della frenata massima
     reaction: 0.3 - 0.27 * t,         // secondi di ritardo allo spegnimento dei semafori
     wobble: 0.15 * (1 - t),            // imprecisione sulla traiettoria (m)
@@ -98,7 +100,7 @@ export class AIDriver {
     this.phys.gripScale = this.skill.grip;
     // i bot forti si danneggiano meno nei contatti (a 110 circa un quarto del danno)
     this.phys.toughness = 0.75 * Math.pow(Math.max(0, Math.min(1, t)), 0.8);
-    this.phys.gearLong = Math.sqrt(this.skill.power);
+    this.phys.gearLong = 1;            // stessa velocità massima della tua vettura
   }
 
   emit(kind) { if (this.onEvent) this.onEvent(kind); }
