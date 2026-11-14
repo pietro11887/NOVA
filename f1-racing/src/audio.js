@@ -13,7 +13,7 @@ import { WX } from './wx.js?v=d0b88a44';
 // con effetto doppler e posizione destra/sinistra, pubblico, box (limitatore, pistole delle
 // gomme, cric) e radio del box con la voce.
 
-import { IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=162';
+import { IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=163';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
 

@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=162';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=163';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=162';
-import { SPEC, IS_F1 } from './vehicle.js?v=162';
+import { CAR } from './physics.js?v=163';
+import { SPEC, IS_F1 } from './vehicle.js?v=163';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -68,7 +68,7 @@ export class AIDriver {
     // profilo "in duello": con un avversario attaccato davanti o dietro si spinge di più (staccate più decise)
     this.duelProfile = this.line.speedProfile(mu * 1.012, Math.min(0.97, brk + 0.04), 120, this.hs);
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
-    this.errPerLap = 0.008 + 0.16 * Math.pow(1 - Math.min(1, t), 2);
+    this.errPerLap = 0.004 + 0.08 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
     this.craft = Math.max(0, Math.min(1, t));
     // punti di corda (minimi del profilo di velocità) e, per ogni punto, la prossima corda
@@ -286,9 +286,9 @@ export class AIDriver {
       this.lastZoneRoll = brakeIdx;
       if (this.rand() < this.errPerLap / this.zonesPerLap) {
         const r = this.rand(), sev = 0.4 + 0.6 * this.rand();
-        if (r < 0.5) { this.mistake = { type: 'late', until: this.t + 4, meters: 12 + 45 * sev }; }
+        if (r < 0.5) { this.mistake = { type: 'late', until: this.t + 4, meters: 8 + 26 * sev }; }
         else if (r < 0.72) { this.mistake = { type: 'lock', until: this.t + 2.5 }; }
-        else { this.mistake = { type: 'wide', until: this.t + 3.5, side: -this.insideAt(brakeIdx), amount: 2.5 + 5 * sev }; }
+        else { this.mistake = { type: 'wide', until: this.t + 3.5, side: -this.insideAt(brakeIdx), amount: 1.5 + 3 * sev }; }
         this.emit(this.mistake.type);
       }
     }
@@ -353,7 +353,7 @@ export class AIDriver {
     let vT = prof[(i + look) % n];
     // fuori dalla traiettoria ideale in curva c'è meno aderenza: si rallenta un po'
     const offLine = Math.abs(this.lane);
-    if (offLine > 1 && vT < 75) vT *= 1 - Math.min(0.14, 0.028 * offLine) * (1 - 0.5 * this.craft);
+    if (offLine > 0.8 && vT < 75) vT *= 1 - Math.min(0.2, 0.045 * offLine) * (1 - 0.25 * this.craft);
     // all'interno della traiettoria (affiancati) il raggio è più piccolo: si va più piano di conseguenza
     {
       const j = (i + look) % n, kl = this.line.curv[j], sgn = Math.sign(tr.samples[j].curv);
@@ -402,6 +402,13 @@ export class AIDriver {
     else brake = Math.min(1, (-err - 1) / 2.5);
     if (fastUs) throttle = Math.min(throttle, outward > 1.4 ? 0 : 0.3);
     else if (understeer && outward > 0.8) throttle = Math.min(throttle, Math.max(0.25, 1.1 - 0.3 * outward));   // uscita lenta: gas dosato
+    // sta finendo largo verso il cordolo esterno: niente gas (e un filo di freno) finché il muso non torna a girare,
+    // altrimenti sul cordolo alto si gira da sola
+    if (!wrongWay && Math.abs(kc) > 0.004 && v > 12 && outward > 2 && !(m && m.type === 'wide')) {
+      const pr0 = p.prCG, sm0 = tr.samples[pr0.i], edge = (pr0.d > 0 ? sm0.hwL : sm0.hwR) ?? sm0.hw;
+      throttle = 0;
+      if (outward > 3 || Math.abs(pr0.d) > edge - 1) { brake = Math.max(brake, 0.25); }
+    }
     if (m && m.type === 'lock' && brake > 0) { brake = 1; abs = false; }
     // troppo gas in uscita: ma mai addosso a chi è davanti
     if (m && m.type === 'power' && !(blocker && bestGap < 30 && vT <= vCap)) { throttle = 1; brake = 0; tc = false; }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PIT, TRACK } from './trackData.js?v=162';
+import { PIT, TRACK } from './trackData.js?v=163';
 
 // Corsia box: percorso parallelo al rettilineo, limitatore a 80 km/h, piazzole e pit stop.
 // In corsia la vettura è "guidata" lungo il percorso (come fanno molti giochi di F1),
@@ -138,12 +138,20 @@ export class PitStop {
     this.car = car;                 // oggetto vettura della gara ({ phys, ... })
     this.plan = plan;               // { compound, repair }
     const p = car.phys;
-    this.p = 0;                     // metri percorsi in corsia
     this.v = Math.max(p.speed, 10);
     const hw = p.track.samples[p.prCG.i].hw;
     this.fromD = Math.max(-hw - 2, Math.min(hw + 2, p.prCG.d));
+    // se è già dentro la corsia (entrato guidando), si parte da dove si trova davvero
+    let bp = 0, bd = 1e9;
+    for (let q = 0; q < Math.min(90, lane.pts.length); q++) { const P = lane.pts[q], dd = (P.x - p.x) ** 2 + (P.z - p.z) ** 2; if (dd < bd) { bd = dd; bp = q; } }
+    if (bp > 3) {
+      const P = lane.pts[bp], dl = (p.x - P.x) * P.nx + (p.z - P.z) * P.nz;
+      const t = Math.min(1, bp / 50), e = Math.max(0.2, 1 - t * t * (3 - 2 * t));
+      this.p = bp; this.fromD = PIT.startD + Math.max(-6, Math.min(6, dl)) / e;
+    }
     this.box = lane.boxS(car.box ?? car.slot % 20);       // il box della sua squadra
     this.boxP = lane.pAtSs(this.box);
+    this.p = this.p || 0;           // metri percorsi in corsia
     this.phase = 'in';              // in -> service -> out -> done
     this.service = 0;
     this.serviceTotal = 0;
