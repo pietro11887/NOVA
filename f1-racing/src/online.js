@@ -7,6 +7,14 @@
 
 export const NET_VER = 1;
 const PREFIX = 'novagp-v1-';
+// server per far passare il collegamento quando i due telefoni non riescono a parlarsi direttamente
+// (reti diverse, iPhone sulla stessa Wi-Fi che nascondono l'indirizzo, dati mobili)
+const ICE = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+];
+const PEER_OPTS = { debug: 0, config: { iceServers: ICE } };
 const SEND_EVERY = 0.05;          // 20 aggiornamenti al secondo
 const DELAY = 0.12;               // le vetture remote si mostrano 0,12 s indietro (movimento fluido)
 
@@ -59,12 +67,36 @@ export class Online {
       try { await this.openPeer(Peer, PREFIX + code); this.code = code; break; }
       catch (e) { if (tries === 5 || !(e && e.type === 'unavailable-id')) throw e; }
     }
+    this.listen();
+    this.status('In attesa del secondo giocatore…');
+    // sul telefono, se si esce dal gioco (per mandare il codice su WhatsApp) il collegamento al server cade
+    // e il codice "sparisce": quando si torna nel gioco lo si registra di nuovo, da solo
+    clearInterval(this.keep);
+    this.keep = setInterval(() => this.keepHost(Peer), 2500);
+    if (!this.onVis) { this.onVis = () => { if (!document.hidden && this.role === 'host') this.keepHost(Peer); }; document.addEventListener('visibilitychange', this.onVis); }
+    return this.code;
+  }
+
+  listen() {
     this.peer.on('connection', conn => {
       if (this.conn && this.connected) { conn.on('open', () => { conn.send({ k: 'full' }); setTimeout(() => conn.close(), 500); }); return; }
       this.attach(conn);
     });
-    this.status('In attesa del secondo giocatore…');
-    return this.code;
+  }
+
+  async keepHost(Peer) {
+    if (this.role !== 'host' || this.connected || this.reopening || document.hidden) return;
+    const pr = this.peer;
+    if (pr && !pr.destroyed && !pr.disconnected && pr.open) return;
+    if (pr && pr.disconnected && !pr.destroyed) { try { pr.reconnect(); } catch (e) { /* niente */ } if (pr.open) return; }
+    this.reopening = true;
+    try {
+      try { pr && pr.destroy(); } catch (e) { /* niente */ }
+      await this.openPeer(Peer, PREFIX + this.code);
+      this.listen();
+      this.status('In attesa del secondo giocatore… (codice ' + this.code + ')');
+    } catch (e) { /* il server tiene ancora il vecchio collegamento: si riprova tra poco */ }
+    this.reopening = false;
   }
 
   async join(code) {
@@ -73,20 +105,38 @@ export class Online {
     this.code = code;
     await this.openPeer(Peer);
     this.status('Collegamento alla gara ' + code + '…');
-    const conn = this.peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
-    this.attach(conn);
-    // se l'host non risponde
-    setTimeout(() => { if (!this.connected && this.role === 'guest') this.status('Nessuna gara con il codice ' + code + '. Controlla il codice e che l\'altro abbia creato la gara.', 'err'); }, 9000);
+    // si riprova per un po': chi ha creato la gara potrebbe essere appena tornato nel gioco
+    const t0 = performance.now();
+    const tryConn = () => {
+      if (this.connected || this.role !== 'guest' || this.code !== code) return;
+      if (performance.now() - t0 > 45000) {
+        if (this.sawUnavail) this.status('Nessuna gara con il codice ' + code + '. Controlla il codice e che l\'altro abbia il gioco APERTO sulla schermata della gara.', 'err');
+        else this.status('La gara ' + code + ' c\'è, ma i due telefoni non riescono a collegarsi. Provate a mettere tutti e due i dati mobili (o tutti e due la stessa Wi-Fi) e riprovate.', 'err');
+        return;
+      }
+      if (!this.sawUnavail && performance.now() - t0 > 5000) this.status('Gara ' + code + ' trovata, collegamento in corso…');
+      this.sawUnavail = false;
+      if (this.conn) { try { this.conn.close(); } catch (e) { /* niente */ } }
+      this.attach(this.peer.connect(PREFIX + code, { reliable: true, serialization: 'json' }));
+      clearTimeout(this.retry);
+      this.retry = setTimeout(tryConn, 6000);
+    };
+    this.tryConn = tryConn;
+    tryConn();
   }
 
   openPeer(Peer, id) {
     return new Promise((res, rej) => {
-      const peer = id ? new Peer(id, { debug: 0 }) : new Peer({ debug: 0 });
+      const peer = id ? new Peer(id, PEER_OPTS) : new Peer(PEER_OPTS);
       let done = false;
       peer.on('open', () => { done = true; this.peer = peer; res(); });
       peer.on('error', e => {
         if (!done) { done = true; try { peer.destroy(); } catch (x) { /* niente */ } rej(e); return; }
-        if (e && e.type === 'peer-unavailable') this.status('Nessuna gara con questo codice.', 'err');
+        if (e && e.type === 'peer-unavailable') {
+          this.sawUnavail = true;
+          if (this.role === 'guest' && this.tryConn) { this.status('Cerco la gara ' + this.code + '… (l\'altro deve tenere il gioco aperto)'); clearTimeout(this.retry); this.retry = setTimeout(this.tryConn, 2500); }
+          else this.status('Nessuna gara con questo codice.', 'err');
+        }
         else if (e && (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error')) this.status('Problema di rete: controlla la connessione.', 'err');
       });
       peer.on('disconnected', () => { try { peer.reconnect(); } catch (x) { /* niente */ } });
@@ -121,7 +171,7 @@ export class Online {
   close() {
     try { this.send({ k: 'bye' }); } catch (e) { /* niente */ }
     setTimeout(() => { try { this.conn && this.conn.close(); } catch (e) { /* niente */ } try { this.peer && this.peer.destroy(); } catch (e) { /* niente */ } }, 200);
-    clearInterval(this.ping);
+    clearInterval(this.ping); clearInterval(this.keep); clearTimeout(this.retry); this.tryConn = null;
     this.connected = false; this.conn = null; this.role = null; this.buf.clear(); this.off = null;
   }
 
