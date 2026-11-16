@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=165';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=165';
-import { SURF, SURF_PROPS } from './track.js?v=165';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=166';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=166';
+import { SURF, SURF_PROPS } from './track.js?v=166';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -9,6 +9,7 @@ import { WX, wetGrip } from './wx.js?v=d0b88a44';
 // trasferimento di carico, aerodinamica (carico e resistenza), motore e cambio a 8 marce.
 
 const G = 9.81, RHO = 1.225;
+const tA = { x: 0, y: 0 }, tB = { x: 0, y: 0 }, WSUB = 6;
 
 const TORQUE_CURVE = [ // [rpm, frazione della coppia massima]
   [0, 0.5], [4000, 0.62], [6000, 0.78], [8000, 0.9], [9500, 0.98], [10500, 1.0], [11500, 0.97], [12500, 0.86], [13000, 0.0],
@@ -85,6 +86,9 @@ export class CarPhysics {
     this.ersOn = 0;           // Boost che sta davvero spingendo
     this.gripScale = 1;
     this.gearLong = 1;
+    // inerzia di ruota+gomma e del motore (kg·m²), riportate al battistrada nel calcolo
+    this.wheelI = 0.3 / (this.R * this.R);
+    this.engI = IS_F1 ? 0.005 : 0.012;
     this.compound = 'M';
     this.inPit = false;             // guidata dalla corsia box (niente fisica)              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
@@ -243,13 +247,13 @@ export class CarPhysics {
 
     // --- motore ---
     const ratio = this.gear === -1 ? -this.reverseRatio : this.gears[this.gear - 1] / this.gearLong;
-    const rearV = (Math.abs(vxl) + Math.abs(this.wheels[2].spin) + Math.abs(this.wheels[3].spin)) / 1;
-    let rpmWheel = Math.abs(vxl) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
+    // il motore gira con le ruote posteriori (se pattinano, i giri salgono con loro)
+    const rearU = (Math.abs(this.wheels[2].spin) + Math.abs(this.wheels[3].spin)) / 2;
+    // (il piccolo slittamento normale della gomma che spinge, 1–2%, non si conta: si sente solo il pattinamento vero)
+    let rpmWheel = Math.max(Math.abs(vxl), rearU - 0.025 * Math.abs(vxl)) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
     let rpmTarget = rpmWheel;
     const clutchSlip = this.gear === 1 || this.gear === -1;
     if (clutchSlip) rpmTarget = Math.max(rpmWheel, this.idleRpm + throttle * 5500 * this.rpmK);
-    const spinning = this.wheels[2].spinning || this.wheels[3].spinning;
-    if (spinning) rpmTarget = Math.max(rpmWheel, Math.min(this.maxRpm, this.rpm + throttle * 12000 * this.rpmK * dt * 4));
     rpmTarget = Math.max(this.idleRpm, rpmTarget);
     this.rpm += (Math.min(this.maxRpm + 400, rpmTarget) - this.rpm) * Math.min(1, dt * 20);
     this.limiter = this.rpm >= this.maxRpm - 50;
@@ -365,50 +369,68 @@ export class CarPhysics {
       const mu = this.mu * this.gripScale * (front ? 1 : this.rearGrip) * (A ? ARCADE.grip * (front ? 1 : ARCADE.rear) : 1) * props.grip * (1 - (w.debrisGrip || 0)) * loadSens * (1 - 0.35 * dmg.susp[i] * dfx) * (1 - 0.7 * dmg.puncture[i] * dfx) * tyreGrip(w, COMPOUNDS[this.compound]) * (wetOn ? wetGrip(this.compound, speed) * (w.sf.type >= 2 ? 1 - 0.25 * WX.wet : w.sf.type === 1 ? 1 - 0.18 * WX.wet : 1) : 1);
       const Fmax = mu * load;
 
-      // longitudinale
-      let fx = 0;
-      if (!front) fx += driveForce / 2;
-      const bf = brakeF * (front ? this.brakeBias : 1 - this.brakeBias) / 2;
-      const roll = (props.roll + 0.08 * dmg.puncture[i] * dfx) * load + (w.sf.type === SURF.GRAVEL ? 0.004 * load * Math.abs(vlong) : 0);
-      const resist = bf + roll;
-      // a bassa velocità le forze resistive non devono invertire il moto
-      const stopCap = Math.abs(vlong) * m / 4 / dt * 0.5;
-      fx -= Math.sign(vlong) * Math.min(resist, stopCap);
-      w.lock = false; w.spinning = false;
-      let latScale = 1;
-      // laterale (formula "magica" semplificata)
+      // Ogni ruota ha la sua velocità di rotazione (w.spin = velocità della superficie del battistrada, m/s):
+      // la spinta del motore e i freni la fanno accelerare o rallentare, la gomma sull'asfalto la riporta
+      // verso la velocità della vettura. La differenza (slittamento) decide quanta forza dà la gomma:
+      // il massimo con ~10% di slittamento, poi cala (ruota che pattina o bloccata).
       const alpha = Math.atan2(vlat, Math.max(Math.abs(vlong), 3));
       w.slipAngle = alpha;
-      let fy = -Fmax * Math.sin(1.65 * Math.atan(12 * alpha));
-      // gli aiuti elettronici lasciano sempre margine per la tenuta laterale
-      const fxAid = Math.sqrt(Math.max(0, Fmax * Fmax - fy * fy)) * 0.92 + Fmax * 0.06;
-      const isDrive = !front && Math.sign(fx) === Math.sign(driveForce) && Math.abs(driveForce) > 0 && throttle > 0.05;
+      const vRef = Math.max(Math.abs(vlong), 3);
+      // forza combinata (longitudinale + laterale) per una data velocità della ruota
+      const tyre = (u, out) => {
+        const kap = (u - vlong) / vRef, sg = Math.hypot(kap, alpha);
+        if (sg < 1e-6) { out.x = 0; out.y = 0; return out; }
+        const f = Fmax * Math.sin(1.65 * Math.atan(12 * sg)) / sg;
+        out.x = f * kap; out.y = -f * alpha; return out;
+      };
+      // spinta alla ruota (le due posteriori si dividono la coppia, come un differenziale aperto)
+      let drive = front ? 0 : driveForce / 2;
+      let bf = brakeF * (front ? this.brakeBias : 1 - this.brakeBias) / 2;
+      // gli aiuti elettronici non chiedono alla gomma più di quanto può dare (lasciando margine in curva)
+      const fyPure = Fmax * Math.sin(1.65 * Math.atan(12 * Math.abs(alpha)));
+      const fxAid = Math.sqrt(Math.max(0, Fmax * Fmax - fyPure * fyPure)) * 0.92 + Fmax * 0.06;
       w.tcActive = false;
-      if (isDrive && tcOn && Math.abs(fx) > fxAid) { fx = Math.sign(fx) * fxAid; w.tcActive = true; }
-      else if (!isDrive && absOn && Math.abs(vlong) > 1.5 && Math.abs(fx) > fxAid) fx = Math.sign(fx) * fxAid;
-      if (Math.abs(fx) > Fmax && load > 0) {
-        if (isDrive) { fx = Math.sign(fx) * Fmax * 0.8; w.spinning = true; latScale = 0.45; }
-        else if (Math.abs(vlong) > 1.5) w.lock = true;
-        else fx = Math.sign(fx) * Fmax;
+      if (tcOn && drive * Math.sign(vlong || 1) > 0 && Math.abs(drive) > fxAid && throttle > 0.05) { drive = Math.sign(drive) * fxAid; w.tcActive = true; }
+      // l'ABS conta anche il freno motore sulle ruote dietro (scalate comprese)
+      if (absOn && Math.abs(vlong) > 1.5) {
+        const sv = Math.sign(vlong), eb = Math.max(0, -drive * sv);
+        if (bf + eb > fxAid) { bf = Math.max(0, fxAid - eb); if (eb > fxAid) drive = -sv * fxAid; }
       }
-      let fxOut = fx, fyOut;
-      if (w.lock) {
-        // ruota bloccata: scivola nella direzione del moto
-        const vs = Math.hypot(vlong, vlat) || 1;
-        fxOut = -0.82 * Fmax * vlong / vs;
-        fyOut = -0.82 * Fmax * vlat / vs;
-      } else {
-        const fyCap = Math.sqrt(Math.max(0, Fmax * Fmax - fx * fx)) * latScale;
-        fyOut = Math.max(-fyCap, Math.min(fyCap, fy));
+      // e se la ruota sta già slittando troppo (pattina o si sta bloccando) la rilasciano finché non riprende
+      const kap0 = (w.spin - vlong) / vRef;
+      if (tcOn && kap0 > 0.13 && drive * Math.sign(vlong || 1) > 0) { drive *= Math.max(0, 1 - (kap0 - 0.13) * 8) * 0.6; w.tcActive = true; }
+      if (absOn && Math.abs(vlong) > 1.5 && kap0 * Math.sign(vlong) < -0.13) { bf *= Math.max(0, 1 - (-kap0 * Math.sign(vlong) - 0.13) * 8) * 0.6; if (drive * Math.sign(vlong) < 0) drive = 0; }
+      // inerzia della ruota (riportata alla superficie del battistrada); quelle dietro trascinano anche il motore
+      const Iw = this.wheelI + (front || this.shiftTimer > 0 ? 0 : 0.5 * this.engI * ratio * ratio / (this.R * this.R));
+      // passo implicito (stabile anche con la ruota leggera): si linearizza la forza della gomma
+      // (in più passettini: la ruota è leggera e reagisce molto in fretta)
+      let u1 = w.spin;
+      if (load <= 0) u1 += dt * drive / Iw - Math.sign(u1) * Math.min(Math.abs(u1), dt * bf / Iw);   // ruota sollevata
+      else for (let sub = 0, h = dt / WSUB; sub < WSUB; sub++) {
+        const F0 = tyre(u1, tA).x, k = Math.max(0, (tyre(u1 + 0.05, tB).x - F0) / 0.05);
+        u1 += h * (drive - F0) / (Iw + h * k);
+        // il freno si oppone alla rotazione: se basta a fermarla, la ruota si blocca
+        const db = h * bf / (Iw + h * k);
+        if (Math.abs(u1) <= db) u1 = 0; else u1 -= Math.sign(u1) * db;
       }
+      w.spin = u1;
+      tyre(u1, tA);
+      let fxOut = tA.x, fyOut = tA.y;
+      const kap = (u1 - vlong) / vRef;
+      w.lock = Math.abs(vlong) > 1.5 && (u1 === 0 || kap < -0.45);
+      w.spinning = !front && kap > 0.2 && Math.abs(vlong) < 90;
+      // resistenza al rotolamento (e ghiaia) direttamente sulla vettura
+      const roll = (props.roll + 0.08 * dmg.puncture[i] * dfx) * load + (w.sf.type === SURF.GRAVEL ? 0.004 * load * Math.abs(vlong) : 0);
+      const stopCap = Math.abs(vlong) * m / 4 / dt * 0.5;
+      fxOut -= Math.sign(vlong) * Math.min(roll, stopCap);
+      // da fermi con il freno tirato la vettura sta ferma
+      if (Math.abs(vlong) < 0.6 && bf > 0 && Math.abs(drive) < bf) fxOut -= Math.sign(vlong) * Math.min(bf, stopCap);
       // intensità di slittamento (per suoni, fumo e segni sull'asfalto)
-      const over = Math.max(0, Math.abs(alpha) - 0.1) * 5;
-      w.slide = Math.min(1, (w.lock ? 1 : 0) + (w.spinning ? 0.9 : 0) + over) * Math.min(1, speed / 6);
+      const over = Math.max(0, Math.abs(alpha) - 0.1) * 5 + Math.max(0, Math.abs(kap) - 0.15) * 2;
+      w.slide = Math.min(1, (w.lock ? 1 : 0) + over) * Math.min(1, speed / 6);
       if (load <= 0) w.slide = 0;
-      // rotazione visiva della ruota
-      w.spin = w.lock ? 0 : (w.spinning ? vlong + 15 * throttle : vlong);
       // temperatura e usura: il calore viene dallo strisciamento
-      const slipV = Math.abs(vlat) + (w.lock || w.spinning ? Math.abs(vlong) * 0.6 : Math.abs(vlong) * 0.03 * Math.abs(fxOut) / Math.max(1, Fmax));
+      const slipV = Math.abs(vlat) + Math.abs(w.spin - vlong) * (w.lock || w.spinning ? 0.6 : 0.3);
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
       w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28 + 14 * WX.wet) * (0.02 + 0.0006 * speed) * (1 + 0.7 * WX.wet)) * dt;
