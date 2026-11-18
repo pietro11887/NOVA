@@ -1,37 +1,37 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=166';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=166';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=166';
+import { Track, SURF } from './track.js?v=167';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=167';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=167';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=166';
-import { BakuScenery } from './sceneryBaku.js?v=166';
-import { SpaScenery } from './scenerySpa.js?v=166';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=166';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=166';
-import { SafetyCar } from './safetyCar.js?v=166';
-import { CarPhysics } from './physics.js?v=166';
+import { Scenery, ENV } from './scenery.js?v=167';
+import { BakuScenery } from './sceneryBaku.js?v=167';
+import { SpaScenery } from './scenerySpa.js?v=167';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=167';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms } from './gtModel.js?v=167';
+import { SafetyCar } from './safetyCar.js?v=167';
+import { CarPhysics } from './physics.js?v=167';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=166';
-import { WallMarks } from './wallMarks.js?v=166';
+import { BakuFx } from './bakuFx.js?v=167';
+import { WallMarks } from './wallMarks.js?v=167';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
-import { Sound } from './audio.js?v=166';
+import { Sound } from './audio.js?v=167';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=166';
-import { RacingLine } from './racingLine.js?v=166';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=166';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=167';
+import { RacingLine } from './racingLine.js?v=167';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=167';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=166';
-import { PitCrew } from './pitCrew.js?v=166';
-import { buildGrassTufts } from './grassTufts.js?v=166';
+import { PitLane, PitStop } from './pit.js?v=167';
+import { PitCrew } from './pitCrew.js?v=167';
+import { buildGrassTufts } from './grassTufts.js?v=167';
 import { Online, NET_VER } from './online.js?v=1d4929cc';
-import { COMPOUNDS } from './physics.js?v=166';
-import { AIDriver } from './ai.js?v=166';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=166';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=166';
+import { COMPOUNDS } from './physics.js?v=167';
+import { AIDriver } from './ai.js?v=167';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=167';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=167';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -42,7 +42,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=166';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=167';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -249,7 +249,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=166`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=167`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -411,7 +411,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v166 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v167 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -863,7 +863,7 @@ function onImpact(c, bot = null) {
 function checkDetachments() {
   detachParts(car, phys, null);
   // ritiro
-  if (dnfTimer < 0 && phys.isWrecked()) {
+  if (dnfTimer < 0 && phys.isWrecked() && !(race && race.player && race.player.retired) && !(quali && quali.end)) {
     dnfTimer = 2.2;
     if (race && race.online) { race.player.retired = true; race.player.retireWhy = 'INCIDENTE'; }
     const d = phys.damage;
@@ -908,7 +908,7 @@ let acc = 0;
 function physicsStep(inp, h = DT) {
   stepDT = h;
   const sPrev = phys.prCG.s;
-  const dead = dnfTimer >= 0;
+  const dead = dnfTimer >= 0 || !!(race && race.player && race.player.retired && !race.online) || !!(quali && quali.end && quali.retired);
   const cmd = {
     throttle: dead ? 0 : inp.throttle, brake: dead ? 0.3 : inp.brake, steer: dead ? 0 : inp.steer,
     shiftUp: inp.shiftUp, shiftDown: inp.shiftDown, autoGear: settings.auto, tc: settings.tc, abs: settings.abs,
@@ -2625,6 +2625,41 @@ const restart = () => (quali ? startQuali() : gameType === 'race' ? startRaceGam
 $('restartBtn').addEventListener('click', () => { togglePause(false); restart(); });
 $('menuBtn').addEventListener('click', () => { goMenu(); });
 $('dnfRestart').addEventListener('click', () => (race && race.online ? (net ? onlineBackToLobby() : goMenu()) : restart()));
+// ---- ritiro volontario (gara e qualifica, anche nel campionato) ----
+function canRetire() {
+  if (!race || race.online) return false;
+  if (quali) return !quali.end;
+  if (gameType !== 'race') return false;
+  return race.player.finishT == null && !race.player.retired;
+}
+function retirePlayer(why) {
+  if (!canRetire()) return;
+  $('pause').classList.add('hidden'); $('dnf').classList.add('hidden');
+  if (sounds.ctx) sounds.ctx.resume();
+  dnfTimer = -1;
+  if (quali) {
+    // qualifica: nessun tempo, si parte in fondo alla griglia
+    mode = 'race';
+    endQuali(null);
+    if (quali) quali.retired = true;
+    showBanner('RITIRATO DALLA QUALIFICA', 'red', 3, true);
+    return;
+  }
+  const pl = race.player, L = track.length;
+  pl.retired = true; pl.retireWhy = why; pl.gone = true;
+  // il resto della gara: ognuno arriva con il suo ritmo medio fin qui
+  for (const c of race.cars) {
+    if (c === pl || c.finishT != null || c.retired) continue;
+    const prog = race.progress(c), avg = prog / Math.max(1, race.t);
+    const left = Math.max(0, race.laps * L - prog);
+    c.finishT = race.t + (avg > 1 ? left / avg : 9999) * (1 + (Math.random() - 0.5) * 0.004);
+  }
+  mode = 'race';
+  sounds.radio('Ok, ritiriamo la macchina. Rientra pure.');
+  resultsTimer = 1.2;
+}
+$('retireBtn').addEventListener('click', () => { if (confirm(quali ? 'Vuoi ritirarti dalla qualifica? Partirai in fondo alla griglia.' : 'Vuoi ritirarti dalla gara?')) retirePlayer('RITIRATO'); });
+$('dnfRetire').addEventListener('click', () => retirePlayer('INCIDENTE'));
 $('resAgain').addEventListener('click', () => {
   if (!(race && race.online)) { startRaceGame(); return; }
   if (!net) { goMenu(); return; }
@@ -3562,6 +3597,7 @@ function togglePause(on) {
     $('carStatus').innerHTML = carStatusHtml();
     $('pauseReplay').classList.toggle('hidden', !(race && recorder && recorder.frames.length > HZ_MIN));
     $('pauseFlash').classList.toggle('hidden', !fbAvailable());
+    $('retireBtn').classList.toggle('hidden', !canRetire());
     if (race && !quali) $('lapList').innerHTML = `<div class="resTable">${standingsHtml(false)}</div>`;
     else $('lapList').innerHTML = laps.length ? laps.map((l, i) => `<div class="${l.valid ? (best && l.time === best.time ? 'best' : '') : 'inv'}"><span>Giro ${i + 1}</span><span>${fmt(l.time)}</span></div>`).join('') : '<div><span>Nessun giro completato</span></div>';
     if (sounds.ctx) sounds.ctx.suspend();
@@ -3929,6 +3965,8 @@ function frame(now) {
         // online: l'altro vede sparire la tua vettura prima che la gara si fermi qui
         if (race && race.online && net) { race.player.gone = true; net.sendT = 0; net.tick(race, 0); }
         mode = 'dnf'; $('dnf').classList.remove('hidden'); dnfTimer = 99;
+        $('dnfRetire').classList.toggle('hidden', !canRetire());
+        $('dnfRestart').classList.toggle('primary', !canRetire());
       }
     }
     if (phys.gear === -1 && phys.speed < 1 && inp.brake > 0.5 && phys.vxl > -0.1 && Math.random() < 0.003) showBanner('RETROMARCIA', 'yellow', 1);
