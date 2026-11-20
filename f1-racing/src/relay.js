@@ -67,51 +67,62 @@ class Mqtt {
   close() { clearInterval(this.ping); try { this.ws.send(new Uint8Array([0xe0, 0])); this.ws.close(); } catch (e) { /* niente */ } }
 }
 
-// apre il collegamento al primo broker che risponde
-function openMqtt(sub, onMsg, onState) {
-  return new Promise((res, rej) => {
-    let k = 0;
-    const next = () => {
-      if (k >= BROKERS.length) { rej(new Error('nessun server ponte raggiungibile')); return; }
-      const url = BROKERS[k++];
-      let done = false;
-      const t = setTimeout(() => { if (!done) { done = true; try { m.close(); } catch (e) { /* niente */ } next(); } }, 6000);
-      const m = new Mqtt(url, sub, onMsg, st => {
-        if (!done && st === 'ready') { done = true; clearTimeout(t); m.onState = onState; res(m); }
-        else if (!done && (st === 'error' || st === 'close')) { done = true; clearTimeout(t); next(); }
-      });
-    };
-    next();
-  });
-}
-
-// connessione "ponte" con la stessa interfaccia della connessione PeerJS
+// connessione "ponte" con la stessa interfaccia della connessione PeerJS.
+// Ci si collega a TUTTI i broker insieme: i due giocatori si trovano sul primo che funziona per entrambi.
 export class RelayConn {
   constructor(room, role) {
     this.room = room; this.role = role; this.h = { open: [], data: [], close: [], error: [] };
-    this.open = false; this.closed = false;
+    this.open = false; this.closed = false; this.m = null; this.ms = [];
     this.inTopic = `novagp-v1/${room}/${role === 'host' ? 'h' : 'g'}`;
     this.outTopic = `novagp-v1/${room}/${role === 'host' ? 'g' : 'h'}`;
   }
   on(ev, fn) { (this.h[ev] || (this.h[ev] = [])).push(fn); return this; }
   emit(ev, x) { for (const f of this.h[ev] || []) f(x); }
-  async start() {
-    this.m = await openMqtt(this.inTopic, msg => this.recv(msg), st => { if (st === 'close' || st === 'error') this.end(); });
-    if (this.role === 'guest') {
-      // si bussa finché l'host non risponde
-      const knock = () => { if (!this.open && !this.closed) { this.m.publish(this.outTopic, { r: 'hi' }); this.kt = setTimeout(knock, 1500); } };
-      knock();
-    }
-    return this;
+  get broker() { return this.m ? this.m.ws.url.replace(/^wss?:\/\/|[:/].*$/g, '') : ''; }
+  // si risolve appena almeno un broker è pronto (errore se nessuno risponde)
+  start() {
+    return new Promise((res, rej) => {
+      let left = BROKERS.length, ok = false;
+      const fail = () => { if (--left <= 0 && !ok) rej(new Error('nessun server ponte raggiungibile')); };
+      for (const url of BROKERS) {
+        let m, settled = false;
+        const t = setTimeout(() => { if (!settled) { settled = true; try { m.close(); } catch (e) { /* niente */ } fail(); } }, 8000);
+        try {
+          m = new Mqtt(url, this.inTopic, msg => this.recv(msg, m), st => {
+            if (st === 'ready') { if (!settled) { settled = true; clearTimeout(t); } if (this.closed) { m.close(); return; } this.ms.push(m); if (!ok) { ok = true; res(this); } if (this.role === 'guest' && !this.open) m.publish(this.outTopic, { r: 'hi' }); }
+            else if (st === 'error' || st === 'close') { if (!settled) { settled = true; clearTimeout(t); fail(); } this.ms = this.ms.filter(x => x !== m); if (m === this.m) this.end(); }
+          });
+        } catch (e) { settled = true; clearTimeout(t); fail(); }
+      }
+      if (this.role === 'guest') {
+        // si bussa su tutti i broker finché l'host non risponde
+        const knock = () => { if (this.open || this.closed) return; for (const m of this.ms) m.publish(this.outTopic, { r: 'hi' }); this.kt = setTimeout(knock, 1500); };
+        this.kt = setTimeout(knock, 1500);
+      }
+    });
   }
-  recv(msg) {
+  recv(msg, m) {
     if (!msg || typeof msg !== 'object') return;
-    if (msg.r === 'hi') { if (this.role === 'host') { this.m.publish(this.outTopic, { r: 'ok' }); if (!this.open) { this.open = true; this.emit('open'); } } return; }
-    if (msg.r === 'ok') { if (!this.open) { this.open = true; clearTimeout(this.kt); this.emit('open'); } return; }
+    if (msg.r === 'hi') {
+      if (this.role !== 'host') return;
+      if (this.m && this.m !== m) return;                 // già collegati su un altro broker
+      m.publish(this.outTopic, { r: 'ok' });
+      if (!this.open) { this.m = m; this.open = true; this.emit('open'); }
+      return;
+    }
+    if (msg.r === 'ok') {
+      if (this.role !== 'guest' || this.open) return;
+      this.m = m; this.open = true; clearTimeout(this.kt);
+      for (const o of this.ms) if (o !== m) o.close();
+      this.ms = [m];
+      this.emit('open');
+      return;
+    }
+    if (m !== this.m) return;
     if (msg.r === 'bye') { this.end(); return; }
     if (this.open && msg.d !== undefined) this.emit('data', msg.d);
   }
   send(obj) { if (this.m && this.open) this.m.publish(this.outTopic, { d: obj }); }
-  end() { if (this.closed) return; this.closed = true; clearTimeout(this.kt); const was = this.open; this.open = false; try { this.m && this.m.close(); } catch (e) { /* niente */ } if (was) this.emit('close'); }
+  end() { if (this.closed) return; this.closed = true; clearTimeout(this.kt); const was = this.open; this.open = false; for (const m of this.ms) { try { m.close(); } catch (e) { /* niente */ } } this.ms = []; if (was) this.emit('close'); }
   close() { try { this.m && this.m.publish(this.outTopic, { r: 'bye' }); } catch (e) { /* niente */ } setTimeout(() => this.end(), 150); }
 }

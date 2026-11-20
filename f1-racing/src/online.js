@@ -15,7 +15,7 @@ const ICE = [
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 const PEER_OPTS = { debug: 0, config: { iceServers: ICE } };
-import { RelayConn } from './relay.js?v=6bd95206';
+import { RelayConn } from './relay.js?v=0af908d1';
 const SEND_EVERY = 0.05;          // 20 aggiornamenti al secondo
 const DELAY = 0.12;               // le vetture remote si mostrano 0,12 s indietro (movimento fluido)
 
@@ -92,7 +92,8 @@ export class Online {
     const r = this.relay = new RelayConn(this.code, 'host');
     r.isRelay = true;
     r.on('open', () => { if (!this.connected && this.role === 'host') this.attach(r); });
-    r.start().catch(() => { if (this.relay === r) this.relay = null; });
+    r.start().then(() => { this.relayReady = true; if (!this.connected) this.status('In attesa del secondo giocatore… (anche da un\'altra rete)'); })
+      .catch(() => { if (this.relay === r) this.relay = null; if (!this.connected) this.status('In attesa del secondo giocatore… (server ponte non raggiungibile: solo stessa rete)'); });
   }
 
   listen() {
@@ -127,13 +128,15 @@ export class Online {
       const r = this.relay = new RelayConn(code, 'guest');
       r.isRelay = true;
       r.on('open', () => { if (!this.connected && this.code === code) { clearTimeout(this.retry); try { this.conn && this.conn.close(); } catch (e) { /* niente */ } this.attach(r); } });
-      r.start().then(() => { if (!this.connected) this.status('Collegamento tramite server ponte alla gara ' + code + '…'); }).catch(() => { if (this.relay === r) this.relay = null; });
+      this.status('Provo il server ponte…');
+      r.start().then(() => { if (!this.connected) this.status('Server ponte collegato: cerco la gara ' + code + '… (l\'altro deve essere nella sala d\'attesa)'); })
+        .catch(() => { if (this.relay === r) this.relay = null; if (!this.connected) this.status('Server ponte non raggiungibile da questa rete. Provate tutti e due sulla stessa Wi-Fi.', 'err'); });
     };
     let Peer = null;
     try { Peer = await loadPeer(); await this.openPeer(Peer); } catch (e) { Peer = null; }
     if (!Peer) { relayGo(); return; }
     clearTimeout(this.relayT);
-    this.relayT = setTimeout(relayGo, 7000);
+    this.relayT = setTimeout(relayGo, 4000);
     // si riprova per un po': chi ha creato la gara potrebbe essere appena tornato nel gioco
     const t0 = performance.now();
     const tryConn = () => {
@@ -143,7 +146,7 @@ export class Online {
         else this.status('La gara ' + code + ' c\'è, ma i due telefoni non riescono a collegarsi. Provate a mettere tutti e due i dati mobili (o tutti e due la stessa Wi-Fi) e riprovate.', 'err');
         return;
       }
-      if (!this.sawUnavail && performance.now() - t0 > 5000) this.status('Gara ' + code + ' trovata, collegamento in corso…');
+      if (!this.sawUnavail && !this.relay && performance.now() - t0 > 5000) this.status('Gara ' + code + ' trovata, collegamento in corso…');
       this.sawUnavail = false;
       if (this.conn) { try { this.conn.close(); } catch (e) { /* niente */ } }
       this.attach(this.peer.connect(PREFIX + code, { reliable: true, serialization: 'json' }));
@@ -163,7 +166,7 @@ export class Online {
         if (!done) { done = true; try { peer.destroy(); } catch (x) { /* niente */ } rej(e); return; }
         if (e && e.type === 'peer-unavailable') {
           this.sawUnavail = true;
-          if (this.role === 'guest' && this.tryConn) { this.status('Cerco la gara ' + this.code + '… (l\'altro deve tenere il gioco aperto)'); clearTimeout(this.retry); this.retry = setTimeout(this.tryConn, 2500); }
+          if (this.role === 'guest' && this.tryConn) { if (!this.relay) this.status('Cerco la gara ' + this.code + '… (l\'altro deve tenere il gioco aperto)'); clearTimeout(this.retry); this.retry = setTimeout(this.tryConn, 2500); }
           else this.status('Nessuna gara con questo codice.', 'err');
         }
         else if (e && (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error')) this.status('Problema di rete: controlla la connessione.', 'err');

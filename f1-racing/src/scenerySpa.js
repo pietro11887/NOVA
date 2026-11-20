@@ -1,11 +1,11 @@
 import { PUBLIC } from './edition.js?v=f01fe25a';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { buildPitComplex } from './pitComplex.js?v=171';
-import { Scenery, ENV } from './scenery.js?v=171';
-import { PIT, TRACK } from './trackData.js?v=171';
+import { buildPitComplex } from './pitComplex.js?v=172';
+import { Scenery, ENV } from './scenery.js?v=172';
+import { PIT, TRACK } from './trackData.js?v=172';
 import { setAniso, triplanar, meadow } from './pbr.js?v=b890b6bc';
-import { buildTrees } from './trees.js?v=171';
+import { buildTrees } from './trees.js?v=172';
 
 // Circuit de Spa-Francorchamps ricostruito da dati pubblici (OpenStreetMap + modello del terreno EU-DEM):
 // colline vere delle Ardenne, boschi di abeti dove ci sono davvero, prati, strade e case del posto
