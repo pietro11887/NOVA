@@ -15,6 +15,7 @@ const ICE = [
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 const PEER_OPTS = { debug: 0, config: { iceServers: ICE } };
+import { RelayConn } from './relay.js?v=6bd95206';
 const SEND_EVERY = 0.05;          // 20 aggiornamenti al secondo
 const DELAY = 0.12;               // le vetture remote si mostrano 0,12 s indietro (movimento fluido)
 
@@ -60,14 +61,23 @@ export class Online {
   status(text, kind = '') { if (this.onStatus) this.onStatus(text, kind); }
 
   async host() {
-    const Peer = await loadPeer();
     this.role = 'host';
-    for (let tries = 0; tries < 6; tries++) {
-      const code = String(1000 + Math.floor(Math.random() * 9000));
-      try { await this.openPeer(Peer, PREFIX + code); this.code = code; break; }
-      catch (e) { if (tries === 5 || !(e && e.type === 'unavailable-id')) throw e; }
+    let Peer = null;
+    try {
+      Peer = await loadPeer();
+      for (let tries = 0; tries < 6; tries++) {
+        const code = String(1000 + Math.floor(Math.random() * 9000));
+        try { await this.openPeer(Peer, PREFIX + code); this.code = code; break; }
+        catch (e) { if (tries === 5 || !(e && e.type === 'unavailable-id')) throw e; }
+      }
+      this.listen();
+    } catch (e) {
+      // servizio del collegamento diretto non raggiungibile: si gioca solo tramite il ponte
+      Peer = null; this.code = String(1000 + Math.floor(Math.random() * 9000));
     }
-    this.listen();
+    // ponte (reti diverse): sempre in ascolto, si usa se l'altro non riesce a collegarsi direttamente
+    this.startRelayHost();
+    if (!Peer) { this.status('In attesa del secondo giocatore…'); return this.code; }
     this.status('In attesa del secondo giocatore…');
     // sul telefono, se si esce dal gioco (per mandare il codice su WhatsApp) il collegamento al server cade
     // e il codice "sparisce": quando si torna nel gioco lo si registra di nuovo, da solo
@@ -75,6 +85,14 @@ export class Online {
     this.keep = setInterval(() => this.keepHost(Peer), 2500);
     if (!this.onVis) { this.onVis = () => { if (!document.hidden && this.role === 'host') this.keepHost(Peer); }; document.addEventListener('visibilitychange', this.onVis); }
     return this.code;
+  }
+
+  startRelayHost() {
+    if (this.relay) return;
+    const r = this.relay = new RelayConn(this.code, 'host');
+    r.isRelay = true;
+    r.on('open', () => { if (!this.connected && this.role === 'host') this.attach(r); });
+    r.start().catch(() => { if (this.relay === r) this.relay = null; });
   }
 
   listen() {
@@ -100,16 +118,27 @@ export class Online {
   }
 
   async join(code) {
-    const Peer = await loadPeer();
     this.role = 'guest';
     this.code = code;
-    await this.openPeer(Peer);
     this.status('Collegamento alla gara ' + code + '…');
+    // ponte: parte dopo qualche secondo se il collegamento diretto non è riuscito (subito se manca del tutto)
+    const relayGo = () => {
+      if (this.connected || this.role !== 'guest' || this.code !== code || this.relay) return;
+      const r = this.relay = new RelayConn(code, 'guest');
+      r.isRelay = true;
+      r.on('open', () => { if (!this.connected && this.code === code) { clearTimeout(this.retry); try { this.conn && this.conn.close(); } catch (e) { /* niente */ } this.attach(r); } });
+      r.start().then(() => { if (!this.connected) this.status('Collegamento tramite server ponte alla gara ' + code + '…'); }).catch(() => { if (this.relay === r) this.relay = null; });
+    };
+    let Peer = null;
+    try { Peer = await loadPeer(); await this.openPeer(Peer); } catch (e) { Peer = null; }
+    if (!Peer) { relayGo(); return; }
+    clearTimeout(this.relayT);
+    this.relayT = setTimeout(relayGo, 7000);
     // si riprova per un po': chi ha creato la gara potrebbe essere appena tornato nel gioco
     const t0 = performance.now();
     const tryConn = () => {
       if (this.connected || this.role !== 'guest' || this.code !== code) return;
-      if (performance.now() - t0 > 45000) {
+      if (performance.now() - t0 > 45000 && !this.relay) {
         if (this.sawUnavail) this.status('Nessuna gara con il codice ' + code + '. Controlla il codice e che l\'altro abbia il gioco APERTO sulla schermata della gara.', 'err');
         else this.status('La gara ' + code + ' c\'è, ma i due telefoni non riescono a collegarsi. Provate a mettere tutti e due i dati mobili (o tutti e due la stessa Wi-Fi) e riprovate.', 'err');
         return;
@@ -145,7 +174,7 @@ export class Online {
 
   attach(conn) {
     this.conn = conn;
-    conn.on('open', () => {
+    const onOpen = () => {
       if (this.conn !== conn) return;
       this.connected = true;
       this.lastRecv = performance.now();
@@ -154,7 +183,8 @@ export class Online {
       this.ping = setInterval(() => this.send({ k: 'ping' }), 1000);
       this.status(this.role === 'host' ? 'Giocatore collegato' : 'Collegato!', 'ok');
       if (this.onMsg) this.onMsg({ k: 'open' });
-    });
+    };
+    if (conn.isRelay && conn.open) onOpen(); else conn.on('open', onOpen);
     conn.on('data', m => {
       if (this.conn !== conn) return;
       this.lastRecv = performance.now();
@@ -170,8 +200,9 @@ export class Online {
 
   close() {
     try { this.send({ k: 'bye' }); } catch (e) { /* niente */ }
-    setTimeout(() => { try { this.conn && this.conn.close(); } catch (e) { /* niente */ } try { this.peer && this.peer.destroy(); } catch (e) { /* niente */ } }, 200);
-    clearInterval(this.ping); clearInterval(this.keep); clearTimeout(this.retry); this.tryConn = null;
+    const conn = this.conn, peer = this.peer, relay = this.relay;
+    setTimeout(() => { try { conn && conn.close(); } catch (e) { /* niente */ } try { peer && peer.destroy(); } catch (e) { /* niente */ } try { relay && relay !== conn && relay.close(); } catch (e) { /* niente */ } }, 200);
+    clearInterval(this.ping); clearInterval(this.keep); clearTimeout(this.retry); clearTimeout(this.relayT); this.tryConn = null; this.relay = null;
     this.connected = false; this.conn = null; this.role = null; this.buf.clear(); this.off = null;
   }
 
@@ -201,7 +232,7 @@ export class Online {
     }
     this.sendT -= dt;
     if (this.sendT > 0) return;
-    this.sendT = SEND_EVERY;
+    this.sendT = this.conn && this.conn.isRelay ? SEND_EVERY * 2 : SEND_EVERY;   // dal ponte: 10 al secondo
     this.send({ k: 'st', t: r3(race.t), c: packCar(race.player) });
     if (this.role === 'host') this.send({ k: 'bots', t: r3(race.t), cars: race.cars.filter(c => c.ai).map(packCar) });
   }
