@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=168';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=168';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=168';
+import { GEOM, CAR_SCALE } from './carModel.js?v=169';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=169';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=169';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -89,6 +89,7 @@ export function loadVariant(v, lod = 'hi') {
   }
   return vJobs[key];
 }
+const savedQuality = () => { try { return JSON.parse(localStorage.getItem('novaf1.settings') || '{}').quality; } catch (e) { return null; } };
 const savedGtCar = () => { try { return (JSON.parse(localStorage.getItem('novaf1.settings') || '{}').gtCar) || 'gt3r'; } catch (e) { return 'gt3r'; } };
 
 export function loadGT() {
@@ -104,9 +105,10 @@ export function loadGT() {
     templates.gtMid = gtMid ? prepare(gtMid.scene, true, 'gt') : templates.mid;
     // in GT: anche le altre GT3 (la tua dettagliata, quelle degli avversari leggere)
     if (CAR_CLASS !== 'gt' || GT_VARIANTS.length < 2) return templates;
-    const mine = savedGtCar();
-    const extra = GT_VARIANTS.filter(v => v !== 'gt3r').map(v => loadVariant(v, 'mid').catch(() => null));
-    if (GT_VARIANTS.includes(mine) && mine !== 'gt3r') extra.push(loadVariant(mine, 'hi').catch(() => null));
+    const mine = savedGtCar(), minQ = savedQuality() === 'min';
+    // (grafica minima: gli avversari hanno la vettura semplice, e la tua è quella leggera)
+    const extra = minQ ? [] : GT_VARIANTS.filter(v => v !== 'gt3r').map(v => loadVariant(v, 'mid').catch(() => null));
+    if (GT_VARIANTS.includes(mine) && mine !== 'gt3r') extra.push(loadVariant(mine, minQ ? 'mid' : 'hi').catch(() => null));
     return Promise.all(extra).then(() => templates);
   });
 }

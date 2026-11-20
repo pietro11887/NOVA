@@ -1,37 +1,37 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=168';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=168';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=168';
+import { Track, SURF } from './track.js?v=169';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=169';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=169';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=168';
-import { BakuScenery } from './sceneryBaku.js?v=168';
-import { SpaScenery } from './scenerySpa.js?v=168';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=168';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=168';
-import { SafetyCar } from './safetyCar.js?v=168';
-import { CarPhysics } from './physics.js?v=168';
+import { Scenery, ENV } from './scenery.js?v=169';
+import { BakuScenery } from './sceneryBaku.js?v=169';
+import { SpaScenery } from './scenerySpa.js?v=169';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=169';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=169';
+import { SafetyCar } from './safetyCar.js?v=169';
+import { CarPhysics } from './physics.js?v=169';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=168';
-import { WallMarks } from './wallMarks.js?v=168';
+import { BakuFx } from './bakuFx.js?v=169';
+import { WallMarks } from './wallMarks.js?v=169';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
-import { Sound } from './audio.js?v=168';
+import { Sound } from './audio.js?v=169';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=168';
-import { RacingLine } from './racingLine.js?v=168';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=168';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=169';
+import { RacingLine } from './racingLine.js?v=169';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=169';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=168';
-import { PitCrew } from './pitCrew.js?v=168';
-import { buildGrassTufts } from './grassTufts.js?v=168';
+import { PitLane, PitStop } from './pit.js?v=169';
+import { PitCrew } from './pitCrew.js?v=169';
+import { buildGrassTufts } from './grassTufts.js?v=169';
 import { Online, NET_VER } from './online.js?v=1d4929cc';
-import { COMPOUNDS } from './physics.js?v=168';
-import { AIDriver } from './ai.js?v=168';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=168';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=168';
+import { COMPOUNDS } from './physics.js?v=169';
+import { AIDriver } from './ai.js?v=169';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=169';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=169';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -42,7 +42,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=168';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=169';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -77,7 +77,10 @@ try {
   if (settings.quality === 'ultra') localStorage.setItem('novaf1.qguard', 'ultra'); else localStorage.removeItem('novaf1.qguard');
 } catch (e) { /* niente */ }
 // qualità: 'low' (leggera), 'high' (alta), 'ultra' (massima: tutto al massimo, anche se pesa)
-const ULTRA = settings.quality === 'ultra', HIQ = settings.quality !== 'low';
+// grafica MINIMA (telefoni Android deboli): come la leggera, più risoluzione ridotta, niente ombre né
+// antialiasing, avversari con la vettura semplice e la tua nella versione leggera
+const MINQ = settings.quality === 'min', QS = MINQ ? 'low' : settings.quality;
+const ULTRA = settings.quality === 'ultra', HIQ = QS !== 'low';
 // ultra: carrozzerie con vernice trasparente lucida (clearcoat) e, sulla tua vettura, i riflessi veri
 // di quello che ha intorno (una ripresa a 360° aggiornata mentre guidi)
 const ccCache = new Map();
@@ -213,24 +216,24 @@ fillLoading(settings.track);
 
 // ---------------------------------------------------------------- renderer / scena
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MINQ, powerPreference: 'high-performance' });
 // ultra: si disegna a risoluzione più alta dello schermo (immagine più nitida, bordi più puliti)
-renderer.setPixelRatio(ULTRA ? Math.min(2, Math.max(1.25, devicePixelRatio * 1.25)) : Math.min(devicePixelRatio, settings.quality === 'low' ? 1.5 : 2));
+renderer.setPixelRatio(MINQ ? 0.75 : ULTRA ? Math.min(2, Math.max(1.25, devicePixelRatio * 1.25)) : Math.min(devicePixelRatio, QS === 'low' ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !MINQ;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(ENV.horizon, 420, 2700);
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 9000);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, MINQ ? 2500 : 9000);
 
 const hemi = new THREE.HemisphereLight(0xd6e8ff, 0x5d7a3a, 1.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe7c8, 2.7);
 sun.castShadow = true;
-let shadowSize = settings.quality === 'low' ? 1024 : ULTRA ? Math.min(6144, renderer.capabilities.maxTextureSize) : 4096;
+let shadowSize = QS === 'low' ? 1024 : ULTRA ? Math.min(6144, renderer.capabilities.maxTextureSize) : 4096;
 sun.shadow.mapSize.set(shadowSize, shadowSize);
 // con grafica alta l'ombra copre molto più spazio (palazzi e alberi lontani) con la stessa nitidezza
 const SHR = ULTRA ? 190 : HIQ ? 140 : 70;
@@ -249,7 +252,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=168`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=169`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -411,7 +414,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v168 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v169 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -424,10 +427,10 @@ let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane,
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
 function build() {
-  track.quality = settings.quality;
+  track.quality = QS;
   track.tod = SUNSET ? 'sunset' : NIGHT ? 'night' : 'day';
   scene.add(track.build(renderer));
-  scenery = new (TRACK.meta ? RealScenery : TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, settings.quality);
+  scenery = new (TRACK.meta ? RealScenery : TRACK.id === 'spa' ? SpaScenery : track.street ? BakuScenery : Scenery)(scene, track, renderer, QS);
   scenery.build();
   if (NIGHT) addNightLights(scene, track, scenery);
   try { landmarks = addLandmarks(scene, TRACK.id, scenery, track, NIGHT); } catch (e) { console.warn('monumenti non disponibili', e); }
@@ -441,7 +444,7 @@ function build() {
   scene.environment = pmrem.fromScene(envScene, 0.02).texture;
   scene.environmentIntensity = 0.6;
   // Baku: nei riflessi (carrozzerie, asfalto) si vede la città vera, non solo il cielo
-  if (!TRACK.model && settings.quality !== 'low') {
+  if (!TRACK.model && QS !== 'low') {
     try {
       const crt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
       const cc = new THREE.CubeCamera(1, 6000, crt);
@@ -491,8 +494,8 @@ function build() {
   skids = new SkidMarks(scene);
   // pioggia: gocce, schizzi, nuvole d'acqua dietro le vetture; cordoli e righe bagnati (più scuri e lucidi)
   if (WET && !TRACK.model) {
-    rain = new Rain(scene, track, { quality: settings.quality });
-    spray = new Particles(scene, settings.quality === 'low' ? 1400 : 3600, { soft: true });
+    rain = new Rain(scene, track, { quality: QS });
+    spray = new Particles(scene, QS === 'low' ? 1400 : 3600, { soft: true });
     if (WX.rain > 0.7) lightning = new Lightning();
     // asfalto a specchio: la scena riflessa sotto la pista (vetture, box, cielo), a risoluzione ridotta
     if (track.reflU) {
@@ -724,7 +727,7 @@ function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     const gv = !IS_F1 && !CLASSIC && GT_VARIANTS.length > 1 ? GT_VARIANTS[(c.slot * 3 + 1) % GT_VARIANTS.length] : null;
-    c.model = gtReady() ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid', variant: gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() && !MINQ ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid' } : { primary: c.color, accent: c.accent, lod: 'mid', variant: gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     ultraCar(c.model);
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
@@ -2530,7 +2533,7 @@ const SET_LABELS = {
   post: v => `Effetti TV: ${v !== false ? 'ON' : 'OFF'}`,
   tod: v => `Ora: ${TOD_NAME[v] || 'GIORNO'}`,
   cam: v => `Telecamera: ${CAMS[v]}`,
-  quality: v => `Grafica: ${v === 'ultra' ? 'Ultra (massima)' : v === 'high' ? 'Alta' : 'Leggera'}`,
+  quality: v => `Grafica: ${v === 'ultra' ? 'Ultra (massima)' : v === 'high' ? 'Alta' : v === 'min' ? 'Minima' : 'Leggera'}`,
   track: v => `Circuito: ${v === 'baku' ? 'Baku (Azerbaijan)' : 'Nova'}`,
   raceTyre: v => `Gomme di partenza: ${COMPOUNDS[v].name}`,
   msgs: v => `Avvisi a schermo: ${v ? 'Tutti' : 'Essenziali'}`,
@@ -2565,7 +2568,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'track') { settings.track = settings.track === 'baku' ? 'nova' : 'baku'; saveSettings(); location.reload(); return; }
   else if (k === 'post') { settings.post = settings.post === false; saveSettings(); location.reload(); return; }
   else if (k === 'tod') { settings.tod = nextTod(settings.tod); saveSettings(); location.reload(); return; }
-  else if (k === 'quality') { settings.quality = settings.quality === 'low' ? 'high' : settings.quality === 'high' ? 'ultra' : 'low'; saveSettings(); location.reload(); return; }
+  else if (k === 'quality') { settings.quality = settings.quality === 'min' ? 'low' : QS === 'low' ? 'high' : settings.quality === 'high' ? 'ultra' : 'min'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = cyc(TYRES_ALL, settings.raceTyre, 1); }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
   else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
@@ -3202,7 +3205,7 @@ function openTrackPicker() { openTrackPage(); }
 // opzioni del modello del giocatore: in F1 la livrea della scuderia scelta
 // colore della carrozzeria del giocatore (per la vernice lasciata sui muri)
 function playerPaint() { if (race && race.player && race.player.color != null && !IS_F1) return race.player.color; const t = IS_F1 && teamById(settings.f1Team); return (t && t.colors && t.colors[0]) || 0xff8a1c; }
-function playerCarOpts(extra = {}) { return IS_F1 ? { team: teamById(settings.f1Team), ...extra } : { ...gtOpts(), ...extra }; }
+function playerCarOpts(extra = {}) { const lo = MINQ ? { lod: 'mid' } : {}; return IS_F1 ? { team: teamById(settings.f1Team), ...lo, ...extra } : { ...gtOpts(), ...lo, ...extra }; }
 // GT: quale GT3 guidi (Porsche con le sue livree, Ferrari 296, Mercedes SLS, BMW M4)
 function gtOpts() {
   const v = GT_VARIANTS.includes(settings.gtCar) ? settings.gtCar : 'gt3r';
@@ -4234,7 +4237,7 @@ canvas.addEventListener('webglcontextlost', e => {
   // Alta su un telefono che non ce la fa: si scende a Leggera (una volta sola, poi si avvisa e basta)
   if (!ULTRA) {
     let last = 0; try { last = +localStorage.getItem('novaf1.lost') || 0; } catch (x) { /* niente */ }
-    if (settings.quality !== 'low' && Date.now() - last > 60000) {
+    if (QS !== 'low' && Date.now() - last > 60000) {
       e.preventDefault();
       try { localStorage.setItem('novaf1.lost', String(Date.now())); settings.quality = 'low'; localStorage.setItem('novaf1.settings', JSON.stringify(settings)); } catch (x) { /* niente */ }
       location.reload();
