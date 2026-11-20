@@ -29,6 +29,13 @@ const CFG = {
     drop: /Seat|Cockpit|Interactive_Lights|^Net_Share|^stitches_Share|Console|Interior|Pedals|Steering|WorldGrid/, livery: /^PAINT$/, ratio: [0.25, 0.06], error: [0.0012, 0.005] },
   // McLaren 720S GT3 Inception Racing (VTX): abitacolo tolto
   mcl: { wb: 2.67, tyre: /^Tyre$/, rim: /^Wheel$/, disc: /^NESSUNO$/, paint: /^Body$/, drop: /^Interior$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
+  // Maserati MC20 GT3 (stessa impostazione della Ferrari 296): abitacolo tolto
+  mas: { wb: 2.7, tyre: /^MI_Tyre/, rim: /^EXT_RIM/, disc: /^EXT_Disc/, paint: /^EXT_Carpaint/,
+    drop: /^INT_|BELT|LIMIRANK|^LED|RPMBAR|TRANSPARENTE|^DISPLAY|SAS_DISPLAY|RACELOGIC_DISPLAY|SPARCO/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
+  // Toyota GR GT3 Vasser Sullivan (VTX): muso verso -Z nel file (si gira di 180°), abitacolo tolto
+  toy: { wb: 2.73, flip: true, tyre: /^Tire$/, rim: /^Wheel$/, disc: /^NESSUNO$/, paint: /^Body$/, drop: /^Cockpit$|^Interior$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
+  // Ford Mustang GT3 (VTX): materiali senza nome; muso verso +Z
+  ford: { wb: 2.71, tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
@@ -51,6 +58,7 @@ for (const m of root.listMaterials()) {
   info.setExtension('KHR_texture_transform', null);
   console.log('trasformazione UV applicata a', m.getName(), sx.toFixed(3), sy.toFixed(3), ox.toFixed(3), oy.toFixed(3));
 }
+if (CFG.flip) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [-1,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,1]);
 if (CFG.rotX) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1]);
 for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (CFG.drop.test(p.getMaterial()?.getName() || '')) p.dispose();
 for (const m of root.listMaterials()) if (CFG.paint.test(m.getName())) m.setName('PAINT');

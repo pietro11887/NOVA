@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=177';
+import { CarPhysics } from './physics.js?v=178';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=177';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=177';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=177';
-import { PitStop } from './pit.js?v=177';
-import { PIT, TRACK } from './trackData.js?v=177';
+import { AIDriver } from './ai.js?v=178';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=178';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=178';
+import { PitStop } from './pit.js?v=178';
+import { PIT, TRACK } from './trackData.js?v=178';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=177';
+import { TEAMS } from './f1Teams.js?v=178';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -24,6 +24,7 @@ export const DRIVERS = [
   ['VITALE', 0x0e4d2b, 0xf5c518], ['RIVA', 0x9aa1ab, 0x1b3a8a], ['PELLE', 0xff7b1c, 0x2257b8],
   ['LOMBA', 0x14a0e0, 0x16171b], ['GRASSI', 0x6e4a33, 0xf2f2f2], ['SALA', 0xb43adf, 0xffd21e],
   ['PARISI', 0x2ee06f, 0x16171b],
+  ['FONTANA', 0x8a1c3a, 0xf2f2f2], ['GRECO', 0x2a9df4, 0x16171b], ['LEONE', 0xc77a1c, 0x16171b],
 ];
 
 const CIRCLES = SPEC.circles.map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
