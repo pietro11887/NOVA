@@ -1095,3 +1095,11 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 #podium.stage .pod { background: rgba(8,10,16,0.55); border-radius: 6px; padding: 6px 10px; border-top: 3px solid var(--accent); }
 
 #retireBtn { color: #ff5a4f; border-color: rgba(255,90,79,0.5); }
+
+/* gara online: scelte prima di creare la gara */
+.onSetup { display: flex; flex-direction: column; gap: 6px; }
+.onRow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; border-radius: 10px; background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.12); }
+.onRow span { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); }
+.onRow b { display: block; font-size: 16px; font-weight: 900; font-style: italic; color: #fff; }
+.onRow .onArr { display: flex; gap: 6px; }
+.onRow .onArr button { width: 40px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; }
