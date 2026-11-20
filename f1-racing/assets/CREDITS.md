@@ -85,3 +85,5 @@ https://sketchfab.com/3d-models/mercedes-sls-gt3-5ec93bea4816494cbe3e7333bbfca5f
 Fonte: https://sketchfab.com/3d-models/bmw-m4-gt3-cbf6fd3ea47f41b3aad3f385ee0ee853
 File `gt_f296_*.glb`, `gt_sls_*.glb`, `gt_m4_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto,
 scala vera dal passo, ruote separate in quattro, poligoni ridotti, texture ridimensionate. Non incluse nell'edizione pubblica.
+**2013 Aston Martin Vantage GT3** — modello da Sketchfab (scaricato da Pietro; autore e licenza da riportare qui dalla pagina del modello).
+File `gt_aston_*` = `gt_amv_*.glb`: versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, texture ridotte.

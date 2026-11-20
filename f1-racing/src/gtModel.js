@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=174';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=174';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=174';
+import { GEOM, CAR_SCALE } from './carModel.js?v=175';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=175';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=175';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -73,8 +73,8 @@ function inlineImages(parser) {
 const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
-export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4'];
-const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'] };
+export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4', 'amv'];
+const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'] };
 const vJobs = {};
 // carica una GT (hi = dettagliata per te, mid = leggera per gli avversari)
 export function loadVariant(v, lod = 'hi') {
@@ -142,7 +142,7 @@ function tuneMaterial(src) {
   else if (n === 'redbull_wheel_hub') { m.roughness = 0.35; m.metalness = 0.6; }
   else if (/^TIRE_/.test(n)) { m.roughness = 0.88; m.metalness = 0; }
   else if (n === 'mirrors') { m.roughness = 0.05; m.metalness = 0.9; m.color.set(0x9aa4b0); }
-  else if (/^EXT_Windows/.test(n)) { m.map = null; m.transparent = false; m.color.set(0x0c1118); m.roughness = 0.06; m.metalness = 0.65; }
+  else if (/^EXT_Windows|mm_windows$/.test(n)) { m.map = null; m.transparent = false; m.color.set(0x0c1118); m.roughness = 0.06; m.metalness = 0.65; }
   else if (/^EXT_RIM/.test(n)) { m.roughness = 0.3; m.metalness = 0.75; m.color.set(0x9aa0a8); }
   else if (/^MI_Tyre/.test(n)) { m.roughness = 0.9; m.metalness = 0; }
   else if (/Mechanics|CHASSIS|RADIATOR/.test(n)) { m.color.set(0x24262b); m.roughness = 0.7; }

@@ -3,7 +3,7 @@
 // Mercedes W11 (OUTPISTON, CC BY-NC-SA 4.0).
 // Scala vera dal passo, terra a y=0, centro tra gli assi a z=0, ruote in quattro nodi (WHEEL_xx_TIRE/RIM/DISC),
 // via le ruote "mosse" finte e le mappe che il gioco non usa, poligoni e texture ridotti.
-// Uso: node tools/build_gt.mjs <f296|sls|m4> <scene.gltf> <uscita.glb> [mid]
+// Uso: node tools/build_classic.mjs <id> <scene.gltf> <uscita.glb> [mid]
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { flatten, clearNodeTransform, dedup, prune, weld, simplify, transformPrimitive } from '@gltf-transform/functions';
@@ -22,6 +22,8 @@ const CFG = {
   // BMW M4 GT3 (toddeppe, CC BY 4.0): muso verso +X nel file, molto dettagliata
   m4: { wb: 2.92, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/,
     drop: /^INSIDE$|^INTERIOR$/, livery: /^PAINT$/, ratio: [0.06, 0.022], error: [0.0012, 0.004] },
+  // Aston Martin Vantage GT3 2013: abitacolo ("cab") tolto
+  amv: { wb: 2.6, tyre: /mm_tyre$/, rim: /mm_wheel$/, disc: /mm_rotor$/, paint: /mm_ext$/, drop: /mm_cab$/, livery: /^PAINT$/, ratio: [0.6, 0.25] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
