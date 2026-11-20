@@ -1,37 +1,37 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=172';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=172';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=172';
+import { Track, SURF } from './track.js?v=173';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=173';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=173';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=172';
-import { BakuScenery } from './sceneryBaku.js?v=172';
-import { SpaScenery } from './scenerySpa.js?v=172';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=172';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=172';
-import { SafetyCar } from './safetyCar.js?v=172';
-import { CarPhysics } from './physics.js?v=172';
+import { Scenery, ENV } from './scenery.js?v=173';
+import { BakuScenery } from './sceneryBaku.js?v=173';
+import { SpaScenery } from './scenerySpa.js?v=173';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=173';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=173';
+import { SafetyCar } from './safetyCar.js?v=173';
+import { CarPhysics } from './physics.js?v=173';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=172';
-import { WallMarks } from './wallMarks.js?v=172';
+import { BakuFx } from './bakuFx.js?v=173';
+import { WallMarks } from './wallMarks.js?v=173';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
-import { Sound } from './audio.js?v=172';
+import { Sound } from './audio.js?v=173';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=172';
-import { RacingLine } from './racingLine.js?v=172';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=172';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=173';
+import { RacingLine } from './racingLine.js?v=173';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=173';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=172';
-import { PitCrew } from './pitCrew.js?v=172';
-import { buildGrassTufts } from './grassTufts.js?v=172';
-import { Online, NET_VER } from './online.js?v=172';
-import { COMPOUNDS } from './physics.js?v=172';
-import { AIDriver } from './ai.js?v=172';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=172';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=172';
+import { PitLane, PitStop } from './pit.js?v=173';
+import { PitCrew } from './pitCrew.js?v=173';
+import { buildGrassTufts } from './grassTufts.js?v=173';
+import { Online, NET_VER } from './online.js?v=173';
+import { COMPOUNDS } from './physics.js?v=173';
+import { AIDriver } from './ai.js?v=173';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=173';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=173';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -42,7 +42,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=172';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=173';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -252,7 +252,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=172`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=173`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -414,7 +414,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v172 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v173 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`

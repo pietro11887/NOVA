@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=172';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=172';
-import { SURF, SURF_PROPS } from './track.js?v=172';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=173';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=173';
+import { SURF, SURF_PROPS } from './track.js?v=173';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -299,7 +299,9 @@ export class CarPhysics {
     const downFL = fBase * (1 - 0.7 * dmg.fwL * dfx), downFR = fBase * (1 - 0.7 * dmg.fwR * dfx);
     const downF = downFL + downFR;
     const downR = q * this.ClA * (1 - this.aeroBalance) * (1 - 0.7 * dmg.rw * dfx) * this.downMul * floorL;
-    const drag = q * (this.CdA - 0.2 * dmg.rw * dfx + 0.1 * fwD) * this.dragMul;
+    // (i cavalli in più dei bot forti servono ad accelerare, non a superare la tua velocità massima:
+    //  la resistenza cresce con loro, così in fondo al rettilineo si arriva alla stessa velocità)
+    const drag = q * (this.CdA - 0.2 * dmg.rw * dfx + 0.1 * fwD) * this.dragMul * Math.max(1, this.powerScale);
     // la gomma forata si sgonfia in pochi secondi
     for (let k = 0; k < 4; k++) if (dmg.punctured[k] && dmg.puncture[k] < 1) dmg.puncture[k] = Math.min(1, dmg.puncture[k] + dt / 4);
 
