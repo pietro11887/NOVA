@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { GEOM } from './carModel.js?v=173';
-import { PIT } from './trackData.js?v=173';
+import { GEOM } from './carModel.js?v=174';
+import { PIT } from './trackData.js?v=174';
 
 // Safety car: entra dopo un incidente che lascia abbastanza rottami sulla carreggiata,
 // raccoglie il gruppo dietro di sé, i commissari puliscono la pista, dopo almeno un giro
