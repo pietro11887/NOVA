@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=178';
+import { CarPhysics } from './physics.js?v=179';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=178';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=178';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=178';
-import { PitStop } from './pit.js?v=178';
-import { PIT, TRACK } from './trackData.js?v=178';
+import { AIDriver } from './ai.js?v=179';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=179';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=179';
+import { PitStop } from './pit.js?v=179';
+import { PIT, TRACK } from './trackData.js?v=179';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=178';
+import { TEAMS } from './f1Teams.js?v=179';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 

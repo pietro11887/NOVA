@@ -36,6 +36,8 @@ const CFG = {
   toy: { wb: 2.73, flip: true, tyre: /^Tire$/, rim: /^Wheel$/, disc: /^NESSUNO$/, paint: /^Body$/, drop: /^Cockpit$|^Interior$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
   // Ford Mustang GT3 (VTX): materiali senza nome; muso verso +Z
   ford: { wb: 2.71, tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
+  // Lamborghini Huracán GT3 (stessa impostazione della BMW M4): muso verso +X nel file, abitacolo tolto
+  lam: { wb: 2.645, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/, drop: /^INTERIOR$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.0012, 0.004] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
