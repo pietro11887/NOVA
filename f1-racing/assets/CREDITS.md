@@ -76,3 +76,12 @@ Fonte: https://sketchfab.com/3d-models/2020-f1-mercedes-benz-w11-6c0e669402c3413
 Licenza: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — uso non commerciale.
 File `w11_hi.glb`, `w11_mid.glb` = versioni modificate (script `tools/build_classic.mjs`): ruote separate in quattro,
 poligoni ridotti, texture ridimensionate; distribuite con la stessa licenza CC BY-NC-SA 4.0.
+
+## GT3 (oltre alla Porsche)
+**2025 Ferrari 296 GT3 Verstappen Racing**, **Mercedes SLS GT3** — autore: [Dave Love](https://sketchfab.com/Tyler_Dave) (Sketchfab), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+Fonti: https://sketchfab.com/3d-models/2025-ferrari-296-gt3-verstappen-racing-b2dcbf78f04a4e108321f7cdfc2a5c44 ·
+https://sketchfab.com/3d-models/mercedes-sls-gt3-5ec93bea4816494cbe3e7333bbfca5f6
+**BMW M4 GT3** — autore: [toddeppe](https://sketchfab.com/toddeppe) (Sketchfab), licenza [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+Fonte: https://sketchfab.com/3d-models/bmw-m4-gt3-cbf6fd3ea47f41b3aad3f385ee0ee853
+File `gt_f296_*.glb`, `gt_sls_*.glb`, `gt_m4_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto,
+scala vera dal passo, ruote separate in quattro, poligoni ridotti, texture ridimensionate. Non incluse nell'edizione pubblica.
