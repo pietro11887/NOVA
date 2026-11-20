@@ -87,3 +87,6 @@ File `gt_f296_*.glb`, `gt_sls_*.glb`, `gt_m4_*.glb` = versioni modificate (scrip
 scala vera dal passo, ruote separate in quattro, poligoni ridotti, texture ridimensionate. Non incluse nell'edizione pubblica.
 **2013 Aston Martin Vantage GT3** — modello da Sketchfab (scaricato da Pietro; autore e licenza da riportare qui dalla pagina del modello).
 File `gt_aston_*` = `gt_amv_*.glb`: versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, texture ridotte.
+**Mercedes-AMG GT3 Red Bull Racing** — autore: [VTX](https://sketchfab.com/VTX_car) (Sketchfab), licenza [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — uso non commerciale.
+Fonte: https://sketchfab.com/3d-models/mercedes-amg-gt3-red-bull-racing-035f061cb6624effbc483d5f9b5ecaba
+File `gt_amg_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, poligoni e texture ridotti; stessa licenza.

@@ -24,6 +24,9 @@ const CFG = {
     drop: /^INSIDE$|^INTERIOR$/, livery: /^PAINT$/, ratio: [0.06, 0.022], error: [0.0012, 0.004] },
   // Aston Martin Vantage GT3 2013: abitacolo ("cab") tolto
   amv: { wb: 2.6, tyre: /mm_tyre$/, rim: /mm_wheel$/, disc: /mm_rotor$/, paint: /mm_ext$/, drop: /mm_cab$/, livery: /^PAINT$/, ratio: [0.6, 0.25] },
+  // Mercedes-AMG GT3 Evo Red Bull (VTX): muso verso +X nel file, abitacolo tolto
+  amg: { wb: 2.63, rotX: true, tyre: /Evo_Tyre_Inst$/, rim: /Evo_Rim_Inst$/, disc: /Brake_Disc_Inst$/, paint: /Evo_Livery$/,
+    drop: /Seat|Cockpit|Interactive_Lights|^Net_Share|^stitches_Share|Console|Interior|Pedals|Steering|WorldGrid/, livery: /^PAINT$/, ratio: [0.25, 0.06], error: [0.0012, 0.005] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);

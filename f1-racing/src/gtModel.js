@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=175';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=175';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=175';
+import { GEOM, CAR_SCALE } from './carModel.js?v=176';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=176';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=176';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -73,8 +73,8 @@ function inlineImages(parser) {
 const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
-export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4', 'amv'];
-const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'] };
+export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4', 'amv', 'amg'];
+const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'] };
 const vJobs = {};
 // carica una GT (hi = dettagliata per te, mid = leggera per gli avversari)
 export function loadVariant(v, lod = 'hi') {
