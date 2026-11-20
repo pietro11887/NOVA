@@ -90,3 +90,6 @@ File `gt_aston_*` = `gt_amv_*.glb`: versioni modificate (script `tools/build_gt.
 **Mercedes-AMG GT3 Red Bull Racing** — autore: [VTX](https://sketchfab.com/VTX_car) (Sketchfab), licenza [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — uso non commerciale.
 Fonte: https://sketchfab.com/3d-models/mercedes-amg-gt3-red-bull-racing-035f061cb6624effbc483d5f9b5ecaba
 File `gt_amg_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, poligoni e texture ridotti; stessa licenza.
+**McLaren 720S GT3 Inception Racing** — autore: [VTX](https://sketchfab.com/VTX_car) (Sketchfab), licenza [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — uso non commerciale.
+Fonte: https://sketchfab.com/3d-models/mclaren-720s-gt3-inception-racing-3e2c50dea242474cb74e1f8b196b4315
+File `gt_mcl_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, poligoni e texture ridotti; stessa licenza.

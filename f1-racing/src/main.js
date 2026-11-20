@@ -1,37 +1,37 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=176';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=176';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=176';
+import { Track, SURF } from './track.js?v=177';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=177';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=177';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=176';
-import { BakuScenery } from './sceneryBaku.js?v=176';
-import { SpaScenery } from './scenerySpa.js?v=176';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=176';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=176';
-import { SafetyCar } from './safetyCar.js?v=176';
-import { CarPhysics } from './physics.js?v=176';
+import { Scenery, ENV } from './scenery.js?v=177';
+import { BakuScenery } from './sceneryBaku.js?v=177';
+import { SpaScenery } from './scenerySpa.js?v=177';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=177';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, loadVariant } from './gtModel.js?v=177';
+import { SafetyCar } from './safetyCar.js?v=177';
+import { CarPhysics } from './physics.js?v=177';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=176';
-import { WallMarks } from './wallMarks.js?v=176';
+import { BakuFx } from './bakuFx.js?v=177';
+import { WallMarks } from './wallMarks.js?v=177';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=329b0f3e';
-import { Sound } from './audio.js?v=176';
+import { Sound } from './audio.js?v=177';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=176';
-import { RacingLine } from './racingLine.js?v=176';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=176';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=177';
+import { RacingLine } from './racingLine.js?v=177';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=177';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=176';
-import { PitCrew } from './pitCrew.js?v=176';
-import { buildGrassTufts } from './grassTufts.js?v=176';
-import { Online, NET_VER } from './online.js?v=176';
-import { COMPOUNDS } from './physics.js?v=176';
-import { AIDriver } from './ai.js?v=176';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=176';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=176';
+import { PitLane, PitStop } from './pit.js?v=177';
+import { PitCrew } from './pitCrew.js?v=177';
+import { buildGrassTufts } from './grassTufts.js?v=177';
+import { Online, NET_VER } from './online.js?v=177';
+import { COMPOUNDS } from './physics.js?v=177';
+import { AIDriver } from './ai.js?v=177';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=177';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=177';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -42,7 +42,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=176';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=177';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -252,7 +252,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=176`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=177`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -414,7 +414,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v176 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v177 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -741,7 +741,8 @@ function spawnRaceModels() {
 // (la tua ha un compagno di squadra con la stessa vettura). Edizione pubblica: Porsche ridipinte.
 const GT_TEAMS = { gt3r: { name: 'MANTHEY', color: 0xc8d400, accent: 0x111111 }, f296: { name: 'VERSTAPPEN.COM RACING', color: 0x1b2a6b, accent: 0xe8202c },
   sls: { name: 'AMG TEAM', color: 0xc9ccd2, accent: 0x111111 }, m4: { name: 'BMW M TEAM WRT', color: 0x16171b, accent: 0x1c69d4 },
-  amv: { name: 'ASTON MARTIN RACING', color: 0x1f4fbf, accent: 0xffd21e }, amg: { name: 'MERCEDES-AMG TEAM RED BULL', color: 0x1e2a78, accent: 0xe8202c } };
+  amv: { name: 'ASTON MARTIN RACING', color: 0x1f4fbf, accent: 0xffd21e }, amg: { name: 'MERCEDES-AMG TEAM RED BULL', color: 0x1e2a78, accent: 0xe8202c },
+  mcl: { name: 'INCEPTION RACING', color: 0xe8331f, accent: 0x111111 } };
 function gtTeams() {
   if (IS_F1 || CLASSIC || !race || GT_VARIANTS.length < 2) return;
   const mine = race.player && race.player.gv ? race.player.gv : (GT_VARIANTS.includes(settings.gtCar) ? settings.gtCar : 'gt3r');
@@ -3857,6 +3858,7 @@ const GT_LIVERIES = [
   { name: 'ROSSO FUOCO', team: 'PORSCHE 992 GT3 R', primary: 0xd8231f, accent: '#ff3b30', acc2: 0xffffff },
   { name: 'VERSTAPPEN RACING', team: 'FERRARI 296 GT3', model: 'f296', accent: '#e8202c', engine: 'GT3 · 3,0 L V6 biturbo', stats: ['~600 CV', '1250 kg', '~285 km/h'] },
   { name: 'AMG GT3', team: 'MERCEDES-AMG SLS GT3', model: 'sls', accent: '#c9ccd2', engine: 'GT3 · 6,2 L V8', stats: ['~550 CV', '1300 kg', '~280 km/h'] },
+  { name: 'INCEPTION RACING', team: 'MCLAREN 720S GT3', model: 'mcl', accent: '#e8331f', engine: 'GT3 · 4,0 L V8 biturbo', stats: ['~550 CV', '1280 kg', '~285 km/h'] },
   { name: 'RED BULL', team: 'MERCEDES-AMG GT3 EVO', model: 'amg', accent: '#1e2a78', engine: 'GT3 · 6,2 L V8', stats: ['~550 CV', '1285 kg', '~285 km/h'] },
   { name: 'ASTON MARTIN RACING', team: 'ASTON MARTIN VANTAGE GT3', model: 'amv', accent: '#1f4fbf', engine: 'GT3 · 6,0 L V12', stats: ['~600 CV', '1250 kg', '~285 km/h'] },
   { name: 'BMW M MOTORSPORT', team: 'BMW M4 GT3', model: 'm4', accent: '#1c69d4', engine: 'GT3 · 3,0 L 6 cilindri biturbo', stats: ['~590 CV', '1300 kg', '~285 km/h'] },

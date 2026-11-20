@@ -27,6 +27,8 @@ const CFG = {
   // Mercedes-AMG GT3 Evo Red Bull (VTX): muso verso +X nel file, abitacolo tolto
   amg: { wb: 2.63, rotX: true, tyre: /Evo_Tyre_Inst$/, rim: /Evo_Rim_Inst$/, disc: /Brake_Disc_Inst$/, paint: /Evo_Livery$/,
     drop: /Seat|Cockpit|Interactive_Lights|^Net_Share|^stitches_Share|Console|Interior|Pedals|Steering|WorldGrid/, livery: /^PAINT$/, ratio: [0.25, 0.06], error: [0.0012, 0.005] },
+  // McLaren 720S GT3 Inception Racing (VTX): abitacolo tolto
+  mcl: { wb: 2.67, tyre: /^Tyre$/, rim: /^Wheel$/, disc: /^NESSUNO$/, paint: /^Body$/, drop: /^Interior$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
