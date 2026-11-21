@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=181';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=181';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=181';
+import { GEOM, CAR_SCALE } from './carModel.js?v=182';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=182';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=182';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -73,9 +73,11 @@ function inlineImages(parser) {
 const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
-export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam'];
+export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'sls', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
+// GT3 che corrono in griglia (la SLS bianca, senza livrea, solo se la guidi tu)
+export const gridVariants = mine => GT_VARIANTS.filter(v => v !== 'sls' || v === mine);
 const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'], mcl: ['gt_mcl_hi.glb', 'gt_mcl_mid.glb'],
-  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'] };
+  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'], brz: ['gt_brz_hi.glb', 'gt_brz_mid.glb'] };
 const vJobs = {};
 // carica una GT (hi = dettagliata per te, mid = leggera per gli avversari)
 export function loadVariant(v, lod = 'hi') {
@@ -108,7 +110,7 @@ export function loadGT() {
     if (CAR_CLASS !== 'gt' || GT_VARIANTS.length < 2) return templates;
     const mine = savedGtCar(), minQ = savedQuality() === 'min';
     // (grafica minima: gli avversari hanno la vettura semplice, e la tua è quella leggera)
-    const extra = minQ ? [] : GT_VARIANTS.filter(v => v !== 'gt3r').map(v => loadVariant(v, 'mid').catch(() => null));
+    const extra = minQ ? [] : gridVariants(mine).filter(v => v !== 'gt3r').map(v => loadVariant(v, 'mid').catch(() => null));
     if (GT_VARIANTS.includes(mine) && mine !== 'gt3r') extra.push(loadVariant(mine, minQ ? 'mid' : 'hi').catch(() => null));
     return Promise.all(extra).then(() => templates);
   });

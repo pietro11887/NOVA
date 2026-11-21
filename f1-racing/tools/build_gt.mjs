@@ -38,6 +38,9 @@ const CFG = {
   ford: { wb: 2.71, tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
   // Lamborghini Huracán GT3 (stessa impostazione della BMW M4): muso verso +X nel file, abitacolo tolto
   lam: { wb: 2.645, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/, drop: /^INTERIOR$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.0012, 0.004] },
+  // Subaru BRZ GT300 2021 (vecarz, CC BY 4.0): abitacolo tolto
+  brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
+    drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
