@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=183';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=184';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=183';
-import { SPEC, IS_F1 } from './vehicle.js?v=183';
+import { CAR } from './physics.js?v=184';
+import { SPEC, IS_F1 } from './vehicle.js?v=184';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -17,7 +17,7 @@ export function skillParams(strength, street = false) {
     mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
     // bonus piccoli: a 110 un pilota perfetto con un filo di aderenza e cavalli in più (prima +32%/+42%,
     // pensati quando per errore anche la vettura del giocatore riceveva metà dei bonus)
-    grip: 1 + 0.22 * boost,           // 110 → +22% di aderenza (il calcolo delle curve dei bot ne ha bisogno)
+    grip: 1 + 0.26 * boost,           // 110 → +26%: più veloci in curva e in frenata (sui rettilinei e in accelerazione come te)
     power: 1,                          // stessa potenza della tua: i bot forti sono più bravi, non hanno una macchina migliore
     brake: 0.92 + 0.06 * t,           // frazione della frenata massima
     reaction: 0.3 - 0.27 * t,         // secondi di ritardo allo spegnimento dei semafori
@@ -26,6 +26,14 @@ export function skillParams(strength, street = false) {
 }
 
 export class AIDriver {
+  // profili di velocità: normale (i più forti guidano sempre come in duello), all'attacco, in duello
+  buildProfiles() {
+    const mu = this.mu, brk = this.brk, tc = this.tc || 0;
+    void tc;
+    this.profile = this.line.speedProfile(mu, brk, 120, this.hs);
+    this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120, this.hs);
+    this.duelProfile = this.line.speedProfile(mu * 1.012, Math.min(0.97, brk + 0.04), 120, this.hs);
+  }
   constructor(phys, line, strength, seed) {
     this.phys = phys;
     this.line = line;
@@ -62,11 +70,9 @@ export class AIDriver {
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     // F1: nelle curve veloci il carico aerodinamico permette di più (Eau Rouge in pieno)
     this.hs = IS_F1 ? 0.35 : 0;
-    this.profile = this.line.speedProfile(mu, brk, 120, this.hs);
-    // profilo "all'attacco": staccata più profonda e un filo di velocità in più in curva
-    this.attackProfile = this.line.speedProfile(mu * 1.02, Math.min(0.97, brk + 0.08), 120, this.hs);
-    // profilo "in duello": con un avversario attaccato davanti o dietro si spinge di più (staccate più decise)
-    this.duelProfile = this.line.speedProfile(mu * 1.012, Math.min(0.97, brk + 0.04), 120, this.hs);
+    // i più forti guidano sempre come in duello: curve più al limite e staccate più profonde (stessa macchina)
+    this.tc = tc;
+    this.buildProfiles();
     // errori per giro: tanti per i principianti, rari (ma possibili) per i campioni
     this.errPerLap = 0.004 + 0.08 * Math.pow(1 - Math.min(1, t), 2);
     // mestiere in gara (attacchi, difesa, distanza in scia): cresce con la forza
@@ -169,7 +175,8 @@ export class AIDriver {
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
       if (g < 0 && g > chaserGap && lat < 2.7) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
-      if (Math.abs(g) < 5.4 && lat < 2.4) push += -Math.sign(dd || 1) * (2.4 - lat) * (1.35 - 0.6 * this.aggr);
+      const hum = !c.ai, latW = hum ? 2.9 : 2.4;
+      if (Math.abs(g) < (hum ? 6 : 5.4) && lat < latW) push += -Math.sign(dd || 1) * (latW - lat) * (hum ? Math.max(1.1, 1.35 - 0.6 * this.aggr) : 1.35 - 0.6 * this.aggr);
       // affiancate (per la regola dello spazio e per cedere all'interno)
       if (g > -5 && g < 5 && lat < 3.6) along.push({ c, g, d: c.phys.prCG.d });
     }
@@ -220,7 +227,8 @@ export class AIDriver {
       const want = (4.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.45 * this.craft));
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
-      const room = Math.max(0, bestGap - 4.0 - 1.5 * (1 - this.aggr) * (1 - 0.6 * this.craft) - Math.max(0, closing) * (0.45 - 0.2 * this.craft));
+      const human = !blocker.ai;
+      const room = Math.max(0, bestGap - 4.0 - (human ? 2.0 : 0) - 1.5 * (1 - this.aggr) * (1 - 0.6 * this.craft) - Math.max(0, closing) * (human ? 0.55 : 0.45 - 0.2 * this.craft));
       // se frena forte, si anticipa dove sarà tra mezzo secondo (catene di frenate)
       // (e se accelera, come al via, si accelera con lei invece di aspettare)
       const ovEff = Math.max(0, ov + blocker.phys.gLong * 9.81 * (blocker.phys.gLong < 0 ? 0.5 : 0.35));
@@ -314,8 +322,9 @@ export class AIDriver {
     if (!hazard && !this.street) for (const a of along) {
       if (Math.abs(a.g) > 2.5) continue;
       const mine = laneT + this.line.off[i];
-      if (a.d > myD + 0.6) laneT = Math.min(mine, a.d - 2.25) - this.line.off[i];
-      else if (a.d < myD - 0.6) laneT = Math.max(mine, a.d + 2.25) - this.line.off[i];
+      const sp = a.c && !a.c.ai ? 2.7 : 2.25;
+      if (a.d > myD + 0.6) laneT = Math.min(mine, a.d - sp) - this.line.off[i];
+      else if (a.d < myD - 0.6) laneT = Math.max(mine, a.d + sp) - this.line.off[i];
     }
     this.lane += Math.max(-dt * 2.6, Math.min(dt * 2.6, laneT - this.lane));
 
@@ -386,8 +395,7 @@ export class AIDriver {
     if (this.lineVer !== this.line.version) {
       this.lineVer = this.line.version;
       this.profile = this.line.speedProfile(this.mu, this.brk, 120, this.hs);
-      this.attackProfile = this.line.speedProfile(this.mu * 1.02, Math.min(0.97, this.brk + 0.08), 120, this.hs);
-      this.duelProfile = this.line.speedProfile(this.mu * 1.012, Math.min(0.97, this.brk + 0.04), 120, this.hs);
+      this.buildProfiles();
       this.hurtKey = -1;
     }
     const fastUs = understeer && v > 35;   // in velocità si alza il piede; nei tornanti si impara e basta
