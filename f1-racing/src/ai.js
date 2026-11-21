@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=179';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=180';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=179';
-import { SPEC, IS_F1 } from './vehicle.js?v=179';
+import { CAR } from './physics.js?v=180';
+import { SPEC, IS_F1 } from './vehicle.js?v=180';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -18,7 +18,7 @@ export function skillParams(strength, street = false) {
     // bonus piccoli: a 110 un pilota perfetto con un filo di aderenza e cavalli in più (prima +32%/+42%,
     // pensati quando per errore anche la vettura del giocatore riceveva metà dei bonus)
     grip: 1 + 0.22 * boost,           // 110 → +22% di aderenza (il calcolo delle curve dei bot ne ha bisogno)
-    power: 1 + 0.10 * boost,           // 110 → +10% di potenza (stessa velocità massima: marce normali)
+    power: 1,                          // stessa potenza della tua: i bot forti sono più bravi, non hanno una macchina migliore
     brake: 0.92 + 0.06 * t,           // frazione della frenata massima
     reaction: 0.3 - 0.27 * t,         // secondi di ritardo allo spegnimento dei semafori
     wobble: 0.15 * (1 - t),            // imprecisione sulla traiettoria (m)

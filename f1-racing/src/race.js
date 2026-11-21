@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=179';
+import { CarPhysics } from './physics.js?v=180';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=179';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=179';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=179';
-import { PitStop } from './pit.js?v=179';
-import { PIT, TRACK } from './trackData.js?v=179';
+import { AIDriver } from './ai.js?v=180';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=180';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=180';
+import { PitStop } from './pit.js?v=180';
+import { PIT, TRACK } from './trackData.js?v=180';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=179';
+import { TEAMS } from './f1Teams.js?v=180';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -139,7 +139,8 @@ export class Race {
   rubberBand(c) {
     const gap = this.progress(c) - this.progress(this.player);       // > 0: il bot è davanti
     const f = Math.max(-1, Math.min(1, -gap / 250));
-    c.phys.powerScale = c.ai.skill.power * (1 + 0.05 * this.rubber * f);
+    // (mai più cavalli della tua vettura: l'elastico può solo rallentare chi è davanti)
+    c.phys.powerScale = c.ai.skill.power * Math.min(1, 1 + 0.05 * this.rubber * f);
     c.phys.gripScale = c.ai.skill.grip * (1 + 0.025 * this.rubber * f);
   }
 
