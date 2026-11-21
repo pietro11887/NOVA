@@ -46,11 +46,28 @@ export class Replay {
     this.data = new Float32Array(packed.data);
     this.t0 = this.data[0];
     this.duration = this.count > 1 ? this.data[(this.count - 1) * this.stride] - this.t0 : 0;
+    this.hint = 0;
+  }
+  // posizione (frazionaria) del fotogramma al tempo t: si usano gli orari veri registrati
+  // (sul telefono i fotogrammi non sono esattamente 15 al secondo, e con il tempo si sfaserebbe tutto)
+  frameAt(t) {
+    const { data, stride, count } = this, T = this.t0 + t;
+    if (count < 2 || T <= this.t0) return 0;
+    if (T >= data[(count - 1) * stride]) return count - 1.001;
+    let i = Math.min(count - 2, Math.max(0, this.hint));
+    if (!(data[i * stride] <= T && T < data[(i + 1) * stride])) {
+      let lo = 0, hi = count - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (data[m * stride] <= T) lo = m; else hi = m; }
+      i = lo;
+    }
+    this.hint = i;
+    const a = data[i * stride], b = data[(i + 1) * stride];
+    return Math.min(count - 1.001, i + (b > a ? (T - a) / (b - a) : 0));
   }
   // posa interpolata della vettura k al tempo t (secondi dall'inizio del replay)
   pose(k, t, out) {
     const { data, stride, count } = this;
-    const u = Math.max(0, Math.min(count - 1.001, t * HZ));
+    const u = this.frameAt(t);
     const i = Math.floor(u), f = u - i;
     const a = i * stride + 1 + k * K, b = (i + 1) * stride + 1 + k * K;
     if (Number.isNaN(data[a]) || Number.isNaN(data[b])) { out.visible = false; return out; }
@@ -64,7 +81,7 @@ export class Replay {
   }
   sc(t, out) {
     const { data, stride, count, n } = this;
-    const i = Math.max(0, Math.min(count - 1, Math.round(t * HZ))), o = i * stride + 1 + n * K;
+    const i = Math.max(0, Math.min(count - 1, Math.round(this.frameAt(t)))), o = i * stride + 1 + n * K;
     out.visible = data[o + 4] > 0.5;
     out.x = data[o]; out.y = data[o + 1]; out.z = data[o + 2]; out.yaw = data[o + 3];
     return out;

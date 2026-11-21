@@ -1103,3 +1103,11 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .onRow b { display: block; font-size: 16px; font-weight: 900; font-style: italic; color: #fff; }
 .onRow .onArr { display: flex; gap: 6px; }
 .onRow .onArr button { width: 40px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; }
+
+/* flashback: barra sottile in basso, così si vede la tua macchina che torna indietro */
+#replayUI.flash .rpKeys, #replayUI.flash #rpSlow, #replayUI.flash #rpFast, #replayUI.flash #rpSpeed, #replayUI.flash #rpBack10, #replayUI.flash #rpFwd10,
+#replayUI.flash #rpPrevCar, #replayUI.flash #rpCam, #replayUI.flash #rpNextCar, #replayUI.flash #rpHide, #replayUI.flash .rpSep, #replayUI.flash #rpCar, #replayUI.flash #rpInfo { display: none; }
+#replayUI.flash .rpBar { padding: 6px 10px; background: rgba(8,10,20,0.6); width: min(620px, calc(100vw - 24px)); }
+#replayUI.flash .rpBtns { justify-content: center; flex-wrap: nowrap; }
+#replayUI.flash #rpSlider { margin-bottom: 4px; }
+#replayUI.flash .rpTag::after { content: ' FLASHBACK · scegli il punto e riparti'; }
