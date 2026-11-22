@@ -108,9 +108,9 @@ if (INT) {
     }
   }
   console.log('volante: primitive', k);
-  await doc.transform(dedup(), prune(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: STEER.ratio || 0.35, error: 0.001 }), prune());
+  await doc.transform(dedup(), prune(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: (STEER.ratio || 0.35) * 0.6, error: 0.0015 }), prune());
   for (const t of root.listTextures()) {
-    const meta = await sharp(Buffer.from(t.getImage())).metadata(), sc = Math.min(1, 512 / Math.max(meta.width, meta.height));
+    const meta = await sharp(Buffer.from(t.getImage())).metadata(), sc = Math.min(1, 384 / Math.max(meta.width, meta.height));
     const pipe = sharp(Buffer.from(t.getImage())).resize(Math.max(1, Math.round(meta.width * sc)), Math.max(1, Math.round(meta.height * sc)));
     t.setImage(meta.hasAlpha ? await pipe.png({ compressionLevel: 9 }).toBuffer() : await pipe.jpeg({ quality: 80 }).toBuffer()).setMimeType(meta.hasAlpha ? 'image/png' : 'image/jpeg');
   }
