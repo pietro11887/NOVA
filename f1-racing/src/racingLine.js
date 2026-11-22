@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js?v=185';
-import { CAR, CarPhysics } from './physics.js?v=185';
-import { GEOM } from './carModel.js?v=185';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=186';
+import { CAR, CarPhysics } from './physics.js?v=186';
+import { GEOM } from './carModel.js?v=186';
 import { ARCADE } from './driveMode.js?v=68c3b840';
-import { IS_F1, CAR_CLASS } from './vehicle.js?v=185';
+import { IS_F1, CAR_CLASS } from './vehicle.js?v=186';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
@@ -31,7 +31,8 @@ const LOAD_SENS = 0.13;
 const WB = GEOM.axleF - GEOM.axleR, STEER_C = CAR.ClA > 2 ? 1.0 : 0.8;
 const steerK = (v, arc) => STEER_C * CarPhysics.prototype.maxSteer.call({ arcade: arc }, v) / WB;
 // quanto pesa la curva sulla frenata (la F1 con tanto carico frena forte anche in appoggio)
-const FRIC = CAR.ClA > 2 ? 0.5 : 0.75;
+// frenando mentre si curva le gomme danno meno (cerchio di aderenza, come nella fisica delle ruote)
+const FRIC = 1.0;
 const loadMu = v => Math.max(0.62, 1 - LOAD_SENS * K_AERO * v * v / G);
 
 export class RacingLine {
