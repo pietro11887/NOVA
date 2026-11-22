@@ -10,7 +10,7 @@ import { flatten, clearNodeTransform, dedup, prune, weld, simplify, transformPri
 import { MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 const [id, src, out, mode] = process.argv.slice(2);
-const LOW = mode === 'mid';
+const LOW = mode === 'mid', INT = mode === 'int';   // int: solo l'abitacolo (visuale interna), stesse coordinate della carrozzeria
 // passo vero (m); materiali di gomme, cerchi, dischi; materiali da togliere; materiale della livrea
 const CFG = {
   // Ferrari 296 GT3 (Dave Love, CC BY 4.0): abitacolo tolto
@@ -42,9 +42,12 @@ const CFG = {
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
+const STEER = { f296: { m: /Steer|STEER/ }, mas: { m: /Steer/ }, amg: { m: /Steering_Wheel/ }, brz: { m: /^Steering$/ }, m4: { n: /SteeringWheel/, ratio: 0.15 }, amv: { n: /STEERING_WHEEL/ }, mcl: { n: /CarbonSteering/ } }[id] || {};
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
+// (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
+if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
 await doc.transform(flatten());
 for (const n of root.listNodes()) if (n.getMesh()) clearNodeTransform(n);
 // trasformazioni delle texture (KHR_texture_transform, es. la livrea della RB8): si applicano alle UV
@@ -65,7 +68,7 @@ for (const m of root.listMaterials()) {
 }
 if (CFG.flip) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [-1,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,1]);
 if (CFG.rotX) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1]);
-for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (CFG.drop.test(p.getMaterial()?.getName() || '')) p.dispose();
+for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (INT ? !(CFG.drop.test(p.getMaterial()?.getName() || '') || CFG.tyre.test(p.getMaterial()?.getName() || '')) : CFG.drop.test(p.getMaterial()?.getName() || '')) p.dispose();
 for (const m of root.listMaterials()) if (CFG.paint.test(m.getName())) m.setName('PAINT');
 for (const m of root.listMaterials()) {
   for (const e of m.listExtensions()) m.setExtension(e.extensionName, null);
@@ -74,7 +77,7 @@ for (const m of root.listMaterials()) {
 for (const e of root.listExtensionsUsed()) if (e.extensionName !== 'KHR_mesh_quantization') e.dispose();
 const matOf = p => p.getMaterial()?.getName() || '';
 // via le primitive delle ruote mosse finte
-for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.drop.test(matOf(p))) p.dispose();
+if (!INT) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.drop.test(matOf(p))) p.dispose();
 // assi dalle gomme
 let pts = [];
 for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.tyre.test(matOf(p))) {
@@ -92,6 +95,30 @@ let xc = 0; { let a = 1e9, b = -1e9; for (const v of pts) { a = Math.min(a, v[0]
 console.log(id, 'scala', S.toFixed(4), 'assi', zF.toFixed(2), zR.toFixed(2), 'centro x', xc.toFixed(2));
 const M = [S,0,0,0, 0,S,0,0, 0,0,S,0, -xc * S,-ymin * S,-zMid * S,1];
 for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, M);
+if (INT) {
+  // via le gomme (servivano solo per la scala); il volante in nodi suoi ("STEER_n") per farlo girare
+  for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (CFG.tyre.test(matOf(p))) p.dispose();
+  let k = 0;
+  for (const n of [...root.listNodes()]) {
+    const mesh = n.getMesh(); if (!mesh) continue;
+    for (const p of [...mesh.listPrimitives()]) {
+      if (!((STEER.m && STEER.m.test(matOf(p))) || (STEER.n && STEER.n.test(n.getName() || '')))) continue;
+      const sn = doc.createNode('STEER_' + k++).setMesh(doc.createMesh('STEER')); scene.addChild(sn);
+      mesh.removePrimitive(p); sn.getMesh().addPrimitive(p);
+    }
+  }
+  console.log('volante: primitive', k);
+  await doc.transform(dedup(), prune(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: STEER.ratio || 0.35, error: 0.001 }), prune());
+  for (const t of root.listTextures()) {
+    const meta = await sharp(Buffer.from(t.getImage())).metadata(), sc = Math.min(1, 512 / Math.max(meta.width, meta.height));
+    const pipe = sharp(Buffer.from(t.getImage())).resize(Math.max(1, Math.round(meta.width * sc)), Math.max(1, Math.round(meta.height * sc)));
+    t.setImage(meta.hasAlpha ? await pipe.png({ compressionLevel: 9 }).toBuffer() : await pipe.jpeg({ quality: 80 }).toBuffer()).setMimeType(meta.hasAlpha ? 'image/png' : 'image/jpeg');
+  }
+  let tris = 0; for (const m of root.listMeshes()) for (const p of m.listPrimitives()) tris += (p.getIndices() ? p.getIndices().getCount() : p.getAttribute('POSITION').getCount()) / 3;
+  console.log('abitacolo triangoli', tris);
+  await io.write(out, doc);
+  process.exit(0);
+}
 // ruote in quattro (per triangolo, dal quadrante del baricentro)
 function splitPrim(p, keyOf) {
   const pos = p.getAttribute('POSITION'), idx = p.getIndices();

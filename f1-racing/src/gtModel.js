@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=186';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=186';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=186';
+import { GEOM, CAR_SCALE } from './carModel.js?v=187';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=187';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=187';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -593,6 +593,10 @@ export function createGT(opts = {}) {
 // Caricato solo quando serve: volante che gira, led dei giri, display con marcia, velocità e tempi.
 // GT: abitacolo chiuso della 992 GT3 R; F1: volante, led e cinture della RB22
 const INT_FILES = { gt: 'gt3r_int.glb', f1: 'f1_rb22_int.glb' };
+// abitacoli delle altre GT3 (dai loro modelli): volante che gira, senza display né specchietti disegnati
+for (const v of ['f296', 'mas', 'amg', 'brz', 'm4', 'amv', 'mcl']) INT_FILES['gt_' + v] = `gt_${v}_int.glb`;
+export const interiorKind = model => (model && model.variant ? 'gt_' + model.variant : (model && model.kind) || CAR_CLASS);
+export const hasInterior = kind => !!INT_FILES[kind];
 const interiorTpl = {}, interiorJob = {};
 export function loadInterior(kind = CAR_CLASS) {
   // la R26 non ha un abitacolo separato: si guida dalla camera sulla testa del pilota
@@ -668,6 +672,7 @@ function prepareInterior(scene, kind) {
   const rim = out.steer.filter(s => s.mat.name === 'INT_Steer' || /handles|carbon/.test(s.mat.name));
   for (const s of (rim.length ? rim : out.steer)) { const P = s.g.attributes.position; for (let i = 0; i < P.count; i++) pts.push(P.getX(i), P.getY(i), P.getZ(i)); }
   const N = pts.length / 3, c = new THREE.Vector3();
+  if (!N) c.set(0.35, 0.62 - (GEOM.cgHeight + 0.04), -0.37);
   for (let i = 0; i < N; i++) c.x += pts[3 * i] / N, c.y += pts[3 * i + 1] / N, c.z += pts[3 * i + 2] / N;
   const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   for (let i = 0; i < N; i++) { const d = [pts[3 * i] - c.x, pts[3 * i + 1] - c.y, pts[3 * i + 2] - c.z]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[a][b] += d[a] * d[b] / N; }
@@ -686,7 +691,7 @@ function prepareInterior(scene, kind) {
 
 // aggiunge l'abitacolo a una GT già creata (vettura del giocatore)
 export function attachInterior(model) {
-  const kind = model.kind || CAR_CLASS;
+  const kind = interiorKind(model);
   if (!interiorTpl[kind] || model.cockpit) return model.cockpit;
   const tpl = interiorTpl[kind], group = new THREE.Group();
   const F1 = kind === 'f1';
@@ -724,7 +729,7 @@ export function attachInterior(model) {
   const mirrors = [];
   const mirrorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.6 });
-  const MIR = F1 ? [] : [
+  const MIR = F1 || model.variant ? [] : [
     // centro (x, y, z), larghezza, altezza, zona della ripresa [u0, u1] (già specchiata)
     { c: [0.232, 1.05 + yS, 0.052], w: 0.31, h: 0.05, u: [0.75, 0.25], frame: true },
     { c: [0.292, 0.875 + yS, -0.92], w: 0.15, h: 0.1, u: [1.0, 0.64] },
@@ -804,7 +809,7 @@ export function attachInterior(model) {
   model.body.add(group);
   // dall'interno i vetri esterni scuri non devono coprire la vista
   const outerGlass = [];
-  model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive|^glass$/.test(o.material.name || '')) outerGlass.push(o); });   // F1: il deflettore davanti ("glass") da dentro sembrava una fila di punte
+  model.body.traverse(o => { if (o.isMesh && o.material && /^EXT_Windows|Glass_Emissive|^glass$|windows_Glass|Windows_Stickers|^GLASS$|mm_windows$|^Glass$|^Glass_Out$|^Window$/.test(o.material.name || '')) outerGlass.push(o); });   // F1: il deflettore davanti ("glass") da dentro sembrava una fila di punte
   model.cockpit = { group, steer: spin, axis: tpl.steerAxis.clone(), leds, ledRows, display, eye: tpl.eye.clone(), outerGlass, t: 0, mirrors, mirrorMat, hands, arms, kind };
   return model.cockpit;
 }

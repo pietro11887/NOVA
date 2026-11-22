@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=186';
-import * as tex from './textures.js?v=186';
+import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=187';
+import * as tex from './textures.js?v=187';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
