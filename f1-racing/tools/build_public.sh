@@ -10,6 +10,8 @@ DIR="$OUT/nova-grand-prix"
 rm -rf "$DIR" "$OUT/nova-grand-prix.zip"
 mkdir -p "$DIR"
 cp "$SRC/index.html" "$SRC/style.css" "$SRC/manifest.webmanifest" "$SRC"/icon-*.png "$DIR/"
+# icona: quella vecchia senza marchi veri (l'icona della versione completa è la Red Bull)
+for sz in 180 192 512; do mv "$DIR/icon-pub-$sz.png" "$DIR/icon-$sz.png"; done
 cp -r "$SRC/src" "$DIR/src"
 mkdir -p "$DIR/assets"
 # modelli: solo F1 2026 (RB22 ridipinta) e GT; niente F1 storiche
