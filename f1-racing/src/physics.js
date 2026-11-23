@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=190';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=190';
-import { SURF, SURF_PROPS } from './track.js?v=190';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=191';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=191';
+import { SURF, SURF_PROPS } from './track.js?v=191';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -422,7 +422,7 @@ export class CarPhysics {
       w.lock = Math.abs(vlong) > 1.5 && (u1 === 0 || kap < -0.45);
       w.spinning = !front && kap > 0.2 && Math.abs(vlong) < 90;
       // resistenza al rotolamento (e ghiaia) direttamente sulla vettura
-      const roll = (props.roll + 0.08 * dmg.puncture[i] * dfx) * load + (w.sf.type === SURF.GRAVEL ? 0.004 * load * Math.abs(vlong) : 0);
+      const roll = (props.roll + 0.08 * dmg.puncture[i] * dfx) * load + (w.sf.type === SURF.GRAVEL ? 0.01 * load * Math.abs(vlong) : 0);
       const stopCap = Math.abs(vlong) * m / 4 / dt * 0.5;
       fxOut -= Math.sign(vlong) * Math.min(roll, stopCap);
       // da fermi con il freno tirato la vettura sta ferma

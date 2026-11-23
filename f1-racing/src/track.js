@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=190';
-import * as tex from './textures.js?v=190';
+import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=191';
+import * as tex from './textures.js?v=191';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -14,7 +14,7 @@ export const SURF_PROPS = [
   { grip: 0.92, roll: 0.02 },
   { grip: 0.7, roll: 0.05 },
   { grip: 0.55, roll: 0.09 },
-  { grip: 0.42, roll: 0.45 },
+  { grip: 0.42, roll: 0.18 },          // ghiaia: frena tanto in velocità (vedi fisica), ma da fermi si riesce a uscire piano
 ];
 
 // guard-rail (Nordschleife): lame d'acciaio zincato a doppia onda su paletti, con righe di sporco
