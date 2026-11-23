@@ -183,7 +183,7 @@ export class Online {
       this.lastRecv = performance.now();
       // segnale di presenza ogni secondo (anche in sala d'attesa e durante il via, quando non si guida)
       clearInterval(this.ping);
-      this.ping = setInterval(() => this.send({ k: 'ping' }), 1000);
+      this.ping = setInterval(() => this.send({ k: 'ping', s: performance.now() }), 1000);
       this.status(this.role === 'host' ? 'Giocatore collegato' : 'Collegato!', 'ok');
       if (this.onMsg) this.onMsg({ k: 'open' });
     };
@@ -193,6 +193,8 @@ export class Online {
       this.lastRecv = performance.now();
       if (!m || typeof m !== 'object') return;
       if (m.k === 'st' || m.k === 'bots') this.store(m);
+      if (m.k === 'ping' && m.s != null) { this.send({ k: 'pong', s: m.s }); return; }
+      if (m.k === 'pong') { const rtt = performance.now() - m.s; if (rtt > 0 && rtt < 5000) this.rtt = this.rtt == null ? rtt : this.rtt * 0.8 + rtt * 0.2; return; }
       if (this.onMsg) this.onMsg(m);
     });
     conn.on('close', () => { if (this.conn !== conn) return; clearInterval(this.ping); const was = this.connected; this.connected = false; if (was && this.onMsg) this.onMsg({ k: 'lost' }); });
@@ -230,35 +232,54 @@ export class Online {
     if (!this.connected) return;
     // stima della differenza di orologio (si prende il minimo: il ritardo di rete si somma sempre)
     if (this.lastT != null) {
+      // (media dei pacchetti: insieme a metà del ritardo di andata e ritorno dà l'orario dell'altro "adesso")
       const o = this.lastT - race.t;
-      this.off = this.off == null ? o : Math.min(o, this.off + dt * 0.05);
+      if (this.offT !== this.lastT) { this.offT = this.lastT; this.off = this.off == null ? o : this.off * 0.93 + o * 0.07; }
     }
     this.sendT -= dt;
     if (this.sendT > 0) return;
-    this.sendT = this.conn && this.conn.isRelay ? SEND_EVERY * 2 : SEND_EVERY;   // dal ponte: 10 al secondo
-    this.send({ k: 'st', t: r3(race.t), c: packCar(race.player) });
+    this.sendT = this.conn && this.conn.isRelay ? SEND_EVERY * 1.4 : SEND_EVERY;   // dal ponte: 14 al secondo
+    if (race.player) this.send({ k: 'st', t: r3(race.t), c: packCar(race.player) });
     if (this.role === 'host') this.send({ k: 'bots', t: r3(race.t), cars: race.cars.filter(c => c.ai).map(packCar) });
   }
 
   // vetture remote: posizione interpolata nel passato recente, più i dati di gara
   apply(race) {
     if (this.off == null) return;
-    const tr = race.t + this.off - DELAY;
+    // le vetture dell'altro si mostrano dove sono ADESSO: ultimo dato + previsione con velocità e rotazione
+    // per il tempo di viaggio sulla rete (prima si mostravano nel passato, anche mezzo secondo indietro)
+    const lat = Math.min(0.4, (this.rtt || 120) / 2000);
+    const tr = race.t + this.off + lat;
+    const fdt = Math.max(0, Math.min(0.1, race.t - (this.lastApply ?? race.t))); this.lastApply = race.t;
     for (const c of race.cars) {
       if (!c.remote) continue;
       const b = this.buf.get(c.slot);
       if (!b || !b.length) continue;
       let a = b[0], z = b[b.length - 1], k = 0;
       if (tr <= a.t) z = a;
-      else if (tr >= z.t) { a = z; k = Math.min(0.25, tr - z.t); }     // dati in ritardo: breve previsione
+      else if (tr >= z.t) { a = z; k = Math.min(0.6, tr - z.t); }      // previsione fino a 0,6 s
       else for (let i = 1; i < b.length; i++) if (b[i].t >= tr) { a = b[i - 1]; z = b[i]; k = (tr - a.t) / Math.max(1e-3, z.t - a.t); break; }
       const A = a.d, Z = z.d, p = c.phys;
       const lerp = (i) => A[i] + (Z[i] - A[i]) * k;
       const lerpAng = (i) => { let d = Z[i] - A[i]; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return A[i] + d * k; };
+      let tx, tz, tyaw;
       if (a === z && k > 0) {
-        // previsione: si prosegue con la velocità dell'ultimo dato
-        p.x = A[1] + A[7] * k; p.z = A[3] + A[8] * k; p.y = A[2]; p.yaw = A[4] + (A[25] || 0) * k;
-      } else { p.x = lerp(1); p.y = lerp(2); p.z = lerp(3); p.yaw = lerpAng(4); }
+        // previsione: si prosegue con la velocità dell'ultimo dato, curvando come stava curvando
+        const w = A[25] || 0, th = w * k, cw = Math.cos(th), sw = Math.sin(th);
+        const vx = A[7] * cw - A[8] * sw, vz = A[7] * sw + A[8] * cw;
+        tx = A[1] + (A[7] + vx) / 2 * k; tz = A[3] + (A[8] + vz) / 2 * k; tyaw = A[4] + w * k;
+        p.y = A[2];
+      } else { tx = lerp(1); p.y = lerp(2); tz = lerp(3); tyaw = lerpAng(4); }
+      // quando arriva un dato nuovo la posa salta un po': il salto si assorbe in pochi decimi di secondo
+      const N = c.net || (c.net = { x: tx, z: tz, yaw: tyaw, ex: 0, ez: 0, ey: 0, px: tx, pz: tz, pyaw: tyaw });
+      const vxp = lerp(7), vzp = lerp(8);
+      const jx = tx - (N.px + vxp * fdt), jz = tz - (N.pz + vzp * fdt);
+      let jy = tyaw - N.pyaw; while (jy > Math.PI) jy -= 2 * Math.PI; while (jy < -Math.PI) jy += 2 * Math.PI; jy -= (A[25] || 0) * fdt;
+      if (Math.hypot(jx, jz) < 12) { N.ex -= jx; N.ez -= jz; N.ey -= jy; } else { N.ex = N.ez = N.ey = 0; }   // salti enormi (box, ripartenza): subito
+      const dec = Math.exp(-fdt * 7);
+      N.ex *= dec; N.ez *= dec; N.ey *= dec;
+      N.px = tx; N.pz = tz; N.pyaw = tyaw;
+      p.x = tx + N.ex; p.z = tz + N.ez; p.yaw = tyaw + N.ey;
       p.pitch = A[5]; p.roll = A[6]; p.vx = lerp(7); p.vz = lerp(8); p.speed = lerp(9); p.steer = lerp(10);
       p.gear = Z[11]; p.rpm = lerp(12); p.throttleOut = Z[13]; p.yawRate = Z[25] || 0;
       p.vxl = p.speed; p.vyl = 0;
