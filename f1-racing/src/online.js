@@ -15,7 +15,7 @@ const ICE = [
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 const PEER_OPTS = { debug: 0, config: { iceServers: ICE } };
-import { RelayConn } from './relay.js?v=0af908d1';
+import { RelayConn } from './relay.js?v=6123c3ca';
 const SEND_EVERY = 0.05;          // 20 aggiornamenti al secondo
 const DELAY = 0.12;               // le vetture remote si mostrano 0,12 s indietro (movimento fluido)
 

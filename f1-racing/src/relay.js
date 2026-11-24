@@ -3,7 +3,7 @@
 // pubblico e gratuito su WebSocket sicuro (niente account). Piccolo client MQTT 3.1.1 (solo QoS 0).
 // Stessa interfaccia della connessione PeerJS: on('open'|'data'|'close'|'error'), send(obj), close().
 
-export const BROKERS = [
+export const BROKERS = globalThis.__NOVA_BROKERS || [
   'wss://broker.hivemq.com:8884/mqtt',
   'wss://broker.emqx.io:8084/mqtt',
   'wss://test.mosquitto.org:8081/mqtt',
@@ -21,7 +21,7 @@ function packet(type, body) {
 }
 
 // un collegamento MQTT: si pubblica su "pub", si ricevono i messaggi di "sub"
-class Mqtt {
+export class Mqtt {
   constructor(url, sub, onMsg, onState) {
     this.sub = sub; this.onMsg = onMsg; this.onState = onState; this.buf = new Uint8Array(0); this.ok = false;
     const ws = this.ws = new WebSocket(url, 'mqtt');
@@ -51,18 +51,26 @@ class Mqtt {
     if (type === 0x20) {                                   // CONNACK
       if (body[1] !== 0) { this.onState('error'); return; }
       this.ws.send(packet(0x82, new Uint8Array([0, 1, ...str(this.sub), 0])));
-    } else if (type === 0x90) {                            // SUBACK: pronti
+    } else if (type === 0x90) {                            // SUBACK: pronti (solo la prima volta)
+      if (this.ok) return;
       this.ok = true;
       this.ping = setInterval(() => { try { this.ws.send(new Uint8Array([0xc0, 0])); } catch (e) { /* niente */ } }, 20000);
       this.onState('ready');
     } else if (type === 0x30) {                            // PUBLISH (QoS 0)
       const tl = (body[0] << 8) | body[1];
-      try { this.onMsg(JSON.parse(td.decode(body.subarray(2 + tl)))); } catch (e) { /* messaggio rovinato */ }
+      if (body.length <= 2 + tl) return;                   // messaggio vuoto (cancella un "trattenuto")
+      try { this.onMsg(JSON.parse(td.decode(body.subarray(2 + tl))), td.decode(body.subarray(2, 2 + tl))); } catch (e) { /* messaggio rovinato */ }
     }
   }
-  publish(topic, obj) {
+  // retain: il server tiene l'ultimo messaggio e lo dà subito a chi si iscrive dopo (stato "online" degli amici)
+  publish(topic, obj, retain = false) {
     if (!this.ok || this.ws.readyState !== 1) return;
-    this.ws.send(packet(0x30, new Uint8Array([...str(topic), ...te.encode(JSON.stringify(obj))])));
+    this.ws.send(packet(retain ? 0x31 : 0x30, new Uint8Array([...str(topic), ...te.encode(JSON.stringify(obj))])));
+  }
+  subscribe(topic) {
+    if (!this.ok || this.ws.readyState !== 1) return;
+    this.pid = ((this.pid || 1) % 60000) + 1;
+    this.ws.send(packet(0x82, new Uint8Array([this.pid >> 8, this.pid & 255, ...str(topic), 0])));
   }
   close() { clearInterval(this.ping); try { this.ws.send(new Uint8Array([0xe0, 0])); this.ws.close(); } catch (e) { /* niente */ } }
 }
