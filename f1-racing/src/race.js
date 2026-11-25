@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=195';
+import { CarPhysics } from './physics.js?v=196';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=195';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=195';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=195';
-import { PitStop } from './pit.js?v=195';
-import { PIT, TRACK } from './trackData.js?v=195';
+import { AIDriver } from './ai.js?v=196';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=196';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=196';
+import { PitStop } from './pit.js?v=196';
+import { PIT, TRACK } from './trackData.js?v=196';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=195';
+import { TEAMS } from './f1Teams.js?v=196';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -166,7 +166,10 @@ export class Race {
       const tow = best < reach ? 1 - best / reach : 0;
       p.dragMul = Math.max(0.35, 1 - 0.38 * this.towMul * tow);
       const dirty = SPEC.dirtyAir * (this.arcade ? 0.4 : 1);
-      p.downMul = bestDirty < 22 ? 1 - dirty * (1 - bestDirty / 22) : 1;   // poco carico: l'aria sporca conta poco
+      // aria sporca: entro ~30 m dietro un'altra vettura si perde carico, soprattutto davanti (sottosterzo in curva)
+      const dk = bestDirty < 30 ? 1 - bestDirty / 30 : 0;
+      p.downMul = 1 - dirty * dk * 0.7;
+      p.downMulF = 1 - dirty * dk * 0.6;
       c.tow = tow;
     }
   }

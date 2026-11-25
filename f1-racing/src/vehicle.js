@@ -66,7 +66,7 @@ const SPECS = {
     ],
     circles: [[1.42, 1.0], [0.0, 1.02], [-1.32, 1.0]],
     ai: { hazard: [10.5, 3, 0.0009], follow: 18, pit: 13 },
-    dirtyAir: 0.06,
+    dirtyAir: 0.09,
   },
   // Formula 1: leggera, ~1000 CV, tanto carico aerodinamico, frenate brevissime
   f1: {
@@ -86,7 +86,7 @@ const SPECS = {
     ],
     circles: [[1.95, 0.95], [0.1, 1.0], [-1.85, 0.95]],
     ai: { hazard: [15, 5, 0.0015], follow: 30, pit: 22 },
-    dirtyAir: 0.12,
+    dirtyAir: 0.17,
   },
 };
 

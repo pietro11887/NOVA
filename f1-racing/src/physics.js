@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=195';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=195';
-import { SURF, SURF_PROPS } from './track.js?v=195';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=196';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=196';
+import { SURF, SURF_PROPS } from './track.js?v=196';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -93,6 +93,7 @@ export class CarPhysics {
     this.inPit = false;             // guidata dalla corsia box (niente fisica)              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
     this.downMul = 1;               // aria sporca: meno carico dietro a un'altra vettura
+    this.downMulF = 1;              // ...e ancora un po' meno sull'ala anteriore
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
     this.arcade = false;            // guida arcade (driveMode.js)
     this.ClA = CAR.ClA;             // coefficiente di portanza * area
@@ -295,7 +296,7 @@ export class CarPhysics {
     const fwD = (dmg.fwL + dmg.fwR) / 2 * dfx;
     const floorL = 1 - 0.3 * dmg.floor * dfx;
     // ala anteriore asimmetrica: il lato rotto perde carico e la vettura tira da una parte
-    const fBase = q * this.ClA * this.aeroBalance * this.downMul * floorL * 0.5;
+    const fBase = q * this.ClA * this.aeroBalance * this.downMul * this.downMulF * floorL * 0.5;
     const downFL = fBase * (1 - 0.7 * dmg.fwL * dfx), downFR = fBase * (1 - 0.7 * dmg.fwR * dfx);
     const downF = downFL + downFR;
     const downR = q * this.ClA * (1 - this.aeroBalance) * (1 - 0.7 * dmg.rw * dfx) * this.downMul * floorL;
@@ -387,6 +388,14 @@ export class CarPhysics {
       };
       // spinta alla ruota (le due posteriori si dividono la coppia, come un differenziale aperto)
       let drive = front ? 0 : driveForce / 2;
+      if (!front) {
+        // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
+        // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore
+        const du = this.wheels[2].spin - this.wheels[3].spin;
+        const lim = 250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce);
+        const lock = Math.max(-lim, Math.min(lim, 2500 * du));
+        drive += i === 2 ? -lock : lock;
+      }
       let bf = brakeF * (front ? this.brakeBias : 1 - this.brakeBias) / 2;
       // gli aiuti elettronici non chiedono alla gomma più di quanto può dare (lasciando margine in curva)
       const fyPure = Fmax * Math.sin(1.65 * Math.atan(12 * Math.abs(alpha)));
