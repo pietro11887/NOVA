@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=201';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=201';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=201';
+import { GEOM, CAR_SCALE } from './carModel.js?v=202';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=202';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=202';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -70,11 +70,11 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
 // (la Mercedes SLS bianca, senza livrea, non c'è più: i suoi file restano nella cartella)
-export const GT_VARIANTS = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
+export const GT_VARIANTS = PUBLIC || CAR_CLASS === 'kart' ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
 // GT3 che corrono in griglia (la SLS bianca, senza livrea, solo se la guidi tu)
 export const gridVariants = mine => GT_VARIANTS.filter(v => v !== 'sls' || v === mine);
 const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'], mcl: ['gt_mcl_hi.glb', 'gt_mcl_mid.glb'],
@@ -177,6 +177,7 @@ function tuneMaterial(src) {
 
 // classifica un triangolo (coordinate del gioco) nelle parti staccabili
 function partOf(cx, cy, cz, kind) {
+  if (kind === 'kart') return 'body';
   if (kind === 'f1') {
     // RB22: ala posteriore sopra il diffusore, ala anteriore bassa davanti alle ruote
     if (cx < -1.72 && cy > 0.2) return 'rw';
@@ -273,6 +274,61 @@ function prepare(scene, lowPoly, kind = 'gt') {
 // della squadra (mantenendo ombre e motivi), loghi e scritte restano; le vetture con colore
 // scuro hanno le parti nere nel colore secondario.
 const liveryCache = new Map();
+// kart: le parti blu della carenatura prendono il colore della squadra, quelle gialle il secondo colore
+function liveryKart(base, primary, accent, size = 1024) {
+  const key = 'k' + primary + '_' + accent + '_' + size;
+  if (liveryCache.has(key)) return liveryCache.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(base.image, 0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size), d = img.data;
+  const P = new THREE.Color(primary), A = new THREE.Color(accent), hsl = {};
+  const tmp = new THREE.Color();
+  for (let i = 0; i < d.length; i += 4) {
+    tmp.setRGB(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255); tmp.getHSL(hsl);
+    if (hsl.s < 0.35) continue;
+    const h = hsl.h * 360;
+    const T = h > 190 && h < 240 ? P : h > 30 && h < 60 ? A : null;
+    if (!T) continue;
+    // si tiene la luminosità del disegno (graffi, ombre) con il colore nuovo
+    const k = Math.min(1.6, hsl.l / (h > 190 ? 0.32 : 0.55));
+    d[i] = Math.min(255, T.r * 255 * k); d[i + 1] = Math.min(255, T.g * 255 * k); d[i + 2] = Math.min(255, T.b * 255 * k);
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.flipY = base.flipY; t.colorSpace = base.colorSpace; t.anisotropy = 4;
+  liveryCache.set(key, t);
+  return t;
+}
+// kart: il pilota seduto (tuta nel colore della squadra, casco nel secondo colore)
+function kartDriver(gy, suitCol, helmetCol, ghostMat) {
+  const grp = new THREE.Group();
+  const suit = ghostMat || new THREE.MeshStandardMaterial({ color: suitCol, roughness: 0.75 });
+  const dark = ghostMat || new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.8 });
+  const hm = ghostMat || new THREE.MeshStandardMaterial({ color: helmetCol, roughness: 0.25, metalness: 0.2 });
+  const visor = ghostMat || new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.05, metalness: 0.8 });
+  const seg = (a, b, r, m) => {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), L = A.distanceTo(B);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r, L, 4, 10), m);
+    mesh.position.copy(A).add(B).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+    mesh.castShadow = !ghostMat; grp.add(mesh); return mesh;
+  };
+  const y = v => gy + v;
+  // busto un po' inclinato indietro, spalle, braccia al volante, gambe distese verso i pedali
+  seg([-0.22, y(0.2), 0], [-0.3, y(0.58), 0], 0.15, suit);
+  for (const s of [-1, 1]) {
+    seg([-0.29, y(0.6), s * 0.17], [-0.06, y(0.43), s * 0.2], 0.045, suit);      // braccio
+    seg([-0.06, y(0.43), s * 0.2], [0.14, y(0.42), s * 0.15], 0.04, suit);       // avambraccio
+    seg([-0.12, y(0.17), s * 0.1], [0.3, y(0.24), s * 0.12], 0.07, suit);        // coscia
+    seg([0.3, y(0.24), s * 0.12], [0.58, y(0.16), s * 0.12], 0.055, suit);       // gamba
+    seg([0.58, y(0.16), s * 0.12], [0.62, y(0.24), s * 0.12], 0.04, dark);       // scarpa
+  }
+  const h = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), hm);
+  h.scale.set(1.1, 1, 1); h.position.set(-0.27, y(0.8), 0); h.castShadow = !ghostMat;
+  const v = new THREE.Mesh(new THREE.SphereGeometry(0.137, 20, 8, Math.PI - 0.9, 1.8, 1.15, 0.5), visor);
+  h.add(v); grp.add(h);
+  return grp;
+}
 function liveryVariant(base, primary, accent, size = 512) {
   const key = primary + '_' + accent;
   if (liveryCache.has(key)) return liveryCache.get(key);
@@ -467,7 +523,7 @@ export function createGT(opts = {}) {
   const myPaint = paint ? paint.clone() : null;
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   // (le altre GT3 tengono la loro livrea)
-  if (myPaint && opts.primary != null && myPaint.map && !tpl.variant) myPaint.map = liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
+  if (myPaint && opts.primary != null && myPaint.map && !tpl.variant) myPaint.map = tpl.kind === 'kart' ? liveryKart(myPaint.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024) : liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   // la SLS è bianca: gli avversari la hanno nel loro colore
   if (myPaint && opts.primary != null && tpl.variant === 'sls') myPaint.color.set(opts.primary);
   const swap = new Map();
@@ -584,6 +640,11 @@ export function createGT(opts = {}) {
     const v = new THREE.Mesh(new THREE.SphereGeometry(0.137, 20, 8, Math.PI - 0.9, 1.8, 1.15, 0.5), visor);
     v.rotation.y = 0; h.add(v);
     body.add(h); helmet.push(h);
+  }
+  if (tpl.kind === 'kart') {
+    const w0 = tpl.wheelInfo[0], gy = w0.center.y - w0.radius;
+    const drv = kartDriver(gy, opts.primary ?? 0x1e5bd6, opts.primary != null ? opts.accent ?? 0xffffff : 0xffd21e, ghostMat);
+    body.add(drv); helmet.push(drv.children[drv.children.length - 1]);
   }
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
   return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe, sidewall }, scale: CAR_SCALE, gt: true, kind: tpl.kind, variant: tpl.variant || null, yr: tpl.yr };

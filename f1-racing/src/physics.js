@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=201';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=201';
-import { SURF, SURF_PROPS } from './track.js?v=201';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=202';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=202';
+import { SURF, SURF_PROPS } from './track.js?v=202';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -75,6 +75,7 @@ export class CarPhysics {
     // Renault R26: V8 aspirato fino a 19.000 giri, 7 marce (rapporti più corti per i giri alti)
     // macchine speciali d'epoca: giri e rapporti del loro motore (vehicle.js)
     if (CLASSIC) { this.gears = CLASSIC.gears.slice(); this.maxRpm = CLASSIC.rpm; this.idleRpm = CLASSIC.idle; }
+    if (SPEC.gears) { this.gears = SPEC.gears.slice(); this.maxRpm = SPEC.rpm; this.idleRpm = SPEC.idle; }   // kart
     this.rpmK = this.maxRpm / 12500;   // soglie di cambiata e curva di coppia in proporzione ai giri massimi
     this.peakTorque = CAR.torque;
     this.powerScale = 1;
@@ -87,8 +88,8 @@ export class CarPhysics {
     this.gripScale = 1;
     this.gearLong = 1;
     // inerzia di ruota+gomma e del motore (kg·m²), riportate al battistrada nel calcolo
-    this.wheelI = 0.3 / (this.R * this.R);
-    this.engI = IS_F1 ? 0.005 : 0.012;
+    this.wheelI = (SPEC.wheelI || 0.3) / (this.R * this.R);
+    this.engI = SPEC.engI || (IS_F1 ? 0.005 : 0.012);
     this.compound = 'M';
     this.inPit = false;             // guidata dalla corsia box (niente fisica)              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
@@ -103,7 +104,7 @@ export class CarPhysics {
     this.springK = SPEC.susp.springK;           // stessa compressione statica con più massa
     this.damperC = SPEC.susp.damperC;
     this.arbK = SPEC.susp.arbK.slice();   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
-    this.rearGrip = 1.1;            // gomme posteriori più larghe
+    this.rearGrip = SPEC.rearGrip ?? 1.1;            // gomme posteriori più larghe
     this.maxBrakeForce = CAR.brake;
     this.brakeBias = 0.57;
     this.wheels = [
@@ -201,7 +202,7 @@ export class CarPhysics {
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara
-    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000 / this.rpmK));
+    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000 / this.rpmK) * (SPEC.fuelUse ?? 1));
     this.mass = this.baseMass + this.fuel;
     const m = this.mass, dmg = this.damage, A = this.arcade;
     // arcade: controllo trazione e ABS sempre attivi
@@ -282,7 +283,7 @@ export class CarPhysics {
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm / this.rpmK * 0.0045) * (A ? ARCADE.engineBrake : 1);
     if (this.shiftTimer > 0) torque *= 0.1;
     // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
-    const heat = 6 * throttle * (this.rpm / (IS_R26 ? this.maxRpm - 1000 : 12000));
+    const heat = 6 * throttle * (this.rpm / (IS_R26 || SPEC.gears ? this.maxRpm - 1000 : 12000)) * (SPEC.engHeat ?? 1);
     const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
     this.engTemp += (heat - cool) * dt;
     if (this.engTemp > 128 && dfx && !A) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);
@@ -392,7 +393,7 @@ export class CarPhysics {
         // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
         // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore
         const du = this.wheels[2].spin - this.wheels[3].spin;
-        const lim = 250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce);
+        const lim = (250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce)) * (SPEC.lsd ?? 1);
         const lock = Math.max(-lim, Math.min(lim, 2500 * du));
         drive += i === 2 ? -lock : lock;
       }

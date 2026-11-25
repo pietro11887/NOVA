@@ -6,9 +6,9 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && ['f1', 'kart', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
-  if (PUBLIC && cls !== 'f1' && cls !== 'gt') cls = 'f1';
+  if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
 
 export const CAR_CLASS = cls;
@@ -16,6 +16,8 @@ export const CAR_CLASS = cls;
 // macchine speciali d'epoca: Renault R26 (2006) e McLaren MP4/5 (1989). IS_R26 vale per tutte e due
 // (niente batteria né Overtake, motore aspirato che urla); IS_MP45 per quello che è solo della McLaren
 export const IS_MP45 = cls === 'mp45';
+// kart: categoria a sé (niente box F1, niente ali), con le stesse regole di gara delle GT
+export const IS_KART = cls === 'kart';
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
 // snd.mul porta i giri del motore sui campioni del V12: frequenza di scoppio = giri × cilindri / 120.
@@ -166,6 +168,32 @@ SPECS.w11 = {
   hull: [[3.05, -0.95, 'fwL'], [3.05, 0.95, 'fwR'], [3.08, 0, 'nose'], [1.865, -1.0, 'wFL'], [1.865, 1.0, 'wFR'], [0.1, -0.85, 'sideL'], [0.1, 0.85, 'sideR'], [-1.865, -1.0, 'wRL'], [-1.865, 1.0, 'wRR'], [-2.6, -0.52, 'rw'], [-2.6, 0.52, 'rw']],
   circles: [[1.95, 0.98], [0.1, 1.0], [-1.95, 0.98]],
   car: { mass: 746, ClA: 5.0, CdA: 1.25, mu: 1.82, torque: 690, brake: 42000 },
+};
+
+// Kart 125 cc a marce (KZ): ~48 CV a 13.500 giri, 175 kg con il pilota, niente sospensioni né carico
+// aerodinamico, assale posteriore rigido, gomme slick morbide: curve velocissime, frenate brevi, ~135 km/h
+SPECS.kart = {
+  label: 'KART',
+  geom: { axleF: 0.51, axleR: -0.51, halfTrack: 0.58, wheelR: 0.14, cgHeight: 0.17 },
+  car: { mass: 175, ClA: 0.12, CdA: 0.6, mu: 1.75, torque: 26, brake: 3600 },
+  inertia: { Iz: 45, Ipitch: 40, Iroll: 22 },
+  susp: { springK: 52000, damperC: 2600, arbK: [9000, 30000] },
+  steer: 1.15,
+  heat: { slide: 3500, roll: 0.15 },
+  // marce (rapporti totali), giri e inerzie di ruote e motore (piccoli e leggeri)
+  gears: [12.6, 10.3, 8.7, 7.5, 6.5, 5.6], rpm: 13500, idle: 3800, wheelI: 0.035, engI: 0.0025,
+  hull: [
+    [0.92, -0.5, 'fwL'], [0.92, 0.5, 'fwR'], [0.95, 0, 'nose'],
+    [0.51, -0.68, 'wFL'], [0.51, 0.68, 'wFR'],
+    [0.0, -0.62, 'sideL'], [0.0, 0.62, 'sideR'],
+    [-0.51, -0.72, 'wRL'], [-0.51, 0.72, 'wRR'],
+    [-0.85, -0.55, 'rw'], [-0.85, 0.55, 'rw'],
+  ],
+  circles: [[0.5, 0.62], [0.0, 0.64], [-0.5, 0.66]],
+  ai: { hazard: [9, 2, 0.0004], follow: 13, pit: 9 },
+  dirtyAir: 0.01,
+  engHeat: 0.6, fuelUse: 0.12,   // motore piccolo raffreddato bene, consuma pochissimo
+  lineMu: 0.9,       // in curva rende meno di quanto dica l'aderenza (trasferimento di carico enorme)
 };
 
 export const SPEC = SPECS[cls];

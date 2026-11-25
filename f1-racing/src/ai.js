@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=201';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=202';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=201';
-import { SPEC, IS_F1 } from './vehicle.js?v=201';
+import { CAR } from './physics.js?v=202';
+import { SPEC, IS_F1 } from './vehicle.js?v=202';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -65,7 +65,7 @@ export class AIDriver {
     // arcade: tu hai più aderenza e gli aiuti; i bot forti hanno anche qualche cavallo in più
     if (arc) this.skill.power *= 1 + ARCADE.aiPower * Math.pow(Math.max(0, Math.min(1, t)), 1.6);
     const tc = Math.max(0, Math.min(1, t));
-    const mu = LINE_GRIP * this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
+    const mu = LINE_GRIP * (SPEC.lineMu || 1) * this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
     const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1)) * LINE_GRIP;
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     // F1: nelle curve veloci il carico aerodinamico permette di più (Eau Rouge in pieno)

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js?v=201';
-import { CAR, CarPhysics } from './physics.js?v=201';
-import { GEOM } from './carModel.js?v=201';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=202';
+import { CAR, CarPhysics } from './physics.js?v=202';
+import { GEOM } from './carModel.js?v=202';
 import { ARCADE } from './driveMode.js?v=68c3b840';
-import { IS_F1, CAR_CLASS } from './vehicle.js?v=201';
+import { IS_F1, CAR_CLASS, SPEC } from './vehicle.js?v=202';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
@@ -120,7 +120,7 @@ export class RacingLine {
   // velocità consigliata dai colori: aderenza vera della vettura, senza le correzioni "imparate" dalle
   // scivolate dei bot (quelle valgono solo per i bot)
   guideProfile() {
-    const a = this.arcadeOn ? ARCADE.grip : 1, sc = LINE_GRIP * a, b = this.arcadeOn ? ARCADE.brake : 1;
+    const a = this.arcadeOn ? ARCADE.grip : 1, sc = LINE_GRIP * a * (SPEC.lineMu || 1), b = this.arcadeOn ? ARCADE.brake : 1;
     // GT (poco carico aerodinamico): aderenza misurata in tondo, affidabile. Monoposto: il modello con
     // l'aerodinamica (in tondo ad alta velocità la prova sottostima: Curva Grande e Eau Rouge si fanno in pieno)
     if (CAR_CLASS === 'gt') { const C = LINE_CAL.gt; return this.speedProfile(CAR.mu * LINE_GRIP * a, 0.9 * LINE_GRIP * b, 95, 0, { a0: C[0] * sc, k: C[1] * sc }); }

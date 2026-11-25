@@ -96,3 +96,5 @@ File `gt_mcl_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitaco
 **Subaru BRZ GT300 2021** — "Subaru Brz GT3 300 2021 | www.vecarz.com" di [vecarz](https://sketchfab.com/heynic) (Sketchfab), licenza [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
 Fonte: https://sketchfab.com/3d-models/subaru-brz-gt3-300-2021-wwwvecarzcom-2036561eb728405c803b2c57303b961d
 File `gt_brz_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, poligoni e texture ridotti.
+
+- Kart (`kart_hi.glb`, `kart_mid.glb`): modello "Go-Kart" da Sketchfab (OBJ con texture PBR), convertito con `tools/build_kart_model.mjs`; pilota disegnato dal gioco.
