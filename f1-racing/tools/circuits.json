@@ -761,5 +761,29 @@
    "ned"
   ],
   "custom": true
+ },
+ "kart": {
+  "name": "Nova Kart Arena",
+  "short": "KART GP",
+  "place": "Pista da kart · stretta e tutta curve",
+  "flag": [
+   "#ff8a1c",
+   "#16171b",
+   "#ffd21e"
+  ],
+  "km": "1,25",
+  "corners": 12,
+  "info": "Tornanti, esse e curvoni su una pista larga 9 metri: si frena tanto e si sorpassa in staccata",
+  "hw": 4.6,
+  "climate": "temperate",
+  "fans": [
+   "ita",
+   "ita",
+   "ita",
+   "gbr",
+   "ned",
+   "ita"
+  ],
+  "custom": true
  }
 }
