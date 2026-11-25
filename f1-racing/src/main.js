@@ -1,38 +1,38 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=204';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=204';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=204';
+import { Track, SURF } from './track.js?v=205';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=205';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=205';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=204';
-import { BakuScenery } from './sceneryBaku.js?v=204';
-import { SpaScenery } from './scenerySpa.js?v=204';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=204';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=204';
-import { SafetyCar } from './safetyCar.js?v=204';
-import { CarPhysics } from './physics.js?v=204';
+import { Scenery, ENV } from './scenery.js?v=205';
+import { BakuScenery } from './sceneryBaku.js?v=205';
+import { SpaScenery } from './scenerySpa.js?v=205';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=205';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=205';
+import { SafetyCar } from './safetyCar.js?v=205';
+import { CarPhysics } from './physics.js?v=205';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=204';
-import { WallMarks } from './wallMarks.js?v=204';
+import { BakuFx } from './bakuFx.js?v=205';
+import { WallMarks } from './wallMarks.js?v=205';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=4fc54bf6';
-import { Sound } from './audio.js?v=204';
+import { Sound } from './audio.js?v=205';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=204';
-import { RacingLine } from './racingLine.js?v=204';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=204';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=205';
+import { RacingLine } from './racingLine.js?v=205';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=205';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=204';
-import { PitCrew } from './pitCrew.js?v=204';
-import { buildGrassTufts } from './grassTufts.js?v=204';
-import { Online, NET_VER, MAX_GUESTS } from './online.js?v=204';
-import { Friends, cleanId, cleanName, userName } from './friends.js?v=204';
-import { COMPOUNDS } from './physics.js?v=204';
-import { AIDriver } from './ai.js?v=204';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=204';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=204';
+import { PitLane, PitStop } from './pit.js?v=205';
+import { PitCrew } from './pitCrew.js?v=205';
+import { buildGrassTufts } from './grassTufts.js?v=205';
+import { Online, NET_VER, MAX_GUESTS } from './online.js?v=205';
+import { Friends, cleanId, cleanName, userName } from './friends.js?v=205';
+import { COMPOUNDS } from './physics.js?v=205';
+import { AIDriver } from './ai.js?v=205';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=205';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=205';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 const CLS_KEY = CLASSIC || IS_KART ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
@@ -46,7 +46,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=204';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=205';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -265,7 +265,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=204`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=205`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -427,7 +427,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v204 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v205 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -2619,7 +2619,7 @@ document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click',
   else if (k === 'quality') { settings.quality = settings.quality === 'min' ? 'low' : QS === 'low' ? 'high' : settings.quality === 'high' ? 'ultra' : 'min'; saveSettings(); location.reload(); return; }
   else if (k === 'raceTyre') { settings.raceTyre = cyc(TYRES_ALL, settings.raceTyre, 1); }
   else if (k === 'damage') { settings.damage = settings.damage === 'sim' ? 'reduced' : settings.damage === 'reduced' ? 'cosmetic' : 'sim'; phys.damageMode = dmMode(); }
-  else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; }
+  else if (k === 'steer') { settings.steer = settings.steer === 'tilt' ? 'buttons' : 'tilt'; if (settings.steer === 'tilt') { tiltFallback = false; input.requestTilt(); } }
   else if (k === 'line') { settings.line = settings.line === 'full' ? 'brake' : settings.line === 'brake' ? 'off' : 'full'; }
   else if (k === 'driveMode') { setDriveMode(settings.driveMode === 'arcade' ? 'sim' : 'arcade'); return; }
   else if (k === 'arcTow') { settings.arcTow = (settings.arcTow + 1) % 3; }
@@ -3533,7 +3533,7 @@ function setRows() {
     R.push({ l: 'CONTROLLO DI TRAZIONE', v: S.tc ? 'SÌ' : 'NO', s: 'limita il pattinamento in uscita', f: () => { S.tc = !S.tc; } });
     R.push({ l: 'ABS', v: S.abs ? 'SÌ' : 'NO', s: 'impedisce il bloccaggio in frenata', f: () => { S.abs = !S.abs; } });
     R.push({ l: 'LINEA IDEALE', v: S.line === 'full' ? 'COMPLETA' : S.line === 'brake' ? 'SOLO FRENATE' : 'NO', s: 'verde accelera, rosso frena', f: d => { S.line = cyc(['full', 'brake', 'off'], S.line, d); } });
-    if (isTouch) R.push({ l: 'STERZO', v: S.steer === 'tilt' ? 'INCLINAZIONE' : 'FRECCE', s: 'inclinando il telefono o con ◀ ▶', f: () => { S.steer = S.steer === 'tilt' ? 'buttons' : 'tilt'; applyTilt(); } });
+    if (isTouch) R.push({ l: 'STERZO', v: S.steer === 'tilt' ? 'INCLINAZIONE' : 'FRECCE', s: 'inclinando il telefono o con ◀ ▶', f: () => { S.steer = S.steer === 'tilt' ? 'buttons' : 'tilt'; if (S.steer === 'tilt') { tiltFallback = false; input.requestTilt(); } applyTilt(); } });
   }
   return R;
 }
@@ -3829,13 +3829,21 @@ input.bindTouch($('zBrake'), 'brake');
 input.bindTouch($('pGas'), 'gas');
 input.bindTouch($('pBrake'), 'brake');
 input.touchMode = isTouch;
+// tiltFallback: il sensore non risponde (permesso negato, telefono senza giroscopio): per ora si sterza con
+// le frecce, ma la scelta resta "inclinazione" e appena il sensore risponde si torna a girare il telefono
+let tiltFallback = false;
 const applyTilt = () => {
   input.tilt.invert = settings.tiltInvert; input.tilt.sens = settings.tiltSens;
-  input.tiltEnabled = settings.steer === 'tilt';
-  document.body.classList.toggle('steer-buttons', settings.steer !== 'tilt');
-  document.body.classList.toggle('steer-tilt', settings.steer === 'tilt');
+  const on = settings.steer === 'tilt' && !tiltFallback;
+  input.tiltEnabled = on;
+  document.body.classList.toggle('steer-buttons', !on);
+  document.body.classList.toggle('steer-tilt', on);
 };
 applyTilt();
+// iPhone: il permesso per il sensore si può chiedere solo dopo un tocco (anche per le gare online,
+// che partono da sole quando l'host dà il via): lo si chiede al primo tocco sullo schermo
+let tiltAsked = false;
+addEventListener('pointerdown', () => { if (settings.steer === 'tilt' && !tiltAsked) { tiltAsked = true; input.requestTilt(); } }, true);
 
 // telefono: si gioca in orizzontale
 const isPortrait = () => isTouch && innerHeight > innerWidth;
@@ -3858,12 +3866,14 @@ function goLandscape() {
 function updateTouchSteer() {
   if (!isTouch || settings.steer !== 'tilt') return;
   const tilt = input.tiltSteer() !== null;
+  if (tiltFallback) { if (tilt) { tiltFallback = false; applyTilt(); showBanner('STERZO CON IL TELEFONO ATTIVO', 'green', 2, true); } return; }
   $('tiltBar').classList.toggle('hidden', !tilt);
   if (tilt) $('tiltBar').firstElementChild.style.left = (50 + input.state.steer * 50) + '%';
   // sensore assente: si torna alle frecce
   if (!tilt && mode !== 'menu' && performance.now() - gameStartedAt > 1500) {
-    settings.steer = 'buttons'; saveSettings(); applyTilt(); refreshSettings();
-    showBanner('SENSORE NON DISPONIBILE: STERZA CON ◀ ▶', 'yellow', 3, true);
+    tiltFallback = true; applyTilt();
+    input.requestTilt();
+    showBanner('SENSORE NON DISPONIBILE: PER ORA STERZA CON ◀ ▶', 'yellow', 3, true);
   }
 }
 let gameStartedAt = 0;
