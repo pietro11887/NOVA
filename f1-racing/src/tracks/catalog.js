@@ -1,6 +1,6 @@
 import { PUBLIC, PUB_TRACKS } from '../edition.js?v=f01fe25a';
-import { CONTROL_POINTS } from '../trackData.js?v=199';
-import { REAL_TRACKS } from './realList.js?v=ecce4c53';
+import { CONTROL_POINTS } from '../trackData.js?v=200';
+import { REAL_TRACKS } from './realList.js?v=13add10a';
 
 // Elenco dei circuiti per il menu: nome, dati principali e sagoma per l'anteprima.
 // (la sagoma di Baku è una versione leggera del tracciato OSM, così il menu non deve

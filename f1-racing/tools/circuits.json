@@ -737,5 +737,29 @@
   ],
   "armco": true,
   "wall_gap": 3.5
+ },
+ "itis": {
+  "name": "ITIS Circuit",
+  "short": "ITIS GP",
+  "place": "Circuito della scuola · disegnato da Pietro",
+  "flag": [
+   "#1e5bd6",
+   "#ffffff",
+   "#ff8a1c"
+  ],
+  "km": "3,60",
+  "corners": 13,
+  "info": "Tribune sul rettilineo, giro attorno alla fontana e tornante tra le tribune, accanto al lago",
+  "hw": 6.5,
+  "climate": "temperate",
+  "fans": [
+   "ita",
+   "ita",
+   "ita",
+   "ita",
+   "gbr",
+   "ned"
+  ],
+  "custom": true
  }
 }
