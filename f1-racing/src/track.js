@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=202';
-import * as tex from './textures.js?v=202';
+import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=203';
+import * as tex from './textures.js?v=203';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -207,7 +207,7 @@ export class Track {
     if (hasKerb && ad <= H + K) {
       const u = (ad - H) / K;
       // profilo liscio: le nervature del cordolo sono rese come vibrazione (grafica, audio)
-      out.h = 0.045 * Math.min(1, u * 1.6);
+      out.h = 0.045 * KERB.h * Math.min(1, u * 1.6);
       out.type = SURF.KERB;
       return out;
     }
@@ -417,9 +417,9 @@ export class Track {
       kerbMat.customProgramCacheKey = () => 'kerbwear' + hq;
       if (hq) triplanar(kerbMat, 'concrete', { scale: 1.2, strength: 0.35, normal: 0.9 });
     }
-    const prof = [[0, 0.006], [0.35, 0.05], [K, 0.07]];
-    g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, 3.0));
-    g.add(this.ribbon(prof.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].kerbR, kerbMat, 3.0));
+    const prof = [[0, 0.006], [Math.min(0.35, K * 0.3), 0.006 + 0.044 * KERB.h], [K, 0.006 + 0.064 * KERB.h]];
+    g.add(this.ribbon(prof.map(([u, h]) => [E(1, u), h]), i => S[i].kerbL, kerbMat, KERB.rep));
+    g.add(this.ribbon(prof.map(([u, h]) => [E(-1, -u), h]).reverse(), i => S[i].kerbR, kerbMat, KERB.rep));
     // cordoli a salsiccia (gialli)
     const sausMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 });
     const sp = []; for (let k = 0; k <= 6; k++) sp.push([K + 0.7 * k / 6, 0.11 * Math.sin(Math.PI * k / 6)]);

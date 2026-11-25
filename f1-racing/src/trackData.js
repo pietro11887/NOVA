@@ -53,7 +53,10 @@ export const CONTROL_POINTS = [
   [-310, 0.2, -2.5],
 ];
 
-export const KERB_WIDTH = 1.6;
+// cordoli: larghezza (m), altezza (× quella delle piste normali) e lunghezza di una coppia di strisce (m);
+// le piste da kart li hanno più stretti, bassi e con le strisce fitte
+export let KERB_WIDTH = 1.6;
+export let KERB = { h: 1, rep: 3.0 };
 export const SAMPLE_STEP = 2;       // metri tra i campioni
 // Valori della pista selezionata (binding "vivi": chi li importa vede sempre quelli correnti)
 export let ROAD_HALF_WIDTH = 7;     // mezza carreggiata tipica (per campione: s.hw)
@@ -122,6 +125,7 @@ export function realTrack(meta, data) {
     // bordi, cordoli, vie di fuga e barriere misurati sulle foto satellitari
     side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined, armco: !!meta.armco,
     lineShift: 200,
+    kerbW: data.kerbW, kerbH: data.kerbH, kerbRep: data.kerbRep,
     pitPath: data.pit || undefined,
     pit: { halfW: 3.0, speed: 80 / 3.6, side: data.pitSide || 1, boxGap: 12 },
     grid: { pole: 200, gap: 8, lat: 3.0 },
@@ -136,6 +140,8 @@ export function sponsorAt(s, side) {
 
 export function selectTrack(def) {
   TRACK = def;
+  KERB_WIDTH = def.kerbW || 1.6;
+  KERB = { h: def.kerbH ?? 1, rep: def.kerbRep ?? 3.0 };
   ROAD_HALF_WIDTH = def.hw;
   PIT = { ...def.pit };
 }

@@ -128,7 +128,7 @@ out = {'source': 'Pista da kart inventata (Nova Kart Arena)', 'lat0': 45.0, 'lon
        'pit': [[round(x, 2), round(z, 2)] for x, z in pit], 'pitSide': pit_side,
        'grid': {'x0': x0, 'z0': z0, 'step': step, 'nx': nx, 'nz': nz, 'h': grid_h},
        'buildings': buildings, 'forest': forest, 'meadow': meadow, 'water': water, 'roads': [], 'trees': trees, 'corners': {}, 'tunnels': [],
-       'names': [], 'banks': []}
+       'names': [], 'banks': [], 'kerbW': 1.0, 'kerbH': 0.5, 'kerbRep': 1.6}
 fn = os.path.join(ROOT, 'src', 'tracks', 'kartData.js')
 with open(fn, 'w') as f:
     f.write('// Nova Kart Arena — pista da kart inventata. Generato da tools/build_kart.py.\n')
