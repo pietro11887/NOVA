@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=193">
+<link rel="stylesheet" href="style.css?v=194">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -160,7 +160,7 @@
       <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
       <button class="tile" id="settingsTile"><span class="tTag">OPZIONI</span><b>IMPOSTAZIONI</b><small>Comandi, telecamera, grafica, audio</small><i class="tIc">⚙</i></button>
     </div>
-    <div class="navMini homeMini"><button id="friendsBtn">👥 Amici <b id="frBadge" class="frBadge hidden"></b></button><button id="recordsBtn">🏆 Record</button><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button><span style="align-self:center;opacity:.45;font-size:11px;letter-spacing:1px">v193</span></div>
+    <div class="navMini homeMini"><button id="friendsBtn">👥 Amici <b id="frBadge" class="frBadge hidden"></b></button><button id="recordsBtn">🏆 Record</button><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button><span style="align-self:center;opacity:.45;font-size:11px;letter-spacing:1px">v194</span></div>
     <div class="liveTag" id="liveTag"><i></i><span id="liveText">IN PISTA</span></div>
   </div>
 
@@ -168,8 +168,8 @@
   <div class="menuPage hidden" id="menuFriends">
     <header class="mHead"><div class="logo">AMICI</div></header>
     <div class="frBody">
-      <div class="frMe"><small>IL TUO CODICE AMICO</small><b id="frMyId">------</b><span>Dallo ai tuoi amici: lo scrivono qui sotto e ti aggiungono</span></div>
-      <div class="frAdd"><input id="frCode" maxlength="6" placeholder="CODICE" autocomplete="off" spellcheck="false"><button id="frAddBtn" class="onBig go"><b>AGGIUNGI</b></button></div>
+      <div class="frMe"><small>IL TUO NOME UTENTE</small><b id="frMyName">—</b><span id="frMyId"></span><button id="frRename" class="frRename">CAMBIA NOME</button></div>
+      <div class="frAdd"><input id="frCode" maxlength="10" placeholder="NOME AMICO" autocomplete="off" spellcheck="false"><button id="frAddBtn" class="onBig go"><b>AGGIUNGI</b></button></div>
       <div class="frStatus" id="frStatus"></div>
       <div class="frList" id="frList"></div>
     </div>
@@ -377,6 +377,16 @@
   </div>
 </div>
 
+<div id="userPick" class="overlay hidden">
+  <div class="menuBox small">
+    <div class="logo">IL TUO NOME</div>
+    <p>Scegli un nome utente: i tuoi amici ti aggiungono con questo nome e lo vedono nelle gare online.</p>
+    <input id="upName" class="upName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="NOME">
+    <p id="upMsg" class="upMsg">Da 3 a 10 caratteri: lettere, numeri e _</p>
+    <button id="upOk" class="primary">CONFERMA</button>
+  </div>
+</div>
+
 <div id="frToast" class="frToast hidden"><span id="frToastTxt"></span><button id="frToastYes">ENTRA</button><button id="frToastNo">✕</button></div>
 
 <div id="dnf" class="overlay hidden">
@@ -405,6 +415,6 @@
 <!-- presentazione del circuito prima della partenza -->
 <div id="introCard" class="hidden"><div class="icBox"><span class="icKind" id="icKind">GRAN PREMIO</span><b id="icName"></b><small id="icInfo"></small></div><button id="introSkip">SALTA ›</button></div>
 
-<script type="module" src="src/main.js?v=193"></script>
+<script type="module" src="src/main.js?v=194"></script>
 </body>
 </html>

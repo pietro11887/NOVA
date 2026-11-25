@@ -3,7 +3,9 @@
 // pubblici (MQTT), gli stessi della gara online: niente account, niente server nostri.
 import { Mqtt, BROKERS } from './relay.js?v=6123c3ca';
 
-const ROOT = 'novagp-v1/u/';
+const ROOT = 'novagp-v1/u/', NAMES = 'novagp-v1/n/';
+export const cleanName = s => String(s || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10);
+export const userName = () => get('novaf1.user', null);
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const get = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } };
@@ -26,6 +28,8 @@ export class Friends {
     this.onChange = null;               // () => {}
     this.onInbox = null;                // (msg) => {}
     this.got = new Set();
+    this.names = new Map();             // NOME -> { id } (dal server)
+    this.waiting = new Map();           // NOME -> [risolvi]
   }
   save() { put('novaf1.friends', this.list); }
   start() {
@@ -34,7 +38,7 @@ export class Friends {
       let m;
       try {
         m = new Mqtt(url, ROOT + this.id + '/in', (msg, topic) => this.recv(msg, topic), st => {
-          if (st === 'ready') { this.ms.push(m); for (const f of this.list) m.subscribe(ROOT + f.id + '/p'); this.beat(); }
+          if (st === 'ready') { this.ms.push(m); for (const f of this.list) m.subscribe(ROOT + f.id + '/p'); this.beat(); if (!this.reclaimed && userName()) { this.reclaimed = true; this.claim(userName()).catch(() => {}); } }
           else if (st === 'close' || st === 'error') this.ms = this.ms.filter(x => x !== m);
         });
       } catch (e) { /* server non raggiungibile */ }
@@ -52,6 +56,13 @@ export class Friends {
   recv(msg, topic) {
     if (!msg || typeof msg !== 'object') return;
     const p = topic.split('/');
+    if (p[1] === 'n') {                                   // nome utente -> codice di chi lo usa
+      const id = msg.id && !msg.free ? msg.id : null;       // (un nome lasciato libero vale come mai preso)
+      if (id) this.names.set(p[2], msg); else this.names.delete(p[2]);
+      for (const r of this.waiting.get(p[2]) || []) r(id);
+      this.waiting.delete(p[2]);
+      return;
+    }
     if (p[3] === 'p') {
       const prev = this.seen.get(p[2]);
       if (prev && prev.t > msg.t) return;
@@ -84,4 +95,44 @@ export class Friends {
     return { on: true, st: s.st || 'menu', code: s.code || null, track: s.track || '', cls: s.cls || '' };
   }
   get connected() { return this.ms.length > 0; }
+  // aspetta che almeno un server ponte sia collegato (fino a ms millisecondi)
+  ready(ms = 6000) {
+    return new Promise(res => { const t0 = Date.now(); const k = () => (this.ms.length ? res(true) : Date.now() - t0 > ms ? res(false) : setTimeout(k, 150)); k(); });
+  }
+  // a chi appartiene un nome utente? (null = libero). Il server dà subito il messaggio "trattenuto", se c'è.
+  async lookup(name) {
+    name = cleanName(name);
+    if (!name) return null;
+    this.start();
+    if (!(await this.ready())) throw new Error('offline');
+    if (this.names.has(name)) return this.names.get(name).id;
+    return new Promise(res => {
+      const list = this.waiting.get(name) || []; list.push(res); this.waiting.set(name, list);
+      for (const m of this.ms) m.subscribe(NAMES + name);
+      setTimeout(() => { if (this.waiting.has(name)) { this.waiting.delete(name); res(this.names.has(name) ? this.names.get(name).id : null); } }, 2500);
+    });
+  }
+  // prende il nome (se è libero o è già tuo); 'taken' se lo usa qualcun altro, 'offline' senza collegamento
+  async claim(name) {
+    name = cleanName(name);
+    let owner;
+    try { owner = await this.lookup(name); } catch (e) { return 'offline'; }
+    if (owner && owner !== this.id) return 'taken';
+    const old = get('novaf1.user', null);
+    if (old && old !== name) this.pub(NAMES + old, { id: this.id, t: Date.now(), free: 1 }, true);   // il vecchio nome non è più tuo
+    this.pub(NAMES + name, { id: this.id, t: Date.now() }, true);
+    this.names.set(name, { id: this.id });
+    put('novaf1.user', name);
+    this.beat();
+    return 'ok';
+  }
+  // aggiunge un amico dal nome utente (o dal codice amico di 6 caratteri)
+  async addByName(text) {
+    const name = cleanName(text);
+    let id = null;
+    try { id = await this.lookup(name); } catch (e) { return 'offline'; }
+    if (id) { if (id === this.id) return 'self'; this.add(id, name); return 'ok'; }
+    if (/^[A-Z0-9]{6}$/.test(name) && name !== this.id) { this.add(name, name); return 'ok'; }
+    return 'notfound';
+  }
 }
