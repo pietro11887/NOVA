@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { PIT } from './trackData.js?v=194';
-import { IS_F1 } from './vehicle.js?v=194';
+import { PIT } from './trackData.js?v=195';
+import { IS_F1 } from './vehicle.js?v=195';
 
 // Meccanici al box (come nei giochi di F1): aspettano in corsia quando la vettura arriva,
 // pistole alle ruote e cric davanti e dietro durante il cambio, semaforo sopra il muso,

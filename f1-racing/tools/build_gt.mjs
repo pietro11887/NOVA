@@ -35,14 +35,14 @@ const CFG = {
   // Toyota GR GT3 Vasser Sullivan (VTX): muso verso -Z nel file (si gira di 180°), abitacolo tolto
   toy: { wb: 2.73, flip: true, tyre: /^Tire$/, rim: /^Wheel$/, disc: /^NESSUNO$/, paint: /^Body$/, drop: /^Cockpit$|^Interior$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
   // Ford Mustang GT3 (VTX): materiali senza nome; muso verso +Z
-  ford: { wb: 2.71, tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
+  ford: { wb: 2.71, cab: [-1.0, 0.7, 0.1, 1.45, -3.3, -0.9], tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
   // Lamborghini Huracán GT3 (stessa impostazione della BMW M4): muso verso +X nel file, abitacolo tolto
   lam: { wb: 2.645, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/, drop: /^INTERIOR$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.0012, 0.004] },
   // Subaru BRZ GT300 2021 (vecarz, CC BY 4.0): abitacolo tolto
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
-const STEER = { f296: { m: /Steer|STEER/ }, mas: { m: /Steer/ }, amg: { m: /Steering_Wheel/ }, brz: { m: /^Steering$/ }, m4: { n: /SteeringWheel/, ratio: 0.15 }, amv: { n: /STEERING_WHEEL/ }, mcl: { n: /CarbonSteering/ } }[id] || {};
+const STEER = { f296: { m: /Steer|STEER/ }, mas: { m: /Steer/ }, amg: { m: /Steering_Wheel/ }, brz: { m: /^Steering$/ }, m4: { n: /SteeringWheel/, ratio: 0.15 }, amv: { n: /STEERING_WHEEL/ }, mcl: { n: /CarbonSteering/ }, ford: { m: /^mat_590$/ } }[id] || {};
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
@@ -68,7 +68,12 @@ for (const m of root.listMaterials()) {
 }
 if (CFG.flip) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [-1,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,1]);
 if (CFG.rotX) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1]);
-for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (INT ? !(CFG.drop.test(p.getMaterial()?.getName() || '') || CFG.tyre.test(p.getMaterial()?.getName() || '')) : CFG.drop.test(p.getMaterial()?.getName() || '')) p.dispose();
+// abitacolo: i materiali tolti dalla carrozzeria (o, se non hanno nomi utili, i pezzi dentro la scatola dell'abitacolo)
+const inCab = p => { if (!CFG.cab) return false; const a = p.getAttribute('POSITION'), v = []; let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < a.getCount(); i += 7) { a.getElement(i, v); for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], v[c]); hi[c] = Math.max(hi[c], v[c]); } }
+  const B = CFG.cab; return lo[0] > B[0] && hi[0] < B[1] && lo[1] > B[2] && hi[1] < B[3] && lo[2] > B[4] && hi[2] < B[5]; };
+const isInt = p => { const n = p.getMaterial()?.getName() || ''; return CFG.cab ? inCab(p) && !CFG.tyre.test(n) && !CFG.paint.test(n) && !/Window|Glass/i.test(n) : CFG.drop.test(n); };
+for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (INT ? !(isInt(p) || CFG.tyre.test(p.getMaterial()?.getName() || '')) : CFG.drop.test(p.getMaterial()?.getName() || '')) p.dispose();
 for (const m of root.listMaterials()) if (CFG.paint.test(m.getName())) m.setName('PAINT');
 for (const m of root.listMaterials()) {
   for (const e of m.listExtensions()) m.setExtension(e.extensionName, null);

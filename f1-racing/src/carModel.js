@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { SPEC } from './vehicle.js?v=194';
-import { carbon } from './textures.js?v=194';
+import { SPEC } from './vehicle.js?v=195';
+import { carbon } from './textures.js?v=195';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Modello low-poly di vettura GT. Muso verso +X, destra verso +Z, origine nel baricentro

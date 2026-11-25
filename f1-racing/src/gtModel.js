@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=194';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=194';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=194';
+import { GEOM, CAR_SCALE } from './carModel.js?v=195';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=195';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=195';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -594,7 +594,7 @@ export function createGT(opts = {}) {
 // GT: abitacolo chiuso della 992 GT3 R; F1: volante, led e cinture della RB22
 const INT_FILES = { gt: 'gt3r_int.glb', f1: 'f1_rb22_int.glb' };
 // abitacoli delle altre GT3 (dai loro modelli): volante che gira, senza display né specchietti disegnati
-for (const v of ['f296', 'mas', 'amg', 'brz', 'm4', 'amv', 'mcl']) INT_FILES['gt_' + v] = `gt_${v}_int.glb`;
+for (const v of ['f296', 'mas', 'amg', 'brz', 'm4', 'amv', 'mcl', 'lam', 'toy', 'ford']) INT_FILES['gt_' + v] = `gt_${v}_int.glb`;
 export const interiorKind = model => (model && model.variant ? 'gt_' + model.variant : (model && model.kind) || CAR_CLASS);
 export const hasInterior = kind => !!INT_FILES[kind];
 const interiorTpl = {}, interiorJob = {};
