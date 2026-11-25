@@ -1,7 +1,7 @@
 // Amici: ognuno ha un codice amico (6 lettere) salvato sul dispositivo. Si aggiunge un amico col suo codice;
 // lo stato (online, in sala d'attesa con il codice della gara, in gara) e gli inviti passano dai server ponte
 // pubblici (MQTT), gli stessi della gara online: niente account, niente server nostri.
-import { Mqtt, BROKERS } from './relay.js?v=6123c3ca';
+import { Mqtt, BROKERS } from './relay.js?v=24517b30';
 
 const ROOT = 'novagp-v1/u/', NAMES = 'novagp-v1/n/';
 export const cleanName = s => String(s || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10);
@@ -28,6 +28,7 @@ export class Friends {
     this.onChange = null;               // () => {}
     this.onInbox = null;                // (msg) => {}
     this.got = new Set();
+    this.recs = new Map(); this.recKey = null; this.onRecords = null;
     this.names = new Map();             // NOME -> { id } (dal server)
     this.waiting = new Map();           // NOME -> [risolvi]
   }
@@ -63,6 +64,11 @@ export class Friends {
       this.waiting.delete(p[2]);
       return;
     }
+    if (p[3] === 'r') {                                   // record di un amico su una pista
+      const key = p.slice(4).join('/');
+      if (key === this.recKey && msg.time) { this.recs.set(p[2], msg); if (this.onRecords) this.onRecords(); }
+      return;
+    }
     if (p[3] === 'p') {
       const prev = this.seen.get(p[2]);
       if (prev && prev.t > msg.t) return;
@@ -95,6 +101,12 @@ export class Friends {
     return { on: true, st: s.st || 'menu', code: s.code || null, track: s.track || '', cls: s.cls || '' };
   }
   get connected() { return this.ms.length > 0; }
+  // ---- record degli amici (con il fantasma del giro) per pista e categoria
+  pubRecord(key, rec) { this.pub(ROOT + this.id + '/r/' + key, rec, true); }
+  watchRecords(key) {
+    if (this.recKey !== key) { this.recKey = key; this.recs = new Map(); }
+    for (const f of this.list) for (const m of this.ms) m.subscribe(ROOT + f.id + '/r/' + key);
+  }
   // aspetta che almeno un server ponte sia collegato (fino a ms millisecondi)
   ready(ms = 6000) {
     return new Promise(res => { const t0 = Date.now(); const k = () => (this.ms.length ? res(true) : Date.now() - t0 > ms ? res(false) : setTimeout(k, 150)); k(); });

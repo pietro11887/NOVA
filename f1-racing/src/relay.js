@@ -75,51 +75,87 @@ export class Mqtt {
   close() { clearInterval(this.ping); try { this.ws.send(new Uint8Array([0xe0, 0])); this.ws.close(); } catch (e) { /* niente */ } }
 }
 
-// connessione "ponte" con la stessa interfaccia della connessione PeerJS.
-// Ci si collega a TUTTI i broker insieme: i due giocatori si trovano sul primo che funziona per entrambi.
+// Ponte per la gara online fino a 4 giocatori: l'host ascolta su "<stanza>/h", ogni ospite ha la sua
+// casella "<stanza>/g/<id>". Ci si collega a TUTTI i broker insieme: si usa il primo che funziona per entrambi.
+const RT = 'novagp-v2/';
+function connectAll(sub, onMsg, onReady, onDrop) {
+  return new Promise((res, rej) => {
+    let left = BROKERS.length, ok = false;
+    const fail = () => { if (--left <= 0 && !ok) rej(new Error('nessun server ponte raggiungibile')); };
+    for (const url of BROKERS) {
+      let m, settled = false;
+      const t = setTimeout(() => { if (!settled) { settled = true; try { m.close(); } catch (e) { /* niente */ } fail(); } }, 8000);
+      try {
+        m = new Mqtt(url, sub, msg => onMsg(msg, m), st => {
+          if (st === 'ready') { if (!settled) { settled = true; clearTimeout(t); } if (onReady(m) === false) return; if (!ok) { ok = true; res(); } }
+          else if (st === 'error' || st === 'close') { if (!settled) { settled = true; clearTimeout(t); fail(); } onDrop(m); }
+        });
+      } catch (e) { settled = true; clearTimeout(t); fail(); }
+    }
+  });
+}
+
+// host: accetta più ospiti; per ognuno emette 'connection' con una connessione come quella di PeerJS
+export class RelayHost {
+  constructor(room) { this.room = room; this.ms = []; this.peers = new Map(); this.h = {}; this.closed = false; }
+  on(ev, fn) { (this.h[ev] || (this.h[ev] = [])).push(fn); return this; }
+  emit(ev, x) { for (const f of this.h[ev] || []) f(x); }
+  topic(cid) { return RT + this.room + '/g/' + cid; }
+  start() {
+    return connectAll(RT + this.room + '/h', (msg, m) => this.recv(msg, m),
+      m => { if (this.closed) { m.close(); return false; } this.ms.push(m); },
+      m => { this.ms = this.ms.filter(x => x !== m); for (const p of [...this.peers.values()]) if (p.m === m) p.end(); });
+  }
+  recv(msg, m) {
+    if (!msg || typeof msg !== 'object' || typeof msg.c !== 'string') return;
+    let p = this.peers.get(msg.c);
+    if (msg.r === 'hi') {
+      if (p && p.m !== m) return;                         // già collegati su un altro broker
+      m.publish(this.topic(msg.c), { r: 'ok' });
+      if (!p) { p = new RelayPeer(this, msg.c, m); this.peers.set(msg.c, p); this.emit('connection', p); }
+      return;
+    }
+    if (!p || p.m !== m) return;
+    if (msg.r === 'bye') { p.end(); return; }
+    if (msg.d !== undefined) p.emit('data', msg.d);
+  }
+  close() { this.closed = true; for (const p of [...this.peers.values()]) p.close(); setTimeout(() => { for (const m of this.ms) { try { m.close(); } catch (e) { /* niente */ } } this.ms = []; }, 200); }
+}
+class RelayPeer {
+  constructor(host, cid, m) { this.host = host; this.cid = cid; this.m = m; this.isRelay = true; this.open = true; this.closed = false; this.h = {}; }
+  on(ev, fn) { (this.h[ev] || (this.h[ev] = [])).push(fn); return this; }
+  emit(ev, x) { for (const f of this.h[ev] || []) f(x); }
+  get broker() { return this.m.ws.url.replace(/^wss?:\/\/|[:/].*$/g, ''); }
+  send(obj) { if (this.open) this.m.publish(this.host.topic(this.cid), { d: obj }); }
+  end() { if (this.closed) return; this.closed = true; this.open = false; this.host.peers.delete(this.cid); this.emit('close'); }
+  close() { try { this.m.publish(this.host.topic(this.cid), { r: 'bye' }); } catch (e) { /* niente */ } this.end(); }
+}
+
+// ospite: stessa interfaccia della connessione PeerJS
 export class RelayConn {
-  constructor(room, role) {
-    this.room = room; this.role = role; this.h = { open: [], data: [], close: [], error: [] };
-    this.open = false; this.closed = false; this.m = null; this.ms = [];
-    this.inTopic = `novagp-v1/${room}/${role === 'host' ? 'h' : 'g'}`;
-    this.outTopic = `novagp-v1/${room}/${role === 'host' ? 'g' : 'h'}`;
+  constructor(room) {
+    this.room = room; this.cid = Math.random().toString(36).slice(2, 10);
+    this.h = {}; this.open = false; this.closed = false; this.m = null; this.ms = [];
+    this.isRelay = true;
+    this.inTopic = RT + room + '/g/' + this.cid; this.outTopic = RT + room + '/h';
   }
   on(ev, fn) { (this.h[ev] || (this.h[ev] = [])).push(fn); return this; }
   emit(ev, x) { for (const f of this.h[ev] || []) f(x); }
   get broker() { return this.m ? this.m.ws.url.replace(/^wss?:\/\/|[:/].*$/g, '') : ''; }
-  // si risolve appena almeno un broker è pronto (errore se nessuno risponde)
+  pubTo(m, o) { o.c = this.cid; m.publish(this.outTopic, o); }
   start() {
-    return new Promise((res, rej) => {
-      let left = BROKERS.length, ok = false;
-      const fail = () => { if (--left <= 0 && !ok) rej(new Error('nessun server ponte raggiungibile')); };
-      for (const url of BROKERS) {
-        let m, settled = false;
-        const t = setTimeout(() => { if (!settled) { settled = true; try { m.close(); } catch (e) { /* niente */ } fail(); } }, 8000);
-        try {
-          m = new Mqtt(url, this.inTopic, msg => this.recv(msg, m), st => {
-            if (st === 'ready') { if (!settled) { settled = true; clearTimeout(t); } if (this.closed) { m.close(); return; } this.ms.push(m); if (!ok) { ok = true; res(this); } if (this.role === 'guest' && !this.open) m.publish(this.outTopic, { r: 'hi' }); }
-            else if (st === 'error' || st === 'close') { if (!settled) { settled = true; clearTimeout(t); fail(); } this.ms = this.ms.filter(x => x !== m); if (m === this.m) this.end(); }
-          });
-        } catch (e) { settled = true; clearTimeout(t); fail(); }
-      }
-      if (this.role === 'guest') {
-        // si bussa su tutti i broker finché l'host non risponde
-        const knock = () => { if (this.open || this.closed) return; for (const m of this.ms) m.publish(this.outTopic, { r: 'hi' }); this.kt = setTimeout(knock, 1500); };
-        this.kt = setTimeout(knock, 1500);
-      }
-    });
+    const p = connectAll(this.inTopic, (msg, m) => this.recv(msg, m),
+      m => { if (this.closed) { m.close(); return false; } this.ms.push(m); if (!this.open) this.pubTo(m, { r: 'hi' }); },
+      m => { this.ms = this.ms.filter(x => x !== m); if (m === this.m) this.end(); });
+    // si bussa su tutti i broker finché l'host non risponde
+    const knock = () => { if (this.open || this.closed) return; for (const m of this.ms) this.pubTo(m, { r: 'hi' }); this.kt = setTimeout(knock, 1500); };
+    this.kt = setTimeout(knock, 1500);
+    return p.then(() => this);
   }
   recv(msg, m) {
     if (!msg || typeof msg !== 'object') return;
-    if (msg.r === 'hi') {
-      if (this.role !== 'host') return;
-      if (this.m && this.m !== m) return;                 // già collegati su un altro broker
-      m.publish(this.outTopic, { r: 'ok' });
-      if (!this.open) { this.m = m; this.open = true; this.emit('open'); }
-      return;
-    }
     if (msg.r === 'ok') {
-      if (this.role !== 'guest' || this.open) return;
+      if (this.open) return;
       this.m = m; this.open = true; clearTimeout(this.kt);
       for (const o of this.ms) if (o !== m) o.close();
       this.ms = [m];
@@ -130,7 +166,7 @@ export class RelayConn {
     if (msg.r === 'bye') { this.end(); return; }
     if (this.open && msg.d !== undefined) this.emit('data', msg.d);
   }
-  send(obj) { if (this.m && this.open) this.m.publish(this.outTopic, { d: obj }); }
+  send(obj) { if (this.m && this.open) this.pubTo(this.m, { d: obj }); }
   end() { if (this.closed) return; this.closed = true; clearTimeout(this.kt); const was = this.open; this.open = false; for (const m of this.ms) { try { m.close(); } catch (e) { /* niente */ } } this.ms = []; if (was) this.emit('close'); }
-  close() { try { this.m && this.m.publish(this.outTopic, { r: 'bye' }); } catch (e) { /* niente */ } setTimeout(() => this.end(), 150); }
+  close() { try { this.m && this.pubTo(this.m, { r: 'bye' }); } catch (e) { /* niente */ } setTimeout(() => this.end(), 150); }
 }

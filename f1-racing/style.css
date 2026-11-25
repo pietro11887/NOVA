@@ -1139,3 +1139,7 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .upMsg.err { color: #ff5a4f; }
 .frMe b#frMyName { letter-spacing: 3px; }
 .frRename { margin-top: 6px; font-family: var(--font); font-weight: 900; font-size: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; }
+
+.frRecHead { margin-top: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); }
+.frRow em { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
+.frRow.me b { color: var(--accent, #ff8a1c); }

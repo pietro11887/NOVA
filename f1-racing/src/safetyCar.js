@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { GEOM } from './carModel.js?v=196';
-import { PIT } from './trackData.js?v=196';
+import { GEOM } from './carModel.js?v=197';
+import { PIT } from './trackData.js?v=197';
 
 // Safety car: entra dopo un incidente che lascia abbastanza rottami sulla carreggiata,
 // raccoglie il gruppo dietro di sé, i commissari puliscono la pista, dopo almeno un giro
@@ -50,7 +50,7 @@ export class SafetyCar {
       if (Math.abs(pr.d) < this.track.samples[pr.i].hw + 0.5) sc += WEIGHT[it.kind] ?? 0.5;
     }
     // vetture ferme (ritirate) sulla carreggiata o appena fuori
-    for (const c of this.race.cars) if (c.retired && !c.gone) {
+    for (const c of this.race.cars) if (c.retired && !c.gone && !c.scTowed) {
       const d = Math.abs(c.phys.prCG.d), hw = this.track.samples[c.phys.prCG.i].hw;
       if (d < hw + 2) sc += 6; else if (d < hw + 5) sc += 2;
     }
@@ -58,6 +58,7 @@ export class SafetyCar {
   }
 
   update(dt) {
+    if (this.netState) { this.updateNet(dt); return; }
     const race = this.race;
     this.t += dt; this.clock = (this.clock || 0) + dt;
     if (this.phase === 'off') {
@@ -91,8 +92,9 @@ export class SafetyCar {
       this.cleanT = 0;
       const far = (x, z, self) => race.cars.every(c => c === self || c.gone || c.retired || Math.hypot(c.phys.x - x, c.phys.z - z) > 45);
       // prima le vetture ferme (carro attrezzi), poi i rottami
-      const wreck = race.cars.find(c => c.retired && !c.gone && far(c.phys.x, c.phys.z, c));
-      if (wreck) { wreck.gone = true; if (this.onEvent) this.onEvent('towed', wreck); }
+      const wreck = race.cars.find(c => c.retired && !c.gone && !c.scTowed && far(c.phys.x, c.phys.z, c));
+      // (la vettura ferma di un altro giocatore online la toglie il suo dispositivo: qui si smette di contarla)
+      if (wreck) { if (wreck.remote && !wreck.ai) wreck.scTowed = true; else wreck.gone = true; if (this.onEvent) this.onEvent('towed', wreck); }
       else {
         const it = this.debris.items.find(it => far(it.obj.position.x, it.obj.position.z, null));
         if (it) this.debris.removeItem(it);
@@ -124,6 +126,32 @@ export class SafetyCar {
     if (this.phase === 'restart' && lead.crossings > this.inLap) { this.end(); return; }
     if (this.lightMat) this.lightMat.emissiveIntensity = this.phase === 'out' ? (Math.sin(this.t * 12) > 0 ? 3 : 0.2) : 0;
     this.guide(ord);
+  }
+
+  // gara online, ospite: la safety car la guida l'host; qui si segue il suo stato (fase, posizione, velocità)
+  updateNet(dt) {
+    const n = this.netState;
+    this.t += dt; this.clock = (this.clock || 0) + dt;
+    if (n.fresh) { n.fresh = false; this.D = n.D; this.v = n.v; } else this.D += this.v * dt;
+    if (n.ph !== this.phase) {
+      const was = this.phase;
+      this.phase = n.ph; this.t = 0;
+      if (n.ph === 'out') { if (this.model) this.model.root.visible = true; if (this.onEvent) this.onEvent('out'); }
+      else if (n.ph === 'in') { if (this.model) this.model.root.visible = true; if (this.onEvent) this.onEvent('in'); }
+      else if (n.ph === 'restart') { if (this.model) this.model.root.visible = false; }
+      else if (n.ph === 'off') { if (this.model) this.model.root.visible = false; if (was !== 'off' && this.onEvent) this.onEvent('green'); }
+    }
+    // i rottami di questo dispositivo li tolgono i commissari, uno alla volta e lontano dalle vetture
+    this.cleanT += dt;
+    if (this.cleanT > (this.phase === 'off' ? 8 : 1.5)) {
+      this.cleanT = 0;
+      const seen = this._seen || (this._seen = new WeakMap());
+      for (const it of this.debris.items) if (!seen.has(it)) seen.set(it, this.clock);
+      const it = this.debris.items.find(it => (this.phase !== 'off' || this.clock - seen.get(it) > 15) && this.race.cars.every(c => c.gone || Math.hypot(c.phys.x - it.obj.position.x, c.phys.z - it.obj.position.z) > 60));
+      if (it) this.debris.removeItem(it);
+    }
+    if (this.phase === 'out' || this.phase === 'in') this.pose(dt);
+    if (this.lightMat) this.lightMat.emissiveIntensity = this.phase === 'out' ? (Math.sin(this.t * 12) > 0 ? 3 : 0.2) : 0;
   }
 
   deploy(lead) {
