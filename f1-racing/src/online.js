@@ -219,6 +219,8 @@ export class Online {
         const f = { k: 'st', t: r3(m.t - L.off - L.lat), c: m.c, fw: 1 };
         for (const o of this.links) if (o !== L) o.send(f);
       }
+      // host: gli urti tra due ospiti si girano a chi li ha subiti
+      if (this.role === 'host' && m.k === 'hit') for (const o of this.links) if (o !== L) o.send(m);
       if (this.onMsg) this.onMsg(m, L);
     });
     conn.on('close', () => this.drop(L));
@@ -281,9 +283,12 @@ export class Online {
     }
     this.sendT -= dt;
     if (this.sendT > 0) return;
-    this.sendT = this.allLinks().some(L => L.conn.isRelay) ? SEND_EVERY * 1.4 : SEND_EVERY;   // dal ponte: 14 al secondo
+    // dal ponte: 14 al secondo; diretto: 30 al secondo
+    this.sendT = this.allLinks().some(L => L.conn.isRelay) ? SEND_EVERY * 1.4 : SEND_EVERY * 2 / 3;
     if (race.player) this.send({ k: 'st', t: r3(race.t), c: packCar(race.player) });
-    if (this.role === 'host') {
+    // i bot (tanti dati) 20 volte al secondo; la propria vettura più spesso con il collegamento diretto
+    this.botT = (this.botT || 0) + 1;
+    if (this.role === 'host' && (this.sendT > SEND_EVERY || this.botT % 3 !== 0)) {
       const m = { k: 'bots', t: r3(race.t), cars: race.cars.filter(c => c.ai).map(packCar) };
       if (this.scState) m.sc = this.scState();
       this.send(m);

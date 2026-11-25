@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=198';
+import { CarPhysics } from './physics.js?v=199';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=198';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=198';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=198';
-import { PitStop } from './pit.js?v=198';
-import { PIT, TRACK } from './trackData.js?v=198';
+import { AIDriver } from './ai.js?v=199';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=199';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=199';
+import { PitStop } from './pit.js?v=199';
+import { PIT, TRACK } from './trackData.js?v=199';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=198';
+import { TEAMS } from './f1Teams.js?v=199';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -376,6 +376,11 @@ export class Race {
       A.x -= nx * corr; A.z -= nz * corr; B.x += nx * corr; B.z += nz * corr;
       if (vn >= 0) continue;
       const impact = -vn;
+      // gara online: contatto tra la mia vettura e quella di un altro giocatore. Ognuno vede l'altro
+      // con un po' di ritardo, quindi l'urto lo si manda anche a lui: ognuno prende il colpo più forte
+      // tra quello visto da lui e quello visto dall'altro (niente "mi ha centrato" / "ti ho solo sfiorato")
+      const net = this.online && ((cars[a].isPlayer && cars[b].remote && !cars[b].ai) ? 1 : (cars[b].isPlayer && cars[a].remote && !cars[a].ai) ? -1 : 0);
+      const pre = net ? { vx: (net > 0 ? A : B).vx, vz: (net > 0 ? A : B).vz, w: (net > 0 ? A : B).yawRate, ox: (net > 0 ? B : A).vx, oz: (net > 0 ? B : A).vz, ow: (net > 0 ? B : A).yawRate } : null;
       // inerzia d'imbardata coerente con le dimensioni (scalate) della vettura;
       // nei tocchi leggeri pneumatici e sospensioni assorbono quasi tutta la rotazione
       const soft = Math.min(1, Math.max(0.25, (impact - 1.5) / 6));
@@ -400,6 +405,16 @@ export class Race {
         if (lx < -1) return side > 0.3 ? 'wRR' : side < -0.3 ? 'wRL' : 'rw';
         return side > 0 ? 'sideR' : 'sideL';
       };
+      if (pre) {
+        const me = net > 0 ? A : B, ot = net > 0 ? B : A, other = net > 0 ? cars[b] : cars[a];
+        const log = this.netHits || (this.netHits = {}), L = log[other.slot];
+        const dv = Math.hypot(me.vx - pre.vx, me.vz - pre.vz);
+        // l'altro ha già mandato un urto più forte per questo contatto: quello è già stato preso
+        if (L && this.t - L.t < 0.3 && L.dv >= dv) { me.vx = pre.vx; me.vz = pre.vz; me.yawRate = pre.w; }
+        else log[other.slot] = { t: this.t, dv };
+        // urto subito dalla sua vettura, come lo vedo io
+        if (this.onNetHit) this.onNetHit({ k: 'hit', to: other.slot, from: (net > 0 ? cars[a] : cars[b]).slot, vx: +(ot.vx - pre.ox).toFixed(2), vz: +(ot.vz - pre.oz).toFixed(2), w: +(ot.yawRate - pre.ow).toFixed(3), imp: +impact.toFixed(2), part: partOf(ot, net > 0 ? bx : ax, cx, cz), x: +cx.toFixed(2), z: +cz.toFixed(2) });
+      }
       A.applyContactDamage(partOf(A, ax, cx, cz), impact);
       B.applyContactDamage(partOf(B, bx, cx, cz), impact);
       const info = { impact, part: 'car', x: cx, z: cz, y: (A.y + B.y) / 2 - 0.2, nx, nz, scrape: Math.abs(vt) };
@@ -407,6 +422,25 @@ export class Race {
       for (const fn of B.listeners.impact) fn(info);
       // per i commissari: chi ha toccato chi e con quale parte (ax/bx: cerchio anteriore > 0, posteriore < 0)
       if (this.onContact) this.onContact(cars[a], cars[b], impact, ax, bx);
+    }
+  }
+
+  // gara online: urto visto dall'altro giocatore sulla mia vettura. Se io ne ho già preso uno più forte
+  // (nello stesso contatto) non si fa niente, altrimenti si aggiunge la parte che manca
+  netHit(m) {
+    const me = this.player;
+    if (!me || me.slot !== m.to || me.gone || me.phys.inPit) return;
+    const dv = Math.hypot(m.vx, m.vz);
+    if (!(dv > 0.05) || dv > 40) return;
+    const log = this.netHits || (this.netHits = {}), L = log[m.from];
+    let k = 1;
+    if (L && this.t - L.t < 0.3) { if (L.dv >= dv) return; k = 1 - L.dv / dv; }
+    log[m.from] = { t: this.t, dv };
+    const p = me.phys;
+    p.vx += m.vx * k; p.vz += m.vz * k; p.yawRate += Math.max(-3, Math.min(3, m.w || 0)) * k;
+    if (k > 0.3) {
+      p.applyContactDamage(m.part || 'sideL', (m.imp || dv) * k);
+      for (const fn of p.listeners.impact) fn({ impact: (m.imp || dv) * k, part: 'car', x: m.x ?? p.x, z: m.z ?? p.z, y: p.y - 0.2, nx: m.vx / dv, nz: m.vz / dv, scrape: 0 });
     }
   }
 
