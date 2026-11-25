@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=197';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=198';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=197';
-import { SPEC, IS_F1 } from './vehicle.js?v=197';
+import { CAR } from './physics.js?v=198';
+import { SPEC, IS_F1 } from './vehicle.js?v=198';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -151,7 +151,7 @@ export class AIDriver {
     let push = 0;
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
     let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
-    const along = [];
+    const along = [], humSide = [];
     // distanza laterale misurata rispetto alla traiettoria (nelle esse la linea passa da un lato all'altro:
     // due vetture in fila sulla stessa linea hanno "d" diverse ma sono una dietro l'altra)
     const myLD = this.street ? myD : myD - this.line.off[i];
@@ -179,6 +179,8 @@ export class AIDriver {
       if (Math.abs(g) < (hum ? 6 : 5.4) && lat < latW) push += -Math.sign(dd || 1) * (latW - lat) * (hum ? Math.max(1.1, 1.35 - 0.6 * this.aggr) : 1.35 - 0.6 * this.aggr);
       // affiancate (per la regola dello spazio e per cedere all'interno)
       if (g > -5 && g < 5 && lat < 3.6) along.push({ c, g, d: c.phys.prCG.d });
+      // giocatore sovrapposto anche solo con il muso (fino a 4,5 m dietro): ha diritto alla sua traiettoria
+      if (!c.ai && g > -4.5 && g < 5.5 && Math.abs(c.phys.prCG.d - myD) < 4.6 && c.phys.speed > 8) humSide.push({ d: c.phys.prCG.d, g });
     }
 
     const brakeIdx = this.nextBrake(i, v, 90);
@@ -336,6 +338,15 @@ export class AIDriver {
     const hwJL = s.hwL ?? s.hw, hwJR = s.hwR ?? s.hw;
     const wideErr = m && m.type === 'wide';                          // l'errore può portare fuori pista
     off = Math.max(-(wideErr ? hwJR + 3 : hwJR - 1.3), Math.min(wideErr ? hwJL + 3 : hwJL - 1.3, off));
+    // in entrata di curva non si stringe addosso al giocatore affiancato: il punto verso cui si sterza
+    // (più avanti, dove la traiettoria va alla corda) resta a una macchina di distanza da lui.
+    // Se non c'è spazio, si alza il piede e si cede.
+    let squeezed = false;
+    if (!hazard && !this.street) for (const h of humSide) {
+      const SP = 2.9;
+      if (h.d > myD + 0.4) { if (off > h.d - SP) { off = h.d - SP; if (off < -(hwJR - 0.6)) { off = -(hwJR - 0.6); squeezed = true; } } }
+      else if (h.d < myD - 0.4) { if (off < h.d + SP) { off = h.d + SP; if (off > hwJL - 0.6) { off = hwJL - 0.6; squeezed = true; } } }
+    }
     const tx = s.x + s.nx * off, tz = s.z + s.nz * off;
     let ang = Math.atan2(tz - p.z, tx - p.x) - p.yaw;
     while (ang > Math.PI) ang -= 2 * Math.PI; while (ang < -Math.PI) ang += 2 * Math.PI;
@@ -373,6 +384,7 @@ export class AIDriver {
       }
     }
     if (this.yield && ((this.yield.apex - i + n) % n) < 60) vT *= 0.95;
+    if (squeezed) vT *= 0.9;
     // con la vettura danneggiata (meno carico, sospensioni storte) si va più piano
     const dm = p.damage;
     // (il profilo "danneggiato" viene ricalcolato così la frenata arriva in tempo)
