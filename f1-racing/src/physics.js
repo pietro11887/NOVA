@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=205';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=205';
-import { SURF, SURF_PROPS } from './track.js?v=205';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=206';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=206';
+import { SURF, SURF_PROPS } from './track.js?v=206';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -473,6 +473,15 @@ export class CarPhysics {
     // componente della gravità lungo la pendenza
     fxw -= m * G * pr.slope * pr.tx;
     fzw -= m * G * pr.slope * pr.tz;
+    // curva sopraelevata (ovali): la gravità tira verso il basso della pendenza, e la forza che fa girare
+    // la vettura verso l'interno la schiaccia sull'asfalto (più carico sulle gomme = più aderenza)
+    let bankLoad = 0;
+    if (pr.bank) {
+      const sn = -pr.bank / Math.hypot(1, pr.bank);          // > 0: si scende verso sinistra (+d)
+      const an = (fxw * pr.nx + fzw * pr.nz) / m;           // accelerazione verso sinistra
+      if (an * sn > 0) bankLoad = m * Math.abs(an * sn);
+      fxw += m * G * sn * pr.nx; fzw += m * G * sn * pr.nz;
+    }
     this.vx += fxw / m * dt;
     this.vz += fzw / m * dt;
     this.yawRate += Mz / this.Iz * dt;
@@ -483,7 +492,7 @@ export class CarPhysics {
     this.x += this.vx * dt;
     this.z += this.vz * dt;
 
-    const ay = (sumFz - m * G - downF - downR) / m;
+    const ay = (sumFz - m * G - downF - downR - bankLoad) / m;
     this.vy += ay * dt;
     this.y += this.vy * dt;
     this.pitchRate += pitchM / this.Ipitch * dt;

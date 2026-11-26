@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=205';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=206';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=205';
-import { SPEC, IS_F1 } from './vehicle.js?v=205';
+import { CAR } from './physics.js?v=206';
+import { SPEC, IS_F1 } from './vehicle.js?v=206';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:

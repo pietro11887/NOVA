@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=205';
-import * as tex from './textures.js?v=205';
+import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=206';
+import * as tex from './textures.js?v=206';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -152,6 +152,7 @@ export class Track {
     out.nx = nx / nl; out.nz = nz / nl;
     out.tx = p.tx; out.tz = p.tz;
     out.slope = p.slope;
+    out.bank = p.bank || 0;          // curve sopraelevate: pendenza trasversale (dh/dd)
     return out;
   }
 

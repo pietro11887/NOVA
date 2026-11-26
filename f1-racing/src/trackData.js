@@ -117,7 +117,8 @@ export function spaTrack(data) {
 // circuito vero costruito dalla fabbrica di piste (tools/build_track.py): il primo punto dei dati è sul
 // traguardo vero; la linea del cronometro è 200 m prima, così tutta la griglia sta tra la linea e la prima curva
 // quota in più per la sopraelevazione a distanza laterale d (oltre il bordo resta quella del bordo)
-export function bankAt(s, d) { return s.bank ? s.bank * Math.max(-(s.hwR ?? s.hw) - 0.6, Math.min((s.hwL ?? s.hw) + 0.6, d)) : 0; }
+// (ovali: la pendenza parte dal bordo interno, che resta alla quota del prato; l'esterno sale)
+export function bankAt(s, d) { return s.bank ? s.bank * (Math.max(-(s.hwR ?? s.hw) - 0.6, Math.min((s.hwL ?? s.hw) + 0.6, d)) - (s.bankP || 0)) : 0; }
 
 export function realTrack(meta, data) {
   return {
@@ -567,7 +568,11 @@ export function buildTrack(points) {
     const DL = def.points.length * 4;
     samples.forEach(s => {
       const so = s.fo * DL;
-      for (const [a, b, sl] of banks) if (so > a && so < b) { const t = Math.min(1, (so - a) / 25, (b - so) / 25); s.bank = sl * t * t * (3 - 2 * t); }
+      const RAMP = def.data.bankRamp || 25, inner = def.data.bankPivot === 'inside';
+      for (const [a, b, sl] of banks) if (so > a && so < b) {
+        const t = Math.min(1, (so - a) / RAMP, (b - so) / RAMP); s.bank = sl * t * t * (3 - 2 * t);
+        if (inner) s.bankP = sl < 0 ? (s.hwL ?? s.hw) + 0.6 : -((s.hwR ?? s.hw) + 0.6);
+      }
     });
   }
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
