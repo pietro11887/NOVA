@@ -13,7 +13,7 @@ import { WX } from './wx.js?v=d0b88a44';
 // con effetto doppler e posizione destra/sinistra, pubblico, box (limitatore, pistole delle
 // gomme, cric) e radio del box con la voce.
 
-import { IS_F1, IS_R26, CLASSIC, IS_KART } from './vehicle.js?v=206';
+import { IS_F1, IS_R26, CLASSIC, IS_KART, IS_NASCAR } from './vehicle.js?v=207';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
 
@@ -27,7 +27,8 @@ const SND = 'assets/sounds/';
 // classiche V10/V8: registrazioni vere di V10 (TORCS/Speed Dreams) e V8 da corsa (CC0), un file ogni 1900 giri
 // fino a 19.000 (file 10): niente più V12 accelerato
 // kart: il motore della GT molto più in alto (2 tempi da 13.500 giri che ronza)
-const BANK = IS_KART ? { dir: 'eng-gt', n: 8, mul: 1.15, voice: 7 } : CLASSIC ? { dir: CLASSIC.snd.bank || 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+// NASCAR: V8 vero (registrazioni V8 da corsa) fino a 9.500 giri
+const BANK = IS_NASCAR ? { dir: 'eng-v8', n: 10, mul: 0.526, voice: 9, max: 10000, k: 9500 / 12500 } : IS_KART ? { dir: 'eng-gt', n: 8, mul: 1.15, voice: 7 } : CLASSIC ? { dir: CLASSIC.snd.bank || 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
 const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;

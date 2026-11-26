@@ -6,9 +6,9 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'kart', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && ['f1', 'kart', 'nascar', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
-  if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart') cls = 'f1';
+  if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart' && cls !== 'nascar') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
 
 export const CAR_CLASS = cls;
@@ -18,6 +18,7 @@ export const CAR_CLASS = cls;
 export const IS_MP45 = cls === 'mp45';
 // kart: categoria a sé (niente box F1, niente ali), con le stesse regole di gara delle GT
 export const IS_KART = cls === 'kart';
+export const IS_NASCAR = cls === 'nascar';
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
 // snd.mul porta i giri del motore sui campioni del V12: frequenza di scoppio = giri × cilindri / 120.
@@ -194,6 +195,29 @@ SPECS.kart = {
   dirtyAir: 0.01,
   engHeat: 0.6, fuelUse: 0.12,   // motore piccolo raffreddato bene, consuma pochissimo
   lineMu: 0.9,       // in curva rende meno di quanto dica l'aderenza (trasferimento di carico enorme)
+};
+
+// NASCAR Cup (Chevrolet Camaro 2018): V8 5,86 L aspirato ~750 CV a 9.500 giri, 1550 kg con il pilota, cambio a 4 marce,
+// poco carico aerodinamico e tanta resistenza (scia fortissima), freni modesti: si guida "di gas" in scia
+SPECS.nascar = {
+  label: 'NASCAR',
+  geom: { axleF: 1.33, axleR: -1.46, halfTrack: 0.81, wheelR: 0.355, cgHeight: 0.45 },
+  car: { mass: 1550, ClA: 2.1, CdA: 0.95, mu: 1.5, torque: 640, brake: 30000 },
+  inertia: { Iz: 2450, Ipitch: 2050, Iroll: 600 },
+  susp: { springK: 290000, damperC: 13500, arbK: [240000, 90000] },
+  steer: 0.72,
+  heat: { slide: 52000, roll: 0.075 },
+  gears: [9.6, 7.0, 5.25, 3.95], rpm: 9500, idle: 3500,
+  hull: [
+    [2.45, -0.95, 'fwL'], [2.45, 0.95, 'fwR'], [2.6, 0, 'nose'],
+    [1.33, -1.02, 'wFL'], [1.33, 1.02, 'wFR'],
+    [0.0, -1.0, 'sideL'], [0.0, 1.0, 'sideR'],
+    [-1.46, -1.02, 'wRL'], [-1.46, 1.02, 'wRR'],
+    [-2.55, -0.9, 'rw'], [-2.55, 0.9, 'rw'],
+  ],
+  circles: [[1.6, 1.0], [0.0, 1.02], [-1.65, 1.0]],
+  ai: { hazard: [10, 3, 0.0008], follow: 18, pit: 13 },
+  dirtyAir: 0.08,
 };
 
 export const SPEC = SPECS[cls];

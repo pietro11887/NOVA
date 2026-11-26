@@ -38,17 +38,21 @@ const CFG = {
   ford: { wb: 2.71, cab: [-1.0, 0.7, 0.1, 1.45, -3.3, -0.9], tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
   // Lamborghini Huracán GT3 (stessa impostazione della BMW M4): muso verso +X nel file, abitacolo tolto
   lam: { wb: 2.645, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/, drop: /^INTERIOR$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.0012, 0.004] },
+  // NASCAR Chevrolet Camaro 2018 (vecarz): muso verso -Z (si gira), pilota a sinistra; ombra a terra tolta
+  nas: { wb: 2.79, flip: true, tyre: /^rubber/, rim: /^car_body(_0|_2|_3)?$/, disc: /^orig_19/, paint: /^car_body_1$/, kill: /^Standard_10$/,
+    drop: /^Inside_frame_baked$|^Material_4096|^Material_4084|^Carbon_Fiber(_0)?$|^black_trim(_0|_B)?$|^red_tape$|^inside_frame_details$|^Side_Pipes$/, livery: /^PAINT$/, ratio: [0.35, 0.1], error: [0.001, 0.004] },
   // Subaru BRZ GT300 2021 (vecarz, CC BY 4.0): abitacolo tolto
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
-const STEER = { f296: { m: /Steer|STEER/ }, mas: { m: /Steer/ }, amg: { m: /Steering_Wheel/ }, brz: { m: /^Steering$/ }, m4: { n: /SteeringWheel/, ratio: 0.15 }, amv: { n: /STEERING_WHEEL/ }, mcl: { n: /CarbonSteering/ }, ford: { m: /^mat_590$/ } }[id] || {};
+const STEER = { nas: { m: /^black_trim$|^red_tape$/ }, f296: { m: /Steer|STEER/ }, mas: { m: /Steer/ }, amg: { m: /Steering_Wheel/ }, brz: { m: /^Steering$/ }, m4: { n: /SteeringWheel/, ratio: 0.15 }, amv: { n: /STEERING_WHEEL/ }, mcl: { n: /CarbonSteering/ }, ford: { m: /^mat_590$/ } }[id] || {};
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
 // (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
 if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
 await doc.transform(flatten());
+if (CFG.kill) for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (CFG.kill.test(p.getMaterial()?.getName() || '')) p.dispose();
 for (const n of root.listNodes()) if (n.getMesh()) clearNodeTransform(n);
 // trasformazioni delle texture (KHR_texture_transform, es. la livrea della RB8): si applicano alle UV
 for (const m of root.listMaterials()) {

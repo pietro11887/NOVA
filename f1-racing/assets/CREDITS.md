@@ -98,3 +98,4 @@ Fonte: https://sketchfab.com/3d-models/subaru-brz-gt3-300-2021-wwwvecarzcom-2036
 File `gt_brz_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitacolo tolto, ruote separate, poligoni e texture ridotti.
 
 - Kart (`kart_hi.glb`, `kart_mid.glb`): modello "Go-Kart" da Sketchfab (OBJ con texture PBR), convertito con `tools/build_kart_model.mjs`; pilota disegnato dal gioco.
+- NASCAR (`nascar_hi.glb`, `nascar_mid.glb`, `nascar_int.glb`): "NASCAR Camaro 2018" (vecarz.com, Sketchfab), convertito con `tools/build_gt.mjs nas`.
