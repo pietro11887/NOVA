@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=209';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=209';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=209';
+import { GEOM, CAR_SCALE } from './carModel.js?v=210';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=210';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=210';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -70,15 +70,19 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
 // (la Mercedes SLS bianca, senza livrea, non c'è più: i suoi file restano nella cartella)
-export const GT_VARIANTS = PUBLIC || CAR_CLASS === 'kart' || CAR_CLASS === 'nascar' ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
+// tutte le GT3 (anche quando si guida un'altra categoria: si vedono nel garage)
+export const GT3_ALL = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
+// Hypercar: 'gt3r' è la vettura di base della categoria (Ferrari 499P), poi Porsche 963 e Cadillac
+export const HY_VARIANTS = ['hpor', 'hcad'];
+export const GT_VARIANTS = CAR_CLASS === 'hyper' ? ['gt3r', ...HY_VARIANTS] : PUBLIC || CAR_CLASS === 'kart' || CAR_CLASS === 'nascar' ? ['gt3r'] : GT3_ALL;
 // GT3 che corrono in griglia (la SLS bianca, senza livrea, solo se la guidi tu)
 export const gridVariants = mine => GT_VARIANTS.filter(v => v !== 'sls' || v === mine);
 const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'], mcl: ['gt_mcl_hi.glb', 'gt_mcl_mid.glb'],
-  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'], brz: ['gt_brz_hi.glb', 'gt_brz_mid.glb'] };
+  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'], brz: ['gt_brz_hi.glb', 'gt_brz_mid.glb'], hpor: ['gt_hpor_hi.glb', 'gt_hpor_mid.glb'], hcad: ['gt_hcad_hi.glb', 'gt_hcad_mid.glb'] };
 const vJobs = {};
 // carica una GT (hi = dettagliata per te, mid = leggera per gli avversari)
 export function loadVariant(v, lod = 'hi') {
@@ -88,13 +92,13 @@ export function loadVariant(v, lod = 'hi') {
     const loader = new GLTFLoader();
     loader.register(inlineImages);
     vJobs[key] = fetchGLB(VFILES[v][lod === 'mid' ? 1 : 0]).then(buf => new Promise((res, rej) => loader.parse(buf, '', res, rej)))
-      .then(g => { const t = prepare(g.scene, lod === 'mid', 'gt'); t.variant = v; (templates.V || (templates.V = {}))[key] = t; return t; })
+      .then(g => { const t = prepare(g.scene, lod === 'mid', HY_VARIANTS.includes(v) ? 'hyper' : 'gt'); t.variant = v; (templates.V || (templates.V = {}))[key] = t; return t; })
       .catch(e => { vJobs[key] = null; throw e; });
   }
   return vJobs[key];
 }
 const savedQuality = () => { try { return JSON.parse(localStorage.getItem('novaf1.settings') || '{}').quality; } catch (e) { return null; } };
-const savedGtCar = () => { try { return (JSON.parse(localStorage.getItem('novaf1.settings') || '{}').gtCar) || 'gt3r'; } catch (e) { return 'gt3r'; } };
+const savedGtCar = () => { try { return (JSON.parse(localStorage.getItem('novaf1.settings') || '{}')[CAR_CLASS === 'hyper' ? 'hyCar' : 'gtCar']) || 'gt3r'; } catch (e) { return 'gt3r'; } };
 
 export function loadGT() {
   const loader = new GLTFLoader();
@@ -108,7 +112,7 @@ export function loadGT() {
     templates = { hi: prepare(hi.scene, false, CAR_CLASS), mid: prepare(mid.scene, true, CAR_CLASS) };
     templates.gtMid = gtMid ? prepare(gtMid.scene, true, 'gt') : templates.mid;
     // in GT: anche le altre GT3 (la tua dettagliata, quelle degli avversari leggere)
-    if (CAR_CLASS !== 'gt' || GT_VARIANTS.length < 2) return templates;
+    if ((CAR_CLASS !== 'gt' && CAR_CLASS !== 'hyper') || GT_VARIANTS.length < 2) return templates;
     const mine = savedGtCar(), minQ = savedQuality() === 'min';
     // (grafica minima: gli avversari hanno la vettura semplice, e la tua è quella leggera)
     const extra = minQ ? [] : gridVariants(mine).filter(v => v !== 'gt3r').map(v => loadVariant(v, 'mid').catch(() => null));
@@ -177,7 +181,7 @@ function tuneMaterial(src) {
 
 // classifica un triangolo (coordinate del gioco) nelle parti staccabili
 function partOf(cx, cy, cz, kind) {
-  if (kind === 'kart' || kind === 'nascar') return 'body';
+  if (kind === 'kart' || kind === 'nascar' || kind === 'hyper') return 'body';
   if (kind === 'f1') {
     // RB22: ala posteriore sopra il diffusore, ala anteriore bassa davanti alle ruote
     if (cx < -1.72 && cy > 0.2) return 'rw';
@@ -519,7 +523,7 @@ function liveryRecolor(base, map, size = 1024) {
 
 // crea una vettura con la stessa interfaccia di createCar() (carModel.js)
 export function createGT(opts = {}) {
-  const V = templates.V || {}, vv = opts.variant && opts.variant !== 'gt3r' && !opts.safety && !opts.ghost && (!opts.kind || opts.kind === 'gt') ? opts.variant : null;
+  const V = templates.V || {}, vv = opts.variant && opts.variant !== 'gt3r' && !opts.safety && !opts.ghost && (!opts.kind || opts.kind === 'gt' || opts.kind === 'hyper') ? opts.variant : null;
   const vtpl = vv ? (opts.lod === 'mid' ? V[vv + '_mid'] || V[vv + '_hi'] : V[vv + '_hi'] || V[vv + '_mid']) : null;
   const tpl = vtpl || (opts.kind && opts.kind !== CAR_CLASS ? templates['x_' + opts.kind] : opts.safety ? templates.gtMid : opts.lod === 'mid' ? templates.mid : templates.hi);
   const ghost = !!opts.ghost;
@@ -528,7 +532,7 @@ export function createGT(opts = {}) {
   const myPaint = paint ? paint.clone() : null;
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   // (le altre GT3 tengono la loro livrea)
-  if (myPaint && opts.primary != null && myPaint.map && !tpl.variant) myPaint.map = tpl.kind === 'kart' || tpl.kind === 'nascar' ? liveryKart(myPaint.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024, tpl.kind === 'nascar') : liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
+  if (myPaint && opts.primary != null && myPaint.map && !tpl.variant && tpl.kind !== 'hyper') myPaint.map = tpl.kind === 'kart' || tpl.kind === 'nascar' ? liveryKart(myPaint.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024, tpl.kind === 'nascar') : liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   // la SLS è bianca: gli avversari la hanno nel loro colore
   if (myPaint && opts.primary != null && tpl.variant === 'sls') myPaint.color.set(opts.primary);
   const swap = new Map();

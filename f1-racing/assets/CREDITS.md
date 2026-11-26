@@ -99,3 +99,4 @@ File `gt_brz_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitaco
 
 - Kart (`kart_hi.glb`, `kart_mid.glb`): modello "Go-Kart" da Sketchfab (OBJ con texture PBR), convertito con `tools/build_kart_model.mjs`; pilota disegnato dal gioco.
 - NASCAR (`nascar_hi.glb`, `nascar_mid.glb`, `nascar_int.glb`): "NASCAR Camaro 2018" (vecarz.com, Sketchfab), convertito con `tools/build_gt.mjs nas`.
+- Hypercar: Ferrari 499P (`hy_fer_*`, Dave Love, CC BY 4.0), Porsche 963 (`gt_hpor_*`, DisneyCars, Sketchfab), Cadillac V-Series.R (`gt_hcad_*`, vecarz / Nic Cheung, CC BY 4.0), convertiti con `tools/build_gt.mjs`.

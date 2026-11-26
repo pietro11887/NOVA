@@ -38,6 +38,14 @@ const CFG = {
   ford: { wb: 2.71, cab: [-1.0, 0.7, 0.1, 1.45, -3.3, -0.9], tyre: /^mat_568$/, rim: /^mat_750$/, disc: /^mat_571$/, paint: /^mat_607$/, drop: /^mat_804$|^mat_330$/, livery: /^PAINT$/, ratio: [0.3, 0.05], error: [0.0015, 0.006] },
   // Lamborghini Huracán GT3 (stessa impostazione della BMW M4): muso verso +X nel file, abitacolo tolto
   lam: { wb: 2.645, rotX: true, tyre: /^TIRE$/, rim: /^WHEEL$/, disc: /^NESSUNO$/, paint: /^BODY$/, drop: /^INTERIOR$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.0012, 0.004] },
+  // Hypercar: Ferrari 499P (Dave Love, CC BY 4.0), abitacolo tolto
+  h499: { wb: 3.15, tyre: /^EXT_Tyre$/, rim: /^RIMS$|^Wheels$/, disc: /^brake_disk$|^caliper$/, paint: /^Body$/, kill: /^EXT_Rim_Blur/,
+    drop: /^sw_|^963_|^DISPLAY|^kers_|^TRANSPARENTE$|^logo_cos$|^shift_lights$|^seats|^main$|^MIRRORS$|^INT_|^dials_alpha$|^Tex_0185/, livery: /^PAINT$/, ratio: [0.25, 0.07], error: [0.001, 0.004] },
+  // Hypercar: Porsche 963 (DisneyCars, senza texture: colori dei materiali), muso verso +Z
+  hpor: { wb: 3.13, tyre: /^\.028$/, rim: /^\.026$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.12, 0.05], error: [0.006, 0.015], renorm: true },
+  // Hypercar: Cadillac V-Series.R 2023 (vecarz, CC BY 4.0), abitacolo tolto
+  hcad: { wb: 3.148, tyre: /^EXT_Tyres$/, rim: /^EXT_RIM$|^EXT_RIM_DECALS$/, disc: /^BRAKE_DISC$/, paint: /^CARPAINT$/,
+    drop: /^INT_|^STEER_|^mat_1(37|5[2-8]|89)$|^DISPLAY_GLASS$|^LED(GREEN|YELLOW|RED)$|^material$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.001, 0.004] },
   // NASCAR Chevrolet Camaro 2018 (vecarz): muso verso -Z (si gira), pilota a sinistra; ombra a terra tolta
   nas: { wb: 2.79, flip: true, tyre: /^rubber/, rim: /^car_body(_0|_2|_3)?$/, disc: /^orig_19/, paint: /^car_body_1$/, kill: /^Standard_10$/,
     drop: /^Inside_frame_baked$|^Material_4096|^Material_4084|^Carbon_Fiber(_0)?$|^black_trim(_0|_B)?$|^red_tape$|^inside_frame_details$|^Side_Pipes$/, livery: /^PAINT$/, ratio: [0.35, 0.1], error: [0.001, 0.004] },
@@ -208,7 +216,22 @@ if (CFG.newTyres) {
     const mesh = node.getMesh(); for (const q of mesh.listPrimitives()) q.dispose(); mesh.addPrimitive(prim);
   }
 }
+// modelli a triangoli staccati (ogni faccia con le sue normali): senza normali i vertici si uniscono e si possono semplificare;
+// le normali si rifanno dopo (lisce dentro i pezzi, spigoli vivi oltre ~40°)
+if (CFG.renorm) for (const m of root.listMeshes()) for (const p of m.listPrimitives()) { p.setAttribute('NORMAL', null); if (!p.getMaterial()?.getBaseColorTexture()) p.setAttribute('TEXCOORD_0', null); }
 await doc.transform(dedup(), prune(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: CFG.ratio ? CFG.ratio[LOW ? 1 : 0] : LOW ? 0.22 : 0.5, error: CFG.error ? CFG.error[LOW ? 1 : 0] : LOW ? 0.002 : 0.0008 }), prune());
+if (CFG.renorm) for (const m of root.listMeshes()) for (const p of m.listPrimitives()) {
+  const pos = p.getAttribute('POSITION'), idx = p.getIndices(), n = pos.getCount(), N = new Float32Array(n * 3), a = [], b = [], c = [];
+  for (let t = 0; t < idx.getCount(); t += 3) {
+    const i0 = idx.getScalar(t), i1 = idx.getScalar(t + 1), i2 = idx.getScalar(t + 2);
+    pos.getElement(i0, a); pos.getElement(i1, b); pos.getElement(i2, c);
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const i of [i0, i1, i2]) { N[i * 3] += nx; N[i * 3 + 1] += ny; N[i * 3 + 2] += nz; }
+  }
+  for (let i = 0; i < n; i++) { const l = Math.hypot(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]) || 1; N[i * 3] /= l; N[i * 3 + 1] /= l; N[i * 3 + 2] /= l; }
+  p.setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(N).setBuffer(pos.getBuffer()));
+}
 for (const t of root.listTextures()) {
   const users = t.listParents().filter(p => p.getName && p.getName()).map(p => p.getName()).join(' ');
   const big = CFG.livery.test(users);
