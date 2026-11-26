@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=212';
+import { CarPhysics } from './physics.js?v=213';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=212';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=212';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=212';
-import { PitStop } from './pit.js?v=212';
-import { PIT, TRACK } from './trackData.js?v=212';
+import { AIDriver } from './ai.js?v=213';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=213';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=213';
+import { PitStop } from './pit.js?v=213';
+import { PIT, TRACK } from './trackData.js?v=213';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=212';
+import { TEAMS } from './f1Teams.js?v=213';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -24,7 +24,13 @@ export const DRIVERS = [
   ['VITALE', 0x0e4d2b, 0xf5c518], ['RIVA', 0x9aa1ab, 0x1b3a8a], ['PELLE', 0xff7b1c, 0x2257b8],
   ['LOMBA', 0x14a0e0, 0x16171b], ['GRASSI', 0x6e4a33, 0xf2f2f2], ['SALA', 0xb43adf, 0xffd21e],
   ['PARISI', 0x2ee06f, 0x16171b],
-  ['FONTANA', 0x8a1c3a, 0xf2f2f2], ['GRECO', 0x2a9df4, 0x16171b], ['LEONE', 0xc77a1c, 0x16171b],
+  ['FONTANA', 0x8a1c3a, 0xf2f2f2], ['GRECO', 0x2a9df4, 0x16171b], ['LEONI', 0xc77a1c, 0x16171b],
+  // (NASCAR: fino a 40 vetture in griglia)
+  ['RICCI', 0xe03a3a, 0x16171b], ['BRUNO', 0x16309a, 0xff7a12], ['GALLO', 0xf2c200, 0x0a7d3e], ['MANCINI', 0x1a1b20, 0xe0b23a],
+  ['BARBIERI', 0x22b5e8, 0xffffff], ['LOMBARDI', 0x0f8a3c, 0xffd21e], ['MORETTI', 0xe0218a, 0x16171b], ['RINALDI', 0x6a2cd8, 0xff8a1c],
+  ['CARUSO', 0xff7a12, 0x1b3a8a], ['FERRARA', 0x9aa1ab, 0xd8231f], ['SERRA', 0x2ee06f, 0x1a1b20], ['FARINA', 0xd8231f, 0xf2f2f2],
+  ['MARCHI', 0x14a0e0, 0xf5c518], ['VALENTI', 0x8a1c2b, 0xffffff], ['GENTILE', 0xf2f2f2, 0x16309a], ['PELLEGRINI', 0x3a3d45, 0xff5b8a],
+  ['MARTINI', 0x00a19c, 0xffd21e], ['BELLINI', 0xb43adf, 0xf2f2f2],
 ];
 
 const CIRCLES = SPEC.circles.map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
