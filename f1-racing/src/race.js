@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=210';
+import { CarPhysics } from './physics.js?v=211';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=210';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=210';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=210';
-import { PitStop } from './pit.js?v=210';
-import { PIT, TRACK } from './trackData.js?v=210';
+import { AIDriver } from './ai.js?v=211';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=211';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=211';
+import { PitStop } from './pit.js?v=211';
+import { PIT, TRACK } from './trackData.js?v=211';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=210';
+import { TEAMS } from './f1Teams.js?v=211';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -97,8 +97,10 @@ export class Race {
     for (const c of this.cars) {
       c.phys.fitTyres(c.isPlayer ? (opts.startCompound || 'M') : bestCompound('M'));
       c.phys.inPit = false;
-      if (c.ai && this.pitLane && this.laps >= 8) {
-        const stops = this.laps >= 20 ? 2 : 1;
+      // (conta la lunghezza della gara, non i giri: su un ovale da 2,3 km o in kart 8 giri sono pochi minuti)
+      const dist = this.laps * this.track.length;
+      if (c.ai && this.pitLane && this.laps >= 8 && dist > 25000) {
+        const stops = this.laps >= 20 && dist > 60000 ? 2 : 1;
         for (let k = 1; k <= stops; k++) {
           const lap = Math.round(this.laps * k / (stops + 1) + (Math.random() - 0.5) * this.laps * 0.2);
           c.plan.push(Math.max(2, Math.min(this.laps - 1, lap)));

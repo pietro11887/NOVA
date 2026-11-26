@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=210';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=211';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=210';
-import { SPEC, IS_F1 } from './vehicle.js?v=210';
+import { CAR } from './physics.js?v=211';
+import { SPEC, IS_F1 } from './vehicle.js?v=211';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
@@ -38,6 +38,8 @@ export class AIDriver {
     this.phys = phys;
     this.line = line;
     this.seed = seed;
+    // ovale (curve sopraelevate): non si frena mai, quindi si sorpassa affiancandosi ovunque, anche in curva, e si sta in scia vicini
+    this.oval = line.track.samples.some(s => Math.abs(s.bank || 0) > 0.25);
     this.rand = mulberry(seed * 7919 + 13);
     // carattere del pilota: aggressività (sorpassi, difesa, contatti)
     this.aggr = 0.45 + 0.55 * this.rand();
@@ -218,7 +220,7 @@ export class AIDriver {
         }
       }
       // 2) sul dritto: in scia e poi fuori, dalla parte libera (meglio l'interno della curva dopo)
-      const straight = this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
+      const straight = this.oval || this.profile[(i + 40) % n] > v + 5 || this.profile[(i + 25) % n] > 70;
       if (!this.sc && !hazard && !this.attack && straight && brakeIdx < 0 && closing > -1) {
         const side = od > 0 ? -1 : 1;
         this.laneTarget = Math.max(-lim, Math.min(lim, od + side * 3.3)) - this.line.off[i];
@@ -226,7 +228,7 @@ export class AIDriver {
       // accodarsi a distanza di sicurezza (i più aggressivi stanno più vicini: a volte si tocca).
       // Anche in attacco finché non si è affiancati. In scia, pronti a uscire, si sta più vicini.
       const lat = Math.abs((od - lineOff(blocker.phys.prCG.i)) - myLD);
-      const want = (4.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.45 * this.craft));
+      const want = (4.5 + v * 0.22 * (1 - 0.45 * this.aggr) * (1 - 0.45 * this.craft)) * (this.oval ? 0.55 : 1);
       // velocità con cui si riesce ancora a fermarsi dietro, anche se frena di colpo
       // (spazio di reazione: un quarto di secondo alla velocità di avvicinamento)
       const human = !blocker.ai;
@@ -238,7 +240,7 @@ export class AIDriver {
       const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v);
       const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
       // sul dritto si esce dalla scia senza alzare il piede (si frena solo se proprio attaccati dietro)
-      const pullOut = straight && brakeIdx < 0 && !hazard && raceT > 12 && lat > 1.5 && blocker.phys.gLong > -0.3 && this.profile[(i + 60) % n] > v;
+      const pullOut = straight && brakeIdx < 0 && !hazard && raceT > (this.oval ? 4 : 12) && lat > 1.5 && blocker.phys.gLong > -0.3 && (this.oval || this.profile[(i + 60) % n] > v);
       if (pullOut) { if (bestGap < 8 && lat < 1.8) vCap = Math.min(vCap, ov + 1); }
       else if (!this.attack || lat < 2.4) vCap = Math.min(vSafe, bestGap < want + 12 ? ovEff + (bestGap - want) * 0.7 : Infinity);
       // vettura lenta o ferma davanti (testacoda, guasto): si scarta

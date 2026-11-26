@@ -206,7 +206,7 @@ SPECS.nascar = {
   car: { mass: 1550, ClA: 2.1, CdA: 0.95, mu: 1.5, torque: 640, brake: 30000 },
   inertia: { Iz: 2450, Ipitch: 2050, Iroll: 600 },
   susp: { springK: 290000, damperC: 13500, arbK: [240000, 90000] },
-  steer: 0.72,
+  steer: 1.0,
   heat: { slide: 52000, roll: 0.075 },
   gears: [9.6, 7.0, 5.25, 3.95], rpm: 9500, idle: 3500,
   hull: [

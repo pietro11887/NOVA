@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js?v=210';
-import { CAR, CarPhysics } from './physics.js?v=210';
-import { GEOM } from './carModel.js?v=210';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=211';
+import { CAR, CarPhysics } from './physics.js?v=211';
+import { GEOM } from './carModel.js?v=211';
 import { ARCADE } from './driveMode.js?v=68c3b840';
-import { IS_F1, CAR_CLASS, SPEC } from './vehicle.js?v=210';
+import { IS_F1, CAR_CLASS, SPEC } from './vehicle.js?v=211';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
@@ -26,6 +26,9 @@ const K_AERO = 0.5 * 1.225 * CAR.ClA / CAR.mass;  // accelerazione da carico aer
 // sensibilità al carico: con tanto carico aerodinamico la gomma rende meno per ogni kg in più
 // (nella fisica: -7% per ogni "peso statico" in più sulla ruota, più il trasferimento in curva)
 const LOAD_SENS = 0.13;
+// quanto la sopraelevazione aiuta davvero (le gomme rendono meno con tanto carico): tarato sui giri dei bot
+let BANK_K = 0.3;
+export const setBankK = k => { BANK_K = k; };
 // nei tornanti il limite è lo sterzo (passo lungo): curvatura massima che si riesce a tenere
 // a fine corsa, con un po' di aiuto dall'imbardata del retrotreno
 const WB = GEOM.axleF - GEOM.axleR, STEER_C = CAR.ClA > 2 ? 1.0 : 0.8;
@@ -155,10 +158,18 @@ export class RacingLine {
         // aderenza misurata: a0 + k·v², in discesa meno, sui dossi l'aerodinamica "si stacca" un po'
         const a0 = cal.a0 * (1 + 1.5 * Math.min(0, sl[i])), ka = cal.k + (cal.a0 / G) * Math.min(0, kv[i]);
         vi = k > ka ? Math.min(vmax, Math.sqrt(a0 / (k - ka))) : vmax;
-      } else for (let it = 0; it < 6; it++) {
-        // in discesa il carico va sull'avantreno e il retrotreno si alleggerisce: la curva si fa più piano
-        const m = mu * g * loadMu(vi) * (1 + hs * Math.max(0, Math.min(1, (vi - 50) / 30))), mG = m * (1 + 1.5 * Math.min(0, sl[i])), kk = m * (K_AERO + Math.min(0, kv[i]));
-        vi = k > kk ? Math.min(vmax, Math.sqrt(mG * G / (k - kk))) : vmax;
+      } else {
+        // curva sopraelevata (ovali, Karussell): la pendenza aiuta a girare se l'esterno è più alto
+        // (gravità verso l'interno e più carico sulle gomme): aderenza "equivalente" (μ + sinθ) / (1 − μ·sinθ)
+        const S0 = this.track.samples[i], bk = S0.bank || 0;
+        const sn = bk ? Math.sign(S0.curv * bk || 1) * Math.abs(bk) / Math.hypot(1, bk) : 0;
+        for (let it = 0; it < 6; it++) {
+          // in discesa il carico va sull'avantreno e il retrotreno si alleggerisce: la curva si fa più piano
+          const m = mu * g * loadMu(vi) * (1 + hs * Math.max(0, Math.min(1, (vi - 50) / 30))), kk = m * (K_AERO + Math.min(0, kv[i]));
+          let mG = m * (1 + 1.5 * Math.min(0, sl[i]));
+          if (sn) mG = (mG + sn * BANK_K) / Math.max(0.35, 1 - mG * sn * BANK_K);
+          vi = k > kk ? Math.min(vmax, Math.sqrt(mG * G / (k - kk))) : vmax;
+        }
       }
       // limite dello sterzo: la velocità più alta a cui la curva si tiene ancora col volante a fondo
       if (k > steerK(vi, this.arcadeOn)) {
