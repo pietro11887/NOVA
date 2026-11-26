@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=208';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=208';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=208';
+import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GEOM, CAR_SCALE } from './carModel.js?v=209';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=209';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=209';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -324,6 +324,10 @@ function kartDriver(gy, suitCol, helmetCol, ghostMat) {
     seg([0.3, y(0.24), s * 0.12], [0.58, y(0.16), s * 0.12], 0.055, suit);       // gamba
     seg([0.58, y(0.16), s * 0.12], [0.62, y(0.24), s * 0.12], 0.04, dark);       // scarpa
   }
+  // tuta e scarpe: un solo pezzo per materiale (meno oggetti da disegnare con 20 kart in pista)
+  const byMat = new Map();
+  for (const m of [...grp.children]) { m.updateMatrix(); const g = m.geometry.clone().applyMatrix4(m.matrix); if (!byMat.has(m.material)) byMat.set(m.material, []); byMat.get(m.material).push(g); grp.remove(m); }
+  for (const [mat, list] of byMat) { const mm = new THREE.Mesh(mergeGeometries(list), mat); mm.castShadow = !ghostMat; grp.add(mm); }
   const h = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 14), hm);
   h.scale.set(1.1, 1, 1); h.position.set(-0.27, y(0.8), 0); h.castShadow = !ghostMat;
   const v = new THREE.Mesh(new THREE.SphereGeometry(0.137, 20, 8, Math.PI - 0.9, 1.8, 1.15, 0.5), visor);
