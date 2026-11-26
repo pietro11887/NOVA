@@ -1,16 +1,17 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=211';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=212';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=211';
-import { SPEC, IS_F1 } from './vehicle.js?v=211';
+import { CAR } from './physics.js?v=212';
+import { SPEC, IS_F1 } from './vehicle.js?v=212';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
-// Pilota automatico. La "forza" (1-110) cambia davvero il ritmo:
+// Pilota automatico. La "forza" (1-140: oltre 110 solo ancora più aderenza) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
 
 // street: Baku resta com'era; sulle altre piste i bot non vanno mai oltre il limite della vettura in curva
 export function skillParams(strength, street = false) {
-  const t = Math.max(0, Math.min(1, (strength - 1) / 109));
-  const boost = Math.pow(t, 1.25);
+  const tt = (strength - 1) / 109, t = Math.max(0, Math.min(1, tt));
+  // oltre 110 (fino a 140): i bot continuano a guadagnare in curva e in frenata
+  const boost = Math.pow(Math.max(0, Math.min(1.3, tt)), 1.25);
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto

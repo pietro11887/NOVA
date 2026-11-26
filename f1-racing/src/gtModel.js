@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=211';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=211';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=211';
+import { GEOM, CAR_SCALE } from './carModel.js?v=212';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=212';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=212';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
