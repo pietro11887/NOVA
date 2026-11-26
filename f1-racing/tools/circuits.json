@@ -800,7 +800,7 @@
   "info": "Curve sopraelevate a 20°, si gira sempre a sinistra: tutti in scia, a tutto gas",
   "hw": 9.5,
   "climate": "hot",
-  "street": true,
+  "street": false,
   "fans": [
    "usa",
    "usa",

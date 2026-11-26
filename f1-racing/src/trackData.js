@@ -575,6 +575,15 @@ export function buildTrack(points) {
       }
     });
   }
+  // ovali: all'esterno il muro (con la rete) a filo dell'asfalto; all'interno niente muro: una fascia d'asfalto
+  // piatta (l'"apron") e poi il prato. Niente cordoli né ghiaia.
+  const OV = def.data && def.data.oval;
+  if (OV) samples.forEach(s => {
+    const out = OV.inside > 0 ? -1 : 1;
+    if (out < 0) { s.wallR = (s.hwR ?? s.hw) + 0.6; s.wallL = 60; s.openL = true; s.apronL = OV.apron; s.pavedR = true; }
+    else { s.wallL = (s.hwL ?? s.hw) + 0.6; s.wallR = 60; s.openR = true; s.apronR = OV.apron; s.pavedL = true; }
+    s.kerbL = s.kerbR = false; s.gravelL = s.gravelR = false; s.sausageL = s.sausageR = false;
+  });
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;

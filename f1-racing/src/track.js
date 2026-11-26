@@ -230,6 +230,9 @@ export class Track {
     // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato); così anche le vie
     // di fuga asfaltate delle piste moderne
     if (this.street || (left ? s.pavedL : s.pavedR)) { out.h = -0.01; return out; }
+    // ovali: fascia d'asfalto piatta all'interno (apron), poi prato
+    const apron = left ? s.apronL : s.apronR;
+    if (apron && ad < H + apron) { out.h = -0.01; return out; }
     const gravel = left ? s.gravelL : s.gravelR;
     const edge = H + (hasKerb ? K : 0);
     out.h = -Math.min(0.08, (ad - edge) * 0.03);
@@ -392,8 +395,16 @@ export class Track {
     if (!this.street && !this.surfTex) {
       const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
       if (this.hq) { darkGrass.color.set(0x3b6334); triplanar(darkGrass, 'grass', { scale: 3, strength: 0.75, normal: 0.8, vary: true }); }
-      g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL, darkGrass, 4));
-      g.add(this.ribbon([[E(-1, -4.5), -0.03], [E(-1, -0.6), 0.0]], i => !S[i].kerbR && !S[i].gravelR, darkGrass, 4));
+      g.add(this.ribbon([[E(1, 0.6), 0.0], [E(1, 4.5), -0.03]], i => !S[i].kerbL && !S[i].gravelL && !S[i].apronL && !S[i].pavedL, darkGrass, 4));
+      g.add(this.ribbon([[E(-1, -4.5), -0.03], [E(-1, -0.6), 0.0]], i => !S[i].kerbR && !S[i].gravelR && !S[i].apronR && !S[i].pavedR, darkGrass, 4));
+      // ovali: l'apron d'asfalto all'interno, con la riga gialla che lo separa dalla pista
+      if (S.some(s => s.apronL || s.apronR)) {
+        const ap = S.find(s => s.apronL || s.apronR), w = ap.apronL || ap.apronR, sd = ap.apronL ? 1 : -1;
+        const pts = sd > 0 ? [[E(1, 0.6), 0.0], [E(1, w), -0.01]] : [[E(-1, -w), -0.01], [E(-1, -0.6), 0.0]];
+        g.add(this.ribbon(pts, i => !!(sd > 0 ? S[i].apronL : S[i].apronR), this.asphMat, 10, true));
+        const yel = new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.7 });
+        g.add(this.ribbon(sd > 0 ? [[E(1, 1.0), 0.012], [E(1, 1.35), 0.012]] : [[E(-1, -1.35), 0.012], [E(-1, -1.0), 0.012]], i => !!(sd > 0 ? S[i].apronL : S[i].apronR), yel));
+      }
     }
 
     // Cordoli

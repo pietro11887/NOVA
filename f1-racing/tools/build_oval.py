@@ -103,7 +103,7 @@ out = {'source': 'Ovale inventato (Nova Speedway)', 'lat0': 35.0, 'lon0': -80.0,
        'pit': [[round(x, 2), round(z, 2)] for x, z in pit], 'pitSide': inside,
        'grid': {'x0': x0, 'z0': z0, 'step': step, 'nx': nx, 'nz': nz, 'h': grid_h},
        'buildings': buildings, 'forest': forest, 'meadow': meadow, 'water': water, 'roads': [], 'trees': trees, 'corners': {}, 'tunnels': [],
-       'names': [], 'banks': banks, 'bankRamp': 170, 'bankPivot': 'inside', 'kerbW': 0.8, 'kerbH': 0.3, 'kerbRep': 2.0}
+       'names': [], 'banks': banks, 'bankRamp': 170, 'bankPivot': 'inside', 'oval': {'inside': 1, 'apron': 8}, 'kerbW': 0.8, 'kerbH': 0.3, 'kerbRep': 2.0}
 fn = os.path.join(ROOT, 'src', 'tracks', 'ovalData.js')
 with open(fn, 'w') as f:
     f.write('// Nova Speedway — ovale inventato. Generato da tools/build_oval.py.\n')
