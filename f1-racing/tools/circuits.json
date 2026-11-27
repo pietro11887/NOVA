@@ -878,5 +878,27 @@
    45.5585,
    8.052
   ]
+ },
+ "autostrada": {
+  "name": "Autostrada",
+  "short": "AUTOSTRADA",
+  "place": "Italia · guida libera",
+  "flag": [
+   "#009246",
+   "#ffffff",
+   "#ce2b37"
+  ],
+  "km": "32,7",
+  "corners": 0,
+  "info": "Autostrada a tre corsie in campagna, lunghissima: per guidare senza gara, da solo o nel traffico",
+  "climate": "temperate",
+  "street": false,
+  "highway": true,
+  "armco": true,
+  "hw": 7.0,
+  "fans": [
+   "ita"
+  ],
+  "custom": true
  }
 }

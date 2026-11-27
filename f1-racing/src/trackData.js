@@ -122,7 +122,7 @@ export function bankAt(s, d) { return s.bank ? s.bank * (Math.max(-(s.hwR ?? s.h
 
 export function realTrack(meta, data) {
   return {
-    id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, city: !!meta.city, data, meta,
+    id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, city: !!meta.city, highway: !!meta.highway, data, meta,
     // bordi, cordoli, vie di fuga e barriere misurati sulle foto satellitari
     side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined, armco: !!meta.armco,
     lineShift: 200,
@@ -599,6 +599,13 @@ export function buildTrack(points) {
       }
     });
   }
+  // autostrada: niente cordoli né ghiaia, guard-rail a 1,2 m dal bordo su tutti e due i lati
+  if (def.highway) samples.forEach(s => {
+    s.kerbL = s.kerbR = false; s.gravelL = s.gravelR = false; s.sausageL = s.sausageR = false; s.escL = s.escR = false; s.openL = s.openR = false;
+    s.wallL = Math.min((s.hwL ?? s.hw) + 1.2, Math.max((s.hwL ?? s.hw) + 0.6, s.clearL / 2 - 0.1));
+    s.wallR = Math.min((s.hwR ?? s.hw) + 1.2, Math.max((s.hwR ?? s.hw) + 0.6, s.clearR / 2 - 0.1));
+    s.pavedL = s.pavedR = true;
+  });
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;

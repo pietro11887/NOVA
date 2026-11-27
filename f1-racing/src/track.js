@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=226';
-import * as tex from './textures.js?v=226';
+import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=227';
+import * as tex from './textures.js?v=227';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -47,6 +47,7 @@ export class Track {
     this.sectorIdx = [0, Math.round(this.count / 3), Math.round(2 * this.count / 3)];
     this.street = !!TRACK.street;
     this.city = !!TRACK.city;
+    this.highway = !!TRACK.highway;
     this.name = TRACK.name;
     this.group = new THREE.Group();
     if (TRACK.surf && !this.street) this.loadSurf(TRACK.surf);
@@ -464,8 +465,17 @@ export class Track {
     }
 
     // Linea di partenza a scacchi, griglia e scritte settori
-    this.decorations(aniso);
+    if (!this.highway) this.decorations(aniso); else this.highwayLines();
     return g;
+  }
+
+  // autostrada: tre corsie da 3,5 m (righe tratteggiate) e la corsia d'emergenza a destra (riga continua)
+  highwayLines() {
+    const g = this.group, S = this.samples;
+    const white = new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: 0.75 });
+    const line = (d, mask) => g.add(this.ribbon([[d - 0.075, 0.012], [d + 0.075, 0.012]], mask, white));
+    const dash = i => (S[i].s % 12) < 4.5;
+    line(3.0, dash); line(-0.5, dash); line(-4.0, null);
   }
 
   // città: linea di mezzeria tratteggiata, cordolo di pietra e marciapiede in lastre fino alle case
@@ -726,7 +736,7 @@ export class Track {
     // rete fine: semitrasparente (da lontano diventa un velo grigio, come quella vera)
     const fenceMat = new THREE.MeshStandardMaterial({ map: fenceT, transparent: true, alphaTest: fine ? 0.02 : 0.25, depthWrite: !fine, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 });
     if (!TRACK.armco) grp.add(make(1.05, 4.2, fenceMat, 3, s => !shared(s), 0.6));
-    else grp.add(make(0.78, 3.2, fenceMat, 3, s => !shared(s) && Math.floor(s.s / 250) % 3 === 0, 0.6));      // reti solo nei punti per il pubblico
+    else if (!this.highway) grp.add(make(0.78, 3.2, fenceMat, 3, s => !shared(s) && Math.floor(s.s / 250) % 3 === 0, 0.6));      // reti solo nei punti per il pubblico (non in autostrada)
     // muretto box tra pista e corsia box (dal lato dei box)
     if (side === (TRACK.pit.side || -1)) {
       const pwT = TRACK.pitWallBrand ? tex.sponsorWall(TRACK.pitWallBrand) : null;

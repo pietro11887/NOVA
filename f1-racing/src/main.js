@@ -1,38 +1,39 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=226';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=226';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=226';
+import { Track, SURF } from './track.js?v=227';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=227';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=227';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=226';
-import { BakuScenery } from './sceneryBaku.js?v=226';
-import { SpaScenery } from './scenerySpa.js?v=226';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=226';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior, POPUP_DOWN } from './gtModel.js?v=226';
-import { SafetyCar } from './safetyCar.js?v=226';
-import { CarPhysics } from './physics.js?v=226';
+import { Scenery, ENV } from './scenery.js?v=227';
+import { BakuScenery } from './sceneryBaku.js?v=227';
+import { SpaScenery } from './scenerySpa.js?v=227';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=227';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior, POPUP_DOWN } from './gtModel.js?v=227';
+import { SafetyCar } from './safetyCar.js?v=227';
+import { CarPhysics } from './physics.js?v=227';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=226';
-import { WallMarks } from './wallMarks.js?v=226';
+import { BakuFx } from './bakuFx.js?v=227';
+import { WallMarks } from './wallMarks.js?v=227';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=4fc54bf6';
-import { Sound } from './audio.js?v=226';
+import { Sound } from './audio.js?v=227';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=226';
-import { RacingLine } from './racingLine.js?v=226';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=226';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=227';
+import { RacingLine } from './racingLine.js?v=227';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=227';
+import { Traffic, LANES } from './traffic.js?v=227';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=226';
-import { PitCrew } from './pitCrew.js?v=226';
-import { buildGrassTufts } from './grassTufts.js?v=226';
-import { Online, NET_VER, MAX_GUESTS } from './online.js?v=226';
-import { Friends, cleanId, cleanName, userName } from './friends.js?v=226';
-import { COMPOUNDS } from './physics.js?v=226';
-import { AIDriver } from './ai.js?v=226';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=226';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, IS_ROAD, ROAD_CLS, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=226';
+import { PitLane, PitStop } from './pit.js?v=227';
+import { PitCrew } from './pitCrew.js?v=227';
+import { buildGrassTufts } from './grassTufts.js?v=227';
+import { Online, NET_VER, MAX_GUESTS } from './online.js?v=227';
+import { Friends, cleanId, cleanName, userName } from './friends.js?v=227';
+import { COMPOUNDS } from './physics.js?v=227';
+import { AIDriver } from './ai.js?v=227';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=227';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, IS_ROAD, ROAD_CLS, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=227';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 // kart e NASCAR: categorie a sé con i loro colori (KART_LIVERIES / NASCAR_LIVERIES)
 const XCLS = IS_KART || IS_NASCAR || IS_ROAD;
@@ -65,7 +66,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=226';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=227';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -91,7 +92,7 @@ if (settings.raceBots > MAX_BOTS) { settings.raceBots = MAX_BOTS; settings.raceS
 try {
   if (!sessionStorage.getItem('novaf1.opened')) {
     sessionStorage.setItem('novaf1.opened', '1');
-    const pool = TRACKS.filter(t => t.id !== 'nordschleife' && t.id !== settings.track);
+    const pool = TRACKS.filter(t => t.id !== 'nordschleife' && t.id !== 'autostrada' && t.id !== settings.track);
     if (pool.length) { settings.track = pool[Math.floor(Math.random() * pool.length)].id; store.set('novaf1.settings', settings); }
   }
 } catch (e) { /* niente */ }
@@ -286,7 +287,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=226`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=227`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -448,7 +449,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v226 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v227 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -457,6 +458,7 @@ function debugTick(now) {
 addEventListener('unhandledrejection', e => showErr(e.reason || e));
 // anche gli shader che la scheda grafica rifiuta (finirebbero solo nella console)
 { const ce = console.error.bind(console); console.error = (...a) => { ce(...a); const t = a.map(String).join(' '); if (/Shader Error|WebGL|Program Info Log/i.test(t) && !t.includes('GL Driver')) { const m = t.slice(0, 400); setTimeout(() => showErr({ message: m }), 0); } }; }
+let traffic = null;     // guida libera: macchine in autostrada (traffic.js)
 let scenery, car, ghostCar, phys, particles, skids, debris, racingLine, pitLane, pitCrew;
 let minimap, post = null, glow = null, bakuFx = null, wallMarks = null, rain = null, spray = null, reflector = null, reflDone = false, reflFrame = 0, lightning = null, hemiBase = null, expBase = null;
 
@@ -511,15 +513,15 @@ function build() {
   pitLane = new PitLane(track);
   pitLane.build(scene);
   // città vera (Biella): niente corsia box né soste
-  if (TRACK.city) pitLane.group.visible = false;
+  if (TRACK.city || TRACK.highway) pitLane.group.visible = false;
   pitCrew = new PitCrew(scene);
   racingLine = new RacingLine(track);
   // traiettoria gommata (le piste da modello 3D ce l'hanno già)
-  if (!TRACK.model) scene.add(racingLine.buildRubber());
+  if (!TRACK.model && !TRACK.highway) scene.add(racingLine.buildRubber());
   // ultra: erba vera (ciuffi di fili d'erba in 3D) sul prato ai bordi della pista
   if (ULTRA && !TRACK.model) { tufts = buildGrassTufts(track, 150000); if (tufts) scene.add(tufts); }
   // asfalto e bordi "vissuti": gomma sporca, segni di frenata, terra fuori pista
-  if (!TRACK.model) scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
+  if (!TRACK.model && !TRACK.highway) scene.add(buildTrackDetail(track, racingLine, KERB_WIDTH));
   scene.add(racingLine.build());
   if (!TRACK.model) bakuFx = new BakuFx(scene, track, racingLine, scenery, { high: HIQ });
   phys = new CarPhysics(track);
@@ -683,6 +685,8 @@ function startCountdown() {
 
 function clearRace() {
   trialCar = null;
+  if (traffic) { traffic.dispose(); traffic = null; }
+  document.body.classList.remove('free-drive');
   if (podium && podium.stage) podium.stage.dispose(); podium = null; $('podium').classList.add('hidden');
   if (recorder && !recorder.stopped && recorder.frames.length > HZ_MIN_FRAMES) saveReplay(recorder.pack());
   recorder = null;
@@ -712,7 +716,7 @@ function startRaceGame(roster = null) {
     startPos: wk && wk.startPos ? wk.startPos : settings.raceStart, playerPhys: phys, damageMode: dmMode(),
     arcade: ARC(), tow: settings.arcTow, rubber: roster ? 0 : settings.arcRubber, botOrder: wk && wk.botOrder,
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? (wk && wk.grid) || f1Grid(settings.f1Team, settings.raceBots) : null,
-    pitLane: TRACK.city ? null : pitLane, startCompound: startTyre(), roster,
+    pitLane: TRACK.city || TRACK.highway ? null : pitLane, startCompound: startTyre(), roster,
     wec: wecOn() && !roster ? { spec: SPECS[WEC_OTHER], line: getWecLine(), cls: WEC_OTHER, mine: CAR_CLASS, n: Math.floor((Math.min(MAX_BOTS, settings.raceBots) + 1) / 2), otherFirst: !IS_HYPER } : null,
   });
   race.online = !!roster;
@@ -837,7 +841,7 @@ function startGame() {
   clearRace();
   prepareStart();
   // prova a tempo: si può entrare ai box quando si vuole (box della propria squadra, meccanici, cambio gomme)
-  if (pitLane && !TRACK.city) {
+  if (pitLane && !TRACK.city && !TRACK.highway) {
     const tm = IS_F1 ? teamById(settings.f1Team) : null;
     trialCar = { phys, isPlayer: true, slot: 0, name: 'TU', crossings: 0, penalty: 0, penServed: 0, pit: null, boxCall: false,
       box: tm ? Math.max(0, TEAMS.findIndex(t => t.id === tm.id)) * 2 : GT_PLAYER_BOX,
@@ -873,7 +877,29 @@ function startGame() {
   $('lightsHud').classList.add('hidden');
   scenery.setLights(0);
   if (bakuFx) bakuFx.start();
+  if (FREE()) {
+    // guida libera: si parte nella corsia di destra a 90 km/h, niente tempi a schermo
+    document.body.classList.add('free-drive');
+    const i0 = Math.round(track.count * 0.03), sm = track.samples[i0], v0 = 25;
+    phys.reset(i0, LANES[2], true); phys.vx = sm.tx * v0; phys.vz = sm.tz * v0;
+    for (const w of phys.wheels) w.spin = v0;
+    const rpmAt = g => v0 / phys.R * phys.gears[g - 1] / phys.gearLong * 60 / (2 * Math.PI);
+    let g = 1; while (g < phys.gears.length && rpmAt(g) > phys.maxRpm * 0.7) g++;
+    phys.gear = g; phys.rpm = Math.min(phys.maxRpm * 0.9, rpmAt(g));
+    camState.init = false;
+    if (settings.traffic !== false) spawnTraffic();
+    showBanner('GUIDA LIBERA · BUON VIAGGIO', 'green', 2.5);
+    return;
+  }
   showBanner('GIRO DI LANCIO · IL TEMPO PARTE AL TRAGUARDO', 'green', 2.5);
+}
+// traffico dell'autostrada: utilitarie (le stradali piccole), leggere per i bot
+const FREE = () => !!(settings.free && TRACK.highway);
+async function spawnTraffic() {
+  const kinds = ['uno', 'yar', 'mul', 'mx5'];
+  try { await Promise.all(kinds.map(k => loadKind(k))); } catch (e) { return; }
+  if (!FREE() || mode !== 'race' || traffic) return;
+  traffic = new Traffic(track, scene, (kind, color) => { const m = createGT({ kind, lod: 'mid', primary: color }); m.root.traverse(o => { if (o.isMesh) o.castShadow = !MINQ; }); return m; }, kinds, MINQ ? 20 : 34);
 }
 
 function prepareStart() {
@@ -3268,8 +3294,10 @@ $('pressAny').textContent = isTouch ? 'TOCCA PER INIZIARE' : 'PREMI UN TASTO';
 $('titleGo').addEventListener('click', goHome);
 addEventListener('keydown', e => { if (!$('menuTitle').classList.contains('hidden') && !e.repeat && mode === 'menu') { e.preventDefault(); goHome(); } });
 // riquadri del menu principale
-$('playBtn').addEventListener('click', () => { settings.gameType = 'race'; saveSettings(); openGarage(true); });
-$('trialBtn').addEventListener('click', () => { settings.gameType = 'trial'; saveSettings(); openGarage(true); });
+$('playBtn').addEventListener('click', () => { settings.gameType = 'race'; settings.free = false; saveSettings(); openGarage(true); });
+$('trialBtn').addEventListener('click', () => { settings.gameType = 'trial'; settings.free = false; saveSettings(); openGarage(true); });
+// guida libera: niente gara né tempi, l'autostrada lunghissima, da soli o nel traffico (si sceglie la vettura, poi le opzioni)
+$('freeBtn').addEventListener('click', () => { settings.gameType = 'trial'; settings.free = true; saveSettings(); openGarage(true); });
 $('settingsBtn').addEventListener('click', () => showMenuPage('menuSettings'));
 $('settingsTile').addEventListener('click', () => showMenuPage('menuSettings'));
 $('helpBtn').addEventListener('click', () => showMenuPage('menuHelp'));
@@ -3507,7 +3535,7 @@ function renderTrackList() {
   const sel = box.querySelector('.sel'); if (sel) requestAnimationFrame(() => sel.scrollIntoView({ inline: 'center', block: 'nearest' }));
   if (!box.dataset.wheel) { box.dataset.wheel = 1; box.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { box.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); }
 }
-function openTrackPage() { wizTrack = settings.track; renderTrackList(); showMenuPage('menuTrack'); }
+function openTrackPage() { if (settings.free) { wizTrack = 'autostrada'; trackContinue(); return; } wizTrack = settings.track; renderTrackList(); showMenuPage('menuTrack'); }
 function trackContinue() {
   if (wizTrack !== settings.track) {
     settings.track = wizTrack; saveSettings();
@@ -3563,7 +3591,8 @@ function setRows() {
     R.push({ l: 'ORA DEL GIORNO', v: TOD_NAME[S.tod] || 'GIORNO', s: 'giorno, tramonto o notturna coi fari', f: () => { S.tod = nextTod(S.tod); pendingReload = true; } });
     R.push({ l: 'METEO', v: WX_NAMES[S.weather || 'dry'], s: S.weather === 'heavy' ? 'tanta acqua: gomme da bagnato, spruzzi, poca visibilità' : S.weather === 'light' ? 'pista umida: gomme intermedie' : 'pista asciutta, gomme slick',
       f: d => { S.weather = cyc(['dry', 'light', 'heavy'], S.weather || 'dry', d); S.raceTyre = S.weather === 'heavy' ? 'W' : S.weather === 'light' ? 'I' : 'M'; pendingReload = true; } });
-    if (trial) R.push({ l: 'FANTASMA DEL RECORD', v: S.ghost ? 'SÌ' : 'NO', s: 'la vettura trasparente del tuo giro migliore', f: () => { S.ghost = !S.ghost; } });
+    if (trial && settings.free) R.push({ l: 'TRAFFICO', v: S.traffic !== false ? 'SÌ · MACCHINE IN CORSIA' : 'NO · DA SOLO', s: S.traffic !== false ? 'utilitarie che viaggiano nelle tre corsie, piano a destra e veloci a sinistra' : 'l\'autostrada tutta per te', f: () => { S.traffic = S.traffic === false; } });
+    if (trial && !settings.free) R.push({ l: 'FANTASMA DEL RECORD', v: S.ghost ? 'SÌ' : 'NO', s: 'la vettura trasparente del tuo giro migliore', f: () => { S.ghost = !S.ghost; } });
   } else if (setTab === 'week') {
     R.push({ l: 'FORMATO DEL WEEKEND', v: S.weekend === 'osq' ? 'QUALIFICA SECCA + GARA' : 'SOLO GARA', s: S.weekend === 'osq' ? 'un solo giro lanciato decide la griglia' : 'scegli tu la posizione di partenza', f: () => { S.weekend = S.weekend === 'osq' ? 'race' : 'osq'; } });
     R.push({ l: 'GOMME DI PARTENZA', v: COMPOUNDS[S.raceTyre].name.toUpperCase(), s: 'morbide: più aderenza, durano meno', f: d => { S.raceTyre = cyc(TYRES_ALL, S.raceTyre, d); } });
@@ -3606,14 +3635,14 @@ function refreshRaceSetup() {
   const sw = tm ? `<i class="sw" style="background:linear-gradient(135deg, ${tm.colors[0]} 0 55%, ${tm.colors[1]} 55% 80%, ${tm.colors[2]} 80%)"></i>` : '';
   $('setSide').innerHTML = `<svg viewBox="0 0 220 120" aria-hidden="true"><path d="${d}" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>
     <b>${track.name.toUpperCase()}</b><span class="who">${sw}${who}</span>
-    ${trial ? '<span class="sum">Prova a tempo · giri liberi contro il tuo record</span>' : `<span class="sum">${S.weekend === 'osq' ? 'Qualifica secca + gara' : 'Solo gara'} · ${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'} · ${S.raceBots + 1} vetture · IA ${S.raceStrength}</span>
+    ${settings.free ? `<span class="sum">Guida libera · ${S.traffic !== false ? 'nel traffico' : 'da solo'} · niente tempi</span>` : trial ? '<span class="sum">Prova a tempo · giri liberi contro il tuo record</span>' : `<span class="sum">${S.weekend === 'osq' ? 'Qualifica secca + gara' : 'Solo gara'} · ${S.raceLaps} ${S.raceLaps === 1 ? 'giro' : 'giri'} · ${S.raceBots + 1} vetture · IA ${S.raceStrength}</span>
     <div class="gpCars">${Array.from({ length: S.raceBots + 1 }, (_, k) => `<i class="${S.weekend !== 'osq' && k + 1 === S.raceStart ? 'me' : ''}"></i>`).join('')}</div>`}`;
-  $('raceTitle').textContent = (trial ? 'PROVA A TEMPO' : 'GRAN PREMIO') + ' · IMPOSTAZIONI';
+  $('raceTitle').textContent = (settings.free ? 'GUIDA LIBERA' : trial ? 'PROVA A TEMPO' : 'GRAN PREMIO') + ' · IMPOSTAZIONI';
   $('setupHint').textContent = '';
 }
 const cycleTab = d => { const tabs = TABS.filter(([id]) => !(settings.gameType === 'trial' && id === 'week')).map(t => t[0]); setTab = cyc(tabs, setTab, d); refreshRaceSetup(); };
 function openSetup() { pendingReload = false; refreshDriveMode(); refreshRaceSetup(); showMenuPage('menuRace'); }
-$('raceBack').addEventListener('click', openTrackPage);
+$('raceBack').addEventListener('click', () => (settings.free ? openGarage(true) : openTrackPage()));
 // avanti: schermata di caricamento e poi il box del weekend
 $('raceStartBtn').addEventListener('click', () => {
   wk = null;
@@ -3701,7 +3730,7 @@ function startQuali() {
   // tutta la griglia in pista: chi è ai box, chi esce, chi fa il giro di lancio, chi quello buono
   race = new Race(track, racingLine, {
     laps: 999, bots: settings.raceBots, strength: settings.raceStrength, startPos: 1, playerPhys: phys, damageMode: dmMode(),
-    arcade: ARC(), rubber: 0, playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: wk.grid, pitLane: TRACK.city ? null : pitLane, startCompound: bestCompound('S'),
+    arcade: ARC(), rubber: 0, playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: wk.grid, pitLane: TRACK.city || TRACK.highway ? null : pitLane, startCompound: bestCompound('S'),
   });
   spawnRaceModels();
   const L = track.length, n = track.count, st = track.step, r = Math.random;
@@ -4450,6 +4479,7 @@ function frame(now) {
   else if (mode !== 'pause') {
     const live = mode === 'race' || !!attract;
     updateCarVisual(live ? dt : 0);
+    if (traffic) traffic.update(mode === 'race' ? dt : 0, mode === 'race' ? phys : null);
     if (race) for (const c of race.cars) if (c.model) {
       c.model.root.visible = !c.gone;
       if (c.gone) continue;
@@ -4462,7 +4492,7 @@ function frame(now) {
     if (sc && mode === 'race') { sc.update(dt); scRules(); }
     updateEffects(mode === 'race' ? dt : dt * 0.5);
     updateGhost();
-    racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' ? 'off' : settings.line);
+    racingLine.update(phys.prCG.i, phys.speed, mode === 'menu' || FREE() ? 'off' : settings.line);
     if (attract && mode === 'menu') attractCamera(dt); else if (mode === 'intro' && intro) introCamera(dt); else if (podium && race) podiumCamera(dt); else updateCamera(dt);
     if (pitCrew) pitCrew.update(mode === 'menu' ? null : race || (trialCar && { pitLane, cars: [trialCar] }), camera, dt);
     updateAudio(dt);
@@ -4681,7 +4711,7 @@ Promise.all([fontsReady, gtLoad]).then(() => requestAnimationFrame(() => setTime
   else if (onlineRe && onlineRe.host && gtReady()) { openOnline(); $('onHost').click(); }
   window.__game = {
     phys, track, startGame, startRaceGame, settings, scene, camera, get race() { return race; }, get calls() { return renderer.info.render.calls; },
-    get mode() { return mode; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
+    get mode() { return mode; }, get traffic() { return traffic; }, get lap() { return lap; }, get scenery() { return scenery; }, get car() { return car; }, get debris() { return debris; }, get sc() { return sc; }, get info() { return renderer.info.render; },
     skipCountdown() { if (countdown) countdown.t = countdown.out; },
     endQuali(t) { endQuali(t); }, startQuali() { if (!wk) weekendNew(); startQuali(); }, showPodium() { showPodium(); }, get quali() { return quali; }, get wk() { return wk; },
     replayNow() { $('resReplay').click(); }, get rp() { return rp; }, get wallMarks() { return wallMarks; }, get pitLane() { return pitLane; }, get trialCar() { return trialCar; }, get stew() { return stew; }, govTest(l) { GOV.lvl = l; govApply(); return [GOV.lvl, renderer.getPixelRatio(), shadowSize, post && post.ao && post.ao.enabled]; }, get ghost() { return { kind: ghostKind, time: gbest && gbest.time, car: gbest && gbest.car, vis: ghostCar && ghostCar.root.visible }; }, get net() { return net; },
