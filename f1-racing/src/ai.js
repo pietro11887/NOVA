@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=214';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=215';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=214';
-import { SPEC, IS_F1 } from './vehicle.js?v=214';
+import { CAR } from './physics.js?v=215';
+import { SPEC, IS_F1 } from './vehicle.js?v=215';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-140: oltre 110 solo ancora più aderenza) cambia davvero il ritmo:
@@ -153,7 +153,8 @@ export class AIDriver {
     let vCap = Infinity, blocker = null, bestGap = 45 + v * 1.2, chaser = null, chaserGap = -22;
     let push = 0;
     // pericolo davanti: vettura in testacoda, di traverso, ferma o molto lenta (anche il giocatore)
-    let hazard = null, hazGap = 40 + v * 1.9, hazV = 0;
+    // (sugli ovali si va a 280 all'ora: si guarda molto più avanti per fermarsi in tempo)
+    let hazard = null, hazGap = 40 + v * (this.oval ? 2.8 : 1.9), hazV = 0;
     const along = [], humSide = [];
     // distanza laterale misurata rispetto alla traiettoria (nelle esse la linea passa da un lato all'altro:
     // due vetture in fila sulla stessa linea hanno "d" diverse ma sono una dietro l'altra)
