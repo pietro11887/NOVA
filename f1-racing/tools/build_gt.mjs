@@ -193,6 +193,8 @@ const CFG = {
   transit: { wb: 2.93, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   picanto: { wb: 2.37, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   clio4: { wb: 2.59, synth: { outer: 1 }, tint: [[/^ClioIV_wheel$/, [0.12, 0.12, 0.13]]], tyre: /^ClioIV_wheel$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^ClioIV_body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  carisma: { wb: 2.55, rotX: true, flip: true, tyre: /^tire1$/, rim: /^metal1$/, disc: /^NESSUNO$/, paint: /^material_5$/, drop: /^edge_color/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  corsad: { wb: 2.51, tyre: /^tire1$/, rim: /^rim1$|^inner_rim1$/, disc: /^NESSUNO$/, paint: /^material_11$/, drop: /^edge_color/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -256,11 +258,22 @@ if (CFG.synth) {
     if (isW(p)) { wheel.push(p); continue; }
     for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); P.push([v[0], v[1], v[2]]); }
   }
+  // ruota già al suo posto (una sola, di solito la posteriore sinistra): la si porta all'origine e se ne tiene la posizione
+  let C0 = null;
+  if (CFG.synth.placed) {
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (const p of wheel) { const a = p.getAttribute('POSITION'), v = []; for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], v[c]); hi[c] = Math.max(hi[c], v[c]); } } }
+    C0 = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const done = new Set();
+    for (const p of wheel) { for (const sem of ['POSITION']) { const a = p.getAttribute(sem); if (done.has(a)) continue; done.add(a); }
+      const np = p; for (const sem of np.listSemantics()) np.setAttribute(sem, np.getAttribute(sem).clone()); if (np.getIndices()) np.setIndices(np.getIndices().clone());
+      transformPrimitive(np, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -C0[0], -C0[1], -C0[2], 1]); }
+  }
   // raggio della gomma
   let R = 0, wx0 = 1e9, wx1 = -1e9;
   for (const p of wheel) { const a = p.getAttribute('POSITION'), v = []; for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); R = Math.max(R, Math.hypot(v[1], v[2])); wx0 = Math.min(wx0, v[0]); wx1 = Math.max(wx1, v[0]); } }
   // via i pezzi del mozzo rimasti all'origine nelle altre parti (sospensioni, freni del gioco)
-  for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) {
+  if (!C0) for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) {
     if (wheel.includes(p)) continue;
     const parts = splitPrim(p, (x, y, z) => x > wx0 - 0.03 && x < wx1 + 0.03 && Math.hypot(y, z) < R * 1.02 ? 'HUB' : 'KEEP');
     if (!parts.HUB) { for (const q of Object.values(parts)) q.dispose(); continue; }
@@ -279,14 +292,17 @@ if (CFG.synth) {
   const win = Math.round(R * 1.4 / B), W = Math.round(CFG.wb / B);
   const score = c => { let s = 0, n = 0; for (let k = -win / 2; k <= win / 2; k++) { const i = Math.round(c + k); if (i >= 0 && i < nb) { s += lo[i]; n++; } } return n ? s / n : -1e9; };
   let best = -1e9, bi = 0; for (let i = 0; i + W < nb; i++) { const sc = score(i) + score(i + W); if (sc > best) { best = sc; bi = i; } }
-  const zR = z0 + bi * B, zF = zR + CFG.wb;
+  const zR = C0 ? (C0[2] < 0 ? C0[2] : C0[2] - CFG.wb) : z0 + bi * B, zF = zR + CFG.wb;
   const archTop = Math.min(score(bi), score(bi + W)) * 0.5 + Math.max(score(bi), score(bi + W)) * 0.5;
-  const yc = CFG.synth.y != null ? CFG.synth.y : archTop - R - (CFG.synth.gap ?? 0.04);
+  const yc = C0 ? C0[1] : CFG.synth.y != null ? CFG.synth.y : archTop - R - (CFG.synth.gap ?? 0.04);
   // larghezza: il parafango attorno ai passaruota
   let xo = 0; for (const v of P) if (v[1] < archTop && (Math.abs(v[2] - zF) < R || Math.abs(v[2] - zR) < R)) xo = Math.max(xo, Math.abs(v[0]));
-  const xc = xo - (CFG.synth.inset ?? 0.03) - (wx1 - (wx0 + wx1) / 2) - (CFG.synth.outer > 0 ? (wx0 + wx1) / 2 : -(wx0 + wx1) / 2);
+  const xc = C0 ? Math.abs(C0[0]) : xo - (CFG.synth.inset ?? 0.03) - (wx1 - (wx0 + wx1) / 2) - (CFG.synth.outer > 0 ? (wx0 + wx1) / 2 : -(wx0 + wx1) / 2);
+  // la gomma è l'anello esterno: se non ha un suo colore scuro, la si annerisce
+  if (CFG.synth.darkTyre) for (const p of wheel) { const a = p.getAttribute('POSITION'), v = []; let rmin = 1e9; for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); rmin = Math.min(rmin, Math.hypot(v[1], v[2])); }
+    if (rmin > R * 0.6 && p.getMaterial()) p.setMaterial(p.getMaterial().clone().setName(p.getMaterial().getName() + '_TYRE').setBaseColorFactor([0.035, 0.035, 0.04, 1]).setMetallicFactor(0).setRoughnessFactor(0.9).setBaseColorTexture(null)); }
   console.log('ruote sintetiche: R', R.toFixed(3), 'assi', zR.toFixed(2), zF.toFixed(2), 'centro y', yc.toFixed(2), 'x', xc.toFixed(2));
-  const sx = CFG.synth.outer || 1;
+  const sx = C0 ? (Math.sign(C0[0]) || 1) : CFG.synth.outer || 1;
   for (const p of wheel) {
     const mesh = p.listParents().find(x => x.propertyType === 'Mesh');
     for (const [side, z] of [[1, zF], [-1, zF], [1, zR], [-1, zR]]) {
