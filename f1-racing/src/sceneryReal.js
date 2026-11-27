@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { SpaScenery } from './scenerySpa.js?v=219';
-import { TRACK, bankAt } from './trackData.js?v=219';
+import { SpaScenery } from './scenerySpa.js?v=220';
+import { TRACK, bankAt } from './trackData.js?v=220';
 import { meadow, triplanar } from './pbr.js?v=b890b6bc';
-import { buildTrees } from './trees.js?v=219';
-import { ENV } from './scenery.js?v=219';
+import { buildTrees } from './trees.js?v=220';
+import { ENV } from './scenery.js?v=220';
 import { landmarkSkip } from './landmarks.js?v=92cc6020';
 
 // Circuiti veri del calendario costruiti dalla "fabbrica di piste" (tools/build_track.py): stessi dati di Spa
@@ -36,6 +36,8 @@ export const CLIMATES = {
   desert: { grass: 0xc9a774, meadow: 0x9a9a5e, forest: 0x6e7a46, far: 0xd2b688, walls: [0xf1e6d2, 0xe8d9bd, 0xdcc9a6, 0xf5efe3, 0xd6c3a0], roof: 0xcfc0a0, trees: 'none', palms: 1 },
   dunes: { grass: 0x9a9a6a, meadow: 0x8a9461, forest: 0x56643e, far: 0xb8ad86, walls: [0xe9e6df, 0xd9d4ca, 0xb94a3a, 0x9b5a44, 0xece8e0], roof: 0x4a3a36, trees: 'pine', palms: 0 },
   tropical: { grass: 0x5d8a3c, meadow: 0x6a9640, forest: 0x2f5a2a, far: 0x3d5a35, walls: [0xf4f1ea, 0xe8efe9, 0xf1e3cf, 0xdfe7ee, 0xfaf6ee], roof: 0x8c8f94, trees: 'broad', palms: 0.6 },
+  // Piemonte (Biella): intonaci chiari e caldi, tetti in coppi, città compatta
+  piemonte: { grass: 0x5f7d46, meadow: 0x6e8a4e, forest: 0x3b4a2e, far: 0x55634a, walls: [0xe8dcc4, 0xe3c9a0, 0xd9b48a, 0xefe6d4, 0xe6cfae, 0xd8c3a4, 0xf0e2c6, 0xc9a27e], roof: 0x9a4a32, trees: 'broad', palms: 0, facade: true },
   urban: { grass: 0x667a4c, meadow: 0x6d8650, forest: 0x3d5a32, far: 0x8f949a, walls: [0xeae6dc, 0xdcd6ca, 0xf2efe8, 0xcfc8ba, 0xe6d2b6, 0xbfc5cc], roof: 0x6b6f75, trees: 'broad', palms: 0.3 },
 };
 
@@ -91,7 +93,24 @@ export class RealScenery extends SpaScenery {
     super.build();
     this.tunnels();
     if ((this.meta.id || TRACK.id) === 'nordschleife') this.graffiti();
-    this.cornerSigns();
+    if (!TRACK.city) this.cornerSigns(); else this.cityLamps();
+  }
+
+  // città: lampioni sul marciapiede, alternati sui due lati
+  cityLamps() {
+    const S = this.track.samples, n = this.track.count, st = this.track.step;
+    const pole = new THREE.CylinderGeometry(0.07, 0.11, 7, 6), arm = new THREE.BoxGeometry(1.4, 0.1, 0.1), head = new THREE.BoxGeometry(0.6, 0.18, 0.3);
+    let side = 1;
+    for (let i = 0; i < n; i += Math.max(1, Math.round(28 / st))) {
+      side = -side;
+      const s = S[i], d = side * ((side > 0 ? s.wallL : s.wallR) - 0.5);
+      const x = s.x + s.nx * d, z = s.z + s.nz * d, y = s.y + 0.12 + bankAt(s, d), ry = Math.atan2(-s.nx * side, -s.nz * side);
+      const ax = -s.nx * side * 0.6, az = -s.nz * side * 0.6;
+      this.batch.add(pole, this.colored, mat4(x, y + 3.5, z), 0x34373c);
+      this.batch.add(arm, this.colored, mat4(x + ax, y + 6.95, z + az, ry + Math.PI / 2), 0x34373c);
+      this.batch.add(head, this.colored, mat4(x + ax * 2, y + 6.85, z + az * 2, ry + Math.PI / 2), 0xe9e4d4);
+    }
+    this.batch.flush(this.group);
   }
   colorsFor() { /* (i colori si leggono in terrain()) */ }
 
@@ -376,6 +395,14 @@ export class RealScenery extends SpaScenery {
     const WALLS = cl.walls.map(h => new THREE.Color(h)), ROOF = new THREE.Color(cl.roof), FLAT = new THREE.Color(0x8d9096);
     const GLASS = [new THREE.Color(0x2c3e52), new THREE.Color(0x34495e), new THREE.Color(0x3d5566), new THREE.Color(0x2b3440)];
     const pos = [], col = [];
+    // città italiana: facciate a intonaco con finestre e persiane (una tessera per finestra e per piano)
+    const fac = !!cl.facade, fpos = [], fcol = [], fuv = [], PLINTH = new THREE.Color(0x8e8a82);
+    const fquad = (a, c, y0, y1, cc) => {
+      const L = Math.hypot(c[0] - a[0], c[1] - a[1]), u1 = Math.max(1, Math.round(L / 3.2)), v0 = 0, v1 = (y1 - y0) / 3.2;
+      fpos.push(a[0], y0, a[1], c[0], y0, c[1], c[0], y1, c[1], a[0], y0, a[1], c[0], y1, c[1], a[0], y1, a[1]);
+      fuv.push(0, v0, u1, v0, u1, v1, 0, v0, u1, v1, 0, v1);
+      for (let q = 0; q < 6; q++) fcol.push(cc.r, cc.g, cc.b);
+    };
     // di notte: finestre accese (luce calda o fredda d'ufficio) sui vetri dei palazzi
     const night = !!ENV.night, wpos = [], wuv = [];
     const win = (a, c, y0, y1, u0) => {
@@ -428,7 +455,7 @@ export class RealScenery extends SpaScenery {
       if (DEFAULT_H.has(hh) && (this.track.street || this.meta.climate === 'urban') && !stand) {
         let A2 = 0; for (let i = 0; i < p.length; i++) { const a = p[i], c = p[(i + 1) % p.length]; A2 += a[0] * c[1] - c[0] * a[1]; }
         const area = Math.abs(A2) / 2;
-        hh = 8 + r() * 10 + Math.min(1, area / 2500) * (14 + r() * 30);
+        hh = fac ? 7 + r() * 6 + Math.min(1, area / 2500) * (4 + r() * 10) : 8 + r() * 10 + Math.min(1, area / 2500) * (14 + r() * 30);
       }
       const h = Math.min(hh, 180), base = gmin - 1.5, top = gmin + h;
       const tower = h > 16 && !stand;
@@ -437,11 +464,18 @@ export class RealScenery extends SpaScenery {
       const gc = GLASS[Math.floor(r() * GLASS.length)];
       let A = 0; for (let i = 0; i < p.length; i++) { const a = p[i], c = p[(i + 1) % p.length]; A += a[0] * c[1] - c[0] * a[1]; }
       const pts = A > 0 ? p.slice().reverse() : p;
-      const glassy = tower && r() < 0.45;              // grattacielo a specchio
+      const glassy = !fac && tower && r() < 0.45;              // grattacielo a specchio
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i], c = pts[(i + 1) % pts.length];
         const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
         const u0 = Math.floor(Math.abs(Math.sin(a[0] * 12.9898 + a[1] * 78.233)) * 64) / 8;
+        if (fac && !stand) {
+          // zoccolo di pietra, poi i piani con le finestre (il piano terra parte da 0,8 m)
+          quad(a, c, base, gmin + 0.8, PLINTH);
+          if (L > 2.2) fquad(a, c, gmin + 0.8, top, wc); else quad(a, c, gmin + 0.8, top, wc);
+          win(a, c, gmin + 3, top - 1, u0);
+          continue;
+        }
         if (glassy) { quad(a, c, base, top, gc); win(a, c, gmin + 3, top - 1, u0); continue; }
         if (big && h > 7 && L > 4 && !stand) {
           // piani: fascia di muro + fila di finestre (3,4 m per piano)
@@ -454,7 +488,7 @@ export class RealScenery extends SpaScenery {
         } else quad(a, c, base, top, wc);
       }
       // tetto: a due falde per le case basse quasi rettangolari, piatto per il resto
-      if (!big && h < 12 && pts.length >= 4 && pts.length <= 6) {
+      if ((fac ? !stand : !big && h < 12) && pts.length >= 4 && pts.length <= 6) {
         let best = 0, ax = 0, az = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], c = pts[(i + 1) % pts.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]); if (l > best) { best = l; ax = (c[0] - a[0]) / l; az = (c[1] - a[1]) / l; } }
         const cx = pts.reduce((s2, q) => s2 + q[0], 0) / pts.length, cz = pts.reduce((s2, q) => s2 + q[1], 0) / pts.length;
         let wmax = 0; for (const q of pts) wmax = Math.max(wmax, Math.abs((q[0] - cx) * -az + (q[1] - cz) * ax));
@@ -493,7 +527,43 @@ export class RealScenery extends SpaScenery {
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide, fog: true }));
       this.group.add(wm);
     }
+    if (fpos.length) {
+      const fg = new THREE.BufferGeometry();
+      fg.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
+      fg.setAttribute('color', new THREE.Float32BufferAttribute(fcol, 3));
+      fg.setAttribute('uv', new THREE.Float32BufferAttribute(fuv, 2));
+      fg.computeVertexNormals();
+      const fm = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ vertexColors: true, map: facadeTex(), roughness: 0.9 }));
+      fm.castShadow = true; fm.receiveShadow = true;
+      this.group.add(fm);
+    }
   }
+}
+
+// facciata italiana: intonaco (bianco, lo colora il vertice), finestra con davanzale e persiane verdi
+let _fac = null;
+function facadeTex() {
+  if (_fac) return _fac;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, 128, 128);
+  const r = rand(9);
+  for (let k = 0; k < 1500; k++) { const v = 215 + r() * 40; g.fillStyle = `rgba(${v},${v},${v - 6},0.5)`; g.fillRect(r() * 128, r() * 128, 2, 2); }
+  // fascia marcapiano in basso
+  g.fillStyle = '#dcd6ca'; g.fillRect(0, 122, 128, 6);
+  // cornice, vetro e davanzale
+  g.fillStyle = '#e9e4da'; g.fillRect(42, 26, 44, 74);
+  g.fillStyle = '#2d3238'; g.fillRect(46, 30, 36, 66);
+  g.fillStyle = '#5a6670'; g.fillRect(63, 30, 2, 66); g.fillRect(46, 58, 36, 2);
+  g.fillStyle = '#cfc8bb'; g.fillRect(40, 98, 48, 5);
+  // persiane aperte ai lati, a listelli
+  for (const x of [26, 86]) {
+    g.fillStyle = '#3e5c40'; g.fillRect(x, 30, 16, 66);
+    g.fillStyle = '#2f4732'; for (let y = 33; y < 94; y += 5) g.fillRect(x + 1, y, 14, 2);
+  }
+  _fac = new THREE.CanvasTexture(c);
+  _fac.wrapS = _fac.wrapT = THREE.RepeatWrapping; _fac.colorSpace = THREE.SRGBColorSpace; _fac.anisotropy = 4;
+  return _fac;
 }
 
 // finestre di notte: una tessera con 8×8 finestre, alcune accese (giallo caldo o bianco d'ufficio), le altre buie

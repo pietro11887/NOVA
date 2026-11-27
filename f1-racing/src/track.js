@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=219';
-import * as tex from './textures.js?v=219';
+import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=220';
+import * as tex from './textures.js?v=220';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -46,6 +46,7 @@ export class Track {
     this.count = t.count;
     this.sectorIdx = [0, Math.round(this.count / 3), Math.round(2 * this.count / 3)];
     this.street = !!TRACK.street;
+    this.city = !!TRACK.city;
     this.name = TRACK.name;
     this.group = new THREE.Group();
     if (TRACK.surf && !this.street) this.loadSurf(TRACK.surf);
@@ -227,6 +228,8 @@ export class Track {
       out.type = SURF.GRASS; out.h = -0.03 + 0.02 * Math.sin(pr.s * 0.45);
       return out;
     }
+    // città vera: oltre il bordo il cordolo di pietra e il marciapiede, 12 cm più in alto
+    if (this.city) { out.h = 0.12 * Math.min(1, (ad - H - 0.6) / 0.1); out.type = SURF.KERB; return out; }
     // in città oltre il bordo c'è asfalto (vie di fuga, marciapiede ribassato); così anche le vie
     // di fuga asfaltate delle piste moderne
     if (this.street || (left ? s.pavedL : s.pavedR)) { out.h = -0.01; return out; }
@@ -389,8 +392,10 @@ export class Track {
     g.add(this.ribbon([[E(-1, -0.6), 0.0], [E(1, 0.6), 0.0]], null, asphMat, 10, true));
     // linee bianche di bordo pista
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.7 });
-    g.add(this.ribbon([[E(1, -0.55), 0.012], [E(1, -0.05), 0.012]], null, white));
-    g.add(this.ribbon([[E(-1, 0.05), 0.012], [E(-1, 0.55), 0.012]], null, white));
+    if (!this.city) {
+      g.add(this.ribbon([[E(1, -0.55), 0.012], [E(1, -0.05), 0.012]], null, white));
+      g.add(this.ribbon([[E(-1, 0.05), 0.012], [E(-1, 0.55), 0.012]], null, white));
+    } else this.cityStreet(aniso);
     // fascia d'erba più scura lungo il bordo pista (come nelle riprese TV)
     if (!this.street && !this.surfTex) {
       const darkGrass = new THREE.MeshStandardMaterial({ color: 0x3f8a36, roughness: 1 });
@@ -447,17 +452,41 @@ export class Track {
     const gravMat = new THREE.MeshStandardMaterial({ map: gravT, roughness: 1 });
     // erba e ghiaia fotografiche
     if (this.hq && !this.street) { grassMat.color.set(0x8f9a7c); triplanar(grassMat, 'grass', { scale: 3, strength: 0.75, normal: 0.8, vary: true }); triplanar(gravMat, 'gravel', { scale: 1.6, strength: 0.85, normal: 1.2 }); }
-    // lato sinistro: da bordo pista al muro
-    g.add(this.sideRibbon(1, grassMat, gravMat));
-    g.add(this.sideRibbon(-1, grassMat, gravMat));
+    // città vera: niente vie di fuga, muri né reti (il marciapiede è in cityStreet)
+    if (!this.city) {
+      // lato sinistro: da bordo pista al muro
+      g.add(this.sideRibbon(1, grassMat, gravMat));
+      g.add(this.sideRibbon(-1, grassMat, gravMat));
 
-    // Muri + recinzioni
-    g.add(this.walls(1, aniso));
-    g.add(this.walls(-1, aniso));
+      // Muri + recinzioni
+      g.add(this.walls(1, aniso));
+      g.add(this.walls(-1, aniso));
+    }
 
     // Linea di partenza a scacchi, griglia e scritte settori
     this.decorations(aniso);
     return g;
+  }
+
+  // città: linea di mezzeria tratteggiata, cordolo di pietra e marciapiede in lastre fino alle case
+  cityStreet(aniso) {
+    const g = this.group, S = this.samples;
+    const E = (sd, off) => s => sd * ((sd > 0 ? s.hwL : s.hwR) ?? s.hw) + off;
+    const white = new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: 0.75 });
+    g.add(this.ribbon([[-0.07, 0.012], [0.07, 0.012]], i => Math.floor(S[i].s / 4.5) % 2 === 0, white));
+    const curb = new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.85, side: THREE.DoubleSide });
+    const walkT = tex.sidewalk(); walkT.anisotropy = aniso;
+    const walk = new THREE.MeshStandardMaterial({ map: walkT, roughness: 0.9 });
+    if (this.hq) triplanar(curb, 'concrete', { scale: 1.2, strength: 0.4, normal: 0.8 });
+    const h = 0.12;
+    for (const sd of [1, -1]) {
+      const W = s => sd * (((sd > 0 ? s.hwL : s.hwR) ?? s.hw) + 0.6 + (sd > 0 ? s.walkL : s.walkR));
+      // faccia verticale e bordo superiore del cordolo (25 cm), poi le lastre
+      const cp = [[E(sd, sd * 0.6), -0.02], [E(sd, sd * 0.6), h], [E(sd, sd * 0.85), h]];
+      const wp = [[E(sd, sd * 0.85), h], [W, h]];
+      g.add(this.ribbon(sd > 0 ? cp : cp.reverse(), null, curb, 1));
+      g.add(this.ribbon(sd > 0 ? wp : wp.reverse(), null, walk, 2));
+    }
   }
 
   // Nastro lungo il tracciato. prof = [[d, h], ...] da destra a sinistra (d crescente).

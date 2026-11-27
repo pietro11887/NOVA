@@ -821,23 +821,24 @@
  },
  "biella": {
   "name": "Biella Città",
-  "lat": 45.562,
-  "lon": 8.052,
-  "half": 1600,
-  "length": 8000,
+  "lat": 45.5555,
+  "lon": 8.0535,
+  "half": 1100,
+  "length": 3200,
   "dir": "cw",
   "hw": 4.6,
-  "climate": "temperate",
+  "climate": "piemonte",
   "street": true,
+  "city": true,
   "place": "Italia · Biella",
   "flag": [
    "#c8102e",
    "#ffffff",
    "#1e5bd6"
   ],
-  "km": "8,0",
-  "corners": 40,
-  "info": "Il giro gigante di Biella: Duomo, funicolare e Piazzo, l'ITIS Quintino Sella, lo stadio, la Banca Sella, i Giardini Zumaglini e Cittadellarte",
+  "km": "3,6",
+  "corners": 16,
+  "info": "Il giro di Biella: l'ITIS Quintino Sella, il mercato e lo skate park con il Joker, lo stadio Vittorio Pozzo e la Banca Sella",
   "fans": [
    "ita",
    "ita",
@@ -853,41 +854,25 @@
   "bmax_d": 1200,
   "waypoints": [
    [
-    45.5662,
-    8.0545
-   ],
-   [
-    45.56697,
-    8.04839
-   ],
-   [
-    45.56603,
-    8.04523
-   ],
-   [
     45.5559,
     8.0489
    ],
    [
-    45.5545,
-    8.0575
+    45.5508,
+    8.0593
+   ],
+   [
+    45.5535,
+    8.0585
    ],
    [
     45.5606,
     8.0542
-   ],
-   [
-    45.56298,
-    8.0563
-   ],
-   [
-    45.57243,
-    8.05607
    ]
   ],
   "start_ll": [
-   45.56298,
-   8.0563
+   45.5585,
+   8.052
   ]
  }
 }

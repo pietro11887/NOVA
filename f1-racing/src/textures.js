@@ -113,6 +113,24 @@ export function gravel() {
   return finish(c);
 }
 
+// marciapiede di città: lastre di pietra grigio chiaro con le fughe e qualche macchia
+export function sidewalk() {
+  const [c, g] = canvas(256, 256);
+  g.fillStyle = '#a9a69f'; g.fillRect(0, 0, 256, 256);
+  const r = rand(31);
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) {
+    const v = 165 + r() * 30 | 0;
+    g.fillStyle = `rgb(${v},${v - 3},${v - 8})`;
+    g.fillRect(i * 256 / 6 + 1.5, j * 64 + 1.5, 256 / 6 - 3, 61);
+  }
+  for (let k = 0; k < 5000; k++) {
+    const v = 120 + r() * 90;
+    g.fillStyle = `rgba(${v},${v},${v * 0.96},0.35)`;
+    g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 1 + r() * 2);
+  }
+  return finish(c);
+}
+
 export function barrier() {
   const [c, g] = canvas(256, 64);
   g.fillStyle = '#eef0f3'; g.fillRect(0, 0, 256, 64);

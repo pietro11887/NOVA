@@ -122,7 +122,7 @@ export function bankAt(s, d) { return s.bank ? s.bank * (Math.max(-(s.hwR ?? s.h
 
 export function realTrack(meta, data) {
   return {
-    id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, data, meta,
+    id: meta.id, name: meta.name.toUpperCase(), points: data.points, xzScale: 1, hw: meta.hw || 6.5, street: !!meta.street, city: !!meta.city, data, meta,
     // bordi, cordoli, vie di fuga e barriere misurati sulle foto satellitari
     side: data.side || undefined, edges: data.edges || undefined, surf: data.surf || undefined, armco: !!meta.armco,
     lineShift: 200,
@@ -584,6 +584,21 @@ export function buildTrack(points) {
     else { s.wallL = (s.hwL ?? s.hw) + 0.6; s.wallR = 60; s.openR = true; s.apronR = OV.apron; s.pavedL = true; }
     s.kerbL = s.kerbR = false; s.gravelL = s.gravelR = false; s.sausageL = s.sausageR = false;
   });
+  // città vera (Biella): niente muri, reti né cordoli. Oltre il bordo c'è il marciapiede (cordolo di pietra
+  // alto 12 cm) largo 3 m; il limite invisibile sta in fondo al marciapiede, prima delle case
+  if (def.city) {
+    const probe = buildingProbe(def.data && def.data.buildings);
+    samples.forEach(s => {
+      s.kerbL = s.kerbR = false; s.gravelL = s.gravelR = false; s.sausageL = s.sausageR = false; s.escL = s.escR = false;
+      for (const side of [1, -1]) {
+        const H = (side > 0 ? s.hwL : s.hwR) ?? s.hw;
+        let w = Math.min(H + 3.6, (side > 0 ? s.clearL : s.clearR) / 2);
+        if (probe) { const hit = probe(s, side, H + 0.5, H + 6); if (hit < Infinity) w = Math.min(w, hit - 0.3); }
+        w = Math.max(H + 1.2, w);
+        if (side > 0) { s.wallL = w; s.walkL = w - H - 0.6; } else { s.wallR = w; s.walkR = w - H - 0.6; }
+      }
+    });
+  }
   samples.forEach(s => { s.wallRVis = s.wallR; s.wallLVis = s.wallL; s.pitWall = false; });
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;
