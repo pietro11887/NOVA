@@ -89,6 +89,16 @@ const CFG = {
   r34: { wb: 2.665, tyre: /^Material\.010$/, rim: /^Material\.012$/, disc: /^NESSUNO$/, paint: /^Material\.001$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   supra: { wb: 2.55, tyre: /^Scene_-_Root\.004$/, rim: /^\.002$/, disc: /^tormoz1\.001$/, paint: /^esta80$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
   p930: { wb: 2.272, tyre: /^Material\.008$/, rim: /^Material\.005$/, disc: /^NESSUNO$/, paint: /^Material\.002$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  // --- stradali scaricate da Sketchfab (giro 3) ---
+  tipo: { wb: 2.54, tyre: /^material$/, rim: /^Color_008$|^Color_002$/, disc: /^NESSUNO$/, paint: /^body$/, drop: /Pneu|Panamera|visionarq/, livery: /^PAINT$/, ratio: [0.25, 0.08], error: [0.002, 0.01], renorm: true },
+  passat: { wb: 2.79, tyre: /^tyre$/, rim: /^material$/, disc: /^brakes$/, paint: /^carpaint_body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.4, 0.15], error: [0.002, 0.008], renorm: true },
+  octavia: { wb: 2.51, ground: -0.59, tyre: /^rims$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^primary$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  qashqai: { wb: 2.646, tyre: /^wluntai_x1$/, rim: /^qsliverb1$/, disc: /^NESSUNO$/, paint: /^qcarpaint_red1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.4, 0.15], error: [0.002, 0.008], renorm: true },
+  tesla: { wb: 2.875, tyre: /^Material\.013$/, rim: /^Material\.011$/, disc: /^NESSUNO$/, paint: /^CAR_PAINT$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  ducato: { wb: 3.45, tyre: /^wheel_rubber$/, rim: /^metal_dark$/, disc: /^brakes$/, paint: /^varnish$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  stratos: { wb: 2.18, rotX: true, tyre: /^tyre$/, rim: /^mechanical$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
+  testa: { wb: 2.55, tyre: /_tyre1$/, rim: /_wheel1$/, disc: /_rotor1$/, paint: /_ext1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  sl300: { wb: 2.4, tyre: /^tire$/, rim: /^mid-chrome$/, disc: /^NESSUNO$/, paint: /^main_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -98,6 +108,14 @@ const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
 // (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
 if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
+// stessa mesh usata da più nodi (es. una ruota ripetuta quattro volte): ognuno la sua copia, se no flatten/clearNodeTransform
+// la metterebbero in un posto solo
+{ const seen = new Set();
+  for (const n of root.listNodes()) {
+    const m = n.getMesh(); if (!m) continue;
+    if (!seen.has(m)) { seen.add(m); continue; }
+    const m2 = doc.createMesh(m.getName()); for (const p of m.listPrimitives()) m2.addPrimitive(p.clone()); n.setMesh(m2);
+  } }
 // materiali vecchi (specular/glossiness): il gioco (three.js) li vuole metallic/roughness
 if (root.listExtensionsUsed().some(e => e.extensionName === 'KHR_materials_pbrSpecularGlossiness')) await doc.transform(metalRough());
 await doc.transform(flatten());
@@ -157,6 +175,8 @@ for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if 
 }
 let zmin = 1e9, zmax = -1e9, ymin = 1e9;
 for (const v of pts) { zmin = Math.min(zmin, v[2]); zmax = Math.max(zmax, v[2]); ymin = Math.min(ymin, v[1]); }
+// gomme nello stesso materiale della carrozzeria (si trovano le ruote dai cerchi): il suolo vero lo dice la configurazione
+if (CFG.ground != null) ymin = Math.min(ymin, CFG.ground);
 const zc = (zmin + zmax) / 2;
 const zF = (() => { let a = 1e9, b = -1e9; for (const v of pts) if (v[2] > zc) { a = Math.min(a, v[2]); b = Math.max(b, v[2]); } return (a + b) / 2; })();
 const zR = (() => { let a = 1e9, b = -1e9; for (const v of pts) if (v[2] < zc) { a = Math.min(a, v[2]); b = Math.max(b, v[2]); } return (a + b) / 2; })();

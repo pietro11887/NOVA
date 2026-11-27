@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=231';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=231';
-import { SURF, SURF_PROPS } from './track.js?v=231';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=232';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=232';
+import { SURF, SURF_PROPS } from './track.js?v=232';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -280,7 +280,9 @@ export class CarPhysics {
       if (this.battery < 1) this.battery = Math.min(1, this.battery + (brake * 0.13 + (throttle < 0.05 ? 0.03 : 0)) * k * dt);
       if (this.battery <= 0) eMul = 0.91;
     }
-    let torque = torqueAt(this.rpm / this.rpmK) * this.peakTorque * this.powerScale * eMul * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
+    // (elettrica, Tesla: tutta la coppia da fermo fino a spec.ev giri, poi potenza costante)
+    const tq = this.spec.ev ? Math.min(1, this.spec.ev / Math.max(1, this.rpm)) : torqueAt(this.rpm / this.rpmK);
+    let torque = tq * this.peakTorque * this.powerScale * eMul * (1 + 0.12 * this.ersOn + 0.1 * this.otBoost) * throttle * (1 - dmg.engine * 0.6 * dfx);
     if (dmg.failure && dfx) torque *= dmg.failure === 'engine' ? 0 : 0.35;   // guasto meccanico
     if (this.rpm >= this.maxRpm) torque = 0;
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm / this.rpmK * 0.0045) * (A ? ARCADE.engineBrake : 1);

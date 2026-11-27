@@ -6,7 +6,8 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 // stradali scaricate da Sketchfab (dati in ROAD_DB più sotto)
 const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86',
-  'f500', 'c2cv', 'polo', 'sandero', 'focus', 'a3', 'c63', 'r34', 'supra', 'p930'];
+  'f500', 'c2cv', 'polo', 'sandero', 'focus', 'a3', 'c63', 'r34', 'supra', 'p930',
+  'tipo', 'passat', 'octavia', 'qashqai', 'tesla', 'ducato', 'stratos', 'testa', 'sl300'];
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
   if (s && (['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass) || ROAD_NEW.includes(s.carClass))) cls = s.carClass;
@@ -408,6 +409,25 @@ export const ROAD_DB = {
     mass: 1645, torque: 451, rpm: 6800, idle: 850, gears: [12.5, 7.7, 5.5, 4.3, 3.27, 2.58], wheelR: 0.33, wb: 2.55, tw: 0.77, len: 4.56, wid: 2.02, cg: 0.48, CdA: 0.65, mu: 1.12, brake: 20000, drive: 'rwd', lsd: 0.8, paint: null, snd: ['eng-gt', 1.0] },
   p930: { label: 'PORSCHE 911 TURBO (930)', year: 1975, short: '911 TURBO', engine: '6 cilindri boxer 3,0 L turbo · motore dietro · 4 marce', hp: 260, kg: 1140, vmax: 250,
     mass: 1215, torque: 343, rpm: 6800, idle: 900, gears: [9.0, 5.2, 3.56, 2.5], wheelR: 0.32, wb: 2.272, tw: 0.75, len: 4.28, wid: 1.76, cg: 0.46, CdA: 0.7, mu: 1.1, brake: 17000, drive: 'rwd', lsd: 0.4, paint: null, snd: ['eng-gt', 1.0] },
+  // --- giro 3 ---
+  tipo: { label: 'FIAT TIPO', year: 2016, short: 'TIPO', engine: '4 cilindri 1,4 L · 6 marce', hp: 95, kg: 1200, vmax: 185,
+    mass: 1275, torque: 150, rpm: 6300, idle: 800, gears: [16.1, 8.9, 6.1, 4.6, 3.79], wheelR: 0.31, wb: 2.54, tw: 0.77, len: 4.38, wid: 1.86, cg: 0.54, CdA: 0.7, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  passat: { label: 'VOLKSWAGEN PASSAT', year: 2021, short: 'PASSAT', engine: '4 cilindri 2,0 L TSI · 7 marce', hp: 186, kg: 1550, vmax: 230,
+    mass: 1625, torque: 320, rpm: 6500, idle: 800, gears: [17.2, 9.4, 6.7, 4.8, 3.86, 3.15], wheelR: 0.32, wb: 2.79, tw: 0.79, len: 4.82, wid: 2.06, cg: 0.53, CdA: 0.66, mu: 1.03, brake: 17000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.15] },
+  octavia: { label: 'ŠKODA OCTAVIA', year: 2000, short: 'OCTAVIA', engine: '4 cilindri 1,6 L · 5 marce', hp: 102, kg: 1200, vmax: 190,
+    mass: 1275, torque: 148, rpm: 6200, idle: 800, gears: [15.6, 8.6, 5.9, 4.4, 3.56], wheelR: 0.31, wb: 2.51, tw: 0.75, len: 4.52, wid: 1.9, cg: 0.54, CdA: 0.68, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  qashqai: { label: 'NISSAN QASHQAI', year: 2018, short: 'QASHQAI', engine: '4 cilindri 1,3 L turbo · 6 marce · SUV', hp: 140, kg: 1370, vmax: 193,
+    mass: 1445, torque: 200, rpm: 6000, idle: 800, gears: [17.8, 9.8, 6.9, 5.0, 4.0, 3.3], wheelR: 0.34, wb: 2.646, tw: 0.79, len: 4.39, wid: 2.1, cg: 0.65, CdA: 0.83, mu: 1.0, brake: 15000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.2] },
+  tesla: { label: 'TESLA MODEL 3', year: 2021, short: 'MODEL 3', engine: 'Elettrica · motore posteriore · una marcia', hp: 283, kg: 1611, vmax: 225,
+    mass: 1686, torque: 435, rpm: 16000, idle: 100, gears: [9.0], wheelR: 0.34, wb: 2.875, tw: 0.79, len: 4.69, wid: 2.05, cg: 0.45, CdA: 0.52, mu: 1.05, brake: 19000, drive: 'rwd', lsd: 0.6, ev: 7000, paint: null, snd: ['eng-gt', 0.45] },
+  ducato: { label: 'FIAT DUCATO', year: 2014, short: 'DUCATO', engine: '4 cilindri 2,3 L Multijet diesel · 6 marce · furgone', hp: 130, kg: 1950, vmax: 160,
+    mass: 2025, torque: 255, rpm: 4500, idle: 800, gears: [16.5, 9.0, 5.6, 4.0, 3.2, 2.7], wheelR: 0.35, wb: 3.45, tw: 0.86, len: 5.75, wid: 2.05, cg: 0.85, CdA: 1.45, mu: 0.95, brake: 19000, drive: 'fwd', paint: null, snd: ['eng-v8', 0.9] },
+  stratos: { label: 'LANCIA STRATOS HF (rally)', year: 1977, short: 'STRATOS', engine: 'V6 Ferrari 2,4 L · motore centrale · 5 marce', hp: 275, kg: 980, vmax: 230,
+    mass: 1055, torque: 270, rpm: 8200, idle: 1000, gears: [12.4, 8.3, 6.1, 4.8, 3.93], wheelR: 0.3, wb: 2.18, tw: 0.75, len: 3.71, wid: 1.86, cg: 0.45, CdA: 0.7, mu: 1.12, brake: 16000, drive: 'rwd', lsd: 1, paint: null, fixed: true, snd: ['eng-v8', 0.6] },
+  testa: { label: 'FERRARI TESTAROSSA', year: 1988, short: 'TESTAROSSA', engine: '12 cilindri boxer 4,9 L · motore centrale · 5 marce', hp: 390, kg: 1506, vmax: 290,
+    mass: 1581, torque: 490, rpm: 7000, idle: 900, gears: [10.6, 6.6, 4.7, 3.6, 2.83], wheelR: 0.32, wb: 2.55, tw: 0.8, len: 4.49, wid: 2.08, cg: 0.45, CdA: 0.66, mu: 1.15, brake: 20000, drive: 'rwd', lsd: 0.8, paint: null, snd: ['eng-v8', 0.6] },
+  sl300: { label: 'MERCEDES-BENZ 300 SL "ALI DI GABBIANO"', year: 1955, short: '300 SL', engine: '6 cilindri in linea 3,0 L · 4 marce', hp: 215, kg: 1295, vmax: 250,
+    mass: 1370, torque: 228, rpm: 6400, idle: 850, gears: [11.3, 6.9, 4.6, 3.24], wheelR: 0.33, wb: 2.4, tw: 0.7, len: 4.52, wid: 1.79, cg: 0.5, CdA: 0.63, mu: 0.92, brake: 11000, drive: 'rwd', lsd: 0.3, paint: null, snd: ['eng-gt', 1.0] },
 };
 // fisica completa di una stradale dai suoi dati
 function roadSpec(d) {
@@ -420,7 +440,7 @@ function roadSpec(d) {
     susp: { springK: 60 * m + 15000, damperC: 3.8 * m + 1000, arbK: [45 * m + 5000, 20 * m] },
     steer: 0.88,
     heat: { slide: 30000, roll: 0.07 },
-    gears: d.gears, rpm: d.rpm, idle: d.idle,
+    gears: d.gears, rpm: d.rpm, idle: d.idle, ...(d.ev ? { ev: d.ev } : {}),
     ...(d.drive === 'fwd' ? { fwd: true, lsd: 0.25 } : d.drive === 'awd' ? { awd: true, lsd: 0.8 } : { lsd: d.lsd ?? 0.4 }),
     hull: [
       [L2 - 0.06, -hw + 0.08, 'fwL'], [L2 - 0.06, hw - 0.08, 'fwR'], [L2, 0, 'nose'],
