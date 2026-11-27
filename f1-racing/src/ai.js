@@ -1,7 +1,7 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=236';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=237';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=236';
-import { SPEC, IS_F1 } from './vehicle.js?v=236';
+import { CAR } from './physics.js?v=237';
+import { SPEC, IS_F1 } from './vehicle.js?v=237';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-140: oltre 110 solo ancora più aderenza) cambia davvero il ritmo:
@@ -337,7 +337,7 @@ export class AIDriver {
     this.lane += Math.max(-dt * 2.6, Math.min(dt * 2.6, laneT - this.lane));
 
     // --- sterzo: inseguimento di un punto sulla traiettoria ---
-    const la = Math.round((6 + v * 0.3) / tr.step);
+    const la = Math.max(1, Math.round((6 + Math.max(0, v) * 0.3) / tr.step));   // velocità negativa (all'indietro in salita): niente indice fuori pista
     const j = (i + la) % n, s = tr.samples[j];
     const wob = this.skill.wobble * Math.sin(this.t * 0.7 + this.seed * 3.1);
     let off = this.line.off[j] + this.lane + wob;
@@ -374,7 +374,7 @@ export class AIDriver {
     const defending = m && m.type === 'defend';
     const prof = this.dmgProfile || (this.attack || defending ? this.attackProfile : duel ? this.duelProfile : this.profile);
     // si guarda un attimo avanti (i freni e le gomme non reagiscono all'istante)
-    let look = 2 + Math.round(v * 0.12 / tr.step);
+    let look = 2 + Math.round(Math.max(0, v) * 0.12 / tr.step);
     if (m && m.type === 'late') look += Math.round(m.meters / tr.step);   // frena come se la curva fosse più in là
     let vT = prof[(i + look) % n];
     // fuori dalla traiettoria ideale in curva c'è meno aderenza: si rallenta un po'
