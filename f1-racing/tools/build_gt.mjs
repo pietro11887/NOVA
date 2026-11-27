@@ -260,6 +260,30 @@ const CFG = {
   explorer16: { wb: 2.865, rotX: true, tyre: /^20in$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   magnum: { wb: 3.05, rotX: true, tyre: /^18in_4$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   escalade: { wb: 2.95, rotX: true, tyre: /^20in_offroad$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  // giro 11
+  x4: { wb: 2.864, renorm: true, notex: true, tint: [[/^Carro_Pneu/, [0.035, 0.035, 0.04, 1, 0, 0.9]]], tyre: /^Carro_Pneu$/, rim: /^Carro_Roda/, disc: /^NESSUNO$/, paint: /^Carro_Pintura$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  x5: { wb: 2.933, rotX: true, flip: true, tyre: /^Tires$/, rim: /^rims___metal$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  cls250: { wb: 2.874, rotX: true, flip: true, tyre: /^tyre$/, rim: /^rims_1$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  model3n: { wb: 2.875, tyre: /^Tyre$/, rim: /^RIM_2$/, disc: /^NESSUNO$/, paint: /^ext_carpaint$/, drop: /^Rim_Blur/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  z4: { wb: 2.496, rotX: true, flip: true, tyre: /^tyre$/, rim: /^rims_01$|^rims_logo$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  a4c: { wb: 2.38, tyre: /^EXT_Tyre$/, rim: /^Rim_F/, disc: /^NESSUNO$/, paint: /^EXT_Carpaint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  b740: { wb: 3.21, rotX: true, flip: true, tyre: /^tires$/, rim: /^rims$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  wrv: { wb: 2.555, tyre: /WR_V_RS_Tires$/, rim: /WR_V_RS_Rims1$/, disc: /^NESSUNO$/, paint: /WR_V_RS_Red_paint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  swift04: { wb: 2.39, renorm: true, flip: true, tyre: /^wheel01$/, rim: /^rim_chrome$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  s4b5: { wb: 2.607, tyre: /^CAR_tyre$/, rim: /^chrome_rim$|^inner_rim$|^outer_rim$/, disc: /^NESSUNO$/, paint: /^body$/, drop: /^RIMBLUR$|^blur_rim$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  rapide: { wb: 2.989, tyre: /^Tyre$/, rim: /^Rim_badge$/, disc: /^NESSUNO$/, paint: /^ext_carpaint$/, drop: /^blur_rim$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  qporte: { wb: 3.064, rotX: true, flip: true, tyre: /^Tires$/, rim: /^metal_rims$/, disc: /^NESSUNO$/, paint: /^Body_Color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  dbx: { wb: 3.06, tyre: /^tyre$/, rim: /^rim_/, disc: /^NESSUNO$/, paint: /2019Paint_Material$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  jagmk2: { wb: 2.73, robustTyre: true, rotX: true, flip: true, tyre: /^rubber___tires$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^body_color_mk2$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  s2: { wb: 2.546, tyre: /^Tyre$/, rim: /^chrome_rim$/, disc: /^NESSUNO$/, paint: /^body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  alpinab3: { wb: 2.7, tyre: /^ext_tyre$/, rim: /^wheel_lod0/, disc: /^NESSUNO$/, paint: /^body_2$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  audiv8: { wb: 2.7, tyre: /^EXT_TYRES$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  p911_64: { wb: 2.211, robustTyre: true, rotX: true, flip: true, tyre: /^rubber___tires$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^body_color_911$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  rabbit: { wb: 2.4, flip: true, tyre: /^Tires$/, rim: /^wheel1$/, disc: /^NESSUNO$/, paint: /^Body_Color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  comanche: { wb: 2.85, tyre: /^Pneus1$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^remap__prim_env$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  fj40: { wb: 2.285, tyreYMax: 0.77, tyreZ: [-1.3, 1.6], tyre: /^M_3XE_TIRES$/, rim: /^WHEELS_3XE$/, disc: /^NESSUNO$/, paint: /^FJ_BODYPAINT2$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  etype: { wb: 2.44, rotX: true, flip: true, tyre: /^rubber___tires$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^body_color_xke$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  sec560: { wb: 2.85, clip: [1.1, 1.8, 2.7], rotX: true, flip: true, tyre: /^tyre$/, rim: /^rims_1$/, disc: /^NESSUNO$/, paint: /^body_color_1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -478,9 +502,33 @@ const tyreBox = { LF: null, RF: null, LR: null, RR: null };
 for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.tyre.test(matOf(p))) {
   const a = p.getAttribute('POSITION'), v = [];
   for (let i = 0; i < a.getCount(); i++) {
-    a.getElement(i, v); const k = (v[2] > 0 ? 'F' : 'R'), w = (v[0] > 0 ? 'L' : 'R') + k;
+    a.getElement(i, v); if ((CFG.tyreYMax != null && v[1] > CFG.tyreYMax) || (CFG.tyreZ && (v[2] < CFG.tyreZ[0] || v[2] > CFG.tyreZ[1]))) continue;   // (ruota di scorta in alto)
+    const k = (v[2] > 0 ? 'F' : 'R'), w = (v[0] > 0 ? 'L' : 'R') + k;
     const b = tyreBox[w] || (tyreBox[w] = [1e9, -1e9, 1e9, -1e9, 1e9, -1e9]);
     b[0] = Math.min(b[0], v[0]); b[1] = Math.max(b[1], v[0]); b[2] = Math.min(b[2], v[1]); b[3] = Math.max(b[3], v[1]); b[4] = Math.min(b[4], v[2]); b[5] = Math.max(b[5], v[2]);
+  }
+}
+// gomme "sporche" (guarnizioni dei passaruota, ruota di scorta nello stesso materiale): la ruota vera parte dal punto
+// d'appoggio a terra e sale lungo la verticale dell'asse finché la gomma è continua
+if (CFG.robustTyre) {
+  // pezzi di gomma collegati (vertici uguali entro 1 mm): la ruota è il pezzo che tocca terra, più i pezzi dentro la sua scatola
+  const pts = [], par = [], key = new Map();
+  const find = a => { while (par[a] !== a) a = par[a] = par[par[a]]; return a; };
+  const id = v => { const k = v.map(x => Math.round(x * 1000)).join(','); let n = key.get(k); if (n == null) { n = pts.length; pts.push([...v]); par.push(n); key.set(k, n); } return n; };
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.tyre.test(matOf(p))) {
+    const a = p.getAttribute('POSITION'), idx = p.getIndices(), n = idx ? idx.getCount() : a.getCount(), v = [];
+    for (let t = 0; t + 2 < n; t += 3) { const q = []; for (let k = 0; k < 3; k++) { a.getElement(idx ? idx.getScalar(t + k) : t + k, v); q.push(id(v)); } par[find(q[1])] = find(q[0]); par[find(q[2])] = find(q[0]); }
+  }
+  const comp = new Map();
+  pts.forEach((v, i) => { const r = find(i); const b = comp.get(r) || [1e9, -1e9, 1e9, -1e9, 1e9, -1e9]; for (let c = 0; c < 3; c++) { b[c * 2] = Math.min(b[c * 2], v[c]); b[c * 2 + 1] = Math.max(b[c * 2 + 1], v[c]); } comp.set(r, b); });
+  const boxes = [...comp.values()];
+  for (const w of ['LF', 'RF', 'LR', 'RR']) {
+    const inQ = b => { const cx = (b[0] + b[1]) / 2, cz = (b[4] + b[5]) / 2; return (cx > 0) === (w[0] === 'L') && (cz > 0) === (w[1] === 'F'); };
+    const mine = boxes.filter(inQ); if (!mine.length) continue;
+    const base = mine.reduce((a, b) => b[2] < a[2] - 0.005 || (Math.abs(b[2] - a[2]) <= 0.005 && (b[3] - b[2]) > (a[3] - a[2])) ? b : a);
+    const B = [...base];
+    for (const b of mine) { const c = [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2]; if (b !== base && c[0] > base[0] - 0.05 && c[0] < base[1] + 0.05 && c[1] > base[2] && c[1] < base[3] && c[2] > base[4] && c[2] < base[5]) for (let k = 0; k < 6; k++) B[k] = k % 2 ? Math.max(B[k], b[k]) : Math.min(B[k], b[k]); }
+    tyreBox[w] = B; console.log('gomma', w, 'alta', (B[3] - B[2]).toFixed(3), 'lunga', (B[5] - B[4]).toFixed(3), 'pezzi', mine.length);
   }
 }
 const inWheel = (x, y, z) => { for (const [w, b] of Object.entries(tyreBox)) if (b && x > b[0] - 0.02 && x < b[1] + 0.02 && y > b[2] - 0.02 && y < b[3] + 0.02 && z > b[4] - 0.02 && z < b[5] + 0.02) return w; return null; };
