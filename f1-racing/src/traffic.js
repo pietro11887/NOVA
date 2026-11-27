@@ -4,8 +4,8 @@
 // - Se le urti (o si urtano tra loro) diventano corpi liberi: spinta, sbandata, testacoda, si fermano
 //   strisciando; dopo qualche secondo ripartono e tornano nella corsia.
 // - Restano sempre intorno a te: chi finisce troppo lontano ricompare più avanti o più indietro.
-import { SPECS } from './vehicle.js?v=237';
-import { IZ_K } from './carModel.js?v=237';
+import { SPECS } from './vehicle.js?v=238';
+import { IZ_K } from './carModel.js?v=238';
 
 // corsie (distanza dall'asse della carreggiata, + = sinistra): sorpasso, centrale, marcia normale
 export const LANES = [4.75, 1.25, -2.25];
