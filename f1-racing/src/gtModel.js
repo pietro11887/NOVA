@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=217';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=217';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=217';
+import { GEOM, CAR_SCALE } from './carModel.js?v=218';
+import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=218';
+// altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
+const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=218';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -232,7 +234,7 @@ function prepare(scene, lowPoly, kind = 'gt') {
   scene.updateMatrixWorld(true);
   // modello: Y in alto, muso verso +Z, sinistra verso +X  ->  gioco: muso +X, destra +Z
   const T = new THREE.Matrix4().makeRotationY(Math.PI / 2);
-  T.premultiply(new THREE.Matrix4().makeTranslation(0, -(GEOM.cgHeight + 0.02) - 0.02, 0));
+  T.premultiply(new THREE.Matrix4().makeTranslation(0, -(cgOf(kind) + 0.02) - 0.02, 0));
   const mats = new Map();
   const matFor = src => { if (!mats.has(src)) mats.set(src, tuneMaterial(src)); return mats.get(src); };
   const parts = { body: [], rw: [], fwL: [], fwR: [], fwLe: [], fwRe: [] };

@@ -1,38 +1,38 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=217';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=217';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=217';
+import { Track, SURF } from './track.js?v=218';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=218';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=218';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=217';
-import { BakuScenery } from './sceneryBaku.js?v=217';
-import { SpaScenery } from './scenerySpa.js?v=217';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=217';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=217';
-import { SafetyCar } from './safetyCar.js?v=217';
-import { CarPhysics } from './physics.js?v=217';
+import { Scenery, ENV } from './scenery.js?v=218';
+import { BakuScenery } from './sceneryBaku.js?v=218';
+import { SpaScenery } from './scenerySpa.js?v=218';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=218';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=218';
+import { SafetyCar } from './safetyCar.js?v=218';
+import { CarPhysics } from './physics.js?v=218';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=217';
-import { WallMarks } from './wallMarks.js?v=217';
+import { BakuFx } from './bakuFx.js?v=218';
+import { WallMarks } from './wallMarks.js?v=218';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=4fc54bf6';
-import { Sound } from './audio.js?v=217';
+import { Sound } from './audio.js?v=218';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=217';
-import { RacingLine } from './racingLine.js?v=217';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=217';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=218';
+import { RacingLine } from './racingLine.js?v=218';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=218';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=217';
-import { PitCrew } from './pitCrew.js?v=217';
-import { buildGrassTufts } from './grassTufts.js?v=217';
-import { Online, NET_VER, MAX_GUESTS } from './online.js?v=217';
-import { Friends, cleanId, cleanName, userName } from './friends.js?v=217';
-import { COMPOUNDS } from './physics.js?v=217';
-import { AIDriver } from './ai.js?v=217';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=217';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, CLASSIC, CLASSICS, SPEC } from './vehicle.js?v=217';
+import { PitLane, PitStop } from './pit.js?v=218';
+import { PitCrew } from './pitCrew.js?v=218';
+import { buildGrassTufts } from './grassTufts.js?v=218';
+import { Online, NET_VER, MAX_GUESTS } from './online.js?v=218';
+import { Friends, cleanId, cleanName, userName } from './friends.js?v=218';
+import { COMPOUNDS } from './physics.js?v=218';
+import { AIDriver } from './ai.js?v=218';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=218';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=218';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 // kart e NASCAR: categorie a sé con i loro colori (KART_LIVERIES / NASCAR_LIVERIES)
 const XCLS = IS_KART || IS_NASCAR;
@@ -41,6 +41,14 @@ const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
 // nome della categoria nei titoli (F1 e speciali, GT3, kart)
 // avversari al massimo: 21 (22 vetture); NASCAR 39 (40 vetture come nella Cup Series)
 const MAX_BOTS = IS_NASCAR ? 39 : 21;
+// gara WEC (con le Hypercar o con le GT3): metà griglia dell'altra categoria, con la sua fisica e la sua linea
+const WEC_OK = IS_HYPER || CAR_CLASS === 'gt';
+const WEC_OTHER = IS_HYPER ? 'gt' : 'hyper';
+const wecOn = () => WEC_OK && !!settings.wec && settings.driveMode !== 'arcade' && !PUBLIC;
+const wecVars = () => (IS_HYPER ? GT3_ALL.filter(v => v !== 'gt3r' && v !== 'sls') : HY_VARIANTS);
+let wecLine = null;
+const getWecLine = () => (wecLine && wecLine.track === track ? wecLine : (wecLine = new RacingLine(track, 1.6, SPECS[WEC_OTHER])));
+const preloadWec = () => Promise.all([loadKind(WEC_OTHER).catch(() => null), ...wecVars().map(v => loadVariant(v, 'mid').catch(() => null))]);
 const CLS_NAME = IS_F1 ? CLS_LABEL : IS_KART ? 'KART' : IS_NASCAR ? 'NASCAR' : IS_HYPER ? 'HYPERCAR' : 'GT3';
 // GT3 o Hypercar scelta (le due categorie hanno ognuna la sua)
 const gvKey = () => (IS_HYPER ? 'hyCar' : 'gtCar');
@@ -57,7 +65,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=217';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=218';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -278,7 +286,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=217`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=218`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -440,7 +448,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v217 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v218 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -703,6 +711,7 @@ function startRaceGame(roster = null) {
     arcade: ARC(), tow: settings.arcTow, rubber: roster ? 0 : settings.arcRubber, botOrder: wk && wk.botOrder,
     playerTeam: IS_F1 ? teamById(settings.f1Team) : null, grid: IS_F1 ? (wk && wk.grid) || f1Grid(settings.f1Team, settings.raceBots) : null,
     pitLane, startCompound: startTyre(), roster,
+    wec: wecOn() && !roster ? { spec: SPECS[WEC_OTHER], line: getWecLine(), cls: WEC_OTHER, mine: CAR_CLASS, n: Math.floor((Math.min(MAX_BOTS, settings.raceBots) + 1) / 2), otherFirst: !IS_HYPER } : null,
   });
   race.online = !!roster;
   // strategia del box: gomme consigliate in base ai giri che mancano (si cambia dal menu BOX)
@@ -758,7 +767,7 @@ function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     // (grafica minima: vetture semplici, ma i kart restano kart: la vettura semplice è grande come una F1)
-    c.model = gtReady() && (!MINQ || IS_KART) ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid', variant: c.gv } : { primary: c.color, accent: c.accent, lod: 'mid', variant: c.gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() && (!MINQ || IS_KART) ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid', variant: c.gv, ...(c.cls && c.cls !== CAR_CLASS ? { kind: c.cls } : {}) } : { primary: c.color, accent: c.accent, lod: 'mid', variant: c.gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     ultraCar(c.model);
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
@@ -790,10 +799,16 @@ function gtTeams() {
   // il tuo compagno di squadra per primo, poi le altre squadre a coppie
   seats.splice(seats.indexOf(mine), 1); seats.unshift(mine);
   let k = 0;
-  const bots = race.cars.filter(c => !c.isPlayer && !(c.remote && !c.ai)).sort((a, b) => (a.bi ?? a.slot) - (b.bi ?? b.slot));
+  const bots = race.cars.filter(c => !c.isPlayer && !(c.remote && !c.ai) && (!c.cls || c.cls === CAR_CLASS)).sort((a, b) => (a.bi ?? a.slot) - (b.bi ?? b.slot));
   for (const c of bots) {
     const TT = IS_HYPER ? HY_TEAMS : GT_TEAMS, v = seats[k++ % seats.length], T = TT[v] || TT.gt3r;
     c.gv = v; c.orig = true; c.color = T.color; c.accent = T.accent; c.gtTeam = T.name;
+  }
+  // gara WEC: l'altra categoria, anche lei a coppie di vetture uguali per squadra
+  const others = race.cars.filter(c => c.cls && c.cls !== CAR_CLASS).sort((a, b) => a.slot - b.slot);
+  if (others.length) {
+    const OT = IS_HYPER ? GT_TEAMS : HY_TEAMS, list = ['gt3r', ...wecVars()];
+    others.forEach((c, j) => { const v = list[Math.floor(j / 2) % list.length], T = OT[v] || OT.gt3r; c.gv = v; c.orig = true; c.color = T.color; c.accent = T.accent; c.gtTeam = T.name; });
   }
 }
 function startRaceRest() {
@@ -2365,7 +2380,7 @@ function towerHud(st) {
     }
     const col = '#' + c.color.toString(16).padStart(6, '0');
     const tc = '#' + COMPOUNDS[c.phys.compound || 'M'].color.toString(16).padStart(6, '0');
-    html += `<div class="twRow${c.isPlayer ? ' me' : ''}${cls}"><span class="p">${k + 1}</span><i style="background:${col}"></i><span class="n">${c.isPlayer ? 'TU' : c.name}</span><em style="border-color:${tc}"></em><span class="g">${g}</span></div>`;
+    html += `<div class="twRow${c.isPlayer ? ' me' : ''}${cls}"><span class="p">${k + 1}</span><i style="background:${col}"></i><span class="n">${c.cls ? `<b class="wc ${c.cls}">${c.cls === 'hyper' ? 'HY' : 'GT'}</b>` : ''}${c.isPlayer ? 'TU' : c.name}</span><em style="border-color:${tc}"></em><span class="g">${g}</span></div>`;
   }
   if (hudCache.tower !== html) { hudCache.tower = html; $('twRows').innerHTML = html; }
 }
@@ -2431,7 +2446,9 @@ function fastestLap() {
 }
 function standingsHtml(full) {
   const st = race.standings(), leader = st[0], fl = full ? fastestLap() : null;
+  const clsN = {};      // gara WEC: posizione nella propria categoria
   return st.map((c, i) => {
+    const cp = c.cls ? (clsN[c.cls] = (clsN[c.cls] || 0) + 1) : 0;
     let t;
     if (c.retired) t = 'RITIRATO';
     else if (c.finishT != null) t = i === 0 ? fmt(c.finishT) : '+' + fmtGap(c.finishT - leader.finishT);
@@ -2444,7 +2461,7 @@ function standingsHtml(full) {
     const pen = owe > 0 ? `<em class="pen">+${owe} s</em>` : '';
     const isFl = fl === c;
     const pts = full ? (c.retired ? 0 : (POINTS[i] || 0) + (isFl && i < 10 ? 1 : 0)) : null;
-    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.name}${pen}</span><span>${t}</span><span class="bl${isFl ? ' fl' : ''}">${c.bestLap ? (isFl ? '⏱ ' : '') + fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span>${full ? `<span class="pts">${pts ? pts + ' PT' : ''}</span>` : ''}</div>`;
+    return `<div class="r${c.isPlayer ? ' me' : ''}"><span class="p">${i + 1}</span><i style="background:${col}"></i><span>${c.cls ? `<b class="wc ${c.cls}">${c.cls === 'hyper' ? 'HY' : 'GT'} ${cp}°</b>` : ''}${c.name}${pen}</span><span>${t}</span><span class="bl${isFl ? ' fl' : ''}">${c.bestLap ? (isFl ? '⏱ ' : '') + fmt(c.bestLap) : ''}${race.pitLane ? ` · ${c.stops} ${c.stops === 1 ? 'sosta' : 'soste'}` : ''}</span>${full ? `<span class="pts">${pts ? pts + ' PT' : ''}</span>` : ''}</div>`;
   }).join('');
 }
 
@@ -3528,6 +3545,7 @@ function setRows() {
     if (!trial) {
       R.push({ l: 'DURATA GARA', v: `${S.raceLaps} ${S.raceLaps === 1 ? 'GIRO' : 'GIRI'}`, s: `${km} km${S.raceLaps >= 8 ? ' · con soste ai box' : ''}`, f: d => clampS('raceLaps', S.raceLaps + d, 1, 30) });
       R.push({ l: 'AVVERSARI', v: String(S.raceBots), s: `${S.raceBots + 1} vetture in griglia`, f: d => { clampS('raceBots', S.raceBots + d, 1, MAX_BOTS); S.raceStart = Math.min(S.raceStart, S.raceBots + 1); } });
+      if (WEC_OK && !PUBLIC && !ARC()) R.push({ l: 'GARA WEC', v: S.wec ? 'SÌ · HYPERCAR + GT3' : 'NO', s: S.wec ? 'metà griglia per categoria, classifica per classe' : 'come a Le Mans: Hypercar e GT3 nella stessa gara', f: () => { S.wec = !S.wec; } });
       R.push({ l: 'LIVELLO IA', v: String(S.raceStrength), s: tier(S.raceStrength) + ' · da 0 a 140 (oltre 110 più forti che in F1 25)', f: d => clampS('raceStrength', S.raceStrength + d * 5, 1, 140) });
       if (S.weekend !== 'osq') R.push({ l: 'POSIZIONE IN GRIGLIA', v: S.raceStart + '°', s: S.raceStart === 1 ? 'pole position' : `di ${S.raceBots + 1}`, f: d => clampS('raceStart', S.raceStart + d, 1, S.raceBots + 1) });
     }
@@ -3650,8 +3668,10 @@ $('hubStart').addEventListener('click', () => {
   const trial = settings.gameType === 'trial';
   if (garage) garage.active = false;
   if (trial) { introNext = false; startGame(); return; }
-  if (settings.weekend === 'osq' && !wk.quali) { startQuali(); return; }
+  // gara WEC: niente qualifica (la griglia è per categoria); prima si caricano le vetture dell'altra categoria
+  if (settings.weekend === 'osq' && !wk.quali && !wecOn()) { startQuali(); return; }
   introNext = true;
+  if (wecOn()) { showBanner('CARICAMENTO VETTURE WEC…', 'yellow', 3, true); preloadWec().then(() => startRaceGame()); return; }
   startRaceGame();
 });
 

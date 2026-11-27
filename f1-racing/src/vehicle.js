@@ -244,3 +244,5 @@ SPECS.hyper = {
 };
 
 export const SPEC = SPECS[cls];
+// tutte le categorie (gara WEC: Hypercar e GT3 nella stessa gara, ognuna con la sua fisica)
+export { SPECS };

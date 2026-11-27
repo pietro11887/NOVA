@@ -1143,3 +1143,7 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .frRecHead { margin-top: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); }
 .frRow em { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
 .frRow.me b { color: var(--accent, #ff8a1c); }
+/* gara WEC: etichetta della categoria nella classifica */
+.wc { display: inline-block; font-size: 8px; font-weight: 900; padding: 0 3px; margin-right: 3px; border-radius: 2px; color: #fff; line-height: 11px; }
+.wc.hyper { background: #e10600; }
+.wc.gt { background: #1f9d48; }

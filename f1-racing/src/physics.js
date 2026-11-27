@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=217';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=217';
-import { SURF, SURF_PROPS } from './track.js?v=217';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=218';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=218';
+import { SURF, SURF_PROPS } from './track.js?v=218';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -48,48 +48,51 @@ export { tyreGrip };
 
 // Punti dello scafo usati per le collisioni: [x, y(destra), parte]
 // (coordinate del modello, moltiplicate per la scala visiva delle vetture)
-const HULL = SPEC.hull.map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]);
+const hullOf = sp => sp._hull || (sp._hull = sp.hull.map(([x, y, part]) => [x * CAR_SCALE, y * CAR_SCALE, part]));
 
 // Caratteristiche della vettura: monoposto con prestazioni da GT
 // (più pesante, meno potente, poco carico aerodinamico: staccate lunghe e scia che conta)
 export const CAR = { ...SPEC.car };   // GT3 o F1 (vehicle.js)
 
 export class CarPhysics {
-  constructor(track) {
+  // spec: la categoria di questa vettura (di solito quella scelta; nella gara WEC anche l'altra)
+  constructor(track, spec = SPEC) {
     this.track = track;
-    this.baseMass = CAR.mass;       // vettura + pilota, senza benzina
+    this.spec = spec;
+    const main = spec === SPEC, C = spec.car, GM = spec.geom;
+    this.baseMass = C.mass;       // vettura + pilota, senza benzina
     this.fuel = 5;                  // kg di benzina
     this.mass = this.baseMass + this.fuel;
-    this.Iz = SPEC.inertia.Iz;
-    this.Ipitch = SPEC.inertia.Ipitch;
-    this.Iroll = SPEC.inertia.Iroll;
-    this.a = GEOM.axleF;            // baricentro -> asse anteriore
-    this.b = -GEOM.axleR;           // baricentro -> asse posteriore
-    this.tw = GEOM.halfTrack;
-    this.R = GEOM.wheelR;
-    this.h = GEOM.cgHeight;
+    this.Iz = spec.inertia.Iz;
+    this.Ipitch = spec.inertia.Ipitch;
+    this.Iroll = spec.inertia.Iroll;
+    this.a = GM.axleF;            // baricentro -> asse anteriore
+    this.b = -GM.axleR;           // baricentro -> asse posteriore
+    this.tw = GM.halfTrack;
+    this.R = GM.wheelR;
+    this.h = GM.cgHeight;
     this.gears = [17.0, 13.6, 11.2, 9.3, 7.8, 6.6, 5.5, 4.55];
     this.reverseRatio = 14;
     this.maxRpm = 12500;
     this.idleRpm = 4000;
     // Renault R26: V8 aspirato fino a 19.000 giri, 7 marce (rapporti più corti per i giri alti)
     // macchine speciali d'epoca: giri e rapporti del loro motore (vehicle.js)
-    if (CLASSIC) { this.gears = CLASSIC.gears.slice(); this.maxRpm = CLASSIC.rpm; this.idleRpm = CLASSIC.idle; }
-    if (SPEC.gears) { this.gears = SPEC.gears.slice(); this.maxRpm = SPEC.rpm; this.idleRpm = SPEC.idle; }   // kart
+    if (CLASSIC && main) { this.gears = CLASSIC.gears.slice(); this.maxRpm = CLASSIC.rpm; this.idleRpm = CLASSIC.idle; }
+    if (spec.gears) { this.gears = spec.gears.slice(); this.maxRpm = spec.rpm; this.idleRpm = spec.idle; }   // kart
     this.rpmK = this.maxRpm / 12500;   // soglie di cambiata e curva di coppia in proporzione ai giri massimi
-    this.peakTorque = CAR.torque;
+    this.peakTorque = C.torque;
     this.powerScale = 1;
     this.otBoost = 0;         // F1 2026: Overtake Mode attivo (energia elettrica in più)
     // batteria (F1 2026): si ricarica in frenata e in rilascio, si spende col Boost quando vuoi
-    this.hasErs = IS_F1 && !IS_R26;   // la R26 del 2006 non ha batteria né Boost
+    this.hasErs = main && IS_F1 && !IS_R26;   // la R26 del 2006 non ha batteria né Boost
     this.battery = 1;         // carica 0..1 (4 MJ)
     this.deploy = false;      // Boost richiesto (tasto del giocatore o decisione del bot)
     this.ersOn = 0;           // Boost che sta davvero spingendo
     this.gripScale = 1;
     this.gearLong = 1;
     // inerzia di ruota+gomma e del motore (kg·m²), riportate al battistrada nel calcolo
-    this.wheelI = (SPEC.wheelI || 0.3) / (this.R * this.R);
-    this.engI = SPEC.engI || (IS_F1 ? 0.005 : 0.012);
+    this.wheelI = (spec.wheelI || 0.3) / (this.R * this.R);
+    this.engI = spec.engI || (IS_F1 && main ? 0.005 : 0.012);
     this.compound = 'M';
     this.inPit = false;             // guidata dalla corsia box (niente fisica)              // rapporti più lunghi per chi ha più potenza             // aderenza extra dei bot più forti (livelli "sovrumani")
     this.dragMul = 1;               // scia: < 1 quando si segue da vicino un'altra vettura
@@ -97,15 +100,15 @@ export class CarPhysics {
     this.downMulF = 1;              // ...e ancora un po' meno sull'ala anteriore
     this.damageMode = 'sim';        // sim | reduced | cosmetic (come nei simulatori)
     this.arcade = false;            // guida arcade (driveMode.js)
-    this.ClA = CAR.ClA;             // coefficiente di portanza * area
-    this.CdA = CAR.CdA;
+    this.ClA = C.ClA;             // coefficiente di portanza * area
+    this.CdA = C.CdA;
     this.aeroBalance = 0.43;        // quota di carico sull'anteriore
-    this.mu = CAR.mu;               // aderenza pneumatici slick
-    this.springK = SPEC.susp.springK;           // stessa compressione statica con più massa
-    this.damperC = SPEC.susp.damperC;
-    this.arbK = SPEC.susp.arbK.slice();   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
-    this.rearGrip = SPEC.rearGrip ?? 1.1;            // gomme posteriori più larghe
-    this.maxBrakeForce = CAR.brake;
+    this.mu = C.mu;               // aderenza pneumatici slick
+    this.springK = spec.susp.springK;           // stessa compressione statica con più massa
+    this.damperC = spec.susp.damperC;
+    this.arbK = spec.susp.arbK.slice();   // barre antirollio ant./post. (più rigida davanti = vettura sottosterzante al limite)
+    this.rearGrip = spec.rearGrip ?? 1.1;            // gomme posteriori più larghe
+    this.maxBrakeForce = C.brake;
     this.brakeBias = 0.57;
     this.wheels = [
       { x: this.a, y: -this.tw }, { x: this.a, y: this.tw },
@@ -198,11 +201,11 @@ export class CarPhysics {
   // passo da GT (2,6 m): angoli più piccoli per la stessa curvatura che con il passo lungo
   // in più sotto i ~55 km/h: tornanti come La Source o Monaco (raggio ~10 m) si fanno senza andare larghi
   // arcade: più aderenza = curve più strette alla stessa velocità, quindi anche più sterzo
-  maxSteer(v) { return (SPEC.steer * (0.33 / (1 + v / 18.5) + 0.014)) * (this.arcade ? ARCADE.grip : 1) + 0.14 * Math.max(0, 1 - v / 16); }
+  maxSteer(v) { return ((this.spec || SPEC).steer * (0.33 / (1 + v / 18.5) + 0.014)) * (this.arcade ? ARCADE.grip : 1) + 0.14 * Math.max(0, 1 - v / 16); }
 
   step(dt, inp) {
     // la benzina si consuma: la vettura si alleggerisce durante la gara
-    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000 / this.rpmK) * (SPEC.fuelUse ?? 1));
+    this.fuel = Math.max(0, this.fuel - dt * (0.004 + 0.05 * Math.max(0, inp.throttle)) * (this.rpm / 12000 / this.rpmK) * (this.spec.fuelUse ?? 1));
     this.mass = this.baseMass + this.fuel;
     const m = this.mass, dmg = this.damage, A = this.arcade;
     // arcade: controllo trazione e ABS sempre attivi
@@ -283,7 +286,7 @@ export class CarPhysics {
     if (throttle < 0.05 && this.gear > 0) torque = -(35 + this.rpm / this.rpmK * 0.0045) * (A ? ARCADE.engineBrake : 1);
     if (this.shiftTimer > 0) torque *= 0.1;
     // temperatura motore: sale col carico, il radiatore danneggiato raffredda meno
-    const heat = 6 * throttle * (this.rpm / (IS_R26 || SPEC.gears ? this.maxRpm - 1000 : 12000)) * (SPEC.engHeat ?? 1);
+    const heat = 6 * throttle * (this.rpm / ((IS_R26 && this.spec === SPEC) || this.spec.gears ? this.maxRpm - 1000 : 12000)) * (this.spec.engHeat ?? 1);
     const cool = (this.engTemp - 60) * (0.02 + 0.0012 * speed) * (1 - 0.75 * dmg.radiator * dfx);
     this.engTemp += (heat - cool) * dt;
     if (this.engTemp > 128 && dfx && !A) dmg.engine = Math.min(1, dmg.engine + (this.engTemp - 128) * 0.0006 * dt);
@@ -393,7 +396,7 @@ export class CarPhysics {
         // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
         // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore
         const du = this.wheels[2].spin - this.wheels[3].spin;
-        const lim = (250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce)) * (SPEC.lsd ?? 1);
+        const lim = (250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce)) * (this.spec.lsd ?? 1);
         const lock = Math.max(-lim, Math.min(lim, 2500 * du));
         drive += i === 2 ? -lock : lock;
       }
@@ -445,7 +448,7 @@ export class CarPhysics {
       const slipV = Math.abs(vlat) + Math.abs(w.spin - vlong) * (w.lock || w.spinning ? 0.6 : 0.3);
       const power = (Math.abs(fyOut) + Math.abs(fxOut)) * slipV;
       // calore = strisciamento + isteresi della gomma che rotola sotto carico; si raffredda con l'aria
-      w.temp += (power / SPEC.heat.slide + SPEC.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28 + 14 * WX.wet) * (0.02 + 0.0006 * speed) * (1 + 0.7 * WX.wet)) * dt;
+      w.temp += (power / this.spec.heat.slide + this.spec.heat.roll * speed * Math.pow(Math.max(0, load) / 3000, 0.25) - (w.temp - 28 + 14 * WX.wet) * (0.02 + 0.0006 * speed) * (1 + 0.7 * WX.wet)) * dt;
       w.wear = Math.min(1, w.wear + power * dt * 4.6e-8 * COMPOUNDS[this.compound].wear * (A ? ARCADE.wear : 1) * (w.temp > COMPOUNDS[this.compound].tMax + 6 ? 2 : 1) * (COMPOUNDS[this.compound].wet && WX.wet < 0.3 ? 3 : 1));
       if (w.lock && speed > 12 && !A) w.flat = Math.min(1, w.flat + dt * 0.12);   // spiattellamento
 
@@ -538,7 +541,7 @@ export class CarPhysics {
     if (Math.abs(this.prCG.d) + 4.5 < Math.min(sc.wallL, sc.wallR)) return;
     // punto dello scafo più compenetrato nel muro: un solo contatto per passo
     let hit = null;
-    for (const [hx, hy, part] of HULL) {
+    for (const [hx, hy, part] of hullOf(this.spec)) {
       const px = this.x + cy * hx - sy * hy;
       const pz = this.z + sy * hx + cy * hy;
       this.track.project(px, pz, this.hint, pr, 6);

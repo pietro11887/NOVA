@@ -1,21 +1,21 @@
-import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=217';
+import { ROAD_HALF_WIDTH as H, PIT } from './trackData.js?v=218';
 import { LINE_GRIP } from './wx.js?v=d0b88a44';
-import { CAR } from './physics.js?v=217';
-import { SPEC, IS_F1 } from './vehicle.js?v=217';
+import { CAR } from './physics.js?v=218';
+import { SPEC, IS_F1 } from './vehicle.js?v=218';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 
 // Pilota automatico. La "forza" (1-140: oltre 110 solo ancora più aderenza) cambia davvero il ritmo:
 // aderenza sfruttata in curva, punto di frenata, potenza, riflessi e precisione.
 
 // street: Baku resta com'era; sulle altre piste i bot non vanno mai oltre il limite della vettura in curva
-export function skillParams(strength, street = false) {
+export function skillParams(strength, street = false, spec = SPEC) {
   const tt = (strength - 1) / 109, t = Math.max(0, Math.min(1, tt));
   // oltre 110 (fino a 140): i bot continuano a guadagnare in curva e in frenata
   const boost = Math.pow(Math.max(0, Math.min(1.3, tt)), 1.25);
   return {
     // anche al livello 1 i bot sono veloci; salendo arrivano al limite della vettura
     // e oltre 60 diventano "sovrumani": più aderenza e più cavalli della tua monoposto
-    mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * CAR.mu,   // aderenza sfruttata (prima del bonus)
+    mu: (street ? 0.99 + 0.09 * t : Math.min(0.995, 0.96 + 0.06 * t)) * spec.car.mu,   // aderenza sfruttata (prima del bonus)
     // bonus piccoli: a 110 un pilota perfetto con un filo di aderenza e cavalli in più (prima +32%/+42%,
     // pensati quando per errore anche la vettura del giocatore riceveva metà dei bonus)
     grip: 1 + 0.26 * boost,           // 110 → +26%: più veloci in curva e in frenata (sui rettilinei e in accelerazione come te)
@@ -61,14 +61,15 @@ export class AIDriver {
   setStrength(strength) {
     this.strength = strength;
     this.street = !!this.line.track.street;
-    this.skill = skillParams(strength, this.street);
+    this.spec = this.phys.spec || SPEC;
+    this.skill = skillParams(strength, this.street, this.spec);
     const t = (strength - 1) / 109;
     // arcade: più aderenza e frenate più forti anche per i bot
     const arc = this.phys.arcade;
     // arcade: tu hai più aderenza e gli aiuti; i bot forti hanno anche qualche cavallo in più
     if (arc) this.skill.power *= 1 + ARCADE.aiPower * Math.pow(Math.max(0, Math.min(1, t)), 1.6);
     const tc = Math.max(0, Math.min(1, t));
-    const mu = LINE_GRIP * (SPEC.lineMu || 1) * this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
+    const mu = LINE_GRIP * (this.spec.lineMu || 1) * this.skill.mu * this.skill.grip * (arc ? ARCADE.aiGrip + (ARCADE.aiGripTop - ARCADE.aiGrip) * Math.pow(tc, 1.3) : 1);
     const brk = Math.min(0.97, this.skill.brake * (arc ? ARCADE.brake : 1)) * LINE_GRIP;
     this.mu = mu; this.brk = brk; this.lineVer = this.line.version;
     // F1: nelle curve veloci il carico aerodinamico permette di più (Eau Rouge in pieno)
@@ -177,7 +178,8 @@ export class AIDriver {
       // una vettura lenta (testacoda) occupa più spazio in larghezza
       const wide = c.phys.speed < v - 12 ? 3.9 : 2.8;
       if (g > 0 && g < bestGap && lat < wide) { bestGap = g; blocker = c; }
-      if (g < 0 && g > chaserGap && lat < 2.7) { chaserGap = g; chaser = c; }
+      // (gara WEC: chi arriva da dietro di un'altra categoria non si difende: è più veloce, lo si lascia passare)
+      if (g < 0 && g > chaserGap && lat < 2.7 && c.phys.spec === p.spec) { chaserGap = g; chaser = c; }
       // ruota a ruota: ci si allarga per non toccarsi (i più aggressivi tengono la linea)
       const hum = !c.ai, latW = hum ? 2.9 : 2.4;
       if (Math.abs(g) < (hum ? 6 : 5.4) && lat < latW) push += -Math.sign(dd || 1) * (latW - lat) * (hum ? Math.max(1.1, 1.35 - 0.6 * this.aggr) : 1.35 - 0.6 * this.aggr);
@@ -195,7 +197,7 @@ export class AIDriver {
       const hp = hazard.phys, hd = hp.prCG.d;
       const room = Math.max(0, hazGap - 13.5);
       // frenata prudente: a bassa velocità c'è poco carico aerodinamico (e magari si è in discesa)
-      const [d0, d1, d2] = SPEC.ai.hazard, decel = d0 + d1 * (this.strength / 110) + d2 * v * v;   // frenata da GT
+      const [d0, d1, d2] = this.spec.ai.hazard, decel = d0 + d1 * (this.strength / 110) + d2 * v * v;   // frenata da GT
       vCap = Math.min(vCap, Math.sqrt(hazV * hazV + 2 * decel * room));
       // lato di passaggio: quello opposto a dove si trova (o dove sta scivolando) la vettura
       const drift = -hp.vx * hp.prCG.nx - hp.vz * hp.prCG.nz;      // >0 = si sposta verso destra
@@ -239,7 +241,7 @@ export class AIDriver {
       // (e se accelera, come al via, si accelera con lei invece di aspettare)
       const ovEff = Math.max(0, ov + blocker.phys.gLong * 9.81 * (blocker.phys.gLong < 0 ? (this.oval ? 1.0 : 0.5) : 0.35));
       // a bassa velocità c'è poco carico aerodinamico: si frena molto meno che a 250 all'ora
-      const fol = Math.min(SPEC.ai.follow, SPEC.ai.follow * 0.42 + 0.0028 * v * v) * (this.oval ? 0.7 : 1);
+      const fol = Math.min(this.spec.ai.follow, this.spec.ai.follow * 0.42 + 0.0028 * v * v) * (this.oval ? 0.7 : 1);
       const vSafe = Math.sqrt(ovEff * ovEff + 2 * fol * room);
       // sul dritto si esce dalla scia senza alzare il piede (si frena solo se proprio attaccati dietro)
       const pullOut = straight && brakeIdx < 0 && !hazard && raceT > (this.oval ? 4 : 12) && lat > 1.5 && blocker.phys.gLong > -0.3 && (this.oval || this.profile[(i + 60) % n] > v);
@@ -397,7 +399,7 @@ export class AIDriver {
     const wrongWay = Math.abs(ang) > 1.2;
     if (wrongWay) vT = Math.min(vT, 7);
     else if (Math.abs(ang) > 0.6) vT = Math.min(vT, 18);
-    if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * SPEC.ai.pit * toPit));
+    if (this.pitting && toPit > 0 && toPit < 260) vT = Math.min(vT, Math.sqrt(38 * 38 + 2 * this.spec.ai.pit * toPit));
     // sottosterzo: volante a fondo e la vettura scivola verso l'esterno della curva -> si alza il piede
     const kc = tr.samples[i].curv;
     const outward = (p.prCG.d - (this.line.off[i] + this.lane)) * Math.sign(kc);

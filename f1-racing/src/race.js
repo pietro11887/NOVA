@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=217';
+import { CarPhysics } from './physics.js?v=218';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=217';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=217';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=217';
-import { PitStop } from './pit.js?v=217';
-import { PIT, TRACK } from './trackData.js?v=217';
+import { AIDriver } from './ai.js?v=218';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=218';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=218';
+import { PitStop } from './pit.js?v=218';
+import { PIT, TRACK } from './trackData.js?v=218';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=217';
+import { TEAMS } from './f1Teams.js?v=218';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -33,7 +33,8 @@ export const DRIVERS = [
   ['MARTINI', 0x00a19c, 0xffd21e], ['BELLINI', 0xb43adf, 0xf2f2f2],
 ];
 
-const CIRCLES = SPEC.circles.map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]); // [x locale, raggio]
+// cerchi di ingombro per i contatti [x locale, raggio] (ogni categoria i suoi: gara WEC)
+const circlesOf = sp => sp._circ || (sp._circ = sp.circles.map(([x, rad]) => [x * CAR_SCALE, rad * CAR_SCALE]));
 
 export class Race {
   constructor(track, line, opts) {
@@ -58,14 +59,20 @@ export class Race {
     // le vetture "remote" sono guidate dall'altro dispositivo (qui si muovono solo con i suoi dati)
     const R = opts.roster || null;
     const total = R ? R.length : opts.bots + 1;
-    const playerSlot = R ? Math.max(0, R.findIndex(r => r.me)) : Math.min(total, Math.max(1, opts.startPos)) - 1;
+    // gara WEC: due categorie insieme (le Hypercar davanti in griglia, le GT3 dietro), ognuna con la sua
+    // fisica e la sua linea; si parte nella propria categoria
+    const W = !R && opts.wec ? opts.wec : null;
+    const nO = W ? Math.max(0, Math.min(total - 1, W.n)) : 0, ownCount = total - nO, ownStart = W && W.otherFirst ? nO : 0;
+    const isOther = slot => !!W && (W.otherFirst ? slot < nO : slot >= ownCount);
+    const playerSlot = R ? Math.max(0, R.findIndex(r => r.me)) : ownStart + Math.min(ownCount, Math.max(1, opts.startPos)) - 1;
     let botIdx = 0;
     for (let slot = 0; slot < total; slot++) {
       const isPlayer = slot === playerSlot;
       const rr = R ? R[slot] : null, remote = !!(rr && rr.remote);
       // ordine di griglia della qualifica: bi è l'avversario (pilota e scuderia) che parte qui
       const bi = rr ? (rr.bi ?? 0) : !isPlayer && opts.botOrder && opts.botOrder[botIdx] != null ? opts.botOrder[botIdx] : botIdx;
-      const phys = isPlayer ? opts.playerPhys : new CarPhysics(track);
+      const other = isOther(slot);
+      const phys = isPlayer ? opts.playerPhys : new CarPhysics(track, other ? W.spec : undefined);
       const car = {
         phys, isPlayer, slot, retired: false,
         name: isPlayer ? 'TU' : DRIVERS[bi % DRIVERS.length][0],
@@ -75,6 +82,7 @@ export class Race {
         crossings: 0, halfway: false, finishT: null, lastLapT: null, bestLap: null, lapStart: 0,
         pass: [], sPrev: 0,
         pit: null, pitRequest: null, stops: 0, plan: [], bi,
+        cls: W ? (other ? W.cls : W.mine) : null,
       };
       phys.damageMode = opts.damageMode || 'sim';
       phys.arcade = !!opts.arcade;
@@ -91,7 +99,7 @@ export class Race {
         car.name = rr.name; car.color = rr.color; car.accent = rr.accent; car.team = rr.team || null; car.remote = remote; car.orig = !!rr.orig; car.gv = rr.gv || null;
         if (!isPlayer && !remote && rr.team) strength = Math.max(1, Math.min(140, opts.strength + (rr.team.tier - 1.5) * 4));
       }
-      if (!isPlayer && !remote) { car.ai = new AIDriver(phys, line, strength, bi + 1); botIdx++; }
+      if (!isPlayer && !remote) { car.ai = new AIDriver(phys, other ? W.line : line, strength, bi + 1); botIdx++; }
       this.cars.push(car);
     }
     this.player = this.cars[playerSlot];
@@ -173,7 +181,7 @@ export class Race {
       const reach = 60 * Math.sqrt(this.towMul);          // arcade: la scia si sente da più lontano
       const tow = best < reach ? 1 - best / reach : 0;
       p.dragMul = Math.max(0.35, 1 - 0.38 * this.towMul * tow);
-      const dirty = SPEC.dirtyAir * (this.arcade ? 0.4 : 1);
+      const dirty = (p.spec || SPEC).dirtyAir * (this.arcade ? 0.4 : 1);
       // aria sporca: entro ~30 m dietro un'altra vettura si perde carico, soprattutto davanti (sottosterzo in curva)
       const dk = bestDirty < 30 ? 1 - bestDirty / 30 : 0;
       p.downMul = 1 - dirty * dk * 0.7;
@@ -363,7 +371,7 @@ export class Race {
       // un solo contatto per coppia: la coppia di cerchi più compenetrata
       // (prima ogni coppia applicava il suo urto e un tocco valeva 2-3 urti)
       let best = null;
-      for (const [ax, ar] of CIRCLES) for (const [bx, br] of CIRCLES) {
+      for (const [ax, ar] of circlesOf(A.spec || SPEC)) for (const [bx, br] of circlesOf(B.spec || SPEC)) {
         const pax = A.x + Math.cos(A.yaw) * ax, paz = A.z + Math.sin(A.yaw) * ax;
         const pbx = B.x + Math.cos(B.yaw) * bx, pbz = B.z + Math.sin(B.yaw) * bx;
         const nx = pbx - pax, nz = pbz - paz;
