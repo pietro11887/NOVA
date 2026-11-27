@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=230';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=230';
-import { SURF, SURF_PROPS } from './track.js?v=230';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=231';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=231';
+import { SURF, SURF_PROPS } from './track.js?v=231';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -394,7 +394,7 @@ export class CarPhysics {
       // (trazione anteriore, Fiat Uno: spingono le due ruote davanti)
       // (trazione integrale, Lancia Delta: 45% davanti e 55% dietro, autobloccanti su tutti e due gli assi)
       const awd = !!this.spec.awd, driven = awd || (this.spec.fwd ? front : !front), a0 = awd ? (front ? 0 : 2) : this.spec.fwd ? 0 : 2;
-      let drive = driven ? driveForce / 2 * (awd ? (front ? 0.9 : 1.1) : 1) : 0;
+      let drive = driven ? driveForce / 2 * (awd ? (front ? 0.45 : 0.55) : 1) : 0;     // (integrale: la coppia si divide tra i due assi)
       if (driven) {
         // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
         // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore

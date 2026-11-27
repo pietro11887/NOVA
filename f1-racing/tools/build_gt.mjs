@@ -78,6 +78,17 @@ const CFG = {
   delta: { wb: 2.48, tyre: /^Tire$/, rim: /^material$|^rim_2$/, disc: /^NESSUNO$/, paint: /^Paint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.4, 0.15], error: [0.002, 0.008] },
   countach: { wb: 2.45, tyre: /^Meshpart2Mtl$/, rim: /^Meshpart1Mtl$/, disc: /^NESSUNO$/, paint: /^Meshpart19Mtl$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
   ae86: { wb: 2.4, tyre: /^Material\.004$/, rim: /^Material\.003$|^Material\.020$/, disc: /^NESSUNO$/, paint: /^Material\.001$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  // --- stradali scaricate da Sketchfab (giro 2) ---
+  f500: { wb: 1.84, tyre: /^Ruota$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^Carrozzeria$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.15, 0.05], error: [0.003, 0.012], renorm: true },
+  polo: { wb: 2.56, flip: true, tyre: /^wheel\.4$/, rim: /^wheel\.3$/, disc: /^NESSUNO$/, paint: /^primary(\.001)?$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
+  c2cv: { wb: 2.4, flip: true, opaque: /^material$|^Interior$|^Material_0$/, tyre: /^Wheels$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008], renorm: true },
+  focus: { wb: 2.64, tyre: /^Fphong15SG1$/, rim: /^Fphong14SG1$/, disc: /^Fphong17SG1$|^brakr$/, paint: /^Paint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  a3: { wb: 2.58, tyre: /^Material__393$/, rim: /^Material__39[12]$/, disc: /^Material__394$/, paint: /^paint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  c63: { wb: 2.76, tyre: /^llanta$/, rim: /^c63rin$/, disc: /CALIPE|DISCS/, paint: /^c63color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  sandero: { wb: 2.47, tyre: /^tire__spec_1$/, rim: /^Color_002$/, disc: /^NESSUNO$/, paint: /^Color_003$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.6, 0.3], error: [0.001, 0.005] },
+  r34: { wb: 2.665, tyre: /^Material\.010$/, rim: /^Material\.012$/, disc: /^NESSUNO$/, paint: /^Material\.001$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  supra: { wb: 2.55, tyre: /^Scene_-_Root\.004$/, rim: /^\.002$/, disc: /^tormoz1\.001$/, paint: /^esta80$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
+  p930: { wb: 2.272, tyre: /^Material\.008$/, rim: /^Material\.005$/, disc: /^NESSUNO$/, paint: /^Material\.002$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -91,6 +102,8 @@ if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '
 if (root.listExtensionsUsed().some(e => e.extensionName === 'KHR_materials_pbrSpecularGlossiness')) await doc.transform(metalRough());
 await doc.transform(flatten());
 // colori corretti prima di unire i materiali uguali (Yaris: gomme grigie come le cromature, si unirebbero)
+// materiali segnati trasparenti per sbaglio (carrozzeria della 2CV): pieni
+if (CFG.opaque) for (const m of root.listMaterials()) if (CFG.opaque.test(m.getName())) m.setAlphaMode('OPAQUE');
 if (CFG.tint) for (const m of root.listMaterials()) for (const [re, rgb] of CFG.tint) if (re.test(m.getName())) m.setBaseColorFactor([...rgb, 1]);
 // primitive che condividono gli stessi vertici (OBJ/FBX convertiti: un oggetto con più materiali): ognuna la sua copia,
 // se no le trasformazioni qui sotto si applicherebbero più volte agli stessi punti

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=230';
-import { CAR_CLASS, CLASSICS, SPECS, ROAD_CLS, ROAD_DB } from './vehicle.js?v=230';
+import { GEOM, CAR_SCALE } from './carModel.js?v=231';
+import { CAR_CLASS, CLASSICS, SPECS, ROAD_CLS, ROAD_DB } from './vehicle.js?v=231';
 // altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
 const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=230';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=231';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.

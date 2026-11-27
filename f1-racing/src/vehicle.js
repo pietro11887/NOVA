@@ -5,7 +5,8 @@
 import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 // stradali scaricate da Sketchfab (dati in ROAD_DB più sotto)
-const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86'];
+const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86',
+  'f500', 'c2cv', 'polo', 'sandero', 'focus', 'a3', 'c63', 'r34', 'supra', 'p930'];
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
   if (s && (['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass) || ROAD_NEW.includes(s.carClass))) cls = s.carClass;
@@ -381,11 +382,32 @@ export const ROAD_DB = {
   e46: { label: 'BMW M3 E46', year: 2001, short: 'M3 E46', engine: '6 cilindri in linea 3,2 L · 6 marce', hp: 343, kg: 1570, vmax: 250,
     mass: 1645, torque: 365, rpm: 8000, idle: 900, gears: [15.3, 9.16, 6.05, 4.45, 3.62, 3.0], wheelR: 0.33, wb: 2.73, tw: 0.76, len: 4.46, wid: 1.96, cg: 0.48, CdA: 0.67, mu: 1.15, brake: 22000, drive: 'rwd', lsd: 1, paint: null, snd: ['eng-gt', 0.95] },
   delta: { label: 'LANCIA DELTA HF INTEGRALE', year: 1993, short: 'DELTA', engine: '4 cilindri 2,0 L turbo · 5 marce · trazione integrale', hp: 215, kg: 1340, vmax: 220,
-    mass: 1415, torque: 180, rpm: 6800, idle: 900, gears: [12.5, 7.8, 5.4, 4.1, 3.46], wheelR: 0.31, wb: 2.48, tw: 0.74, len: 3.93, wid: 1.72, cg: 0.5, CdA: 0.75, mu: 1.1, brake: 17000, drive: 'awd', paint: null, snd: ['eng-gt', 1.15] },
+    mass: 1415, torque: 314, rpm: 6800, idle: 900, gears: [12.5, 7.8, 5.4, 4.1, 3.46], wheelR: 0.31, wb: 2.48, tw: 0.74, len: 3.93, wid: 1.72, cg: 0.5, CdA: 0.75, mu: 1.1, brake: 17000, drive: 'awd', paint: null, snd: ['eng-gt', 1.15] },
   countach: { label: 'LAMBORGHINI COUNTACH', year: 1985, short: 'COUNTACH', engine: 'V12 5,2 L · 5 marce', hp: 455, kg: 1490, vmax: 295,
     mass: 1565, torque: 500, rpm: 7800, idle: 1000, gears: [10.5, 6.6, 4.8, 3.8, 3.16], wheelR: 0.33, wb: 2.45, tw: 0.8, len: 4.12, wid: 2.06, cg: 0.45, CdA: 0.76, mu: 1.2, brake: 20000, drive: 'rwd', lsd: 1, paint: 0xc0101a, snd: ['eng-v8', 0.62] },
   ae86: { label: 'TOYOTA AE86 TRUENO', year: 1985, short: 'AE86', engine: '4 cilindri 1,6 L 4A-GE · 5 marce', hp: 130, kg: 940, vmax: 200,
     mass: 1015, torque: 149, rpm: 7600, idle: 850, gears: [13.6, 8.3, 5.6, 4.3, 3.83], wheelR: 0.29, wb: 2.4, tw: 0.68, len: 4.2, wid: 1.84, cg: 0.5, CdA: 0.66, mu: 1.0, brake: 13000, drive: 'rwd', lsd: 0.6, paint: null, snd: ['eng-gt', 1.1] },
+  // --- giro 2 ---
+  f500: { label: 'FIAT 500', year: 1965, short: '500', engine: '2 cilindri 0,5 L · motore dietro · 4 marce', hp: 18, kg: 500, vmax: 95,
+    mass: 575, torque: 31, rpm: 4600, idle: 800, gears: [18.96, 10.6, 6.66, 4.48], wheelR: 0.27, wb: 1.84, tw: 0.58, len: 2.97, wid: 1.38, cg: 0.5, CdA: 0.61, mu: 0.9, brake: 6000, drive: 'rwd', lsd: 0.2, paint: null, snd: ['eng-gt', 1.6] },
+  c2cv: { label: 'CITROËN 2CV CHARLESTON', year: 1986, short: '2CV', engine: '2 cilindri boxer 0,6 L · 4 marce', hp: 29, kg: 590, vmax: 115,
+    mass: 665, torque: 40, rpm: 5750, idle: 800, gears: [21.6, 10.9, 7.1, 5.45], wheelR: 0.29, wb: 2.4, tw: 0.63, len: 3.82, wid: 1.64, cg: 0.6, CdA: 0.87, mu: 0.85, brake: 6000, drive: 'fwd', paint: null, fixed: true, snd: ['eng-gt', 1.5] },
+  polo: { label: 'VOLKSWAGEN POLO', year: 2016, short: 'POLO', engine: '4 cilindri 1,2 L TSI · 5 marce', hp: 90, kg: 1100, vmax: 182,
+    mass: 1175, torque: 160, rpm: 6000, idle: 800, gears: [17.3, 9.3, 6.1, 4.6, 3.73], wheelR: 0.3, wb: 2.56, tw: 0.73, len: 3.97, wid: 1.9, cg: 0.53, CdA: 0.67, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  sandero: { label: 'DACIA SANDERO', year: 2008, short: 'SANDERO', engine: '4 cilindri 1,4 L · 5 marce', hp: 75, kg: 1000, vmax: 165,
+    mass: 1075, torque: 112, rpm: 6000, idle: 800, gears: [16.0, 8.6, 5.9, 4.4, 3.65], wheelR: 0.29, wb: 2.59, tw: 0.73, len: 3.84, wid: 1.86, cg: 0.55, CdA: 0.7, mu: 0.97, brake: 11500, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  focus: { label: 'FORD FOCUS ST', year: 2006, short: 'FOCUS ST', engine: '5 cilindri 2,5 L turbo · 6 marce', hp: 225, kg: 1392, vmax: 241,
+    mass: 1467, torque: 320, rpm: 6800, idle: 850, gears: [17.2, 9.4, 6.7, 4.8, 3.86, 3.15], wheelR: 0.31, wb: 2.64, tw: 0.76, len: 4.34, wid: 1.96, cg: 0.52, CdA: 0.7, mu: 1.05, brake: 17000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.1] },
+  a3: { label: 'AUDI A3 3.2 QUATTRO', year: 2004, short: 'A3', engine: 'V6 3,2 L · 6 marce · trazione integrale', hp: 250, kg: 1495, vmax: 250,
+    mass: 1570, torque: 320, rpm: 6800, idle: 850, gears: [16.1, 8.85, 6.28, 4.52, 3.62, 2.95], wheelR: 0.31, wb: 2.58, tw: 0.76, len: 4.2, wid: 1.96, cg: 0.52, CdA: 0.68, mu: 1.08, brake: 17000, drive: 'awd', paint: null, snd: ['eng-gt', 1.05] },
+  c63: { label: 'MERCEDES-AMG C 63', year: 2008, short: 'C 63', engine: 'V8 6,2 L · 7 marce', hp: 457, kg: 1730, vmax: 250,
+    mass: 1805, torque: 600, rpm: 7200, idle: 800, gears: [12.35, 8.07, 5.41, 3.86, 2.82, 2.31], wheelR: 0.33, wb: 2.76, tw: 0.78, len: 4.7, wid: 1.98, cg: 0.5, CdA: 0.66, mu: 1.12, brake: 22000, drive: 'rwd', lsd: 0.8, paint: null, snd: ['eng-v8', 0.66] },
+  r34: { label: 'NISSAN SKYLINE GT-R R34', year: 1999, short: 'R34', engine: '6 cilindri in linea 2,6 L biturbo · 6 marce · integrale', hp: 280, kg: 1560, vmax: 250,
+    mass: 1635, torque: 392, rpm: 8000, idle: 900, gears: [13.6, 8.38, 6.0, 4.65, 3.55, 2.8], wheelR: 0.33, wb: 2.665, tw: 0.76, len: 4.6, wid: 1.9, cg: 0.5, CdA: 0.7, mu: 1.12, brake: 20000, drive: 'awd', paint: null, snd: ['eng-gt', 0.95] },
+  supra: { label: 'TOYOTA SUPRA MK4', year: 1997, short: 'SUPRA', engine: '6 cilindri in linea 3,0 L biturbo · 6 marce', hp: 330, kg: 1570, vmax: 250,
+    mass: 1645, torque: 451, rpm: 6800, idle: 850, gears: [12.5, 7.7, 5.5, 4.3, 3.27, 2.58], wheelR: 0.33, wb: 2.55, tw: 0.77, len: 4.56, wid: 2.02, cg: 0.48, CdA: 0.65, mu: 1.12, brake: 20000, drive: 'rwd', lsd: 0.8, paint: null, snd: ['eng-gt', 1.0] },
+  p930: { label: 'PORSCHE 911 TURBO (930)', year: 1975, short: '911 TURBO', engine: '6 cilindri boxer 3,0 L turbo · motore dietro · 4 marce', hp: 260, kg: 1140, vmax: 250,
+    mass: 1215, torque: 343, rpm: 6800, idle: 900, gears: [9.0, 5.2, 3.56, 2.5], wheelR: 0.32, wb: 2.272, tw: 0.75, len: 4.28, wid: 1.76, cg: 0.46, CdA: 0.7, mu: 1.1, brake: 17000, drive: 'rwd', lsd: 0.4, paint: null, snd: ['eng-gt', 1.0] },
 };
 // fisica completa di una stradale dai suoi dati
 function roadSpec(d) {
