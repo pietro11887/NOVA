@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=224';
-import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=224';
+import { GEOM, CAR_SCALE } from './carModel.js?v=225';
+import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=225';
 // altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
 const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=224';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=225';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -73,9 +73,10 @@ function inlineImages(parser) {
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
 // stradali (vernice tinta unita: colore di serie se non se ne sceglie un altro)
-const ROAD_K = ['f40', 'uno', 'mul', 'yar'];
-const ROAD_PAINT = { f40: 0xc8070d, uno: 0xb5121b, mul: 0xf2b400, yar: 0xa9aeb5 };
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'], f40: ['gt_f40_hi.glb', 'gt_f40_mid.glb'], uno: ['gt_uno_hi.glb', 'gt_uno_mid.glb'], mul: ['gt_mul_hi.glb', 'gt_mul_mid.glb'], yar: ['gt_yar_hi.glb', 'gt_yar_mid.glb'] };
+const ROAD_K = ['f40', 'uno', 'mul', 'yar', 'mx5'];
+export const POPUP_DOWN = -1.05;
+const ROAD_PAINT = { f40: 0xc8070d, uno: 0xb5121b, mul: 0xf2b400, yar: 0xa9aeb5, mx5: 0xb3121b };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'], f40: ['gt_f40_hi.glb', 'gt_f40_mid.glb'], uno: ['gt_uno_hi.glb', 'gt_uno_mid.glb'], mul: ['gt_mul_hi.glb', 'gt_mul_mid.glb'], yar: ['gt_yar_hi.glb', 'gt_yar_mid.glb'], mx5: ['gt_mx5_hi.glb', 'gt_mx5_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
 // (la Mercedes SLS bianca, senza livrea, non c'è più: i suoi file restano nella cartella)
@@ -157,6 +158,7 @@ function tuneMaterial(src) {
   else if (n === 'F40_Chrome') { m.roughness = 0.15; m.metalness = 0.85; m.color.set(0x9aa0a8); }
   else if (/^fh_tire/.test(n)) { m.color.set(0x121214); m.roughness = 0.9; m.metalness = 0; }
   else if (/^fh_rim3|^fh_chrome/.test(n)) { m.color.set(0xb4b9c0); m.roughness = 0.3; m.metalness = 0.75; }
+  else if (n === 'RRpbrAluminumSemiPolish') { m.map = null; m.color.set(0xb8bdc4); m.roughness = 0.3; m.metalness = 0.75; }
   else if (n === 'UNO_RIM') { m.roughness = 0.3; m.metalness = 0.75; }
   else if (n === 'glass') { m.map = null; m.transparent = true; m.opacity = 0.35; m.color.set(0x1a2230); m.roughness = 0.05; }
   else if (n === 'redbull_wheel_hub') { m.roughness = 0.35; m.metalness = 0.6; }
@@ -246,9 +248,11 @@ function prepare(scene, lowPoly, kind = 'gt') {
   T.premultiply(new THREE.Matrix4().makeTranslation(0, -(cgOf(kind) + 0.02) - 0.02, 0));
   const mats = new Map();
   const matFor = src => { if (!mats.has(src)) mats.set(src, tuneMaterial(src)); return mats.get(src); };
-  const parts = { body: [], rw: [], fwL: [], fwR: [], fwLe: [], fwRe: [] };
+  const parts = { body: [], rw: [], fwL: [], fwR: [], fwLe: [], fwRe: [], pop: [] };
   const wheels = [[], [], [], []];
   const tmp = new THREE.Vector3();
+  // Mazda MX-5: i due fari a scomparsa (gruppetti sopra il muso, davanti al cofano) girano su un perno comune
+  const POP = kind === 'mx5' ? { x0: 1.47, x1: 1.8, z0: 0.34, z1: 0.8, y0: 0.6 - (cgOf(kind) + 0.04) } : null;
   scene.traverse(o => {
     if (!o.isMesh) return;
     let g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(T, o.matrixWorld));
@@ -263,7 +267,7 @@ function prepare(scene, lowPoly, kind = 'gt') {
     for (let v = 0; v < n; v += 3) {
       tmp.set(0, 0, 0);
       for (let q = 0; q < 3; q++) tmp.x += P.getX(v + q) / 3, tmp.y += P.getY(v + q) / 3, tmp.z += P.getZ(v + q) / 3;
-      const k = kind !== 'gt' ? partOf(tmp.x, tmp.y, tmp.z, kind) : mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
+      const k = POP && tmp.x > POP.x0 && tmp.x < POP.x1 && Math.abs(tmp.z) > POP.z0 && Math.abs(tmp.z) < POP.z1 && tmp.y > POP.y0 ? 'pop' : kind !== 'gt' ? partOf(tmp.x, tmp.y, tmp.z, kind) : mat.name === 'PAINT' || /Details|Mechanics|CHASSIS/.test(mat.name) ? partOf(tmp.x, tmp.y, tmp.z) : 'body';
       (buckets[k] || (buckets[k] = [])).push(v);
     }
     for (const [k, list] of Object.entries(buckets)) {
@@ -283,7 +287,7 @@ function prepare(scene, lowPoly, kind = 'gt') {
     const c = tyre.g.boundingBox.getCenter(new THREE.Vector3()), s = tyre.g.boundingBox.getSize(new THREE.Vector3());
     return { center: c, radius: s.y / 2, width: s.z, list: list.map(p => ({ g: p.g.clone().translate(-c.x, -c.y, -c.z), mat: p.mat, kind: p.kind })) };
   });
-  return { parts, wheelInfo, mats, kind };
+  return { parts, wheelInfo, mats, kind, popPivot: POP ? new THREE.Vector3(1.49, POP.y0 + 0.02, 0) : null };
 }
 
 // Livree alternative: la grafica originale viene ridipinta. Le parti gialle prendono il colore
@@ -621,6 +625,14 @@ export function createGT(opts = {}) {
   const rearWing = new THREE.Group(); body.add(rearWing);
   for (const p of tpl.parts.rw) mk(p.g, p.mat, rearWing);
   rearWing.userData.flap = null;
+  // fari a scomparsa: perno dietro i fari; rotation.z = 0 alzati, negativo = chiusi nel cofano
+  let popup = null;
+  if (tpl.parts.pop && tpl.parts.pop.length && tpl.popPivot) {
+    popup = new THREE.Group(); popup.position.copy(tpl.popPivot); body.add(popup);
+    const inner = new THREE.Group(); inner.position.copy(tpl.popPivot).negate(); popup.add(inner);
+    for (const p of tpl.parts.pop) mk(p.g, p.mat, inner);
+    popup.rotation.z = POPUP_DOWN;
+  }
   // ruote: perno (sterzo, campanatura) -> rotazione
   const wheels = tpl.wheelInfo.map((wi, i) => {
     const pivot = new THREE.Group(), spin = new THREE.Group();
@@ -671,7 +683,7 @@ export function createGT(opts = {}) {
     body.add(drv); helmet.push(drv.children[drv.children.length - 1]);
   }
   if (ghost) root.traverse(o => { o.renderOrder = 2; });
-  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe, sidewall }, scale: CAR_SCALE, gt: true, kind: tpl.kind, variant: tpl.variant || null, yr: tpl.yr };
+  return { root, body, wheels, frontWing, fwHalves, rearWing, helmet, materials: { paint: myPaint, stripe, sidewall }, scale: CAR_SCALE, gt: true, popup, kind: tpl.kind, variant: tpl.variant || null, yr: tpl.yr };
 }
 
 // ---------------------------------------------------------------- abitacolo GT (visuale interna)

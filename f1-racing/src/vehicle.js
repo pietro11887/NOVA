@@ -6,7 +6,7 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
   if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart' && cls !== 'nascar' && cls !== 'hyper') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
@@ -21,7 +21,7 @@ export const IS_KART = cls === 'kart';
 export const IS_NASCAR = cls === 'nascar';
 export const IS_HYPER = cls === 'hyper';
 // Stradali: vetture di serie vere (Ferrari F40, Fiat Uno Turbo i.e.), ognuna con la sua fisica
-export const ROAD_CLS = ['f40', 'uno', 'mul', 'yar'];
+export const ROAD_CLS = ['f40', 'uno', 'mul', 'yar', 'mx5'];
 export const IS_ROAD = ROAD_CLS.includes(cls);
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
@@ -333,6 +333,29 @@ SPECS.yar = {
     [-1.68, -0.75, 'rw'], [-1.68, 0.75, 'rw'],
   ],
   circles: [[1.1, 0.84], [0.0, 0.84], [-1.1, 0.84]],
+  ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
+  dirtyAir: 0.02,
+};
+// Mazda MX-5 NA 1.6 (1989): 4 cilindri 1,6 L 116 CV, 136 Nm, 940 kg + pilota, trazione posteriore,
+// 50/50, leggera e bilanciata; 0-100 in ~8,8 s, 194 km/h; fari a scomparsa
+SPECS.mx5 = {
+  label: 'MAZDA MX-5',
+  geom: { axleF: 1.1325, axleR: -1.1325, halfTrack: 0.7, wheelR: 0.29, cgHeight: 0.46 },
+  car: { mass: 1015, ClA: 0.05, CdA: 0.65, mu: 1.05, torque: 136, brake: 13000 },
+  inertia: { Iz: 1100, Ipitch: 950, Iroll: 330 },
+  susp: { springK: 80000, damperC: 5000, arbK: [55000, 25000] },
+  steer: 0.9,
+  heat: { slide: 30000, roll: 0.07 },
+  gears: [13.48, 8.12, 5.72, 4.3, 3.5], rpm: 7200, idle: 850,
+  lsd: 0.6,
+  hull: [
+    [1.9, -0.78, 'fwL'], [1.9, 0.78, 'fwR'], [1.94, 0, 'nose'],
+    [1.1325, -0.86, 'wFL'], [1.1325, 0.86, 'wFR'],
+    [0.0, -0.86, 'sideL'], [0.0, 0.86, 'sideR'],
+    [-1.1325, -0.86, 'wRL'], [-1.1325, 0.86, 'wRR'],
+    [-1.95, -0.78, 'rw'], [-1.95, 0.78, 'rw'],
+  ],
+  circles: [[1.15, 0.86], [0.0, 0.86], [-1.15, 0.86]],
   ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
   dirtyAir: 0.02,
 };

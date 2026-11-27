@@ -65,6 +65,8 @@ const CFG = {
   mul: { wb: 2.666, tyre: /^Car_rubber_wheel$/, rim: /^Car_rim$/, disc: /^Car_brakedisk$|^Car_caliper$/, paint: /^Car_paint_fiat$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.1, 0.035], error: [0.004, 0.015], renorm: true },
   // Toyota Yaris 2001 (Vitz)
   yar: { wb: 2.37, tyre: /^fh_tire/, rim: /^fh_rim3|^fh_blacktrim|^fh_chrome|^fh_lettering/, disc: /^Disk\.005$|^EXT_calipers/, paint: /^WCCARBODY\.005$/, drop: /^NESSUNO$/, tint: [[/^fh_tire/, [0.06, 0.06, 0.065]], [/^fh_rim3/, [0.72, 0.74, 0.77]]], livery: /^PAINT$/, ratio: [0.6, 0.3], error: [0.001, 0.004] },
+  // Mazda MX-5 NA (Black Snow, CC BY 4.0): fari a scomparsa (il gioco li separa per posizione e li fa girare)
+  mx5: { wb: 2.265, tyre: /^Scene_-_Root\.002$/, rim: /^RRpbrAluminumSemiPolish$/, disc: /^amdb11_/, paint: /^RRpbrPaintPrimary$/, drop: /^material$/, livery: /^PAINT$/, ratio: [0.25, 0.08], error: [0.003, 0.012], renorm: true },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];

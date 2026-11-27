@@ -1,5 +1,5 @@
 import { PUBLIC, PUB_TRACKS } from '../edition.js?v=f01fe25a';
-import { CONTROL_POINTS } from '../trackData.js?v=224';
+import { CONTROL_POINTS } from '../trackData.js?v=225';
 import { REAL_TRACKS } from './realList.js?v=65e383de';
 
 // Elenco dei circuiti per il menu: nome, dati principali e sagoma per l'anteprima.
