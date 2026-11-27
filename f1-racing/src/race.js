@@ -1,12 +1,12 @@
-import { CarPhysics } from './physics.js?v=221';
+import { CarPhysics } from './physics.js?v=222';
 import { bestCompound } from './wx.js?v=d0b88a44';
-import { AIDriver } from './ai.js?v=221';
-import { CAR_SCALE, IZ_K } from './carModel.js?v=221';
-import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=221';
-import { PitStop } from './pit.js?v=221';
-import { PIT, TRACK } from './trackData.js?v=221';
+import { AIDriver } from './ai.js?v=222';
+import { CAR_SCALE, IZ_K } from './carModel.js?v=222';
+import { SPEC, IS_F1, IS_R26 } from './vehicle.js?v=222';
+import { PitStop } from './pit.js?v=222';
+import { PIT, TRACK } from './trackData.js?v=222';
 import { TOW_LEVELS } from './driveMode.js?v=68c3b840';
-import { TEAMS } from './f1Teams.js?v=221';
+import { TEAMS } from './f1Teams.js?v=222';
 
 // Gara contro i bot: griglia, contatti tra vetture, giri, classifica e distacchi.
 
@@ -146,6 +146,8 @@ export class Race {
       c.phys.reset(i, c.slot % 2 === 0 ? G.lat : -G.lat);
       c.sPrev = c.phys.prCG.s;
       c.pass = [];
+      // griglie lunghe (NASCAR, 40 vetture): chi parte dietro il traguardo non ha ancora cominciato il giro
+      if (s < 0) { c.crossings = -1; c.halfway = true; }
     }
   }
 
