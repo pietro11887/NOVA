@@ -101,3 +101,4 @@ File `gt_brz_*.glb` = versioni modificate (script `tools/build_gt.mjs`): abitaco
 - NASCAR (`nascar_hi.glb`, `nascar_mid.glb`, `nascar_int.glb`): "NASCAR Camaro 2018" (vecarz.com, Sketchfab), convertito con `tools/build_gt.mjs nas`.
 - Hypercar: Ferrari 499P (`hy_fer_*`, Dave Love, CC BY 4.0), Porsche 963 (`gt_hpor_*`, DisneyCars, Sketchfab), Cadillac V-Series.R (`gt_hcad_*`, vecarz / Nic Cheung, CC BY 4.0), convertiti con `tools/build_gt.mjs`.
 - Hypercar: BMW M Hybrid V8 (`gt_hbmw_*`, vecarz / Nic Cheung, CC BY 4.0), Lamborghini SC63 (`gt_hlam_*`, Sketchfab, FBX convertito con three.js), convertiti con `tools/build_gt.mjs`.
+- Stradali: Ferrari F40 (`gt_f40_*`, Sketchfab, OBJ convertito con three.js; vernice rossa), Fiat Uno Turbo i.e. 1995 (`gt_uno_*`, subishi, CC BY 4.0, FBX senza colori: colori veri assegnati con `tools/uno_mats.mjs`), convertiti con `tools/build_gt.mjs`.

@@ -1,41 +1,41 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=222';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=222';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=222';
+import { Track, SURF } from './track.js?v=223';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=223';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=223';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=222';
-import { BakuScenery } from './sceneryBaku.js?v=222';
-import { SpaScenery } from './scenerySpa.js?v=222';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=222';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=222';
-import { SafetyCar } from './safetyCar.js?v=222';
-import { CarPhysics } from './physics.js?v=222';
+import { Scenery, ENV } from './scenery.js?v=223';
+import { BakuScenery } from './sceneryBaku.js?v=223';
+import { SpaScenery } from './scenerySpa.js?v=223';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=223';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior } from './gtModel.js?v=223';
+import { SafetyCar } from './safetyCar.js?v=223';
+import { CarPhysics } from './physics.js?v=223';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=222';
-import { WallMarks } from './wallMarks.js?v=222';
+import { BakuFx } from './bakuFx.js?v=223';
+import { WallMarks } from './wallMarks.js?v=223';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=4fc54bf6';
-import { Sound } from './audio.js?v=222';
+import { Sound } from './audio.js?v=223';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=222';
-import { RacingLine } from './racingLine.js?v=222';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=222';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=223';
+import { RacingLine } from './racingLine.js?v=223';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=223';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=222';
-import { PitCrew } from './pitCrew.js?v=222';
-import { buildGrassTufts } from './grassTufts.js?v=222';
-import { Online, NET_VER, MAX_GUESTS } from './online.js?v=222';
-import { Friends, cleanId, cleanName, userName } from './friends.js?v=222';
-import { COMPOUNDS } from './physics.js?v=222';
-import { AIDriver } from './ai.js?v=222';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=222';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=222';
+import { PitLane, PitStop } from './pit.js?v=223';
+import { PitCrew } from './pitCrew.js?v=223';
+import { buildGrassTufts } from './grassTufts.js?v=223';
+import { Online, NET_VER, MAX_GUESTS } from './online.js?v=223';
+import { Friends, cleanId, cleanName, userName } from './friends.js?v=223';
+import { COMPOUNDS } from './physics.js?v=223';
+import { AIDriver } from './ai.js?v=223';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=223';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, IS_ROAD, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=223';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 // kart e NASCAR: categorie a sé con i loro colori (KART_LIVERIES / NASCAR_LIVERIES)
-const XCLS = IS_KART || IS_NASCAR;
+const XCLS = IS_KART || IS_NASCAR || IS_ROAD;
 const CLS_KEY = CLASSIC || XCLS || IS_HYPER ? '.' + CAR_CLASS : IS_F1 ? '.f1' : '';
 const CLS_LABEL = CLASSIC ? CLASSIC.name.toUpperCase() : 'FORMULA 1';
 // nome della categoria nei titoli (F1 e speciali, GT3, kart)
@@ -49,14 +49,14 @@ const wecVars = () => (IS_HYPER ? GT3_ALL.filter(v => v !== 'gt3r' && v !== 'sls
 let wecLine = null;
 const getWecLine = () => (wecLine && wecLine.track === track ? wecLine : (wecLine = new RacingLine(track, 1.6, SPECS[WEC_OTHER])));
 const preloadWec = () => Promise.all([loadKind(WEC_OTHER).catch(() => null), ...wecVars().map(v => loadVariant(v, 'mid').catch(() => null))]);
-const CLS_NAME = IS_F1 ? CLS_LABEL : IS_KART ? 'KART' : IS_NASCAR ? 'NASCAR' : IS_HYPER ? 'HYPERCAR' : 'GT3';
+const CLS_NAME = IS_F1 ? CLS_LABEL : IS_KART ? 'KART' : IS_NASCAR ? 'NASCAR' : IS_ROAD ? SPEC.label : IS_HYPER ? 'HYPERCAR' : 'GT3';
 // GT3 o Hypercar scelta (le due categorie hanno ognuna la sua)
 const gvKey = () => (IS_HYPER ? 'hyCar' : 'gtCar');
 const curGv = () => (GT_VARIANTS.includes(settings[gvKey()]) ? settings[gvKey()] : 'gt3r');
-const clsShort = c => (c === 'f1' ? 'F1' : c === 'kart' ? 'KART' : c === 'nascar' ? 'NASCAR' : c === 'hyper' ? 'HYPERCAR' : 'GT3');
-const isX = c => c === 'kart' || c === 'nascar';
-const xList = c => (c === 'nascar' ? NASCAR_LIVERIES : KART_LIVERIES);
-const xKey = c => (c === 'nascar' ? 'nasLiv' : 'kartLiv');
+const clsShort = c => (c === 'f1' ? 'F1' : c === 'kart' ? 'KART' : c === 'nascar' ? 'NASCAR' : c === 'f40' ? 'F40' : c === 'uno' ? 'UNO TURBO' : c === 'hyper' ? 'HYPERCAR' : 'GT3');
+const isX = c => c === 'kart' || c === 'nascar' || c === 'f40' || c === 'uno';
+const xList = c => (c === 'nascar' ? NASCAR_LIVERIES : c === 'f40' ? F40_LIVERIES : c === 'uno' ? UNO_LIVERIES : KART_LIVERIES);
+const xKey = c => (c === 'nascar' ? 'nasLiv' : c === 'f40' ? 'f40Liv' : c === 'uno' ? 'unoLiv' : 'kartLiv');
 const xLiv = c => xList(c)[settings[xKey(c)] | 0] || xList(c)[0];
 import { ARCADE, TOW_NAMES, RUBBER_NAMES } from './driveMode.js?v=68c3b840';
 import { cartoonize } from './cartoon.js?v=9c734d90';
@@ -65,7 +65,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=222';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=223';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -286,7 +286,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=222`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=223`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -448,7 +448,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v222 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v223 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -598,7 +598,7 @@ function loadRecords() {
 }
 // fantasma: il giro più veloce in assoluto su questa pista, con qualunque vettura (GT3, F1, F1 speciali).
 // Il record resta per vettura; il fantasma da battere è sempre il migliore di tutti, con la forma della sua macchina.
-const GHOST_CLS = [['gt', ''], ['f1', '.f1'], ['kart', '.kart'], ['nascar', '.nascar'], ['hyper', '.hyper'], ...Object.keys(CLASSICS).map(k => [k, '.' + k])];
+const GHOST_CLS = [['gt', ''], ['f1', '.f1'], ['kart', '.kart'], ['nascar', '.nascar'], ['hyper', '.hyper'], ['f40', '.f40'], ['uno', '.uno'], ...Object.keys(CLASSICS).map(k => [k, '.' + k])];
 let gbest = null, ghostKind = null, ghostOverride = null;
 function loadTrackBest() {
   const base = settings.track && settings.track !== 'nova' ? '.' + settings.track : '', arc = ARC() ? '.arc' : '';
@@ -769,7 +769,7 @@ function spawnRaceModels() {
   for (const c of race.cars) {
     if (c.isPlayer) continue;
     // (grafica minima: vetture semplici, ma i kart restano kart: la vettura semplice è grande come una F1)
-    c.model = gtReady() && (!MINQ || IS_KART) ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid', variant: c.gv, ...(c.cls && c.cls !== CAR_CLASS ? { kind: c.cls } : {}) } : { primary: c.color, accent: c.accent, lod: 'mid', variant: c.gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
+    c.model = gtReady() && (!MINQ || IS_KART || IS_ROAD) ? makeCar(c.team ? { team: c.team, lod: 'mid' } : c.orig ? { lod: 'mid', variant: c.gv, ...(c.cls && c.cls !== CAR_CLASS ? { kind: c.cls } : {}) } : { primary: c.color, accent: c.accent, lod: 'mid', variant: c.gv }) : mergeCar(createCar({ primary: c.color, accent: c.accent }));
     ultraCar(c.model);
     scene.add(c.model.root);
     c.phys.on('impact', e => onImpact(e, c));
@@ -2868,7 +2868,7 @@ function onRefresh() {
 function myGt() { const gv = curGv(); return { gv, liv: gv === 'gt3r' && !IS_HYPER ? porscheLiv() : 0, k: settings[xKey(CAR_CLASS)] | 0 }; }
 // scelte prima di creare la gara: pista, categoria, la tua vettura, giri, avversari
 const onPend = { track: null, cls: null };
-const ON_CLS = [['f1', 'F1 2026'], ['gt', 'GT3'], ['hyper', 'HYPERCAR'], ['kart', 'KART'], ['nascar', 'NASCAR']];
+const ON_CLS = [['f1', 'F1 2026'], ['gt', 'GT3'], ['hyper', 'HYPERCAR'], ['kart', 'KART'], ['nascar', 'NASCAR'], ['f40', 'FERRARI F40'], ['uno', 'FIAT UNO TURBO']];
 function onSetupRender() {
   if (onPend.track == null) { onPend.track = settings.track; onPend.cls = IS_F1 ? 'f1' : XCLS || IS_HYPER ? CAR_CLASS : 'gt'; }
   const t = TRACKS.find(x => x.id === onPend.track) || TRACKS[0];
@@ -3271,7 +3271,7 @@ function carLabel() { return pubText(IS_HYPER ? (HY_LIVERIES.find(e => (e.model 
 function renderRecords() {
   document.querySelectorAll('#recTabs button').forEach(b => b.classList.toggle('sel', b.dataset.m === recMode));
   const arc = recMode === 'arc' ? '.arc' : '';
-  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['kart', 'KART', '.kart'], ['nascar', 'NASCAR', '.nascar'], ['hyper', 'HYPERCAR', '.hyper'], ...(PUBLIC ? [] : Object.entries(CLASSICS).map(([k, c]) => [k, c.name.replace(/^\S+ /, ''), '.' + k]))];
+  const cls = [['gt', 'GT3', ''], ['f1', 'F1', '.f1'], ['kart', 'KART', '.kart'], ['nascar', 'NASCAR', '.nascar'], ['hyper', 'HYPERCAR', '.hyper'], ...(PUBLIC ? [] : [['f40', 'F40', '.f40'], ['uno', 'UNO TURBO', '.uno']]), ...(PUBLIC ? [] : Object.entries(CLASSICS).map(([k, c]) => [k, c.name.replace(/^\S+ /, ''), '.' + k]))];
   let html = '';
   for (const t of TRACKS) {
     const base = t.id && t.id !== 'nova' ? '.' + t.id : '';
@@ -4125,6 +4125,26 @@ const KART_LIVERIES = [
   { name: 'VIOLA', primary: 0x6a2cd8, acc2: 0xff8a1c, accent: '#6a2cd8' },
 ];
 // NASCAR: la #47 del modello, poi le altre squadre con i loro colori (il blu e il rosso della livrea ridipinti)
+// Stradali: i colori di serie (il primo è quello del modello)
+const F40_LIVERIES = [
+  { name: 'ROSSO CORSA', primary: null, accent: '#d40000' },
+  { name: 'GIALLO MODENA', primary: 0xf2c200, accent: '#f2c200' },
+  { name: 'NERO DAYTONA', primary: 0x111216, accent: '#8a8f96' },
+  { name: 'BIANCO AVUS', primary: 0xefefea, accent: '#cfd3d8' },
+];
+const UNO_LIVERIES = [
+  { name: 'ROSSO', primary: null, accent: '#c8102e' },
+  { name: 'NERO', primary: 0x121316, accent: '#8a8f96' },
+  { name: 'BIANCO', primary: 0xeeeeea, accent: '#cfd3d8' },
+  { name: 'GRIGIO METALLIZZATO', primary: 0x80868e, accent: '#80868e' },
+  { name: 'BLU', primary: 0x1d3f8a, accent: '#2a6fe0' },
+];
+const ROAD_INFO = {
+  f40: { team: 'FERRARI F40 · 1987', engine: 'V8 2,9 L biturbo · 5 marce · 7.750 giri', stats: [['POTENZA', 0.48, '478 CV'], ['PESO', 0.55, '1100 kg'], ['VELOCITÀ', 0.85, '324 km/h'], ['CARICO', 0.1, 'QUASI NIENTE'], ['TRAZIONE', 0.6, 'POSTERIORE']] },
+  uno: { team: 'FIAT UNO TURBO I.E. · 1995', engine: '4 cilindri 1,4 L turbo · 5 marce · 6.500 giri', stats: [['POTENZA', 0.12, '118 CV'], ['PESO', 0.45, '975 kg'], ['VELOCITÀ', 0.5, '195 km/h'], ['CARICO', 0.02, 'NIENTE'], ['TRAZIONE', 0.4, 'ANTERIORE']] },
+};
+const ROAD_ALL = [...F40_LIVERIES.map((e, k) => ({ ...e, cls: 'f40', k, ...ROAD_INFO.f40 })), ...UNO_LIVERIES.map((e, k) => ({ ...e, cls: 'uno', k, ...ROAD_INFO.uno }))];
+const roadIdx = () => Math.max(0, ROAD_ALL.findIndex(e => e.cls === (IS_ROAD ? CAR_CLASS : 'f40') && e.k === ((settings[xKey(IS_ROAD ? CAR_CLASS : 'f40')] | 0)))); 
 const NASCAR_LIVERIES = [
   { name: '#47 ORIGINALE', primary: null, accent: '#1e4fb8' },
   { name: '#24 BLU E ARANCIO', primary: 0x16309a, acc2: 0xff7a12, accent: '#ff7a12' },
@@ -4176,7 +4196,7 @@ const SPEC_STATS = {
   w11: [['POTENZA', 1, '~1000 CV IBRIDI'], ['PESO', 0.45, '746 kg'], ['VELOCITÀ', 0.98, '~350 km/h'], ['CARICO', 1, 'ALTISSIMO'], ['GOMME', 0.9, 'SLICK']],
   rb8: [['POTENZA', 0.92, '~750 CV + KERS'], ['PESO', 0.3, '640 kg'], ['VELOCITÀ', 0.93, '~320 km/h'], ['CARICO', 0.88, 'ALTO'], ['GOMME', 0.85, 'SLICK']],
 };
-const gList = () => (gState.cat === 'hyper' ? HY_LIVERIES : isX(gState.cat) ? xList(gState.cat) : gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? SPECIALS : TEAMS_2026);
+const gList = () => (gState.cat === 'road' ? ROAD_ALL : gState.cat === 'hyper' ? HY_LIVERIES : isX(gState.cat) ? xList(gState.cat) : gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? SPECIALS : TEAMS_2026);
 const gIdx = () => Math.max(0, gList().findIndex(t => t.id === settings.f1Team));
 const porscheLiv = () => { const L = GT_LIVERIES[settings.gtLiv | 0]; return L && !L.model ? settings.gtLiv | 0 : 0; };
 const gtIdx = () => { const v = settings.gtCar || 'gt3r'; return v === 'gt3r' ? porscheLiv() : Math.max(0, GT_LIVERIES.findIndex(e => e.model === v)); };
@@ -4186,8 +4206,8 @@ function openGarage(pick = false) {
   if (!garage) { garage = new Garage(renderer, scene.environment); }
   garage.resize(innerWidth, innerHeight);
   gState.pick = pick;
-  gState.cat = ARC() ? 'toon' : XCLS || IS_HYPER ? CAR_CLASS : IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
-  gState.idx = gState.cat === 'gt' ? gtIdx() : gState.cat === 'hyper' ? hyIdx() : isX(gState.cat) ? (settings[xKey(gState.cat)] | 0) : gIdx();
+  gState.cat = ARC() ? 'toon' : IS_ROAD ? 'road' : XCLS || IS_HYPER ? CAR_CLASS : IS_R26 ? 'r26' : IS_F1 ? 'f1' : 'gt';
+  gState.idx = gState.cat === 'road' ? roadIdx() : gState.cat === 'gt' ? gtIdx() : gState.cat === 'hyper' ? hyIdx() : isX(gState.cat) ? (settings[xKey(gState.cat)] | 0) : gIdx();
   $('gSteps').innerHTML = pick ? '<b class="on">SCUDERIA</b><span> › CIRCUITO › IMPOSTAZIONI</span>' : '<b class="on">GARAGE</b>';
   $('gTitle').classList.toggle('hidden', !pick);
   $('gTitle').textContent = settings.gameType === 'trial' ? 'PROVA A TEMPO · SCEGLI LA VETTURA' : 'GRAN PREMIO · SCEGLI LA SCUDERIA';
@@ -4201,7 +4221,7 @@ async function showGarageCar() {
   const cat = gState.cat, tok = ++gToken;
   document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.classList.toggle('sel', b.dataset.cat === cat));
   const list = gList(), e = list[gState.idx];
-  const kind = cat === 'gt' ? 'gt' : isX(cat) || cat === 'hyper' ? cat : cat === 'r26' ? specKind(e) : 'f1';
+  const kind = cat === 'road' ? e.cls : cat === 'gt' ? 'gt' : isX(cat) || cat === 'hyper' ? cat : cat === 'r26' ? specKind(e) : 'f1';
   const gvar = (cat === 'gt' || cat === 'hyper') && e.model ? e.model : null;
   $('gCount').textContent = `${gState.idx + 1} / ${list.length}`;
   $('gLoading').classList.remove('hidden');
@@ -4222,6 +4242,8 @@ async function showGarageCar() {
     $('gTeam').textContent = cat === 'toon' ? `${e.name} · CARTOON` : e.name;
     $('gName').textContent = e.car;
     $('gDrivers').textContent = e.drivers.join(' · ');
+  } else if (cat === 'road') {
+    $('gTeam').textContent = 'STRADALI · ' + e.name; $('gName').textContent = e.team; $('gDrivers').textContent = e.engine;
   } else if (kind === 'hyper') {
     $('gTeam').textContent = e.team; $('gName').textContent = e.name; $('gDrivers').textContent = e.engine;
   } else if (kind === 'nascar') {
@@ -4231,7 +4253,7 @@ async function showGarageCar() {
   } else {
     $('gTeam').textContent = e.team; $('gName').textContent = e.name; $('gDrivers').textContent = e.engine || 'GT3 · 4,2 L boxer · 6 cilindri';
   }
-  const st = cat === 'hyper' ? [['POTENZA', 0.78, e.stats[0]], ['PESO', 0.5, e.stats[1]], ['VELOCITÀ', 0.9, e.stats[2]], ['CARICO', 0.8, 'ALTO'], ['IBRIDO', 1, 'SÌ']]
+  const st = cat === 'road' ? e.stats.map(r => r.slice()) : cat === 'hyper' ? [['POTENZA', 0.78, e.stats[0]], ['PESO', 0.5, e.stats[1]], ['VELOCITÀ', 0.9, e.stats[2]], ['CARICO', 0.8, 'ALTO'], ['IBRIDO', 1, 'SÌ']]
     : cat === 'nascar' ? [['POTENZA', 0.7, '~750 CV'], ['PESO', 0.78, '1550 kg'], ['VELOCITÀ', 0.86, '~320 km/h'], ['CARICO', 0.35, 'BASSO'], ['SCIA', 1, 'FORTISSIMA']]
     : cat === 'kart' ? [['POTENZA', 0.12, '~48 CV'], ['PESO', 0.05, '175 kg'], ['VELOCITÀ', 0.35, '~130 km/h'], ['CARICO', 0.02, 'NESSUNO'], ['AGILITÀ', 1, 'MASSIMA']]
     : cat === 'gt'
@@ -4244,7 +4266,7 @@ async function showGarageCar() {
 }
 document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.addEventListener('click', () => {
   gState.cat = b.dataset.cat;
-  gState.idx = gState.cat === 'gt' ? gtIdx() : gState.cat === 'hyper' ? hyIdx() : isX(gState.cat) ? (settings[xKey(gState.cat)] | 0) : gIdx();
+  gState.idx = gState.cat === 'road' ? roadIdx() : gState.cat === 'gt' ? gtIdx() : gState.cat === 'hyper' ? hyIdx() : isX(gState.cat) ? (settings[xKey(gState.cat)] | 0) : gIdx();
   showGarageCar();
 }));
 $('gPrev').addEventListener('click', () => { const L = gList().length; gState.idx = (gState.idx - 1 + L) % L; showGarageCar(); });
@@ -4252,13 +4274,14 @@ $('gNext').addEventListener('click', () => { const L = gList().length; gState.id
 // "Guidala": modalità, categoria e scuderia della vettura che stai guardando, poi il pregara
 $('garageUse').addEventListener('click', () => {
   const cat = gState.cat, e = gList()[gState.idx];
-  const cls = cat === 'gt' ? 'gt' : isX(cat) || cat === 'hyper' ? cat : cat === 'r26' ? specKind(e) : 'f1';
+  const cls = cat === 'road' ? e.cls : cat === 'gt' ? 'gt' : isX(cat) || cat === 'hyper' ? cat : cat === 'r26' ? specKind(e) : 'f1';
+  const xi = cat === 'road' ? e.k : gState.idx;
   if (!gState.pick) { settings.gameType = 'race'; gState.pick = true; }
   if (cls !== 'gt' && cls !== 'hyper' && !isX(cls)) settings.f1Team = e.id;
   const hyChanged = cls === 'hyper' && (settings.hyCar || 'gt3r') !== (e.model || 'gt3r');
   if (cls === 'hyper') settings.hyCar = e.model || 'gt3r';
-  const kartChanged = isX(cls) && (settings[xKey(cls)] | 0) !== gState.idx;
-  if (isX(cls)) settings[xKey(cls)] = gState.idx;
+  const kartChanged = isX(cls) && (settings[xKey(cls)] | 0) !== xi;
+  if (isX(cls)) settings[xKey(cls)] = xi;
   const gtChanged = cls === 'gt' && ((settings.gtCar || 'gt3r') !== (e.model || 'gt3r') || (!e.model && (settings.gtLiv | 0) !== gState.idx));
   if (cls === 'gt') { settings.gtCar = e.model || 'gt3r'; settings.gtLiv = e.model ? 0 : gState.idx; }
   settings.driveMode = cat === 'toon' ? 'arcade' : 'sim';

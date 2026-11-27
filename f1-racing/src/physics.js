@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=222';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=222';
-import { SURF, SURF_PROPS } from './track.js?v=222';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=223';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=223';
+import { SURF, SURF_PROPS } from './track.js?v=223';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -253,7 +253,7 @@ export class CarPhysics {
     // --- motore ---
     const ratio = this.gear === -1 ? -this.reverseRatio : this.gears[this.gear - 1] / this.gearLong;
     // il motore gira con le ruote posteriori (se pattinano, i giri salgono con loro)
-    const rearU = (Math.abs(this.wheels[2].spin) + Math.abs(this.wheels[3].spin)) / 2;
+    const dw = this.spec.fwd ? 0 : 2, rearU = (Math.abs(this.wheels[dw].spin) + Math.abs(this.wheels[dw + 1].spin)) / 2;
     // (il piccolo slittamento normale della gomma che spinge, 1–2%, non si conta: si sente solo il pattinamento vero)
     let rpmWheel = Math.max(Math.abs(vxl), rearU - 0.025 * Math.abs(vxl)) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
     let rpmTarget = rpmWheel;
@@ -391,14 +391,16 @@ export class CarPhysics {
         out.x = f * kap; out.y = -f * alpha; return out;
       };
       // spinta alla ruota (le due posteriori si dividono la coppia, come un differenziale aperto)
-      let drive = front ? 0 : driveForce / 2;
-      if (!front) {
+      // (trazione anteriore, Fiat Uno: spingono le due ruote davanti)
+      const driven = this.spec.fwd ? front : !front, a0 = this.spec.fwd ? 0 : 2;
+      let drive = driven ? driveForce / 2 : 0;
+      if (driven) {
         // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
         // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore
-        const du = this.wheels[2].spin - this.wheels[3].spin;
+        const du = this.wheels[a0].spin - this.wheels[a0 + 1].spin;
         const lim = (250 + (driveForce > 0 ? 0.45 : 0.25) * Math.abs(driveForce)) * (this.spec.lsd ?? 1);
         const lock = Math.max(-lim, Math.min(lim, 2500 * du));
-        drive += i === 2 ? -lock : lock;
+        drive += i === a0 ? -lock : lock;
       }
       let bf = brakeF * (front ? this.brakeBias : 1 - this.brakeBias) / 2;
       // gli aiuti elettronici non chiedono alla gomma più di quanto può dare (lasciando margine in curva)

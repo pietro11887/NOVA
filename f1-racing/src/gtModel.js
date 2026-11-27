@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=222';
-import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=222';
+import { GEOM, CAR_SCALE } from './carModel.js?v=223';
+import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=223';
 // altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
 const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=222';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=223';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -72,7 +72,7 @@ function inlineImages(parser) {
 }
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
-const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'] };
+const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'], f40: ['gt_f40_hi.glb', 'gt_f40_mid.glb'], uno: ['gt_uno_hi.glb', 'gt_uno_mid.glb'] };
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
 // (la Mercedes SLS bianca, senza livrea, non c'è più: i suoi file restano nella cartella)
@@ -80,7 +80,7 @@ const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_
 export const GT3_ALL = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
 // Hypercar: 'gt3r' è la vettura di base della categoria (Ferrari 499P), poi Porsche 963 e Cadillac
 export const HY_VARIANTS = ['hpor', 'hcad', 'hbmw', 'hlam'];
-export const GT_VARIANTS = CAR_CLASS === 'hyper' ? ['gt3r', ...HY_VARIANTS] : PUBLIC || CAR_CLASS === 'kart' || CAR_CLASS === 'nascar' ? ['gt3r'] : GT3_ALL;
+export const GT_VARIANTS = CAR_CLASS === 'hyper' ? ['gt3r', ...HY_VARIANTS] : PUBLIC || CAR_CLASS === 'kart' || CAR_CLASS === 'nascar' || CAR_CLASS === 'f40' || CAR_CLASS === 'uno' ? ['gt3r'] : GT3_ALL;
 // GT3 che corrono in griglia (la SLS bianca, senza livrea, solo se la guidi tu)
 export const gridVariants = mine => GT_VARIANTS.filter(v => v !== 'sls' || v === mine);
 const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'], mcl: ['gt_mcl_hi.glb', 'gt_mcl_mid.glb'],
@@ -149,6 +149,10 @@ function tuneMaterial(src) {
   else if (n === 'chasis' || n === 'chassis2') { m.roughness = 0.3; m.metalness = 0.2; m.color.set(0xffffff); m.userData.livery = true; }
   else if (n === 'decal') { m.transparent = false; m.alphaTest = 0.45; m.roughness = 0.35; m.depthWrite = true; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; }
   else if (n === 'carbon') { m.roughness = 0.4; m.metalness = 0.35; m.color.set(0x9a9a9a); carbonWeave(m); }
+  else if (/^F40_(Window|Glass)/.test(n)) { m.map = null; m.transparent = true; m.opacity = 0.4; m.color.set(0x141a22); m.roughness = 0.05; m.metalness = 0.3; }
+  else if (n === 'super_brakelight' || n === 'super_signal_L') { m.emissive = new THREE.Color(n === 'super_brakelight' ? 0xff2a1a : 0xff7a10); m.emissiveIntensity = 0.4; }
+  else if (n === 'F40_Chrome') { m.roughness = 0.15; m.metalness = 0.85; m.color.set(0x9aa0a8); }
+  else if (n === 'UNO_RIM') { m.roughness = 0.3; m.metalness = 0.75; }
   else if (n === 'glass') { m.map = null; m.transparent = true; m.opacity = 0.35; m.color.set(0x1a2230); m.roughness = 0.05; }
   else if (n === 'redbull_wheel_hub') { m.roughness = 0.35; m.metalness = 0.6; }
   else if (/^TIRE_/.test(n)) { m.roughness = 0.88; m.metalness = 0; }
@@ -184,7 +188,7 @@ function tuneMaterial(src) {
 
 // classifica un triangolo (coordinate del gioco) nelle parti staccabili
 function partOf(cx, cy, cz, kind) {
-  if (kind === 'kart' || kind === 'nascar' || kind === 'hyper') return 'body';
+  if (kind === 'kart' || kind === 'nascar' || kind === 'hyper' || kind === 'f40' || kind === 'uno') return 'body';
   if (kind === 'f1') {
     // RB22: ala posteriore sopra il diffusore, ala anteriore bassa davanti alle ruote
     if (cx < -1.72 && cy > 0.2) return 'rw';
@@ -536,6 +540,8 @@ export function createGT(opts = {}) {
   // livrea: quella originale (Manthey #91 / Red Bull) oppure ridipinta con i colori della squadra
   // (le altre GT3 tengono la loro livrea)
   if (myPaint && opts.primary != null && myPaint.map && !tpl.variant && tpl.kind !== 'hyper') myPaint.map = tpl.kind === 'kart' || tpl.kind === 'nascar' ? liveryKart(myPaint.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024, tpl.kind === 'nascar') : liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
+  // stradali: vernice tinta unita (rosso Ferrari per la F40, rosso Fiat per la Uno, o il colore scelto)
+  if (myPaint && !myPaint.map && (tpl.kind === 'f40' || tpl.kind === 'uno')) myPaint.color.set(opts.primary ?? (tpl.kind === 'f40' ? 0xc8070d : 0xb5121b));
   // la SLS è bianca: gli avversari la hanno nel loro colore
   if (myPaint && opts.primary != null && tpl.variant === 'sls') myPaint.color.set(opts.primary);
   const swap = new Map();

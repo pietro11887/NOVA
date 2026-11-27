@@ -56,6 +56,11 @@ const CFG = {
   nas: { wb: 2.79, flip: true, tyre: /^rubber/, rim: /^car_body(_0|_2|_3)?$/, disc: /^orig_19/, paint: /^car_body_1$/, kill: /^Standard_10$/,
     drop: /^Inside_frame_baked$|^Material_4096|^Material_4084|^Carbon_Fiber(_0)?$|^black_trim(_0|_B)?$|^red_tape$|^inside_frame_details$|^Side_Pipes$/, livery: /^PAINT$/, ratio: [0.35, 0.1], error: [0.001, 0.004] },
   // Subaru BRZ GT300 2021 (vecarz, CC BY 4.0): abitacolo tolto
+  // Stradali: Ferrari F40 (OBJ convertito), abitacolo semplificato; vernice rossa come quella vera
+  f40: { wb: 2.45, tyre: /^Scene_-_Root\.002$/, rim: /^F40_Rrims$/, disc: /^F40_Brake$/, paint: /^F40$/,
+    drop: /^F40_(Skin|Pedali|Display_1|Sheft|Strelki|Tappetini|Cockpit_HR|Mechanics\.001|Estra)$|^super_gauges$/, livery: /^PAINT$/, ratio: [0.2, 0.06], error: [0.001, 0.004] },
+  // Fiat Uno Turbo i.e. 1995 (FBX senza colori: materiali assegnati da tools/uno_mats.mjs)
+  uno: { wb: 2.362, tyre: /^UNO_TYRE$/, rim: /^UNO_RIM$/, disc: /^NESSUNO$/, paint: /^UNO_BODY$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.6, 0.25], error: [0.001, 0.004] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -66,6 +71,13 @@ const root = doc.getRoot(), scene = root.getDefaultScene();
 // (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
 if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
 await doc.transform(flatten());
+// primitive che condividono gli stessi vertici (OBJ/FBX convertiti: un oggetto con più materiali): ognuna la sua copia,
+// se no le trasformazioni qui sotto si applicherebbero più volte agli stessi punti
+{ const seen = new Set();
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) {
+    for (const sem of p.listSemantics()) { const a = p.getAttribute(sem); if (seen.has(a)) p.setAttribute(sem, a.clone()); else seen.add(a); }
+    const ix = p.getIndices(); if (ix) { if (seen.has(ix)) p.setIndices(ix.clone()); else seen.add(ix); }
+  } }
 if (CFG.kill) for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) if (CFG.kill.test(p.getMaterial()?.getName() || '')) p.dispose();
 for (const n of root.listNodes()) if (n.getMesh()) clearNodeTransform(n);
 // trasformazioni delle texture (KHR_texture_transform, es. la livrea della RB8): si applicano alle UV

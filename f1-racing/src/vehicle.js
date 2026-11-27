@@ -6,7 +6,7 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'kart', 'nascar', 'hyper', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
   if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart' && cls !== 'nascar' && cls !== 'hyper') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
@@ -20,6 +20,8 @@ export const IS_MP45 = cls === 'mp45';
 export const IS_KART = cls === 'kart';
 export const IS_NASCAR = cls === 'nascar';
 export const IS_HYPER = cls === 'hyper';
+// Stradali: vetture di serie vere (Ferrari F40, Fiat Uno Turbo i.e.), ognuna con la sua fisica
+export const IS_ROAD = cls === 'f40' || cls === 'uno';
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
 // snd.mul porta i giri del motore sui campioni del V12: frequenza di scoppio = giri × cilindri / 120.
@@ -241,6 +243,52 @@ SPECS.hyper = {
   circles: [[1.7, 0.98], [0.0, 1.0], [-1.7, 0.98]],
   ai: { hazard: [13, 4, 0.0012], follow: 24, pit: 17 },
   dirtyAir: 0.13,
+};
+
+// Stradali. Ferrari F40 (1987): V8 2,9 L biturbo, 478 CV a 7000 giri, 577 Nm, 1100 kg + pilota, 5 marce,
+// gomme stradali (poca aderenza rispetto alle slick), niente ABS, quasi niente carico aerodinamico
+SPECS.f40 = {
+  label: 'FERRARI F40',
+  geom: { axleF: 1.225, axleR: -1.225, halfTrack: 0.8, wheelR: 0.33, cgHeight: 0.42 },
+  car: { mass: 1180, ClA: 0.55, CdA: 0.62, mu: 1.2, torque: 577, brake: 21000 },
+  inertia: { Iz: 1500, Ipitch: 1250, Iroll: 420 },
+  susp: { springK: 140000, damperC: 7500, arbK: [120000, 35000] },
+  steer: 0.85,
+  heat: { slide: 38000, roll: 0.07 },
+  gears: [9.94, 6.18, 4.4, 3.45, 2.75], rpm: 7750, idle: 1100,
+  hull: [
+    [2.1, -0.85, 'fwL'], [2.1, 0.85, 'fwR'], [2.16, 0, 'nose'],
+    [1.225, -0.95, 'wFL'], [1.225, 0.95, 'wFR'],
+    [0.0, -0.97, 'sideL'], [0.0, 0.97, 'sideR'],
+    [-1.225, -0.95, 'wRL'], [-1.225, 0.95, 'wRR'],
+    [-2.05, -0.85, 'rw'], [-2.05, 0.85, 'rw'],
+  ],
+  circles: [[1.35, 0.95], [0.0, 0.97], [-1.3, 0.95]],
+  ai: { hazard: [10, 3, 0.0009], follow: 18, pit: 13 },
+  dirtyAir: 0.03,
+};
+// Fiat Uno Turbo i.e. (1995): 4 cilindri 1,4 L turbo, 118 CV, 172 Nm, ~975 kg + pilota, trazione anteriore,
+// gomme 175/60 R13, differenziale aperto: in uscita di curva la ruota interna pattina
+SPECS.uno = {
+  label: 'FIAT UNO TURBO',
+  geom: { axleF: 1.181, axleR: -1.181, halfTrack: 0.68, wheelR: 0.28, cgHeight: 0.52 },
+  car: { mass: 1050, ClA: 0.05, CdA: 0.62, mu: 1.0, torque: 172, brake: 13000 },
+  inertia: { Iz: 1150, Ipitch: 980, Iroll: 340 },
+  susp: { springK: 90000, damperC: 5200, arbK: [60000, 25000] },
+  steer: 0.9,
+  heat: { slide: 30000, roll: 0.07 },
+  gears: [14.1, 7.8, 5.35, 4.05, 3.26], rpm: 6500, idle: 900,
+  fwd: true, lsd: 0.25,
+  hull: [
+    [1.85, -0.72, 'fwL'], [1.85, 0.72, 'fwR'], [1.92, 0, 'nose'],
+    [1.181, -0.8, 'wFL'], [1.181, 0.8, 'wFR'],
+    [0.0, -0.8, 'sideL'], [0.0, 0.8, 'sideR'],
+    [-1.181, -0.8, 'wRL'], [-1.181, 0.8, 'wRR'],
+    [-1.7, -0.7, 'rw'], [-1.7, 0.7, 'rw'],
+  ],
+  circles: [[1.1, 0.8], [0.0, 0.8], [-1.1, 0.8]],
+  ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
+  dirtyAir: 0.02,
 };
 
 export const SPEC = SPECS[cls];
