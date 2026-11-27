@@ -46,6 +46,12 @@ const CFG = {
   // Hypercar: Cadillac V-Series.R 2023 (vecarz, CC BY 4.0), abitacolo tolto
   hcad: { wb: 3.148, tyre: /^EXT_Tyres$/, rim: /^EXT_RIM$|^EXT_RIM_DECALS$/, disc: /^BRAKE_DISC$/, paint: /^CARPAINT$/,
     drop: /^INT_|^STEER_|^mat_1(37|5[2-8]|89)$|^DISPLAY_GLASS$|^LED(GREEN|YELLOW|RED)$|^material$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.001, 0.004] },
+  // Hypercar: BMW M Hybrid V8 (vecarz, CC BY 4.0), stessa base della Ferrari 499P: abitacolo tolto
+  hbmw: { wb: 3.15, tyre: /^EXT_Tyre$/, rim: /^RIMS$|^Wheels$/, disc: /^brake_disk$|^caliper$/, paint: /^NESSUNO$/, kill: /^EXT_Rim_Blur/,
+    drop: /^sw_|^963_|^DISPLAY|^kers_|^TRANSPARENTE$|^logo_cos$|^shift_lights$|^seats|^main$|^MIRRORS$|^INT_|^dials_alpha$|^Tex_0185|^Glass$/, livery: /^PAINT$/, ratio: [0.25, 0.07], error: [0.001, 0.004] },
+  // Hypercar: Lamborghini SC63 (FBX convertito con three.js): ruote in un solo materiale, abitacolo tolto
+  hlam: { wb: 3.148, tyre: /Wheel1A_3D/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/,
+    drop: /InteriorA_|InteriorTillingA_|Textured2A_|GrilleNoAlpha2A_|GrilleAlpha3A_/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.001, 0.004] },
   // NASCAR Chevrolet Camaro 2018 (vecarz): muso verso -Z (si gira), pilota a sinistra; ombra a terra tolta
   nas: { wb: 2.79, flip: true, tyre: /^rubber/, rim: /^car_body(_0|_2|_3)?$/, disc: /^orig_19/, paint: /^car_body_1$/, kill: /^Standard_10$/,
     drop: /^Inside_frame_baked$|^Material_4096|^Material_4084|^Carbon_Fiber(_0)?$|^black_trim(_0|_B)?$|^red_tape$|^inside_frame_details$|^Side_Pipes$/, livery: /^PAINT$/, ratio: [0.35, 0.1], error: [0.001, 0.004] },

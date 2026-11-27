@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=216';
-import { CAR_CLASS, CLASSICS } from './vehicle.js?v=216';
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=216';
+import { GEOM, CAR_SCALE } from './carModel.js?v=217';
+import { CAR_CLASS, CLASSICS } from './vehicle.js?v=217';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=217';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -77,12 +77,13 @@ const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_
 // tutte le GT3 (anche quando si guida un'altra categoria: si vedono nel garage)
 export const GT3_ALL = PUBLIC ? ['gt3r'] : ['gt3r', 'f296', 'm4', 'amv', 'amg', 'mcl', 'mas', 'toy', 'ford', 'lam', 'brz'];
 // Hypercar: 'gt3r' è la vettura di base della categoria (Ferrari 499P), poi Porsche 963 e Cadillac
-export const HY_VARIANTS = ['hpor', 'hcad'];
+export const HY_VARIANTS = ['hpor', 'hcad', 'hbmw', 'hlam'];
 export const GT_VARIANTS = CAR_CLASS === 'hyper' ? ['gt3r', ...HY_VARIANTS] : PUBLIC || CAR_CLASS === 'kart' || CAR_CLASS === 'nascar' ? ['gt3r'] : GT3_ALL;
 // GT3 che corrono in griglia (la SLS bianca, senza livrea, solo se la guidi tu)
 export const gridVariants = mine => GT_VARIANTS.filter(v => v !== 'sls' || v === mine);
 const VFILES = { f296: ['gt_f296_hi.glb', 'gt_f296_mid.glb'], sls: ['gt_sls_hi.glb', 'gt_sls_mid.glb'], m4: ['gt_m4_hi.glb', 'gt_m4_mid.glb'], amv: ['gt_amv_hi.glb', 'gt_amv_mid.glb'], amg: ['gt_amg_hi.glb', 'gt_amg_mid.glb'], mcl: ['gt_mcl_hi.glb', 'gt_mcl_mid.glb'],
-  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'], brz: ['gt_brz_hi.glb', 'gt_brz_mid.glb'], hpor: ['gt_hpor_hi.glb', 'gt_hpor_mid.glb'], hcad: ['gt_hcad_hi.glb', 'gt_hcad_mid.glb'] };
+  mas: ['gt_mas_hi.glb', 'gt_mas_mid.glb'], toy: ['gt_toy_hi.glb', 'gt_toy_mid.glb'], ford: ['gt_ford_hi.glb', 'gt_ford_mid.glb'], lam: ['gt_lam_hi.glb', 'gt_lam_mid.glb'], brz: ['gt_brz_hi.glb', 'gt_brz_mid.glb'], hpor: ['gt_hpor_hi.glb', 'gt_hpor_mid.glb'], hcad: ['gt_hcad_hi.glb', 'gt_hcad_mid.glb'],
+  hbmw: ['gt_hbmw_hi.glb', 'gt_hbmw_mid.glb'], hlam: ['gt_hlam_hi.glb', 'gt_hlam_mid.glb'] };
 const vJobs = {};
 // carica una GT (hi = dettagliata per te, mid = leggera per gli avversari)
 export function loadVariant(v, lod = 'hi') {
