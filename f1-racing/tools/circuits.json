@@ -818,5 +818,76 @@
    "ita"
   ],
   "short": "DAYTONA 500"
+ },
+ "biella": {
+  "name": "Biella Città",
+  "lat": 45.562,
+  "lon": 8.052,
+  "half": 1600,
+  "length": 8000,
+  "dir": "cw",
+  "hw": 4.6,
+  "climate": "temperate",
+  "street": true,
+  "place": "Italia · Biella",
+  "flag": [
+   "#c8102e",
+   "#ffffff",
+   "#1e5bd6"
+  ],
+  "km": "8,0",
+  "corners": 40,
+  "info": "Il giro gigante di Biella: Duomo, funicolare e Piazzo, l'ITIS Quintino Sella, lo stadio, la Banca Sella, i Giardini Zumaglini e Cittadellarte",
+  "fans": [
+   "ita",
+   "ita",
+   "ita",
+   "ita",
+   "ita",
+   "ita"
+  ],
+  "short": "BIELLA",
+  "pit_synth": true,
+  "max_grade": 0.18,
+  "bmax": 4000,
+  "bmax_d": 1200,
+  "waypoints": [
+   [
+    45.5662,
+    8.0545
+   ],
+   [
+    45.56697,
+    8.04839
+   ],
+   [
+    45.56603,
+    8.04523
+   ],
+   [
+    45.5559,
+    8.0489
+   ],
+   [
+    45.5545,
+    8.0575
+   ],
+   [
+    45.5606,
+    8.0542
+   ],
+   [
+    45.56298,
+    8.0563
+   ],
+   [
+    45.57243,
+    8.05607
+   ]
+  ],
+  "start_ll": [
+   45.56298,
+   8.0563
+  ]
  }
 }

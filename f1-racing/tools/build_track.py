@@ -330,6 +330,49 @@ def is_pit(t):
     return t.get('service') in ('pit_lane', 'pitlane', 'pit') or t.get('raceway') in ('pit_lane', 'pitlane', 'pit') or bool(PIT_RE.search(n))
 
 
+ROUTE_W = {'primary': 1.0, 'secondary': 1.0, 'tertiary': 1.0, 'unclassified': 1.1, 'residential': 1.15, 'living_street': 1.4,
+           'primary_link': 1.2, 'secondary_link': 1.2, 'tertiary_link': 1.2, 'pedestrian': 1.6, 'service': 2.5}
+
+
+def route_waypoints(ways, nodes, xy, cfg, kx, kz, lat0, lon0):
+    import heapq
+    adj = {}
+    for wid, (nds, t) in ways.items():
+        hw = t.get('highway')
+        if hw not in ROUTE_W or t.get('area') == 'yes' or t.get('access') in ('private', 'no'): continue
+        nds = [n for n in nds if n in xy]
+        for a, b in zip(nds, nds[1:]):
+            L = math.hypot(xy[b][0] - xy[a][0], xy[b][1] - xy[a][1]) * ROUTE_W[hw]
+            adj.setdefault(a, []).append((b, L)); adj.setdefault(b, []).append((a, L))
+    pts = [((lo - lon0) * kx, -(la - lat0) * kz) for la, lo in cfg['waypoints']]
+    def nearest(p):
+        return min(adj, key=lambda n: (xy[n][0] - p[0]) ** 2 + (xy[n][1] - p[1]) ** 2)
+    W = [nearest(p) for p in pts]
+    used = set(); path = [W[0]]
+    near_used = lambda n: any(abs(xy[n][0] - xy[u][0]) < 25 and abs(xy[n][1] - xy[u][1]) < 25 for u in used)
+    for k in range(len(W)):
+        a, b = W[k], W[(k + 1) % len(W)]
+        dist = {a: 0}; prev = {}; pq = [(0, a)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if u == b: break
+            if d > dist.get(u, 1e18): continue
+            for v, L in adj.get(u, []):
+                pen = 40 if (v in used and v != b) else 1
+                nd = d + L * pen
+                if nd < dist.get(v, 1e18): dist[v] = nd; prev[v] = u; heapq.heappush(pq, (nd, v))
+        if b not in prev and b != a: raise SystemExit(f'nessuna strada tra i punti {k} e {k + 1}')
+        seg = [b]
+        while seg[-1] != a: seg.append(prev[seg[-1]])
+        seg = seg[::-1]
+        for n in seg: used.add(n)
+        path += seg[1:]
+        print(f'  tratto {k + 1}: {sum(math.hypot(xy[q][0] - xy[p][0], xy[q][1] - xy[p][1]) for p, q in zip(seg, seg[1:])):.0f} m')
+    if path[-1] == path[0]: path = path[:-1]
+    print(f'  percorso sulle strade: {loop_len([xy[n] for n in path]):.0f} m, {len(path)} nodi')
+    return path
+
+
 def race_loop(ways, nodes, xy, target, cfg, only=None):
     if only:
         # vie della relazione "circuit": il ruolo dice il verso (forward = come la via, backward = al contrario)
@@ -567,6 +610,10 @@ def main():
             if abs(Lc - cfg['length']) / cfg['length'] < 0.06 and gap < 60:
                 seq = chain[:-1] if chain[0] == chain[-1] else chain
                 vote = 1                  # i ruoli forward/backward danno già il verso di gara
+    # circuito cittadino inventato su strade vere: si collegano i punti di passaggio (cfg 'waypoints', in ordine
+    # di gara) con il percorso più breve sulle strade, evitando di ripassare dove si è già passati
+    if cfg.get('waypoints'):
+        seq = route_waypoints(ways, nodes, xy, cfg, kx, kz, lat0, lon0); vote = 1
     try:
         if seq is None: seq, vote = race_loop(ways, nodes, xy, cfg['length'], cfg, only)
         elif False: pass
