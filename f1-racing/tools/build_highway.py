@@ -138,6 +138,11 @@ def main():
             t = t * t * (3 - 2 * t)
             gh.append(round(float(Y[k] * (1 - t) + hill * t) - 0.4 * (1 - t), 2))
     base = 0.0
+    # tutto più in alto di 80 m: il gioco mette il mare dove il terreno scende sotto lo zero
+    # (le valli dell'autostrada finivano sotto un piano d'acqua che rifletteva il cielo)
+    LIFT = 80.0
+    Y = Y + LIFT
+    gh = [round(h + LIFT, 2) for h in gh]
     pts = [[round(float(x), 2), round(float(y), 2), round(float(z), 2), HW] for (x, z), y in zip(P, Y)]
     # campagna: boschi, prati, filari, cascine (mai a meno di 45 m dalla strada)
     forest, meadow, trees, buildings = [], [], [], []

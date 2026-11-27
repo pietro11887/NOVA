@@ -610,6 +610,8 @@ export function buildTrack(points) {
   const pit = def.pitPath ? pitFromPath(def.pitPath, samples, length, step, count, street) : buildPitPath(samples, length, step, count);
   const side = PIT.side;
   samples.forEach(s => {
+    // (città e autostrada: la corsia box c'è solo per il gioco ed è nascosta, niente muretto né rete)
+    if (def.city || def.highway) return;
     const ss = s.s > length / 2 ? s.s - length : s.s;
     if (ss < PIT.entry - 5 || ss > PIT.exit + 5) return;
     // distanza laterale della corsia su questo campione (dal lato dei box)

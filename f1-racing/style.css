@@ -1156,3 +1156,10 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 /* guida libera: niente tempi a schermo */
 body.free-drive #hud .timing { display: none; }
 body.free-drive #lapBox { display: none; }
+
+/* garage stradali: ricerca e gruppi */
+.gSearch { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.gSearch input { width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.35); color: #fff; font: inherit; font-size: 14px; }
+.gChips { display: flex; flex-wrap: wrap; gap: 5px; }
+.gChips button { padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 10.5px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
+.gChips button.sel { background: var(--accent); border-color: var(--accent); color: #141414; }
