@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=241';
-import { CAR_CLASS, CLASSICS, SPECS, ROAD_CLS, ROAD_DB } from './vehicle.js?v=241';
+import { GEOM, CAR_SCALE } from './carModel.js?v=242';
+import { CAR_CLASS, CLASSICS, SPECS, ROAD_CLS, ROAD_DB } from './vehicle.js?v=242';
 // altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
 const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=241';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=242';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -284,9 +284,15 @@ function prepare(scene, lowPoly, kind = 'gt') {
   });
   // centri delle ruote dalle gomme
   const wheelInfo = wheels.map(list => {
-    const tyre = list.find(p => p.kind === 'TIRE') || list[0];
-    tyre.g.computeBoundingBox();
-    const c = tyre.g.boundingBox.getCenter(new THREE.Vector3()), s = tyre.g.boundingBox.getSize(new THREE.Vector3());
+    // tutta la gomma, non solo il primo pezzo (se è divisa in più parti il centro di un pezzo non è l'asse e la ruota "balla")
+    // (partendo dal pezzo più grande: i pezzetti di carrozzeria finiti nella gomma, fuori dalla ruota, non contano)
+    const tyres = list.filter(p => p.kind === 'TIRE'), src = tyres.length ? tyres : [list[0]];
+    for (const p of src) p.g.computeBoundingBox();
+    const dia = p => p.g.boundingBox.min.distanceTo(p.g.boundingBox.max);
+    const big = src.reduce((a, p) => dia(p) > dia(a) ? p : a, src[0]);
+    const box = big.g.boundingBox.clone(), lim = box.clone().expandByScalar(0.03), pc = new THREE.Vector3();
+    for (const p of src) if (p !== big && lim.containsPoint(p.g.boundingBox.getCenter(pc))) box.union(p.g.boundingBox);
+    const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
     return { center: c, radius: s.y / 2, width: s.z, list: list.map(p => ({ g: p.g.clone().translate(-c.x, -c.y, -c.z), mat: p.mat, kind: p.kind })) };
   });
   return { parts, wheelInfo, mats, kind, popPivot: POP ? new THREE.Vector3(1.49, POP.y0 + 0.02, 0) : null };
