@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=225';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=225';
-import { SURF, SURF_PROPS } from './track.js?v=225';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=226';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=226';
+import { SURF, SURF_PROPS } from './track.js?v=226';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 

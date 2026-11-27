@@ -1147,3 +1147,8 @@ body.touch .notes { top: calc(max(12px, env(safe-area-inset-top)) + 118px); }
 .wc { display: inline-block; font-size: 8px; font-weight: 900; padding: 0 3px; margin-right: 3px; border-radius: 2px; color: #fff; line-height: 11px; }
 .wc.hyper { background: #e10600; }
 .wc.gt { background: #1f9d48; }
+
+/* garage stradali: pallini dei colori in basso a destra */
+.gColors { position: fixed; right: 14px; bottom: 14px; display: flex; gap: 8px; padding: 8px 10px; border-radius: 22px; background: rgba(12, 14, 20, 0.72); z-index: 5; }
+.gColors button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); padding: 0; cursor: pointer; }
+.gColors button.sel { border-color: #fff; box-shadow: 0 0 0 2px #ff8a1c; }
