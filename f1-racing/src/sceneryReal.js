@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { SpaScenery } from './scenerySpa.js?v=220';
-import { TRACK, bankAt } from './trackData.js?v=220';
+import { SpaScenery } from './scenerySpa.js?v=221';
+import { TRACK, bankAt } from './trackData.js?v=221';
 import { meadow, triplanar } from './pbr.js?v=b890b6bc';
-import { buildTrees } from './trees.js?v=220';
-import { ENV } from './scenery.js?v=220';
+import { buildTrees } from './trees.js?v=221';
+import { ENV } from './scenery.js?v=221';
 import { landmarkSkip } from './landmarks.js?v=92cc6020';
 
 // Circuiti veri del calendario costruiti dalla "fabbrica di piste" (tools/build_track.py): stessi dati di Spa
@@ -93,7 +93,125 @@ export class RealScenery extends SpaScenery {
     super.build();
     this.tunnels();
     if ((this.meta.id || TRACK.id) === 'nordschleife') this.graffiti();
-    if (!TRACK.city) this.cornerSigns(); else this.cityLamps();
+    if (!TRACK.city) this.cornerSigns(); else { this.cityLamps(); this.cityExtras(); }
+  }
+
+  // città vera, tutto dai dati della mappa: parcheggi con le strisce, cortili e piazze lastricate, insegne di
+  // negozi e locali sui loro palazzi, strisce pedonali, semafori e fermate del bus
+  cityExtras() {
+    const U = this.data.urban; if (!U) return;
+    const S = this.track.samples, g = this.group;
+    // superfici piatte (parcheggi, piazze) sopra il terreno; la pista resta sempre davanti
+    const flat = (polys, mat, scale) => {
+      const pos = [], uv = [];
+      for (const p of polys) {
+        // asse principale (lato più lungo): le strisce dei posti auto seguono il parcheggio
+        let best = 0, ax = 1, az = 0;
+        for (let i = 0; i < p.length; i++) { const a = p[i], c = p[(i + 1) % p.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]); if (l > best) { best = l; ax = (c[0] - a[0]) / l; az = (c[1] - a[1]) / l; } }
+        let tr; try { tr = THREE.ShapeUtils.triangulateShape(p.map(([x, z]) => new THREE.Vector2(x, z)), []); } catch (e) { continue; }
+        for (const t of tr) {
+          const q = t.map(k => p[k]);
+          const ny = (q[1][1] - q[0][1]) * (q[2][0] - q[0][0]) - (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]);
+          const o = ny >= 0 ? q : [q[0], q[2], q[1]];
+          for (const [x, z] of o) { pos.push(x, this.heightAt(x, z) + 0.06, z); uv.push((x * ax + z * az) / scale, (-x * az + z * ax) / scale); }
+        }
+      }
+      if (!pos.length) return;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; g.add(m);
+    };
+    const po = { polygonOffset: true, polygonOffsetFactor: 3, polygonOffsetUnits: 3, roughness: 0.92 };
+    flat(U.paved, new THREE.MeshStandardMaterial({ map: pavingTex(), ...po }), 3);
+    flat(U.parking, new THREE.MeshStandardMaterial({ map: parkingTex(), ...po }), 5);
+
+    const nearestS = (x, z) => { let b = 1e9, bi = 0; for (let i = 0; i < S.length; i++) { const d = (S[i].x - x) ** 2 + (S[i].z - z) ** 2; if (d < b) { b = d; bi = i; } } return S[bi]; };
+    const sideOf = (s, x, z) => ((x - s.x) * s.nx + (z - s.z) * s.nz) >= 0 ? 1 : -1;
+    const white = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    // strisce pedonali: bande di 50 cm ogni metro, lunghe 3 m, da marciapiede a marciapiede
+    {
+      const pos = [];
+      for (const [x, z] of U.cross) {
+        const s = nearestS(x, z), hL = s.hwL ?? s.hw, hR = s.hwR ?? s.hw;
+        for (let d = -hR + 0.3; d < hL - 0.4; d += 1.0) {
+          const c = [];
+          for (const [dd, al] of [[d, -1.5], [d + 0.5, -1.5], [d + 0.5, 1.5], [d, 1.5]]) c.push([s.x + s.nx * dd + s.tx * al, s.y + 0.035 + bankAt(s, dd), s.z + s.nz * dd + s.tz * al]);
+          pos.push(...c[0], ...c[2], ...c[1], ...c[0], ...c[3], ...c[2]);
+        }
+      }
+      if (pos.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals(); g.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))); }
+    }
+    void white;
+    const onWalk = (x, z, back) => {
+      const s = nearestS(x, z), sd = sideOf(s, x, z), d = sd * ((sd > 0 ? s.wallL : s.wallR) - back);
+      return { s, sd, x: s.x + s.nx * d, z: s.z + s.nz * d, y: s.y + 0.12 + bankAt(s, d), ry: Math.atan2(s.tx, s.tz) };
+    };
+    // semafori: palo grigio con la lanterna verso chi arriva
+    const pole = new THREE.CylinderGeometry(0.06, 0.07, 3.4, 6), lant = new THREE.BoxGeometry(0.32, 0.95, 0.28), lamp = new THREE.SphereGeometry(0.09, 8, 6);
+    for (const [x, z] of U.signals) {
+      const f = onWalk(x, z, 0.6);
+      this.batch.add(pole, this.colored, mat4(f.x, f.y + 1.7, f.z), 0x5d6168);
+      this.batch.add(lant, this.colored, mat4(f.x, f.y + 3.0, f.z, f.ry), 0x1d1f22);
+      [0xc0392b, 0xd4a017, 0x2ecc71].forEach((c, k) => this.batch.add(lamp, this.colored, mat4(f.x - f.s.tx * 0.15, f.y + 3.3 - k * 0.3, f.z - f.s.tz * 0.15), c));
+    }
+    // fermate del bus: pensilina (tetto, schienale di vetro) e palina gialla
+    const roof = new THREE.BoxGeometry(3.6, 0.08, 1.5), back = new THREE.BoxGeometry(3.6, 2.1, 0.05), post = new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), plate = new THREE.BoxGeometry(0.5, 0.35, 0.04);
+    const glass = new THREE.MeshStandardMaterial({ color: 0x9fb8c4, transparent: true, opacity: 0.35, roughness: 0.1 });
+    for (const [x, z] of U.bus) {
+      const f = onWalk(x, z, 0.9), ry = f.ry + Math.PI / 2;
+      const bx = f.x + f.s.nx * f.sd * 0.6, bz = f.z + f.s.nz * f.sd * 0.6;
+      this.batch.add(roof, this.colored, mat4(bx, f.y + 2.4, bz, ry), 0x6a7078);
+      g.add(Object.assign(new THREE.Mesh(back, glass), { matrixAutoUpdate: false })).children.at(-1).matrix.copy(mat4(bx, f.y + 1.25, bz, ry));
+      const px = f.x + f.s.tx * 2.6 - f.s.nx * f.sd * 0.6, pz = f.z + f.s.tz * 2.6 - f.s.nz * f.sd * 0.6;
+      this.batch.add(post, this.colored, mat4(px, f.y + 1.2, pz), 0x8a8f96);
+      this.batch.add(plate, this.colored, mat4(px, f.y + 2.25, pz, ry), 0xf2c200);
+    }
+    this.batch.flush(this.group);
+
+    // insegne: sul palazzo che contiene il negozio (o il più vicino), sul lato che guarda la strada
+    const B = this.data.buildings, pois = U.pois.filter(p => !['parking', 'park', 'place_of_worship'].includes(p[3])).slice(0, 48);
+    if (!pois.length) return;
+    const atlas = signAtlas(pois.map(p => [p[2], p[3]])), rows = pois.length;
+    const pos = [], uv = [];
+    pois.forEach(([x, z, , kind], k) => {
+      let bb = null, bd = 18;
+      for (const b of B) {
+        const p = b.p; if (Math.abs(p[0][0] - x) > 80 || Math.abs(p[0][1] - z) > 80) continue;
+        if (pip(p, x, z)) { bb = b; break; }
+        for (const q of p) { const d = Math.hypot(q[0] - x, q[1] - z); if (d < bd) { bd = d; bb = b; } }
+      }
+      if (!bb) return;
+      const p = bb.p, cx = p.reduce((a, q) => a + q[0], 0) / p.length, cz = p.reduce((a, q) => a + q[1], 0) / p.length;
+      let be = null, bc = Infinity;
+      for (let i = 0; i < p.length; i++) {
+        const a = p[i], c = p[(i + 1) % p.length], L = Math.hypot(c[0] - a[0], c[1] - a[1]); if (L < 3) continue;
+        const mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, cl = this.clearance(mx, mz).d;
+        if (cl < bc) { bc = cl; be = [a, c, L]; }
+      }
+      if (!be) return;
+      const [a, c, L] = be, ex = (c[0] - a[0]) / L, ez = (c[1] - a[1]) / L;
+      let nx = -ez, nz = ex; const mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2;
+      if ((mx - cx) * nx + (mz - cz) * nz < 0) { nx = -nx; nz = -nz; }
+      const big = kind === 'school' || kind === 'bank';
+      const w = Math.min(L * 0.85, big ? 9 : 6), h = w / 8 * (big ? 1.1 : 1);
+      let gmin = Infinity; for (const [qx, qz] of p) gmin = Math.min(gmin, this.heightAt(qx, qz));
+      const y0 = gmin + (big ? 4.2 : 3.0), ox = mx + nx * 0.12, oz = mz + nz * 0.12;
+      // il cartello si legge da fuori: da sinistra a destra guardando il muro
+      const lx = -nx * 0 + (-nz) * 1, lz = nx * 1; void lx; void lz;
+      const rx = nz, rz = -nx;     // destra per chi guarda il muro
+      const P0 = [ox - rx * w / 2, y0, oz - rz * w / 2], P1 = [ox + rx * w / 2, y0, oz + rz * w / 2];
+      const v0 = 1 - (k + 1) / rows, v1 = 1 - k / rows;
+      pos.push(P0[0], P0[1], P0[2], P1[0], P1[1], P1[2], P1[0], P1[1] + h, P1[2], P0[0], P0[1], P0[2], P1[0], P1[1] + h, P1[2], P0[0], P0[1] + h, P0[2]);
+      uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1);
+    });
+    if (!pos.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.computeVertexNormals();
+    g.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.6, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: ENV.night ? 0.8 : 0.08 })));
   }
 
   // città: lampioni sul marciapiede, alternati sui due lati
@@ -421,7 +539,8 @@ export class RealScenery extends SpaScenery {
       if (landmarkSkip(TRACK.id, b, p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length)) continue;
       let ok = true;
       // in città i palazzi stanno a filo del marciapiede: si scartano solo quelli che entrano in pista
-      const lim = this.track.street ? 0.6 : 2.5;
+      // (città vera: anche a filo del marciapiede, il limite invisibile è già prima del muro di casa)
+      const lim = TRACK.city ? -1.5 : this.track.street ? 0.6 : 2.5;
       for (let i = 0; i < p.length && ok; i++) {
         const [x, z] = p[i], q = p[(i + 1) % p.length];
         if (this.clearance(x, z).d < lim || this.clearance((x + q[0]) / 2, (z + q[1]) / 2).d < lim) ok = false;
@@ -435,7 +554,8 @@ export class RealScenery extends SpaScenery {
         const S = this.track.samples;
         for (let i = 0; i < S.length && ok; i++) {
           const t = S[i]; if (t.x < x0 - 20 || t.x > x1 + 20 || t.z < z0 - 20 || t.z > z1 + 20) continue;
-          for (let d = -(t.wallR + 0.6); d <= t.wallL + 0.6; d += 0.8) {
+          const mg = TRACK.city ? -0.1 : 0.6;
+          for (let d = -(t.wallR + mg); d <= t.wallL + mg; d += 0.8) {
             const x = t.x + t.nx * d, z = t.z + t.nz * d;
             if (x < x0 || x > x1 || z < z0 || z > z1 || !pip(p, x, z)) continue;
             if (this.tunnelSet && this.tunnelSet.has(i)) over = Math.max(over ?? -Infinity, t.y + 7.2);
@@ -586,3 +706,53 @@ function windowsTex() {
   _win.anisotropy = 4;
   return _win;
 }
+
+// città: lastre di pietra delle piazze e dei cortili
+let _pav = null;
+function pavingTex() {
+  if (_pav) return _pav;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'); g.fillStyle = '#8f8b84'; g.fillRect(0, 0, 256, 256);
+  const r = rand(41);
+  for (let j = 0; j < 8; j++) for (let i = 0; i < 4; i++) {
+    const v = 150 + r() * 40 | 0, off = (j % 2) * 32;
+    g.fillStyle = `rgb(${v},${v - 4},${v - 10})`; g.fillRect((i * 64 + off) % 256 + 1, j * 32 + 1, 62, 30);
+    if ((i * 64 + off) % 256 + 64 > 256) g.fillRect(0, j * 32 + 1, (i * 64 + off + 64) % 256 - 1, 30);
+  }
+  _pav = new THREE.CanvasTexture(c); _pav.wrapS = _pav.wrapT = THREE.RepeatWrapping; _pav.colorSpace = THREE.SRGBColorSpace; _pav.anisotropy = 4;
+  return _pav;
+}
+// parcheggio: asfalto con le strisce bianche dei posti (2,5 m) e la corsia in mezzo
+let _park = null;
+function parkingTex() {
+  if (_park) return _park;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'); g.fillStyle = '#55575a'; g.fillRect(0, 0, 256, 256);
+  const r = rand(43);
+  for (let k = 0; k < 4000; k++) { const v = 70 + r() * 40; g.fillStyle = `rgba(${v},${v},${v},0.5)`; g.fillRect(r() * 256, r() * 256, 2, 2); }
+  // 5 m di lato: due file di posti profondi 5 m... qui una fila: strisce ogni 2,5 m (128 px), linea di fondo
+  g.fillStyle = '#e8e8e2';
+  g.fillRect(0, 0, 4, 256); g.fillRect(128, 0, 4, 256); g.fillRect(0, 0, 256, 4);
+  _park = new THREE.CanvasTexture(c); _park.wrapS = _park.wrapT = THREE.RepeatWrapping; _park.colorSpace = THREE.SRGBColorSpace; _park.anisotropy = 4;
+  return _park;
+}
+// insegne: una riga per negozio, colore secondo il tipo, nome scritto grande
+function signAtlas(list) {
+  const W = 512, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H * list.length;
+  const g = c.getContext('2d');
+  const COL = { cafe: '#6b1f2a', bar: '#6b1f2a', pub: '#3b2414', restaurant: '#7a1f1f', fast_food: '#b8371c', bank: '#0b3d91', pharmacy: '#1d7a3a', school: '#f4f1ea',
+    shop: '#1f4e3d', office: '#2f3a4a', fuel: '#c8102e', sports_centre: '#1565c0', police: '#1b2a4a', kindergarten: '#f4f1ea', community_centre: '#4a4a4a' };
+  list.forEach(([name, kind], k) => {
+    const y = k * H, bg = COL[kind] || '#2b2b2b', light = bg === '#f4f1ea';
+    g.fillStyle = bg; g.fillRect(0, y, W, H);
+    g.fillStyle = light ? '#1e3a6e' : '#f5f1e6'; g.fillRect(0, y, W, 3); g.fillRect(0, y + H - 3, W, 3);
+    let txt = name.length > 38 && kind === 'school' ? name.replace('Istituto Tecnico Industriale Statale', 'I.T.I.S.') : name;
+    let fs = 40; g.font = `bold ${fs}px Arial, sans-serif`;
+    while (g.measureText(txt).width > W - 24 && fs > 14) { fs -= 2; g.font = `bold ${fs}px Arial, sans-serif`; }
+    g.fillStyle = light ? '#1e3a6e' : '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(txt, W / 2, y + H / 2 + 1);
+  });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+

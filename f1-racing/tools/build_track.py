@@ -870,6 +870,45 @@ def main():
     def dtrack(p):
         x, z = p
         return min((x - q[0]) ** 2 + (z - q[2]) ** 2 for q in points[::5]) ** 0.5
+    # città vera: parcheggi, cortili e piazze, negozi e locali con il nome, strisce pedonali, semafori, fermate
+    urban = None
+    if cfg.get('city'):
+        parking, paved, pois, cross, signals, bus = [], [], [], [], [], []
+        def ring_of(nds):
+            P2 = poly([n for n in nds if n in xy])
+            return P2 if len(P2) >= 3 and dtrack(P2[0]) < 400 else None
+        def is_paved(t):
+            return (t.get('amenity') in ('school', 'college', 'university', 'marketplace', 'townhall') or t.get('highway') == 'pedestrian'
+                    or t.get('place') == 'square' or t.get('sport') == 'skateboard' or t.get('area:highway') == 'footway' or t.get('landuse') == 'education')
+        def area(t, nds):
+            if t.get('amenity') == 'parking' and t.get('parking', 'surface') == 'surface' and 'building' not in t:
+                P2 = ring_of(nds);  P2 and parking.append(P2)
+            elif is_paved(t) and 'building' not in t:
+                P2 = ring_of(nds);  P2 and paved.append(P2)
+        for wid, (nds, t) in ways.items():
+            if len(nds) >= 4 and nds[0] == nds[-1]: area(t, nds)
+        for rid, (mem, t) in rels.items():
+            if t.get('type') != 'multipolygon': continue
+            for ring in rings_from_ways([ref for typ, ref, role in mem if typ == 'way' and role in ('outer', '')], ways): area(t, ring)
+        KIND = lambda t: t.get('shop') and 'shop' or t.get('amenity') or t.get('tourism') or t.get('office') and 'office' or t.get('craft') and 'shop' or t.get('leisure')
+        def poi(x, z, t):
+            nm = t.get('name')
+            if not nm or not KIND(t) or t.get('highway'): return
+            if dtrack((x, z)) < 90: pois.append([round(x, 1), round(z, 1), nm, KIND(t)])
+        for nid, (la, lo, t) in nodes.items():
+            if nid not in xy or not t: continue
+            x, z = xy[nid]
+            poi(x, z, t)
+            hw_ = t.get('highway')
+            if hw_ == 'crossing' and dtrack((x, z)) < 7: cross.append([round(x, 1), round(z, 1)])
+            elif hw_ == 'traffic_signals' and dtrack((x, z)) < 12: signals.append([round(x, 1), round(z, 1)])
+            elif (hw_ == 'bus_stop' or t.get('public_transport') == 'platform') and dtrack((x, z)) < 25: bus.append([round(x, 1), round(z, 1), t.get('name', '')])
+        for wid, (nds, t) in ways.items():
+            if t.get('name') and KIND(t) and nds and nds[0] == nds[-1]:
+                P_ = [xy[n] for n in nds[:-1] if n in xy]
+                if P_: poi(sum(q[0] for q in P_) / len(P_), sum(q[1] for q in P_) / len(P_), t)
+        urban = {'parking': parking, 'paved': paved, 'pois': pois, 'cross': cross, 'signals': signals, 'bus': bus}
+        print(f'  città: parcheggi {len(parking)} · cortili e piazze {len(paved)} · negozi e locali {len(pois)} · strisce {len(cross)} · semafori {len(signals)} · fermate {len(bus)}')
     buildings.sort(key=lambda b: dtrack(b['p'][0]))
     buildings = [b for b in buildings if dtrack(b['p'][0]) < cfg.get('bmax_d', 1400)][:cfg.get('bmax', 2600)]
     roads = roads[:2500]; trees = trees[:1500]
@@ -910,6 +949,7 @@ def main():
         'buildings': buildings, 'forest': forest, 'meadow': meadow, 'water': water, 'roads': roads, 'trees': trees, 'corners': {},
         'tunnels': [[a * 4, b * 4] for a, b in runs(tunnel_mask)],
         'names': names, 'banks': banks,
+        **({'urban': urban} if urban else {}),
     }
     fn = os.path.join(ROOT, 'src', 'tracks', f'{tid}Data.js')
     with open(fn, 'w') as f:

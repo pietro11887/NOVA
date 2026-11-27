@@ -1,11 +1,11 @@
 import { PUBLIC } from './edition.js?v=f01fe25a';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { buildPitComplex } from './pitComplex.js?v=220';
-import { Scenery, ENV } from './scenery.js?v=220';
-import { PIT, TRACK } from './trackData.js?v=220';
+import { buildPitComplex } from './pitComplex.js?v=221';
+import { Scenery, ENV } from './scenery.js?v=221';
+import { PIT, TRACK } from './trackData.js?v=221';
 import { setAniso, triplanar, meadow } from './pbr.js?v=b890b6bc';
-import { buildTrees } from './trees.js?v=220';
+import { buildTrees } from './trees.js?v=221';
 
 // Circuit de Spa-Francorchamps ricostruito da dati pubblici (OpenStreetMap + modello del terreno EU-DEM):
 // colline vere delle Ardenne, boschi di abeti dove ci sono davvero, prati, strade e case del posto
@@ -91,7 +91,7 @@ export class SpaScenery extends Scenery {
     const steps = ['sky', 'terrain', 'roads', 'pitGarages', 'grandstands', 'gantry', 'billboards', 'bigScreen', 'trackside', 'brakeBoards', 'marshals', 'birds',
       'spectators', 'houses', 'forestTrees', 'bushes'];
     // città vera: niente box, tribune, cartelloni, cartelli di frenata, commissari né pubblico
-    const CITY_OFF = new Set(['pitGarages', 'grandstands', 'billboards', 'bigScreen', 'trackside', 'brakeBoards', 'marshals', 'spectators']);
+    const CITY_OFF = new Set(['pitGarages', 'grandstands', 'billboards', 'bigScreen', 'trackside', 'brakeBoards', 'marshals', 'spectators', 'bushes']);
     for (const s of steps) {
       if (TRACK.city && CITY_OFF.has(s)) continue; const t0 = performance.now(); this[s](); if (window.__perfLog) console.log('PERF', s, Math.round(performance.now() - t0)); }
     this.batch.flush(this.group);
