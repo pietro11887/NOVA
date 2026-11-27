@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ROAD_HALF_WIDTH as H } from './trackData.js?v=240';
-import { CAR, CarPhysics } from './physics.js?v=240';
-import { GEOM } from './carModel.js?v=240';
+import { ROAD_HALF_WIDTH as H } from './trackData.js?v=241';
+import { CAR, CarPhysics } from './physics.js?v=241';
+import { GEOM } from './carModel.js?v=241';
 import { ARCADE } from './driveMode.js?v=68c3b840';
-import { IS_F1, CAR_CLASS, SPEC } from './vehicle.js?v=240';
+import { IS_F1, CAR_CLASS, SPEC } from './vehicle.js?v=241';
 
 // linea ideale (colori verde/giallo/rosso): con la F1 è quella vera, al limite della vettura
 // (frenate negli ultimi metri, Eau Rouge in pieno); con la GT resta un po' prudente
