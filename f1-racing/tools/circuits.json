@@ -738,30 +738,6 @@
   "armco": true,
   "wall_gap": 3.5
  },
- "itis": {
-  "name": "ITIS Circuit",
-  "short": "ITIS GP",
-  "place": "Circuito della scuola · disegnato da Pietro",
-  "flag": [
-   "#1e5bd6",
-   "#ffffff",
-   "#ff8a1c"
-  ],
-  "km": "3,60",
-  "corners": 13,
-  "info": "Tribune sul rettilineo, giro attorno alla fontana e tornante tra le tribune, accanto al lago",
-  "hw": 6.5,
-  "climate": "temperate",
-  "fans": [
-   "ita",
-   "ita",
-   "ita",
-   "ita",
-   "gbr",
-   "ned"
-  ],
-  "custom": true
- },
  "kart": {
   "name": "Nova Kart Arena",
   "short": "KART GP",
@@ -786,21 +762,53 @@
   ],
   "custom": true
  },
- "oval": {
-  "name": "Nova Speedway",
-  "short": "NOVA 400",
-  "place": "Ovale · tri-ovale da 2,3 km",
+ "lemans": {
+  "name": "Circuit des 24 Heures du Mans",
+  "lat": 47.925,
+  "lon": 0.215,
+  "half": 5200,
+  "length": 13626,
+  "dir": "cw",
+  "hw": 6.5,
+  "climate": "temperate",
+  "place": "Francia · Le Mans",
+  "flag": [
+   "#0055a4",
+   "#ffffff",
+   "#ef4135"
+  ],
+  "km": "13,63",
+  "corners": 38,
+  "info": "La 24 Ore: rettilineo dell'Hunaudières con le chicane, Mulsanne, Indianapolis, Arnage e le Porsche Curves",
+  "fans": [
+   "fra",
+   "fra",
+   "fra",
+   "gbr",
+   "ger",
+   "ita"
+  ],
+  "short": "24H LE MANS",
+  "bmax": 2200
+ },
+ "daytona": {
+  "name": "Daytona International Speedway",
+  "lat": 29.1852,
+  "lon": -81.0705,
+  "half": 1500,
+  "length": 4023,
+  "dir": "ccw",
+  "hw": 6.5,
+  "climate": "hot",
+  "place": "USA · Florida",
   "flag": [
    "#b22234",
    "#ffffff",
    "#3c3b6e"
   ],
-  "km": "2,29",
+  "km": "4,02",
   "corners": 4,
-  "info": "Curve sopraelevate a 20°, si gira sempre a sinistra: tutti in scia, a tutto gas",
-  "hw": 9.5,
-  "climate": "hot",
-  "street": false,
+  "info": "La Daytona 500: curve sopraelevate a 31°, tri-ovale a 18°, tutti in scia a più di 300 all'ora",
   "fans": [
    "usa",
    "usa",
@@ -809,6 +817,6 @@
    "gbr",
    "ita"
   ],
-  "custom": true
+  "short": "DAYTONA 500"
  }
 }

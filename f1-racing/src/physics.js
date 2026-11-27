@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=218';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=218';
-import { SURF, SURF_PROPS } from './track.js?v=218';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=219';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=219';
+import { SURF, SURF_PROPS } from './track.js?v=219';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -504,7 +504,7 @@ export class CarPhysics {
     this.roll += this.rollRate * dt;
     // limiti di sicurezza (la vettura non si ribalta in questo modello)
     this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch));
-    this.roll = Math.max(-0.35, Math.min(0.35, this.roll));
+    this.roll = Math.max(-0.7, Math.min(0.7, this.roll));   // (ovali: Daytona è inclinata di 31°)
     // non si può affondare nel terreno
     const minY = Math.min(this.wheels[0].ground, this.wheels[1].ground, this.wheels[2].ground, this.wheels[3].ground) + 0.02;
     if (this.y < minY) { this.y = minY; if (this.vy < 0) this.vy = 0; }
