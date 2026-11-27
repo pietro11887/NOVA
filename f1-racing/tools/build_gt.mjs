@@ -108,6 +108,18 @@ const CFG = {
   miura: { wb: 2.5, tyre: /^tire$/, rim: /^material$/, disc: /^NESSUNO$/, paint: /^Color_P$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   gt40: { wb: 2.42, tyre: /^Wheel1Mtl$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^Paint1Mtl$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
   f50: { wb: 2.58, tyre: /_Wheel1A_3D_3DWheel1A_Material$/, rim: /^NESSUNO$/, disc: /CalliperGloss/, paint: /Paint_Material$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
+  // giro 5 delle stradali
+  ypsilon: { wb: 2.38, tyre: /^mat_0001_tire$/, rim: /^mat_0000_wheel/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  giulietta: { wb: 2.634, tyre: /^Meshpart91Mtl$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  prius: { wb: 2.7, tyre: /^Wheel0021Mtl/, rim: /^Rims/, disc: /^NESSUNO$/, paint: /^Color\.002$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  e30: { wb: 2.562, tyre: /^BMW_E30_M3_TIRE$/, rim: /^BMW_E30_M3_RIM$/, disc: /^Brake_Disc$/, paint: /^BMW_E30_M3_PAINT$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
+  evo6: { wb: 2.51, tyre: /^tire$/, rim: /^wheel$/, disc: /^disk$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  rx7: { wb: 2.425, clip: [1.0, 1.6, 2.4], tyre: /^Material\.011$/, rim: /^Material\.014$/, disc: /^NESSUNO$/, paint: /^Material\.007$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  zonda: { wb: 2.73, tyre: /Exterior_mm_tyr/, rim: /Exterior_mm_whe/, disc: /Exterior_mm_rot/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  evoque: { wb: 2.66, tyre: /^Tire$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  duster: { wb: 2.67, tyre: /^wheel_rubber$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^varnish$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  enzo: { wb: 2.65, tyre: /mm_tyre$/, rim: /mm_wheel$/, disc: /mm_rotor$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  mcf1: { wb: 2.718, tyre: /^tire(_side)?$/, rim: /^material_48$|^rimbolt$/, disc: /^brakedisk$/, paint: /^McLaren_F1_1993/, drop: /^floor$|^material$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -245,6 +257,13 @@ function splitPrim(p, keyOf) {
   }
   return res;
 }
+// pezzi sparsi lontano dalla vettura (file con oggetti in più): via i triangoli fuori dalla scatola [x, y, z]
+if (CFG.clip) { const [cx, cy, cz] = CFG.clip;
+  for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) {
+    const parts = splitPrim(p, (x, y, z) => Math.abs(x) < cx && y > -0.05 && y < cy && Math.abs(z) < cz ? 'IN' : 'OUT');
+    if (!parts.OUT) { for (const q of Object.values(parts)) q.dispose(); continue; }
+    if (parts.IN) mesh.addPrimitive(parts.IN); parts.OUT.dispose(); p.dispose();
+  } }
 // limiti delle gomme (dopo la scala): solo le parti dentro la ruota diventano ruota
 const tyreBox = { LF: null, RF: null, LR: null, RR: null };
 for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) if (CFG.tyre.test(matOf(p))) {

@@ -8,7 +8,8 @@ let cls = 'gt';
 const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86',
   'f500', 'c2cv', 'polo', 'sandero', 'focus', 'a3', 'c63', 'r34', 'supra', 'p930',
   'tipo', 'passat', 'octavia', 'qashqai', 'tesla', 'ducato', 'stratos', 'testa', 'sl300',
-  'mini', 'civic', 'corolla', 'jeep', 'megane', 'miura', 'gt40', 'f50'];
+  'mini', 'civic', 'corolla', 'jeep', 'megane', 'miura', 'gt40', 'f50',
+  'ypsilon', 'prius', 'e30', 'evo6', 'rx7', 'zonda', 'evoque', 'duster', 'enzo', 'mcf1'];
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
   if (s && (['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass) || ROAD_NEW.includes(s.carClass))) cls = s.carClass;
@@ -446,6 +447,27 @@ export const ROAD_DB = {
     mass: 1225, torque: 640, rpm: 6800, idle: 900, gears: [7.2, 4.6, 3.3, 2.45], wheelR: 0.33, wb: 2.42, tw: 0.76, len: 4.31, wid: 1.86, cg: 0.42, CdA: 0.6, mu: 1.25, brake: 19000, drive: 'rwd', lsd: 1, paint: null, snd: ['eng-v8', 0.68] },
   f50: { label: 'FERRARI F50', year: 1995, short: 'F50', engine: 'V12 4,7 L · motore centrale · 6 marce', hp: 520, kg: 1230, vmax: 325,
     mass: 1305, torque: 471, rpm: 8800, idle: 1000, gears: [12.0, 8.1, 6.1, 4.8, 3.9, 3.25], wheelR: 0.33, wb: 2.58, tw: 0.8, len: 4.48, wid: 1.99, cg: 0.42, CdA: 0.7, mu: 1.22, brake: 17500, drive: 'rwd', lsd: 0.5, paint: 0xc8070d, snd: ['eng-v8', 0.55] },
+  // --- giro 5 ---
+  ypsilon: { label: 'LANCIA Y', year: 2000, short: 'Y', engine: '4 cilindri 1,2 L 16V · 5 marce', hp: 86, kg: 930, vmax: 180,
+    mass: 1005, torque: 113, rpm: 6500, idle: 800, gears: [15.58, 8.61, 5.9, 4.46, 3.67], wheelR: 0.28, wb: 2.38, tw: 0.72, len: 3.74, wid: 1.85, cg: 0.52, CdA: 0.62, mu: 1.0, brake: 12500, drive: 'fwd', paint: null, fixed: true, snd: ['eng-gt', 1.3] },
+  prius: { label: 'TOYOTA PRIUS', year: 2012, short: 'PRIUS', engine: 'Ibrida 1,8 L + motore elettrico · cambio e-CVT', hp: 136, kg: 1380, vmax: 180,
+    mass: 1455, torque: 300, rpm: 12000, idle: 800, gears: [7.49], wheelR: 0.31, wb: 2.7, tw: 0.76, len: 4.48, wid: 2.0, cg: 0.5, CdA: 0.55, mu: 0.98, brake: 18000, drive: 'fwd', ev: 4500, paint: null, snd: ['eng-gt', 0.5] },
+  e30: { label: 'BMW M3 (E30)', year: 1987, short: 'M3 E30', engine: '4 cilindri 2,3 L 16V · 5 marce', hp: 200, kg: 1200, vmax: 235,
+    mass: 1275, torque: 240, rpm: 7250, idle: 900, gears: [12.48, 8.05, 5.94, 4.23, 3.35], wheelR: 0.3, wb: 2.562, tw: 0.72, len: 4.36, wid: 1.85, cg: 0.48, CdA: 0.62, mu: 1.1, brake: 16000, drive: 'rwd', lsd: 0.75, paint: null, snd: ['eng-gt', 1.05] },
+  evo6: { label: 'MITSUBISHI LANCER EVOLUTION VI', year: 1999, short: 'EVO VI', engine: '4 cilindri 2,0 L turbo · 5 marce · integrale', hp: 280, kg: 1360, vmax: 250,
+    mass: 1435, torque: 373, rpm: 7000, idle: 850, gears: [11.51, 8.06, 5.82, 4.26, 3.15], wheelR: 0.31, wb: 2.51, tw: 0.75, len: 4.35, wid: 1.95, cg: 0.5, CdA: 0.66, mu: 1.15, brake: 18000, drive: 'awd', paint: null, fixed: true, snd: ['eng-gt', 1.0] },
+  rx7: { label: 'MAZDA RX-7 (FD)', year: 1992, short: 'RX-7', engine: 'Rotativo biturbo 1,3 L · 5 marce', hp: 255, kg: 1260, vmax: 250,
+    mass: 1335, torque: 294, rpm: 7500, idle: 900, gears: [16.29, 9.46, 6.51, 4.68, 3.37], wheelR: 0.31, wb: 2.425, tw: 0.74, len: 4.28, wid: 1.94, cg: 0.46, CdA: 0.6, mu: 1.12, brake: 16500, drive: 'rwd', lsd: 0.7, paint: null, snd: ['eng-gt', 0.9] },
+  zonda: { label: 'PAGANI ZONDA F', year: 2005, short: 'ZONDA F', engine: 'V12 AMG 7,3 L · motore centrale · 6 marce', hp: 602, kg: 1230, vmax: 345,
+    mass: 1305, torque: 760, rpm: 7500, idle: 950, gears: [9.48, 6.37, 4.84, 3.86, 3.17, 2.68], wheelR: 0.34, wb: 2.73, tw: 0.81, len: 4.43, wid: 2.05, cg: 0.42, CdA: 0.68, mu: 1.25, brake: 16500, drive: 'rwd', lsd: 0.6, paint: null, fixed: true, snd: ['eng-v8', 0.55] },
+  evoque: { label: 'RANGE ROVER EVOQUE', year: 2012, short: 'EVOQUE', engine: '4 cilindri 2,0 L turbo · 6 marce · 4x4 · SUV', hp: 240, kg: 1640, vmax: 217,
+    mass: 1715, torque: 340, rpm: 6200, idle: 800, gears: [22.42, 12.81, 8.43, 6.27, 4.65, 3.73], wheelR: 0.36, wb: 2.66, tw: 0.8, len: 4.36, wid: 2.1, cg: 0.62, CdA: 0.8, mu: 1.0, brake: 21500, drive: 'awd', paint: null, fixed: true, snd: ['eng-gt', 1.15] },
+  duster: { label: 'DACIA DUSTER', year: 2011, short: 'DUSTER', engine: '4 cilindri 1,6 L · 5 marce · SUV', hp: 105, kg: 1180, vmax: 167,
+    mass: 1255, torque: 148, rpm: 6000, idle: 800, gears: [21.73, 11.94, 7.69, 5.65, 4.43], wheelR: 0.34, wb: 2.67, tw: 0.78, len: 4.31, wid: 2.0, cg: 0.62, CdA: 0.85, mu: 0.98, brake: 15500, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  enzo: { label: 'FERRARI ENZO', year: 2002, short: 'ENZO', engine: 'V12 6,0 L · motore centrale · 6 marce', hp: 660, kg: 1365, vmax: 350,
+    mass: 1440, torque: 657, rpm: 8200, idle: 1000, gears: [10.58, 7.32, 5.47, 4.3, 3.46, 2.89], wheelR: 0.34, wb: 2.65, tw: 0.82, len: 4.7, wid: 2.04, cg: 0.42, CdA: 0.68, mu: 1.25, brake: 18000, drive: 'rwd', lsd: 0.3, paint: null, fixed: true, snd: ['eng-v8', 0.5] },
+  mcf1: { label: 'McLAREN F1', year: 1993, short: 'F1', engine: 'V12 BMW 6,1 L · motore centrale · 6 marce · guida centrale', hp: 627, kg: 1140, vmax: 386,
+    mass: 1215, torque: 650, rpm: 7500, idle: 950, gears: [8.07, 5.47, 4.27, 3.47, 2.9, 2.32], wheelR: 0.33, wb: 2.718, tw: 0.78, len: 4.29, wid: 2.0, cg: 0.42, CdA: 0.6, mu: 1.2, brake: 15000, drive: 'rwd', lsd: 0.3, paint: null, snd: ['eng-v8', 0.55] },
 };
 // fisica completa di una stradale dai suoi dati
 function roadSpec(d) {
