@@ -41,8 +41,8 @@ const CFG = {
   // Hypercar: Ferrari 499P (Dave Love, CC BY 4.0), abitacolo tolto
   h499: { wb: 3.15, tyre: /^EXT_Tyre$/, rim: /^RIMS$|^Wheels$/, disc: /^brake_disk$|^caliper$/, paint: /^Body$/, kill: /^EXT_Rim_Blur/,
     drop: /^sw_|^963_|^DISPLAY|^kers_|^TRANSPARENTE$|^logo_cos$|^shift_lights$|^seats|^main$|^MIRRORS$|^INT_|^dials_alpha$|^Tex_0185/, livery: /^PAINT$/, ratio: [0.25, 0.07], error: [0.001, 0.004] },
-  // Hypercar: Porsche 963 (DisneyCars, senza texture: colori dei materiali), muso verso +Z
-  hpor: { wb: 3.13, tyre: /^\.028$/, rim: /^\.026$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.12, 0.05], error: [0.006, 0.015], renorm: true },
+  // Hypercar: Porsche 963 (DisneyCars, senza texture: colori dei materiali), muso verso -Z (si gira)
+  hpor: { wb: 3.13, flip: true, tyre: /^\.028$/, rim: /^\.026$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.12, 0.05], error: [0.006, 0.015], renorm: true },
   // Hypercar: Cadillac V-Series.R 2023 (vecarz, CC BY 4.0), abitacolo tolto
   hcad: { wb: 3.148, tyre: /^EXT_Tyres$/, rim: /^EXT_RIM$|^EXT_RIM_DECALS$/, disc: /^BRAKE_DISC$/, paint: /^CARPAINT$/,
     drop: /^INT_|^STEER_|^mat_1(37|5[2-8]|89)$|^DISPLAY_GLASS$|^LED(GREEN|YELLOW|RED)$|^material$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.001, 0.004] },
