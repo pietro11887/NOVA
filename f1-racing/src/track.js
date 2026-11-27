@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=232';
-import * as tex from './textures.js?v=232';
+import { buildTrack, KERB_WIDTH as K, KERB, TRACK, PIT, sponsorAt, bankAt } from './trackData.js?v=233';
+import * as tex from './textures.js?v=233';
 import { texSet, triplanar } from './pbr.js?v=b890b6bc';
 import { WX } from './wx.js?v=d0b88a44';
 
@@ -107,6 +107,9 @@ export class Track {
   // Proiezione di un punto sul tracciato. hint = indice di partenza per la ricerca locale.
   project(x, z, hint = -1, out = {}, win = 40) {
     const S = this.samples, n = this.count;
+    // protezione: una posizione non valida (vettura "esplosa") non deve bloccare il gioco
+    if (!Number.isFinite(x) || !Number.isFinite(z)) { x = S[0].x; z = S[0].z; hint = -1; }
+    if (!(hint >= 0 && hint < n)) hint = -1;
     let best = -1, bestD = Infinity;
     if (hint < 0) {
       for (let i = 0; i < n; i++) {

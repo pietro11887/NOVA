@@ -7,7 +7,8 @@ let cls = 'gt';
 // stradali scaricate da Sketchfab (dati in ROAD_DB più sotto)
 const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86',
   'f500', 'c2cv', 'polo', 'sandero', 'focus', 'a3', 'c63', 'r34', 'supra', 'p930',
-  'tipo', 'passat', 'octavia', 'qashqai', 'tesla', 'ducato', 'stratos', 'testa', 'sl300'];
+  'tipo', 'passat', 'octavia', 'qashqai', 'tesla', 'ducato', 'stratos', 'testa', 'sl300',
+  'mini', 'civic', 'corolla', 'jeep', 'megane', 'miura', 'gt40', 'f50'];
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
   if (s && (['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass) || ROAD_NEW.includes(s.carClass))) cls = s.carClass;
@@ -428,6 +429,23 @@ export const ROAD_DB = {
     mass: 1581, torque: 490, rpm: 7000, idle: 900, gears: [10.6, 6.6, 4.7, 3.6, 2.83], wheelR: 0.32, wb: 2.55, tw: 0.8, len: 4.49, wid: 2.08, cg: 0.45, CdA: 0.66, mu: 1.15, brake: 20000, drive: 'rwd', lsd: 0.8, paint: null, snd: ['eng-v8', 0.6] },
   sl300: { label: 'MERCEDES-BENZ 300 SL "ALI DI GABBIANO"', year: 1955, short: '300 SL', engine: '6 cilindri in linea 3,0 L · 4 marce', hp: 215, kg: 1295, vmax: 250,
     mass: 1370, torque: 228, rpm: 6400, idle: 850, gears: [11.3, 6.9, 4.6, 3.24], wheelR: 0.33, wb: 2.4, tw: 0.7, len: 4.52, wid: 1.79, cg: 0.5, CdA: 0.63, mu: 0.92, brake: 11000, drive: 'rwd', lsd: 0.3, paint: null, snd: ['eng-gt', 1.0] },
+  // --- giro 4 ---
+  mini: { label: 'MINI COOPER S', year: 2007, short: 'MINI', engine: '4 cilindri 1,6 L turbo · 6 marce', hp: 175, kg: 1150, vmax: 225,
+    mass: 1225, torque: 240, rpm: 6800, idle: 850, gears: [17.2, 9.4, 6.7, 4.8, 3.86, 3.15], wheelR: 0.29, wb: 2.467, tw: 0.74, len: 3.7, wid: 1.88, cg: 0.5, CdA: 0.66, mu: 1.05, brake: 15000, drive: 'fwd', paint: null, fixed: true, snd: ['eng-gt', 1.15] },
+  civic: { label: 'HONDA CIVIC TYPE R (EK9)', year: 2000, short: 'CIVIC R', engine: '4 cilindri 1,6 L VTEC · 5 marce · 9.000 giri', hp: 185, kg: 1050, vmax: 225,
+    mass: 1125, torque: 178, rpm: 9000, idle: 900, gears: [14.0, 8.8, 6.2, 4.9, 4.13], wheelR: 0.29, wb: 2.62, tw: 0.74, len: 4.16, wid: 1.96, cg: 0.5, CdA: 0.64, mu: 1.06, brake: 15000, drive: 'fwd', paint: null, snd: ['eng-gt', 0.95] },
+  corolla: { label: 'TOYOTA COROLLA', year: 2014, short: 'COROLLA', engine: '4 cilindri 1,3 L · 6 marce', hp: 99, kg: 1200, vmax: 175,
+    mass: 1275, torque: 148, rpm: 6200, idle: 800, gears: [16.0, 8.7, 5.9, 4.5, 3.7, 3.1], wheelR: 0.31, wb: 2.6, tw: 0.76, len: 4.44, wid: 2.08, cg: 0.54, CdA: 0.66, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  jeep: { label: 'JEEP WRANGLER RUBICON', year: 2007, short: 'WRANGLER', engine: 'V6 3,8 L · 6 marce · 4x4', hp: 202, kg: 1900, vmax: 175,
+    mass: 1975, torque: 321, rpm: 5800, idle: 750, gears: [16.5, 9.5, 6.2, 4.6, 3.6, 2.9], wheelR: 0.38, wb: 2.42, tw: 0.8, len: 4.23, wid: 1.94, cg: 0.8, CdA: 1.3, mu: 0.95, brake: 18000, drive: 'awd', paint: null, snd: ['eng-v8', 0.75] },
+  megane: { label: 'RENAULT MÉGANE R.S. 250', year: 2010, short: 'MÉGANE RS', engine: '4 cilindri 2,0 L turbo · 6 marce', hp: 250, kg: 1387, vmax: 250,
+    mass: 1462, torque: 340, rpm: 6800, idle: 850, gears: [16.0, 9.2, 6.4, 4.8, 3.8, 3.05], wheelR: 0.32, wb: 2.64, tw: 0.78, len: 4.31, wid: 2.08, cg: 0.5, CdA: 0.68, mu: 1.1, brake: 18000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.1] },
+  miura: { label: 'LAMBORGHINI MIURA P400', year: 1968, short: 'MIURA', engine: 'V12 3,9 L · motore centrale · 5 marce', hp: 350, kg: 1125, vmax: 280,
+    mass: 1200, torque: 245, rpm: 7700, idle: 900, gears: [11.4, 7.4, 5.4, 4.2, 3.2], wheelR: 0.31, wb: 2.5, tw: 0.72, len: 4.36, wid: 1.76, cg: 0.45, CdA: 0.7, mu: 1.05, brake: 15000, drive: 'rwd', lsd: 0.6, paint: null, snd: ['eng-v8', 0.6] },
+  gt40: { label: 'FORD GT40 MK II', year: 1966, short: 'GT40', engine: 'V8 7,0 L · motore centrale · 4 marce · Le Mans', hp: 485, kg: 1150, vmax: 330,
+    mass: 1225, torque: 640, rpm: 6800, idle: 900, gears: [7.2, 4.6, 3.3, 2.45], wheelR: 0.33, wb: 2.42, tw: 0.76, len: 4.31, wid: 1.86, cg: 0.42, CdA: 0.6, mu: 1.25, brake: 19000, drive: 'rwd', lsd: 1, paint: null, snd: ['eng-v8', 0.68] },
+  f50: { label: 'FERRARI F50', year: 1995, short: 'F50', engine: 'V12 4,7 L · motore centrale · 6 marce', hp: 520, kg: 1230, vmax: 325,
+    mass: 1305, torque: 471, rpm: 8800, idle: 1000, gears: [12.0, 8.1, 6.1, 4.8, 3.9, 3.25], wheelR: 0.33, wb: 2.58, tw: 0.8, len: 4.48, wid: 1.99, cg: 0.42, CdA: 0.7, mu: 1.22, brake: 17500, drive: 'rwd', lsd: 0.5, paint: 0xc8070d, snd: ['eng-v8', 0.55] },
 };
 // fisica completa di una stradale dai suoi dati
 function roadSpec(d) {
@@ -440,6 +458,8 @@ function roadSpec(d) {
     susp: { springK: 60 * m + 15000, damperC: 3.8 * m + 1000, arbK: [45 * m + 5000, 20 * m] },
     steer: 0.88,
     heat: { slide: 30000, roll: 0.07 },
+    // auto di serie: radiatore fatto per andare piano a lungo (il calcolo del gioco è da auto da corsa)
+    engHeat: 0.3,
     gears: d.gears, rpm: d.rpm, idle: d.idle, ...(d.ev ? { ev: d.ev } : {}),
     ...(d.drive === 'fwd' ? { fwd: true, lsd: 0.25 } : d.drive === 'awd' ? { awd: true, lsd: 0.8 } : { lsd: d.lsd ?? 0.4 }),
     hull: [

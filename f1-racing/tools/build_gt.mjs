@@ -99,6 +99,15 @@ const CFG = {
   stratos: { wb: 2.18, rotX: true, tyre: /^tyre$/, rim: /^mechanical$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
   testa: { wb: 2.55, tyre: /_tyre1$/, rim: /_wheel1$/, disc: /_rotor1$/, paint: /_ext1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   sl300: { wb: 2.4, tyre: /^tire$/, rim: /^mid-chrome$/, disc: /^NESSUNO$/, paint: /^main_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  // --- stradali scaricate da Sketchfab (giro 4) ---
+  mini: { wb: 2.467, flip: true, opaque: /^material$/, tyre: /^Tread$/, rim: /^material_2$/, disc: /^Disk_Brake$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  civic: { wb: 2.62, tyre: /Wheel1A_3D_3DWheel2A/, rim: /^hM_Rim_(Main|NoTint)_Max1$/, disc: /CalliperGloss/, paint: /^hM_CarPaint_Max1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  corolla: { wb: 2.6, tyre: /^tyre_side$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^main_paint(\.001)?$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008], renorm: true },
+  jeep: { wb: 2.42, tyre: /^llanta$/, rim: /^WRANGrin$/, disc: /^NESSUNO$/, paint: /^WRANG$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  megane: { wb: 2.64, tyre: /^llanta$/, rim: /^MEGANE_rin$/, disc: /^disk$/, paint: /^MEGANE$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  miura: { wb: 2.5, tyre: /^tire$/, rim: /^material$/, disc: /^NESSUNO$/, paint: /^Color_P$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  gt40: { wb: 2.42, tyre: /^Wheel1Mtl$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^Paint1Mtl$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
+  f50: { wb: 2.58, tyre: /_Wheel1A_3D_3DWheel1A_Material$/, rim: /^NESSUNO$/, disc: /CalliperGloss/, paint: /Paint_Material$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -161,6 +170,7 @@ for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]
 for (const m of root.listMaterials()) if (CFG.paint.test(m.getName())) m.setName('PAINT');
 for (const m of root.listMaterials()) {
   for (const e of m.listExtensions()) m.setExtension(e.extensionName, null);
+  if (m.getEmissiveTexture()) m.setEmissiveFactor([0, 0, 0]);     // (senza la sua texture, la luce "piena" renderebbe tutto bianco)
   m.setNormalTexture(null); m.setMetallicRoughnessTexture(null); m.setOcclusionTexture(null); m.setEmissiveTexture(null);
 }
 for (const e of root.listExtensionsUsed()) if (e.extensionName !== 'KHR_mesh_quantization') e.dispose();
