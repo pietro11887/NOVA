@@ -232,6 +232,15 @@ const CFG = {
   s60r: { wb: 2.715, renorm: true, tyre: /^Tyre$/, rim: /^chrome_rim$/, disc: /^NESSUNO$/, paint: /^body$/, drop: /^blur_rim$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
   e500: { wb: 2.32, renorm: true, notex: true, tyre: /^Tires$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^CarPaint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
   expert: { wb: 3.0, tyre: /^TXT_PNEU_2$/, rim: /^Color_A05_1$/, disc: /^NESSUNO$/, paint: /^M_0021_DarkRed$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.4, 0.15], error: [0.002, 0.008] },
+  // giro 10
+  veloster: { wb: 2.65, renorm: true, notex: true, tint: [[/^Carro_Pneu/, [0.035, 0.035, 0.04, 1, 0, 0.9]]], tyre: /^Carro_Pneu$/, rim: /^Carro_Roda/, disc: /^NESSUNO$/, paint: /^Carro_Pintura$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  v40n: { wb: 2.647, renorm: true, notex: true, tint: [[/^Carro_Pneu/, [0.035, 0.035, 0.04, 1, 0, 0.9]]], tyre: /^Carro_Pneu$/, rim: /^Carro_Roda/, disc: /^NESSUNO$/, paint: /^Carro_Pintura_1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  x2: { wb: 2.67, renorm: true, notex: true, tint: [[/^Carro_Pneu/, [0.035, 0.035, 0.04, 1, 0, 0.9]]], tyre: /^Carro_Pneu$/, rim: /^Carro_Roda/, disc: /^NESSUNO$/, paint: /^Carro_Pintura$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  modely: { wb: 2.89, renorm: true, notex: true, tint: [[/^Carro_Pneu/, [0.035, 0.035, 0.04, 1, 0, 0.9]]], tyre: /^Carro_Pneu$/, rim: /^Carro_Roda/, disc: /^NESSUNO$/, paint: /^Carro_Pintura$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  stelvio: { wb: 2.818, tyre: /^EXT_tyre$/, rim: /^EXT_rim$|^wheel_badge/, disc: /^NESSUNO$/, paint: /^carPaint_int(_[01])?$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  imiev: { wb: 2.55, flip: true, tyre: /^tyre$/, rim: /^rims$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  ml250: { wb: 2.915, flip: true, tyre: /^tyre$/, rim: /^rims$/, disc: /^NESSUNO$/, paint: /^body_color$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
+  rapid: { wb: 2.602, tyre: /Rapid__CN_Spec__Wheels1$/, rim: /Rapid__CN_Spec__Rims[12]$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.3, 0.1], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
