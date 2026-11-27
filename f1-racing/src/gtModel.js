@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GEOM, CAR_SCALE } from './carModel.js?v=229';
-import { CAR_CLASS, CLASSICS, SPECS } from './vehicle.js?v=229';
+import { GEOM, CAR_SCALE } from './carModel.js?v=230';
+import { CAR_CLASS, CLASSICS, SPECS, ROAD_CLS, ROAD_DB } from './vehicle.js?v=230';
 // altezza del baricentro della categoria del modello (gara WEC: anche l'altra categoria)
 const cgOf = kind => ((SPECS[kind] || SPECS[CAR_CLASS] || {}).geom || GEOM).cgHeight;
-import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=229';
+import { liveryTexture, TEAMS_2026 } from './f1Teams.js?v=230';
 import { PUBLIC } from './edition.js?v=f01fe25a';
 
 // Porsche 992 GT3 R — modello di MattDoesBlender (Sketchfab), licenza CC BY-NC-SA 4.0.
@@ -73,10 +73,12 @@ function inlineImages(parser) {
 
 // file dei modelli per categoria: [dettagliato (giocatore), leggero (bot)]
 // stradali (vernice tinta unita: colore di serie se non se ne sceglie un altro)
-const ROAD_K = ['f40', 'uno', 'mul', 'yar', 'mx5'];
+const ROAD_K = ROAD_CLS;
 export const POPUP_DOWN = -1.05;
 const ROAD_PAINT = { f40: 0xc8070d, uno: 0xb5121b, mul: 0xf2b400, yar: 0xa9aeb5, mx5: 0xb3121b };
+for (const [k, d] of Object.entries(ROAD_DB)) ROAD_PAINT[k] = d.paint;
 const FILES = { gt: ['gt3r_hi.glb', 'gt3r_mid.glb'], f1: ['f1_rb22_hi.glb', 'f1_rb22_mid.glb'], r26: ['r26_hi.glb', 'r26_mid.glb'], mp45: ['mp45_hi.glb', 'mp45_mid.glb'], f2002: ['f2002_hi.glb', 'f2002_mid.glb'], f2004: ['f2004_hi.glb', 'f2004_mid.glb'], rb8: ['rb8_hi.glb', 'rb8_mid.glb'], w11: ['w11_hi.glb', 'w11_mid.glb'], kart: ['kart_hi.glb', 'kart_mid.glb'], nascar: ['nascar_hi.glb', 'nascar_mid.glb'], hyper: ['hy_fer_hi.glb', 'hy_fer_mid.glb'], f40: ['gt_f40_hi.glb', 'gt_f40_mid.glb'], uno: ['gt_uno_hi.glb', 'gt_uno_mid.glb'], mul: ['gt_mul_hi.glb', 'gt_mul_mid.glb'], yar: ['gt_yar_hi.glb', 'gt_yar_mid.glb'], mx5: ['gt_mx5_hi.glb', 'gt_mx5_mid.glb'] };
+for (const k of Object.keys(ROAD_DB)) FILES[k] = [`gt_${k}_hi.glb`, `gt_${k}_mid.glb`];
 
 // GT3 disponibili (stessa fisica): la Porsche più le tre arrivate da Sketchfab (non nell'edizione pubblica)
 // (la Mercedes SLS bianca, senza livrea, non c'è più: i suoi file restano nella cartella)
@@ -148,7 +150,7 @@ function tuneMaterial(src) {
   const n = src.name || '';
   const m = new THREE.MeshStandardMaterial({ name: n, map: src.map || null, color: src.color.clone(), transparent: src.transparent, opacity: src.opacity, alphaTest: src.alphaTest, side: src.side });
   m.roughness = 0.6; m.metalness = 0.1;
-  if (n === 'PAINT') { m.roughness = 0.32; m.metalness = 0.25; m.color.set(0xffffff); }
+  if (n === 'PAINT') { m.roughness = 0.32; m.metalness = 0.25; if (src.map) m.color.set(0xffffff); }     // (vernice senza texture: si tiene il suo colore)
   // Formula 1 (RB22)
   else if (n === 'chasis' || n === 'chassis2') { m.roughness = 0.3; m.metalness = 0.2; m.color.set(0xffffff); m.userData.livery = true; }
   else if (n === 'decal') { m.transparent = false; m.alphaTest = 0.45; m.roughness = 0.35; m.depthWrite = true; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; }
@@ -550,8 +552,8 @@ export function createGT(opts = {}) {
   // (le altre GT3 tengono la loro livrea)
   if (myPaint && opts.primary != null && myPaint.map && !tpl.variant && tpl.kind !== 'hyper' && !ROAD_K.includes(tpl.kind)) myPaint.map = tpl.kind === 'kart' || tpl.kind === 'nascar' ? liveryKart(myPaint.map, opts.primary, opts.accent ?? 0xffffff, opts.lod === 'mid' ? 512 : 1024, tpl.kind === 'nascar') : liveryVariant(myPaint.map, opts.primary, opts.accent ?? 0xffffff);
   // stradali: vernice tinta unita (rosso Ferrari per la F40, rosso Fiat per la Uno, o il colore scelto)
-  if (myPaint && ROAD_K.includes(tpl.kind)) myPaint.map = null;
-  if (myPaint && ROAD_K.includes(tpl.kind)) myPaint.color.set(opts.primary ?? ROAD_PAINT[tpl.kind]);
+  // (colore di serie null: si tiene la vernice del modello, con le sue scritte, finché non se ne sceglie un altro)
+  if (myPaint && ROAD_K.includes(tpl.kind) && (opts.primary != null || ROAD_PAINT[tpl.kind] != null)) { myPaint.map = null; myPaint.color.set(opts.primary ?? ROAD_PAINT[tpl.kind]); }
   // la SLS è bianca: gli avversari la hanno nel loro colore
   if (myPaint && opts.primary != null && tpl.variant === 'sls') myPaint.color.set(opts.primary);
   const swap = new Map();

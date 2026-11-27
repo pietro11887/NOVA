@@ -4,9 +4,11 @@
 
 import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
+// stradali scaricate da Sketchfab (dati in ROAD_DB più sotto)
+const ROAD_NEW = ['panda', 'punto', 'golf', 'clio', 'fiesta', 'corsa', 'e46', 'delta', 'countach', 'ae86'];
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && (['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'mx5', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass) || ROAD_NEW.includes(s.carClass))) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
   if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart' && cls !== 'nascar' && cls !== 'hyper') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
@@ -21,7 +23,7 @@ export const IS_KART = cls === 'kart';
 export const IS_NASCAR = cls === 'nascar';
 export const IS_HYPER = cls === 'hyper';
 // Stradali: vetture di serie vere (Ferrari F40, Fiat Uno Turbo i.e.), ognuna con la sua fisica
-export const ROAD_CLS = ['f40', 'uno', 'mul', 'yar', 'mx5'];
+export const ROAD_CLS = ['f40', 'uno', 'mul', 'yar', 'mx5', ...ROAD_NEW];
 export const IS_ROAD = ROAD_CLS.includes(cls);
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
@@ -359,6 +361,56 @@ SPECS.mx5 = {
   ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
   dirtyAir: 0.02,
 };
+
+// Stradali scaricate da Sketchfab: dati veri di ognuna (peso con il pilota, coppia, giri, rapporti totali,
+// trazione); la fisica completa si ricava da qui (roadSpec). wb/tw: passo e carreggiata, len/wid: ingombro.
+// paint: colore di serie (null = quello del modello). snd: banco del motore e moltiplicatore dei giri.
+export const ROAD_DB = {
+  panda: { label: 'FIAT PANDA', year: 1984, short: 'PANDA', engine: '4 cilindri 1,0 L FIRE · 4 marce', hp: 45, kg: 750, vmax: 140,
+    mass: 825, torque: 80, rpm: 6000, idle: 850, gears: [16.2, 8.6, 5.6, 4.0], wheelR: 0.27, wb: 2.16, tw: 0.63, len: 3.42, wid: 1.6, cg: 0.55, CdA: 0.74, mu: 0.95, brake: 9000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.3] },
+  punto: { label: 'FIAT PUNTO GT', year: 1995, short: 'PUNTO GT', engine: '4 cilindri 1,4 L turbo · 5 marce', hp: 133, kg: 1080, vmax: 200,
+    mass: 1155, torque: 191, rpm: 6500, idle: 850, gears: [14.2, 7.85, 5.39, 4.08, 3.28], wheelR: 0.29, wb: 2.45, tw: 0.71, len: 3.79, wid: 1.92, cg: 0.52, CdA: 0.64, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  golf: { label: 'VOLKSWAGEN GOLF GTI', year: 1992, short: 'GOLF GTI', engine: '4 cilindri 1,8 L 16V · 5 marce', hp: 136, kg: 960, vmax: 208,
+    mass: 1035, torque: 168, rpm: 7000, idle: 850, gears: [14.6, 8.4, 5.7, 4.4, 3.41], wheelR: 0.29, wb: 2.475, tw: 0.71, len: 4.0, wid: 1.78, cg: 0.52, CdA: 0.65, mu: 1.0, brake: 13000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.2] },
+  clio: { label: 'RENAULT CLIO WILLIAMS', year: 1993, short: 'CLIO', engine: '4 cilindri 2,0 L · 5 marce', hp: 150, kg: 990, vmax: 215,
+    mass: 1065, torque: 175, rpm: 6900, idle: 850, gears: [12.6, 7.5, 5.3, 4.1, 3.3], wheelR: 0.29, wb: 2.47, tw: 0.7, len: 3.7, wid: 1.84, cg: 0.5, CdA: 0.67, mu: 1.05, brake: 14000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.2] },
+  fiesta: { label: 'FORD FIESTA', year: 2009, short: 'FIESTA', engine: '4 cilindri 1,6 L · 5 marce', hp: 120, kg: 1100, vmax: 195,
+    mass: 1175, torque: 152, rpm: 6800, idle: 800, gears: [14.5, 8.0, 5.4, 4.3, 3.53], wheelR: 0.3, wb: 2.49, tw: 0.74, len: 3.97, wid: 1.98, cg: 0.52, CdA: 0.66, mu: 1.0, brake: 13500, drive: 'fwd', paint: null, snd: ['eng-gt', 1.2] },
+  corsa: { label: 'OPEL CORSA', year: 1998, short: 'CORSA', engine: '4 cilindri 1,4 L 16V · 5 marce', hp: 90, kg: 950, vmax: 180,
+    mass: 1025, torque: 125, rpm: 6500, idle: 800, gears: [15.0, 8.3, 5.6, 4.3, 3.52], wheelR: 0.28, wb: 2.443, tw: 0.7, len: 3.72, wid: 1.78, cg: 0.53, CdA: 0.66, mu: 0.98, brake: 12000, drive: 'fwd', paint: null, snd: ['eng-gt', 1.25] },
+  e46: { label: 'BMW M3 E46', year: 2001, short: 'M3 E46', engine: '6 cilindri in linea 3,2 L · 6 marce', hp: 343, kg: 1570, vmax: 250,
+    mass: 1645, torque: 365, rpm: 8000, idle: 900, gears: [15.3, 9.16, 6.05, 4.45, 3.62, 3.0], wheelR: 0.33, wb: 2.73, tw: 0.76, len: 4.46, wid: 1.96, cg: 0.48, CdA: 0.67, mu: 1.15, brake: 22000, drive: 'rwd', lsd: 1, paint: null, snd: ['eng-gt', 0.95] },
+  delta: { label: 'LANCIA DELTA HF INTEGRALE', year: 1993, short: 'DELTA', engine: '4 cilindri 2,0 L turbo · 5 marce · trazione integrale', hp: 215, kg: 1340, vmax: 220,
+    mass: 1415, torque: 180, rpm: 6800, idle: 900, gears: [12.5, 7.8, 5.4, 4.1, 3.46], wheelR: 0.31, wb: 2.48, tw: 0.74, len: 3.93, wid: 1.72, cg: 0.5, CdA: 0.75, mu: 1.1, brake: 17000, drive: 'awd', paint: null, snd: ['eng-gt', 1.15] },
+  countach: { label: 'LAMBORGHINI COUNTACH', year: 1985, short: 'COUNTACH', engine: 'V12 5,2 L · 5 marce', hp: 455, kg: 1490, vmax: 295,
+    mass: 1565, torque: 500, rpm: 7800, idle: 1000, gears: [10.5, 6.6, 4.8, 3.8, 3.16], wheelR: 0.33, wb: 2.45, tw: 0.8, len: 4.12, wid: 2.06, cg: 0.45, CdA: 0.76, mu: 1.2, brake: 20000, drive: 'rwd', lsd: 1, paint: 0xc0101a, snd: ['eng-v8', 0.62] },
+  ae86: { label: 'TOYOTA AE86 TRUENO', year: 1985, short: 'AE86', engine: '4 cilindri 1,6 L 4A-GE · 5 marce', hp: 130, kg: 940, vmax: 200,
+    mass: 1015, torque: 149, rpm: 7600, idle: 850, gears: [13.6, 8.3, 5.6, 4.3, 3.83], wheelR: 0.29, wb: 2.4, tw: 0.68, len: 4.2, wid: 1.84, cg: 0.5, CdA: 0.66, mu: 1.0, brake: 13000, drive: 'rwd', lsd: 0.6, paint: null, snd: ['eng-gt', 1.1] },
+};
+// fisica completa di una stradale dai suoi dati
+function roadSpec(d) {
+  const a = d.wb / 2, hw = d.wid / 2 - 0.08, L2 = d.len / 2, m = d.mass;
+  return {
+    label: d.label,
+    geom: { axleF: a, axleR: -a, halfTrack: d.tw, wheelR: d.wheelR, cgHeight: d.cg },
+    car: { mass: m, ClA: 0.05, CdA: d.CdA, mu: d.mu, torque: d.torque * 0.86, brake: d.brake },     // (coppia al banco: alle ruote arriva meno, cambi di marcia compresi)
+    inertia: { Iz: m * (d.len * d.len + d.wid * d.wid) / 12 * 1.15, Ipitch: m * d.len * d.len / 14, Iroll: m * 0.33 },
+    susp: { springK: 60 * m + 15000, damperC: 3.8 * m + 1000, arbK: [45 * m + 5000, 20 * m] },
+    steer: 0.88,
+    heat: { slide: 30000, roll: 0.07 },
+    gears: d.gears, rpm: d.rpm, idle: d.idle,
+    ...(d.drive === 'fwd' ? { fwd: true, lsd: 0.25 } : d.drive === 'awd' ? { awd: true, lsd: 0.8 } : { lsd: d.lsd ?? 0.4 }),
+    hull: [
+      [L2 - 0.06, -hw + 0.08, 'fwL'], [L2 - 0.06, hw - 0.08, 'fwR'], [L2, 0, 'nose'],
+      [a, -hw, 'wFL'], [a, hw, 'wFR'], [0, -hw, 'sideL'], [0, hw, 'sideR'], [-a, -hw, 'wRL'], [-a, hw, 'wRR'],
+      [-L2 + 0.05, -hw + 0.08, 'rw'], [-L2 + 0.05, hw - 0.08, 'rw'],
+    ],
+    circles: [[Math.min(a, L2 - hw), hw], [0, hw], [-Math.min(a, L2 - hw), hw]],
+    ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
+    dirtyAir: 0.02,
+  };
+}
+for (const k of ROAD_NEW) SPECS[k] = roadSpec(ROAD_DB[k]);
 
 export const SPEC = SPECS[cls];
 // tutte le categorie (gara WEC: Hypercar e GT3 nella stessa gara, ognuna con la sua fisica)

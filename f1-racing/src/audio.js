@@ -13,7 +13,7 @@ import { WX } from './wx.js?v=d0b88a44';
 // con effetto doppler e posizione destra/sinistra, pubblico, box (limitatore, pistole delle
 // gomme, cric) e radio del box con la voce.
 
-import { IS_F1, IS_R26, CLASSIC, IS_KART, IS_NASCAR, CAR_CLASS } from './vehicle.js?v=229';
+import { IS_F1, IS_R26, CLASSIC, IS_KART, IS_NASCAR, CAR_CLASS, ROAD_DB } from './vehicle.js?v=230';
 
 const REF_RPM = 6000;                 // giri a cui è costruito il buffer del motore
 
@@ -29,7 +29,8 @@ const SND = 'assets/sounds/';
 // kart: il motore della GT molto più in alto (2 tempi da 13.500 giri che ronza)
 // NASCAR: V8 vero (registrazioni V8 da corsa) fino a 9.500 giri
 // stradali: F40 col V8 vero fino a 7.750 giri, Uno Turbo col motore della GT più in alto (4 cilindri) fino a 6.500
-const BANK = CAR_CLASS === 'f40' ? { dir: 'eng-v8', n: 10, mul: 0.62, voice: 9, max: 10000, k: 7750 / 12500 } : CAR_CLASS === 'uno' || CAR_CLASS === 'yar' ? { dir: 'eng-gt', n: 8, mul: 1.25, voice: 7, k: 6500 / 12500 } : CAR_CLASS === 'mx5' ? { dir: 'eng-gt', n: 8, mul: 1.2, voice: 7, k: 7200 / 12500 } : CAR_CLASS === 'mul' ? { dir: 'eng-gt', n: 8, mul: 1.3, voice: 7, k: 6300 / 12500 } : IS_NASCAR ? { dir: 'eng-v8', n: 10, mul: 0.526, voice: 9, max: 10000, k: 9500 / 12500 } : IS_KART ? { dir: 'eng-gt', n: 8, mul: 1.15, voice: 7 } : CLASSIC ? { dir: CLASSIC.snd.bank || 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
+const RD = ROAD_DB[CAR_CLASS];
+const BANK = RD ? { dir: RD.snd[0], n: RD.snd[0] === 'eng-v8' ? 10 : 8, mul: RD.snd[1], voice: RD.snd[0] === 'eng-v8' ? 9 : 7, max: RD.snd[0] === 'eng-v8' ? 10000 : undefined, k: RD.rpm / 12500 } : CAR_CLASS === 'f40' ? { dir: 'eng-v8', n: 10, mul: 0.62, voice: 9, max: 10000, k: 7750 / 12500 } : CAR_CLASS === 'uno' || CAR_CLASS === 'yar' ? { dir: 'eng-gt', n: 8, mul: 1.25, voice: 7, k: 6500 / 12500 } : CAR_CLASS === 'mx5' ? { dir: 'eng-gt', n: 8, mul: 1.2, voice: 7, k: 7200 / 12500 } : CAR_CLASS === 'mul' ? { dir: 'eng-gt', n: 8, mul: 1.3, voice: 7, k: 6300 / 12500 } : IS_NASCAR ? { dir: 'eng-v8', n: 10, mul: 0.526, voice: 9, max: 10000, k: 9500 / 12500 } : IS_KART ? { dir: 'eng-gt', n: 8, mul: 1.15, voice: 7 } : CLASSIC ? { dir: CLASSIC.snd.bank || 'eng-f1', n: 10, mul: CLASSIC.snd.mul, voice: 9, max: CLASSIC.snd.max, k: CLASSIC.rpm / 12500 } : IS_F1 ? { dir: 'eng-f1', n: 10, mul: 0.84, voice: 9 } : { dir: 'eng-gt', n: 8, mul: 0.75, voice: 7 };
 const AMB = ['crowd', 'cheer1', 'cheer2', 'cheer3', 'static', 'gun1', 'gun2', 'drop', 'jack', 'clatter', ...(WX.rain > 0 ? ['rain', 'thunder', 'water'] : [])];
 const SFX = ['crash01', 'crash02', 'crash03', 'crash04', 'crash05', 'crash06', 'crash07', 'crash08', 'crash09', 'crash10', 'crash11', 'crash12', 'scrap', 'screech', 'shift', 'squeal', 'turbo'];
 // file in loop senza "click": si toglie il silenzio iniziale dell'mp3 e si sovrappone la fine all'inizio;

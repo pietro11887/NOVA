@@ -1,6 +1,6 @@
-import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=229';
-import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=229';
-import { SURF, SURF_PROPS } from './track.js?v=229';
+import { GEOM, CAR_SCALE, IZ_K } from './carModel.js?v=230';
+import { SPEC, IS_F1, IS_R26, CLASSIC } from './vehicle.js?v=230';
+import { SURF, SURF_PROPS } from './track.js?v=230';
 import { ARCADE } from './driveMode.js?v=68c3b840';
 import { WX, wetGrip } from './wx.js?v=d0b88a44';
 
@@ -253,7 +253,7 @@ export class CarPhysics {
     // --- motore ---
     const ratio = this.gear === -1 ? -this.reverseRatio : this.gears[this.gear - 1] / this.gearLong;
     // il motore gira con le ruote posteriori (se pattinano, i giri salgono con loro)
-    const dw = this.spec.fwd ? 0 : 2, rearU = (Math.abs(this.wheels[dw].spin) + Math.abs(this.wheels[dw + 1].spin)) / 2;
+    const dw = this.spec.fwd ? 0 : 2, rearU = this.spec.awd ? this.wheels.reduce((t, w) => t + Math.abs(w.spin), 0) / 4 : (Math.abs(this.wheels[dw].spin) + Math.abs(this.wheels[dw + 1].spin)) / 2;
     // (il piccolo slittamento normale della gomma che spinge, 1–2%, non si conta: si sente solo il pattinamento vero)
     let rpmWheel = Math.max(Math.abs(vxl), rearU - 0.025 * Math.abs(vxl)) / this.R * Math.abs(ratio) * 60 / (2 * Math.PI);
     let rpmTarget = rpmWheel;
@@ -392,8 +392,9 @@ export class CarPhysics {
       };
       // spinta alla ruota (le due posteriori si dividono la coppia, come un differenziale aperto)
       // (trazione anteriore, Fiat Uno: spingono le due ruote davanti)
-      const driven = this.spec.fwd ? front : !front, a0 = this.spec.fwd ? 0 : 2;
-      let drive = driven ? driveForce / 2 : 0;
+      // (trazione integrale, Lancia Delta: 45% davanti e 55% dietro, autobloccanti su tutti e due gli assi)
+      const awd = !!this.spec.awd, driven = awd || (this.spec.fwd ? front : !front), a0 = awd ? (front ? 0 : 2) : this.spec.fwd ? 0 : 2;
+      let drive = driven ? driveForce / 2 * (awd ? (front ? 0.9 : 1.1) : 1) : 0;
       if (driven) {
         // differenziale autobloccante: in uscita di curva la ruota interna (scarica) non pattina da sola,
         // la coppia passa a quella esterna; in rilascio un po' di blocco tiene stabile il posteriore

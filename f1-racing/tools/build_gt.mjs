@@ -6,7 +6,7 @@
 // Uso: node tools/build_classic.mjs <id> <scene.gltf> <uscita.glb> [mid]
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { flatten, clearNodeTransform, dedup, prune, weld, simplify, transformPrimitive } from '@gltf-transform/functions';
+import { flatten, clearNodeTransform, dedup, prune, weld, simplify, transformPrimitive, metalRough } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 const [id, src, out, mode] = process.argv.slice(2);
@@ -67,6 +67,17 @@ const CFG = {
   yar: { wb: 2.37, tyre: /^fh_tire/, rim: /^fh_rim3|^fh_blacktrim|^fh_chrome|^fh_lettering/, disc: /^Disk\.005$|^EXT_calipers/, paint: /^WCCARBODY\.005$/, drop: /^NESSUNO$/, tint: [[/^fh_tire/, [0.06, 0.06, 0.065]], [/^fh_rim3/, [0.72, 0.74, 0.77]]], livery: /^PAINT$/, ratio: [0.6, 0.3], error: [0.001, 0.004] },
   // Mazda MX-5 NA (Black Snow, CC BY 4.0): fari a scomparsa (il gioco li separa per posizione e li fa girare)
   mx5: { wb: 2.265, tyre: /^Scene_-_Root\.002$/, rim: /^RRpbrAluminumSemiPolish$/, disc: /^amdb11_/, paint: /^RRpbrPaintPrimary$/, drop: /^material$/, livery: /^PAINT$/, ratio: [0.25, 0.08], error: [0.003, 0.012], renorm: true },
+  // --- stradali scaricate da Sketchfab (giro 1) ---
+  panda: { wb: 2.16, rotX: true, flip: true, tyre: /^Material\.(013|011|008|006)$/, rim: /^Material\.(014|012|009|007)$/, disc: /^NESSUNO$/, paint: /^Material\.16[89]$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  punto: { wb: 2.45, tyre: /^gt_tire$/, rim: /^gt_rim$/, disc: /^NESSUNO$/, paint: /^gt_body$/, drop: /^gt_shadow$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  golf: { wb: 2.475, tyre: /^tire$/, rim: /^material$/, disc: /^disk$|^breaks$/, paint: /^carpaint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  clio: { wb: 2.47, tyre: /^M_Tire$/, rim: /^jante$/, disc: /^frein$/, paint: /^Carroserie$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008], renorm: true },
+  fiesta: { wb: 2.49, tyre: /^llanta$/, rim: /^FIESTA_rin$/, disc: /^disk$/, paint: /^FIESTA$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  corsa: { wb: 2.443, zup: true, tyre: /^tire$/, rim: /^rim_second$|^material$/, disc: /^NESSUNO$/, paint: /^carpaint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.12, 0.04], error: [0.003, 0.012], renorm: true },
+  e46: { wb: 2.73, tyre: /^rubber\.001$/, rim: /^wheel_metal\.002$|^nothing\.$/, disc: /^brake_disc1?$/, paint: /^Material$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
+  delta: { wb: 2.48, tyre: /^Tire$/, rim: /^material$|^rim_2$/, disc: /^NESSUNO$/, paint: /^Paint$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.4, 0.15], error: [0.002, 0.008] },
+  countach: { wb: 2.45, tyre: /^Meshpart2Mtl$/, rim: /^Meshpart1Mtl$/, disc: /^NESSUNO$/, paint: /^Meshpart19Mtl$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
+  ae86: { wb: 2.4, tyre: /^Material\.004$/, rim: /^Material\.003$|^Material\.020$/, disc: /^NESSUNO$/, paint: /^Material\.001$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.8, 0.45], error: [0.001, 0.004] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -76,6 +87,8 @@ const doc = await io.read(src);
 const root = doc.getRoot(), scene = root.getDefaultScene();
 // (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
 if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
+// materiali vecchi (specular/glossiness): il gioco (three.js) li vuole metallic/roughness
+if (root.listExtensionsUsed().some(e => e.extensionName === 'KHR_materials_pbrSpecularGlossiness')) await doc.transform(metalRough());
 await doc.transform(flatten());
 // colori corretti prima di unire i materiali uguali (Yaris: gomme grigie come le cromature, si unirebbero)
 if (CFG.tint) for (const m of root.listMaterials()) for (const [re, rgb] of CFG.tint) if (re.test(m.getName())) m.setBaseColorFactor([...rgb, 1]);
@@ -104,6 +117,8 @@ for (const m of root.listMaterials()) {
   info.setExtension('KHR_texture_transform', null);
   console.log('trasformazione UV applicata a', m.getName(), sx.toFixed(3), sy.toFixed(3), ox.toFixed(3), oy.toFixed(3));
 }
+// modelli con l'asse Z in alto (3ds Max): Y diventa la verticale
+if (CFG.zup) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1]);
 if (CFG.flip) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [-1,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,1]);
 if (CFG.rotX) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1]);
 // abitacolo: i materiali tolti dalla carrozzeria (o, se non hanno nomi utili, i pezzi dentro la scatola dell'abitacolo)
