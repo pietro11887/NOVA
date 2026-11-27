@@ -61,6 +61,10 @@ const CFG = {
     drop: /^F40_(Skin|Pedali|Display_1|Sheft|Strelki|Tappetini|Cockpit_HR|Mechanics\.001|Estra)$|^super_gauges$/, livery: /^PAINT$/, ratio: [0.2, 0.06], error: [0.001, 0.004] },
   // Fiat Uno Turbo i.e. 1995 (FBX senza colori: materiali assegnati da tools/uno_mats.mjs)
   uno: { wb: 2.362, tyre: /^UNO_TYRE$/, rim: /^UNO_RIM$/, disc: /^NESSUNO$/, paint: /^UNO_BODY$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.6, 0.25], error: [0.001, 0.004] },
+  // Fiat Multipla 1998 (Betier Models, CC BY 4.0): molto dettagliata, senza texture
+  mul: { wb: 2.666, tyre: /^Car_rubber_wheel$/, rim: /^Car_rim$/, disc: /^Car_brakedisk$|^Car_caliper$/, paint: /^Car_paint_fiat$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.1, 0.035], error: [0.004, 0.015], renorm: true },
+  // Toyota Yaris 2001 (Vitz)
+  yar: { wb: 2.37, tyre: /^fh_tire/, rim: /^fh_rim3|^fh_blacktrim|^fh_chrome|^fh_lettering/, disc: /^Disk\.005$|^EXT_calipers/, paint: /^WCCARBODY\.005$/, drop: /^NESSUNO$/, tint: [[/^fh_tire/, [0.06, 0.06, 0.065]], [/^fh_rim3/, [0.72, 0.74, 0.77]]], livery: /^PAINT$/, ratio: [0.6, 0.3], error: [0.001, 0.004] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -71,6 +75,8 @@ const root = doc.getRoot(), scene = root.getDefaultScene();
 // (il volante può essere un nodo vuoto con la mesh in un figlio: il figlio prende il suo nome)
 if (STEER.n) for (const n of root.listNodes()) if (STEER.n.test(n.getName() || '')) for (const c of n.listChildren()) if (c.getMesh()) c.setName(n.getName() + '_' + c.getName());
 await doc.transform(flatten());
+// colori corretti prima di unire i materiali uguali (Yaris: gomme grigie come le cromature, si unirebbero)
+if (CFG.tint) for (const m of root.listMaterials()) for (const [re, rgb] of CFG.tint) if (re.test(m.getName())) m.setBaseColorFactor([...rgb, 1]);
 // primitive che condividono gli stessi vertici (OBJ/FBX convertiti: un oggetto con più materiali): ognuna la sua copia,
 // se no le trasformazioni qui sotto si applicherebbero più volte agli stessi punti
 { const seen = new Set();

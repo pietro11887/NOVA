@@ -6,7 +6,7 @@ import { PUBLIC } from './edition.js?v=f01fe25a';
 let cls = 'gt';
 try {
   const s = JSON.parse(localStorage.getItem('novaf1.settings') || '{}');
-  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
+  if (s && ['f1', 'kart', 'nascar', 'hyper', 'f40', 'uno', 'mul', 'yar', 'r26', 'mp45', 'f2002', 'f2004', 'rb8', 'w11'].includes(s.carClass)) cls = s.carClass;
   // edizione pubblica: niente F1 storiche (sono vetture vere riconoscibili)
   if (PUBLIC && cls !== 'f1' && cls !== 'gt' && cls !== 'kart' && cls !== 'nascar' && cls !== 'hyper') cls = 'f1';
 } catch (e) { /* storage non disponibile: GT */ }
@@ -21,7 +21,8 @@ export const IS_KART = cls === 'kart';
 export const IS_NASCAR = cls === 'nascar';
 export const IS_HYPER = cls === 'hyper';
 // Stradali: vetture di serie vere (Ferrari F40, Fiat Uno Turbo i.e.), ognuna con la sua fisica
-export const IS_ROAD = cls === 'f40' || cls === 'uno';
+export const ROAD_CLS = ['f40', 'uno', 'mul', 'yar'];
+export const IS_ROAD = ROAD_CLS.includes(cls);
 // Macchine speciali: motore, cambio, suono, casco, telecamera, ali staccabili e livrea di ognuna.
 // gears = rapporti totali (si scelgono per avere le stesse velocità per marcia della R26 con i loro giri);
 // snd.mul porta i giri del motore sui campioni del V12: frequenza di scoppio = giri × cilindri / 120.
@@ -287,6 +288,51 @@ SPECS.uno = {
     [-1.7, -0.7, 'rw'], [-1.7, 0.7, 'rw'],
   ],
   circles: [[1.1, 0.8], [0.0, 0.8], [-1.1, 0.8]],
+  ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
+  dirtyAir: 0.02,
+};
+// Fiat Multipla 1998: 1,6 L 16V benzina, 103 CV, 145 Nm, ~1300 kg + pilota, alta e larga (baricentro alto),
+// trazione anteriore, 0-100 in ~12,6 s, 170 km/h
+SPECS.mul = {
+  label: 'FIAT MULTIPLA',
+  geom: { axleF: 1.333, axleR: -1.333, halfTrack: 0.75, wheelR: 0.3, cgHeight: 0.62 },
+  car: { mass: 1375, ClA: 0.0, CdA: 0.84, mu: 1.0, torque: 132, brake: 14000 },
+  inertia: { Iz: 1700, Ipitch: 1500, Iroll: 520 },
+  susp: { springK: 80000, damperC: 5500, arbK: [55000, 20000] },
+  steer: 0.85,
+  heat: { slide: 30000, roll: 0.07 },
+  gears: [17.3, 9.56, 6.56, 4.97, 4.0], rpm: 6300, idle: 850,
+  fwd: true, lsd: 0.25,
+  hull: [
+    [2.05, -0.85, 'fwL'], [2.05, 0.85, 'fwR'], [2.12, 0, 'nose'],
+    [1.333, -0.93, 'wFL'], [1.333, 0.93, 'wFR'],
+    [0.0, -0.93, 'sideL'], [0.0, 0.93, 'sideR'],
+    [-1.333, -0.93, 'wRL'], [-1.333, 0.93, 'wRR'],
+    [-1.85, -0.85, 'rw'], [-1.85, 0.85, 'rw'],
+  ],
+  circles: [[1.25, 0.93], [0.0, 0.93], [-1.2, 0.93]],
+  ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
+  dirtyAir: 0.02,
+};
+// Toyota Yaris 2001: 1,0 L VVT-i, 68 CV, 90 Nm, 830 kg + pilota, trazione anteriore, 0-100 in ~13,6 s, 155 km/h
+SPECS.yar = {
+  label: 'TOYOTA YARIS',
+  geom: { axleF: 1.185, axleR: -1.185, halfTrack: 0.71, wheelR: 0.285, cgHeight: 0.55 },
+  car: { mass: 905, ClA: 0.0, CdA: 0.6, mu: 1.0, torque: 79, brake: 11000 },
+  inertia: { Iz: 1000, Ipitch: 860, Iroll: 300 },
+  susp: { springK: 75000, damperC: 4500, arbK: [50000, 20000] },
+  steer: 0.9,
+  heat: { slide: 28000, roll: 0.07 },
+  gears: [18.0, 9.95, 6.82, 5.17, 4.16], rpm: 6500, idle: 800,
+  fwd: true, lsd: 0.25,
+  hull: [
+    [1.85, -0.75, 'fwL'], [1.85, 0.75, 'fwR'], [1.92, 0, 'nose'],
+    [1.185, -0.84, 'wFL'], [1.185, 0.84, 'wFR'],
+    [0.0, -0.84, 'sideL'], [0.0, 0.84, 'sideR'],
+    [-1.185, -0.84, 'wRL'], [-1.185, 0.84, 'wRR'],
+    [-1.68, -0.75, 'rw'], [-1.68, 0.75, 'rw'],
+  ],
+  circles: [[1.1, 0.84], [0.0, 0.84], [-1.1, 0.84]],
   ai: { hazard: [9, 3, 0.0008], follow: 16, pit: 12 },
   dirtyAir: 0.02,
 };
