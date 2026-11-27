@@ -12,6 +12,9 @@ import sharp from 'sharp';
 const [id, src, out, mode] = process.argv.slice(2);
 const LOW = mode === 'mid', INT = mode === 'int';   // int: solo l'abitacolo (visuale interna), stesse coordinate della carrozzeria
 // passo vero (m); materiali di gomme, cerchi, dischi; materiali da togliere; materiale della livrea
+// colori per i modelli presi dal gioco senza texture (materiali "am5eu..."): gomme, vetri, plastiche, cromature, fanali
+const AM5 = [[/raceparts|underbody|_black$|plastic/, [0.05, 0.05, 0.055]], [/chrome/, [0.72, 0.72, 0.74, 1, 1, 0.22]], [/_grey2?$/, [0.62, 0.62, 0.64, 1, 0.8, 0.35]],
+  [/^tire/, [0.035, 0.035, 0.04, 1, 0, 0.9]], [/glass/, [0.04, 0.05, 0.06, 0.6, 0, 0.05]], [/rearlights/, [0.55, 0.04, 0.04, 1, 0, 0.2]], [/frontlights|foglights/, [0.85, 0.86, 0.88, 1, 0.6, 0.15]], [/indicator/, [0.9, 0.45, 0.05]]];
 const CFG = {
   // Ferrari 296 GT3 (Dave Love, CC BY 4.0): abitacolo tolto
   f296: { wb: 2.66, tyre: /^MI_Tyre/, rim: /^EXT_RIM/, disc: /^EXT_Disc/, paint: /^EXT_Carpaint/,
@@ -175,6 +178,21 @@ const CFG = {
   owl: { wb: 2.75, tyre: /^TREAD$|^TWALL$/, rim: /^material$/, disc: /^DISC$/, paint: /^Body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.35, 0.12], error: [0.002, 0.008] },
   tractor: { wb: 2.6, tyre: /^Shin$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   cayman: { wb: 2.484, tyre: /^Porsche_718CaymanGT4_2020_Whee/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^Porsche_718CaymanGT4_2020Paint/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.16, 0.06], error: [0.002, 0.008] },
+  // giro 8: modelli presi dal gioco con una sola ruota (vedi synth)
+  panda3: { wb: 2.3, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eu2$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  f500n: { wb: 2.3, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  seicento: { wb: 2.2, synth: { outer: 1 }, tint: [...AM5, [/^am5eu22$/, [0.33, 0, 0]]], tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eu22?$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  mito: { wb: 2.51, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  aygo: { wb: 2.34, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  yaris3: { wb: 2.51, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  corolla18: { wb: 2.7, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eu2$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  golf4: { wb: 2.51, tyre: /^TYRE_D$|^Material_tyres_audi_v3$/, rim: /^RIMS_BLACK$|^RIMS_BOLT$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.2, 0.07], error: [0.002, 0.008] },
+  a159: { wb: 2.7, synth: { outer: 1 }, tyre: /^brera_wheel-material$/, rim: /^est159_metal-material$/, disc: /^NESSUNO$/, paint: /^NESSUNO$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  p107: { wb: 2.34, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  ka2: { wb: 2.3, clip: [0.97, 2.0, 2.4], synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  transit: { wb: 2.93, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  picanto: { wb: 2.37, synth: { outer: 1 }, tint: AM5, tyre: /^tire_01a$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^am5eunew1$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
+  clio4: { wb: 2.59, synth: { outer: 1 }, tint: [[/^ClioIV_wheel$/, [0.12, 0.12, 0.13]]], tyre: /^ClioIV_wheel$/, rim: /^NESSUNO$/, disc: /^NESSUNO$/, paint: /^ClioIV_body$/, drop: /^NESSUNO$/, livery: /^PAINT$/, ratio: [0.5, 0.2], error: [0.002, 0.008] },
   brz: { wb: 2.57, tyre: /^Tire_DUNROP_BRZ$/, rim: /^Wheel_BBS$/, disc: /^Brake_Disc$/, paint: /^Car_Body_WR_Blue$/,
     drop: /^Belt$|^CockPit_|^INT_NET$|^Interia_|^Lumirank$|^material$|^BackMoniter$|^InteriaLabel$|^SteeringShaft1$|^SeatBelt$|^Steering$|^Glass_In$|^Wheel_Blur1$/, livery: /^PAINT$/, ratio: [0.3, 0.08], error: [0.0012, 0.005] },
 }[id];
@@ -198,7 +216,7 @@ await doc.transform(flatten());
 // colori corretti prima di unire i materiali uguali (Yaris: gomme grigie come le cromature, si unirebbero)
 // materiali segnati trasparenti per sbaglio (carrozzeria della 2CV): pieni
 if (CFG.opaque) for (const m of root.listMaterials()) if (CFG.opaque.test(m.getName())) m.setAlphaMode('OPAQUE');
-if (CFG.tint) for (const m of root.listMaterials()) for (const [re, rgb] of CFG.tint) if (re.test(m.getName())) m.setBaseColorFactor([...rgb, 1]);
+if (CFG.tint) for (const m of root.listMaterials()) for (const [re, rgb] of CFG.tint) if (re.test(m.getName())) { m.setBaseColorFactor([rgb[0], rgb[1], rgb[2], rgb[3] ?? 1]); if (rgb[3] != null && rgb[3] < 1) m.setAlphaMode('BLEND'); if (rgb[4] != null) m.setMetallicFactor(rgb[4]); if (rgb[5] != null) m.setRoughnessFactor(rgb[5]); }
 // primitive che condividono gli stessi vertici (OBJ/FBX convertiti: un oggetto con più materiali): ognuna la sua copia,
 // se no le trasformazioni qui sotto si applicherebbero più volte agli stessi punti
 { const seen = new Set();
@@ -228,6 +246,61 @@ for (const m of root.listMaterials()) {
 if (CFG.zup) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1]);
 if (CFG.flip) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [-1,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,1]);
 if (CFG.rotX) for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) transformPrimitive(p, [0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1]);
+// una sola ruota all'origine (modelli presi da giochi che le posizionano da soli): quattro copie nei passaruota
+// trovati sulla carrozzeria. Il passo vero (in metri) guida la ricerca degli assi.
+if (CFG.synth) {
+  const isW = p => { const n = p.getMaterial()?.getName() || ''; return CFG.tyre.test(n) || CFG.rim.test(n) || CFG.disc.test(n); };
+  const wheel = [], P = [];
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) {
+    const a = p.getAttribute('POSITION'), v = [];
+    if (isW(p)) { wheel.push(p); continue; }
+    for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); P.push([v[0], v[1], v[2]]); }
+  }
+  // raggio della gomma
+  let R = 0, wx0 = 1e9, wx1 = -1e9;
+  for (const p of wheel) { const a = p.getAttribute('POSITION'), v = []; for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); R = Math.max(R, Math.hypot(v[1], v[2])); wx0 = Math.min(wx0, v[0]); wx1 = Math.max(wx1, v[0]); } }
+  // via i pezzi del mozzo rimasti all'origine nelle altre parti (sospensioni, freni del gioco)
+  for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) {
+    if (wheel.includes(p)) continue;
+    const parts = splitPrim(p, (x, y, z) => x > wx0 - 0.03 && x < wx1 + 0.03 && Math.hypot(y, z) < R * 1.02 ? 'HUB' : 'KEEP');
+    if (!parts.HUB) { for (const q of Object.values(parts)) q.dispose(); continue; }
+    if (parts.KEEP) mesh.addPrimitive(parts.KEEP);
+    // i pezzi del cerchio (freni, mozzo, coprimozzo) girano con la ruota
+    const m0 = p.getMaterial(), hm = m0 ? m0.clone().setName(m0.getName() + '_SYNTHRIM') : null;
+    mesh.addPrimitive(parts.HUB.setMaterial(hm)); wheel.push(parts.HUB); p.dispose();
+  }
+  P.length = 0;
+  for (const mesh of root.listMeshes()) for (const p of mesh.listPrimitives()) { if (wheel.includes(p)) continue; const a = p.getAttribute('POSITION'), v = []; for (let i = 0; i < a.getCount(); i++) { a.getElement(i, v); P.push([v[0], v[1], v[2]]); } }
+  // per fette lungo z: il punto più basso dei fianchi (nei passaruota è alto)
+  let X = 0, z0 = 1e9, z1 = -1e9; for (const v of P) { if (v[1] < 1.0) X = Math.max(X, Math.abs(v[0])); z0 = Math.min(z0, v[2]); z1 = Math.max(z1, v[2]); }
+  const B = 0.02, nb = Math.ceil((z1 - z0) / B) + 1, lo = new Array(nb).fill(NaN);
+  for (const v of P) if (Math.abs(v[0]) > X * 0.72 && v[1] < 1.2) { const b = Math.floor((v[2] - z0) / B); lo[b] = isNaN(lo[b]) ? v[1] : Math.min(lo[b], v[1]); }
+  for (let i = 0; i < nb; i++) if (isNaN(lo[i])) { let k = 1; while (k < 20 && isNaN(lo[i - k]) && isNaN(lo[i + k])) k++; lo[i] = !isNaN(lo[i - k]) ? lo[i - k] : !isNaN(lo[i + k]) ? lo[i + k] : 0; }
+  const win = Math.round(R * 1.4 / B), W = Math.round(CFG.wb / B);
+  const score = c => { let s = 0, n = 0; for (let k = -win / 2; k <= win / 2; k++) { const i = Math.round(c + k); if (i >= 0 && i < nb) { s += lo[i]; n++; } } return n ? s / n : -1e9; };
+  let best = -1e9, bi = 0; for (let i = 0; i + W < nb; i++) { const sc = score(i) + score(i + W); if (sc > best) { best = sc; bi = i; } }
+  const zR = z0 + bi * B, zF = zR + CFG.wb;
+  const archTop = Math.min(score(bi), score(bi + W)) * 0.5 + Math.max(score(bi), score(bi + W)) * 0.5;
+  const yc = CFG.synth.y != null ? CFG.synth.y : archTop - R - (CFG.synth.gap ?? 0.04);
+  // larghezza: il parafango attorno ai passaruota
+  let xo = 0; for (const v of P) if (v[1] < archTop && (Math.abs(v[2] - zF) < R || Math.abs(v[2] - zR) < R)) xo = Math.max(xo, Math.abs(v[0]));
+  const xc = xo - (CFG.synth.inset ?? 0.03) - (wx1 - (wx0 + wx1) / 2) - (CFG.synth.outer > 0 ? (wx0 + wx1) / 2 : -(wx0 + wx1) / 2);
+  console.log('ruote sintetiche: R', R.toFixed(3), 'assi', zR.toFixed(2), zF.toFixed(2), 'centro y', yc.toFixed(2), 'x', xc.toFixed(2));
+  const sx = CFG.synth.outer || 1;
+  for (const p of wheel) {
+    const mesh = p.listParents().find(x => x.propertyType === 'Mesh');
+    for (const [side, z] of [[1, zF], [-1, zF], [1, zR], [-1, zR]]) {
+      const np = p.clone();
+      for (const sem of p.listSemantics()) np.setAttribute(sem, p.getAttribute(sem).clone());
+      if (p.getIndices()) np.setIndices(p.getIndices().clone());
+      // lato sinistro (x>0) con la faccia esterna verso +x; lato destro girato di 180° attorno alla verticale
+      const r = side * sx;
+      transformPrimitive(np, [r, 0, 0, 0, 0, 1, 0, 0, 0, 0, r, 0, side * xc, yc, z, 1]);
+      mesh.addPrimitive(np);
+    }
+    p.dispose();
+  }
+}
 // abitacolo: i materiali tolti dalla carrozzeria (o, se non hanno nomi utili, i pezzi dentro la scatola dell'abitacolo)
 const inCab = p => { if (!CFG.cab) return false; const a = p.getAttribute('POSITION'), v = []; let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
   for (let i = 0; i < a.getCount(); i += 7) { a.getElement(i, v); for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], v[c]); hi[c] = Math.max(hi[c], v[c]); } }
@@ -293,9 +366,9 @@ function splitPrim(p, keyOf) {
   const n = idx ? idx.getCount() : pos.getCount(), get = i => idx ? idx.getScalar(i) : i;
   const groups = {}, v = [0, 0, 0];
   for (let t = 0; t < n; t += 3) {
-    let cx = 0, cy = 0, cz = 0;
-    for (let q = 0; q < 3; q++) { pos.getElement(get(t + q), v); cx += v[0] / 3; cy += v[1] / 3; cz += v[2] / 3; }
-    const k = keyOf(cx, cy, cz); (groups[k] || (groups[k] = [])).push(get(t), get(t + 1), get(t + 2));
+    let cx = 0, cy = 0, cz = 0, ax = 0;
+    for (let q = 0; q < 3; q++) { pos.getElement(get(t + q), v); cx += v[0] / 3; cy += v[1] / 3; cz += v[2] / 3; ax = Math.max(ax, Math.abs(v[0])); }
+    const k = keyOf(cx, cy, cz, ax); (groups[k] || (groups[k] = [])).push(get(t), get(t + 1), get(t + 2));
   }
   const res = {};
   for (const [k, list] of Object.entries(groups)) {
@@ -315,7 +388,7 @@ function splitPrim(p, keyOf) {
 // pezzi sparsi lontano dalla vettura (file con oggetti in più): via i triangoli fuori dalla scatola [x, y, z]
 if (CFG.clip) { const [cx, cy, cz] = CFG.clip;
   for (const mesh of root.listMeshes()) for (const p of [...mesh.listPrimitives()]) {
-    const parts = splitPrim(p, (x, y, z) => Math.abs(x) < cx && y > -0.05 && y < cy && Math.abs(z) < cz ? 'IN' : 'OUT');
+    const parts = splitPrim(p, (x, y, z, ax) => ax < cx && y > -0.05 && y < cy && Math.abs(z) < cz ? 'IN' : 'OUT');
     if (!parts.OUT) { for (const q of Object.values(parts)) q.dispose(); continue; }
     if (parts.IN) mesh.addPrimitive(parts.IN); parts.OUT.dispose(); p.dispose();
   } }
@@ -334,7 +407,7 @@ const wheelNodes = {};
 for (const n of [...root.listNodes()]) {
   const mesh = n.getMesh(); if (!mesh) continue;
   for (const p of [...mesh.listPrimitives()]) {
-    const mn = matOf(p), kind = CFG.tyre.test(mn) ? 'TIRE' : CFG.rim.test(mn) ? 'RIM' : CFG.disc.test(mn) ? 'DISC' : null;
+    const mn = matOf(p), kind = CFG.tyre.test(mn) ? 'TIRE' : CFG.rim.test(mn) || /_SYNTHRIM$/.test(mn) ? 'RIM' : CFG.disc.test(mn) ? 'DISC' : null;
     if (!kind) continue;
     const parts = splitPrim(p, (x, y, z) => inWheel(x, y, z) || 'BODY');
     for (const [w, np] of Object.entries(parts)) {
