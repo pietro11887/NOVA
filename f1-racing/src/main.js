@@ -1,39 +1,39 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { Track, SURF } from './track.js?v=234';
-import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=234';
-import { RealScenery, CLIMATES } from './sceneryReal.js?v=234';
+import { Track, SURF } from './track.js?v=235';
+import { ROAD_HALF_WIDTH, KERB_WIDTH, selectTrack, bakuTrack, spaTrack, realTrack, TRACK, PIT } from './trackData.js?v=235';
+import { RealScenery, CLIMATES } from './sceneryReal.js?v=235';
 import { buildTrackDetail } from './trackDetail.js?v=557c776b';
-import { Scenery, ENV } from './scenery.js?v=234';
-import { BakuScenery } from './sceneryBaku.js?v=234';
-import { SpaScenery } from './scenerySpa.js?v=234';
-import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=234';
-import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior, POPUP_DOWN } from './gtModel.js?v=234';
-import { SafetyCar } from './safetyCar.js?v=234';
-import { CarPhysics } from './physics.js?v=234';
+import { Scenery, ENV } from './scenery.js?v=235';
+import { BakuScenery } from './sceneryBaku.js?v=235';
+import { SpaScenery } from './scenerySpa.js?v=235';
+import { createCar, mergeCar, GEOM, CAR_SCALE } from './carModel.js?v=235';
+import { loadGT, createGT, gtReady, loadKind, loadInterior, attachInterior, updateArms, GT_VARIANTS, GT3_ALL, HY_VARIANTS, gridVariants, loadVariant, interiorKind, hasInterior, POPUP_DOWN } from './gtModel.js?v=235';
+import { SafetyCar } from './safetyCar.js?v=235';
+import { CarPhysics } from './physics.js?v=235';
 import { Input } from './input.js?v=343b1006';
 import { PadNav } from './padNav.js?v=9131f548';
 import { Post } from './post.js?v=66f4970a';
-import { BakuFx } from './bakuFx.js?v=234';
-import { WallMarks } from './wallMarks.js?v=234';
+import { BakuFx } from './bakuFx.js?v=235';
+import { WallMarks } from './wallMarks.js?v=235';
 import { FB_EVERY, FB_KEEP, snapRace, restoreRace } from './flashback.js?v=d58abba2';
 import { Recorder, Replay, HZ as REPLAY_HZ, saveReplay, loadReplay } from './replay.js?v=4fc54bf6';
-import { Sound } from './audio.js?v=234';
+import { Sound } from './audio.js?v=235';
 import { Particles, SkidMarks, Debris } from './effects.js?v=ec1040de';
-import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=234';
-import { RacingLine } from './racingLine.js?v=234';
-import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=234';
-import { Traffic, LANES } from './traffic.js?v=234';
+import { Rain, sprayFor, addRainLight, blinkRainLights, Lightning, wetifyMaterials } from './rain.js?v=235';
+import { RacingLine } from './racingLine.js?v=235';
+import { Race, DRIVERS, GT_PLAYER_BOX } from './race.js?v=235';
+import { Traffic, LANES } from './traffic.js?v=235';
 import { WX, WET, bestCompound } from './wx.js?v=d0b88a44';
-import { PitLane, PitStop } from './pit.js?v=234';
-import { PitCrew } from './pitCrew.js?v=234';
-import { buildGrassTufts } from './grassTufts.js?v=234';
-import { Online, NET_VER, MAX_GUESTS } from './online.js?v=234';
-import { Friends, cleanId, cleanName, userName } from './friends.js?v=234';
-import { COMPOUNDS } from './physics.js?v=234';
-import { AIDriver } from './ai.js?v=234';
-import { TRACKS, outlinePath } from './tracks/catalog.js?v=234';
-import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, IS_ROAD, ROAD_CLS, ROAD_DB, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=234';
+import { PitLane, PitStop } from './pit.js?v=235';
+import { PitCrew } from './pitCrew.js?v=235';
+import { buildGrassTufts } from './grassTufts.js?v=235';
+import { Online, NET_VER, MAX_GUESTS } from './online.js?v=235';
+import { Friends, cleanId, cleanName, userName } from './friends.js?v=235';
+import { COMPOUNDS } from './physics.js?v=235';
+import { AIDriver } from './ai.js?v=235';
+import { TRACKS, outlinePath } from './tracks/catalog.js?v=235';
+import { CAR_CLASS, IS_F1, IS_R26, IS_MP45, IS_KART, IS_NASCAR, IS_HYPER, IS_ROAD, ROAD_CLS, ROAD_DB, CLASSIC, CLASSICS, SPEC, SPECS } from './vehicle.js?v=235';
 // chiave dei record/campionati per categoria ('' GT3, '.f1' F1 2026, '.r26' macchine speciali)
 // kart e NASCAR: categorie a sé con i loro colori (KART_LIVERIES / NASCAR_LIVERIES)
 const XCLS = IS_KART || IS_NASCAR || IS_ROAD;
@@ -66,7 +66,7 @@ import { addNightLights, nightShading } from './nightLights.js?v=82966c28';
 import { PUBLIC, pubText, pubPage } from './edition.js?v=f01fe25a';
 import { addLandmarks } from './landmarks.js?v=92cc6020';
 import { PodiumStage } from './podium3d.js?v=3db5a117';
-import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=234';
+import { TEAMS, TEAMS_2026, SEASONS, kindOfTeam, teamById, f1Grid, loadLiveryMaps } from './f1Teams.js?v=235';
 
 // ---------------------------------------------------------------- utilità
 const $ = id => document.getElementById(id);
@@ -294,7 +294,7 @@ if (settings.track === 'baku') {
 } else if (TRACKS.find(t => t.id === settings.track && t.real)) {
   // circuito vero del calendario (fabbrica di piste)
   const meta = TRACKS.find(t => t.id === settings.track);
-  try { const mod = await import(`./tracks/${meta.id}Data.js?v=234`); selectTrack(realTrack(meta, mod.default)); }
+  try { const mod = await import(`./tracks/${meta.id}Data.js?v=235`); selectTrack(realTrack(meta, mod.default)); }
   catch (e) { console.warn('circuito non caricato', meta.id, e); settings.track = 'nova'; }
 } else if (settings.track === 'spa') {
   // Spa: tracciato, terreno, boschi ed edifici veri (OpenStreetMap + modello del terreno)
@@ -456,7 +456,7 @@ function debugTick(now) {
   const gl = renderer.getContext(), I = renderer.info;
   let px = '?';
   try { const b = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); px = [...b].join(','); } catch (e) { px = 'err'; }
-  dbgBox.textContent = `v234 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
+  dbgBox.textContent = `v235 ${mode} fps ${fps.toFixed(0)} q ${settings.quality} tod ${settings.tod || 'day'} post ${!!post}\n`
     + `lost ${gl.isContextLost()} gl2 ${renderer.capabilities.isWebGL2} buf ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} canvas ${canvas.clientWidth}x${canvas.clientHeight}\n`
     + `calls ${I.render.calls} tris ${I.render.triangles} prog ${I.programs ? I.programs.length : '?'} geo ${I.memory.geometries} tex ${I.memory.textures} exp ${renderer.toneMappingExposure.toFixed(2)} px ${px}\n`
     + `grafica livello ${GOV.lvl}/${GOV_MAX} gpu ${(GOV.gpu || '?').slice(0, 60)}\n`
@@ -4313,6 +4313,28 @@ const roadList = () => {
   const L = ROAD_ALL.filter(e => (grp === 'tutte' || roadGroups(e.cls).has(grp)) && (!q || q.split(/\s+/).every(w => roadText(e).includes(w))));
   return L.length ? L : ROAD_ALL;
 };
+// elenco delle stradali con le foto (si filtra con la ricerca e i gruppi; una foto = una vettura)
+const roadMatch = () => {
+  const q = (gState.q || '').trim().toLowerCase(), grp = gState.grp || 'tutte';
+  return ROAD_ALL.filter(e => (grp === 'tutte' || roadGroups(e.cls).has(grp)) && (!q || q.split(/\s+/).every(w => roadText(e).includes(w))));
+};
+function renderRoadList() {
+  $('rgChips').innerHTML = ROAD_GROUPS.map(([k, n]) => `<button data-g="${k}" class="${(gState.grp || 'tutte') === k ? 'sel' : ''}">${n}</button>`).join('');
+  const L = roadMatch();
+  $('rgList').innerHTML = L.length ? L.map(e => {
+    const d = ROAD_DB[e.cls], st = e.stats || [];
+    const sub = d ? `${d.year} · ${d.hp} CV · ${d.drive === 'fwd' ? 'anteriore' : d.drive === 'awd' ? 'integrale' : 'posteriore'}` : (st.map(r => r[2]).slice(0, 2).join(' · '));
+    return `<button class="rgCard${e.cls === CAR_CLASS ? ' mine' : ''}" data-c="${e.cls}"><span class="rgImg"><img src="assets/thumbs/${e.cls}.webp" alt="" loading="lazy"></span><b>${(e.team || '').replace(/ · \d{4}$/, '')}</b><small>${sub}</small></button>`;
+  }).join('') : '<p class="rgNone">Nessuna macchina trovata</p>';
+}
+function openRoadGrid() {
+  $('rgTabs').innerHTML = [...document.querySelectorAll('#gTabs [data-cat]')].map(b => `<button data-cat="${b.dataset.cat}" class="${b.dataset.cat === 'road' ? 'sel' : ''}">${b.textContent}</button>`).join('');
+  $('rgQuery').value = gState.q || '';
+  renderRoadList();
+  $('roadGrid').classList.remove('hidden');
+  document.querySelector('#menuGarage .garagePanel').classList.add('hidden'); $('gColors').classList.add('hidden');
+}
+function closeRoadGrid() { $('roadGrid').classList.add('hidden'); document.querySelector('#menuGarage .garagePanel').classList.remove('hidden'); }
 const gList = () => (gState.cat === 'road' ? roadList() : gState.cat === 'hyper' ? HY_LIVERIES : isX(gState.cat) ? xList(gState.cat) : gState.cat === 'gt' ? GT_LIVERIES : gState.cat === 'r26' ? SPECIALS : TEAMS_2026);
 const gIdx = () => Math.max(0, gList().findIndex(t => t.id === settings.f1Team));
 const porscheLiv = () => { const L = GT_LIVERIES[settings.gtLiv | 0]; return L && !L.model ? settings.gtLiv | 0 : 0; };
@@ -4332,6 +4354,7 @@ function openGarage(pick = false) {
   $('garageUse').textContent = pick ? 'AVANTI ›' : 'GUIDALA ›';
   showMenuPage('menuGarage');
   showGarageCar();
+  if (gState.cat === 'road') openRoadGrid(); else closeRoadGrid();
 }
 let gToken = 0;
 async function showGarageCar() {
@@ -4347,8 +4370,9 @@ async function showGarageCar() {
   $('gLoading').classList.add('hidden');
   let m = kind === 'hyper' ? createGT({ kind, ...(gvar ? { variant: gvar } : {}) }) : isX(kind) ? createGT({ kind, ...(e.primary != null ? { primary: e.primary, accent: e.acc2 } : {}) }) : kind !== 'gt' ? createGT({ kind, team: e }) : createGT({ kind, ...(gvar ? { variant: gvar } : e.primary != null ? { primary: e.primary, accent: e.acc2 } : {}) });
   if (cat === 'toon') m = cartoonize(m);
-  // ricerca (solo stradali)
-  $('gSearch').classList.toggle('hidden', cat !== 'road');
+  // ricerca (solo stradali): ora è nell'elenco con le foto; qui il pulsante per tornarci
+  $('gSearch').classList.add('hidden');
+  $('gToList').classList.toggle('hidden', cat !== 'road');
   if (cat === 'road') {
     $('gChips').innerHTML = ROAD_GROUPS.map(([k, n]) => `<button data-g="${k}" class="${(gState.grp || 'tutte') === k ? 'sel' : ''}">${n}</button>`).join('');
     const q = (gState.q || '').trim(), L = roadList(), none = (q || (gState.grp || 'tutte') !== 'tutte') && L === ROAD_ALL;
@@ -4396,8 +4420,20 @@ document.querySelectorAll('#gTabs [data-cat]').forEach(b => b.addEventListener('
   gState.cat = b.dataset.cat;
   gState.idx = gState.cat === 'road' ? roadIdx() : gState.cat === 'gt' ? gtIdx() : gState.cat === 'hyper' ? hyIdx() : isX(gState.cat) ? (settings[xKey(gState.cat)] | 0) : gIdx();
   showGarageCar();
+  if (gState.cat === 'road') openRoadGrid(); else closeRoadGrid();
 }));
 $('gColors').addEventListener('click', ev => { const b = ev.target.closest('button[data-k]'); if (!b) return; const e = gList()[gState.idx]; if (!e || !e.cls) return; roadCol[e.cls] = +b.dataset.k; showGarageCar(); });
+$('rgQuery').addEventListener('input', () => { gState.q = $('rgQuery').value; renderRoadList(); });
+$('rgQuery').addEventListener('keydown', ev => ev.stopPropagation());
+$('rgChips').addEventListener('click', ev => { const b = ev.target.closest('button[data-g]'); if (!b) return; gState.grp = b.dataset.g; renderRoadList(); });
+$('rgList').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-c]'); if (!b) return;
+  gState.cat = 'road'; gState.idx = Math.max(0, roadList().findIndex(e => e.cls === b.dataset.c));
+  closeRoadGrid(); showGarageCar();
+});
+$('rgTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-cat]'); if (!b || b.dataset.cat === 'road') return; closeRoadGrid(); document.querySelector(`#gTabs [data-cat="${b.dataset.cat}"]`).click(); });
+$('rgBack').addEventListener('click', () => { closeRoadGrid(); $('garageBack').click(); });
+$('gToList').addEventListener('click', openRoadGrid);
 $('gQuery').addEventListener('input', () => { gState.q = $('gQuery').value; gState.idx = 0; showGarageCar(); });
 $('gQuery').addEventListener('keydown', ev => ev.stopPropagation());
 $('gChips').addEventListener('click', ev => { const b = ev.target.closest('button[data-g]'); if (!b) return; gState.grp = b.dataset.g; gState.idx = 0; showGarageCar(); });

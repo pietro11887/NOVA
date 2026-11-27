@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=234">
+<link rel="stylesheet" href="style.css?v=235">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -162,7 +162,7 @@
       <button class="tile" id="garageBtn"><span class="tTag">VETTURE</span><b>GARAGE</b><small>F1 2026, GT3 e cartoon da vicino</small><i class="tIc">◆</i></button>
       <button class="tile" id="settingsTile"><span class="tTag">OPZIONI</span><b>IMPOSTAZIONI</b><small>Comandi, telecamera, grafica, audio</small><i class="tIc">⚙</i></button>
     </div>
-    <div class="navMini homeMini"><button id="friendsBtn">👥 Amici <b id="frBadge" class="frBadge hidden"></b></button><button id="recordsBtn">🏆 Record</button><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button><span style="align-self:center;opacity:.45;font-size:11px;letter-spacing:1px">v234</span></div>
+    <div class="navMini homeMini"><button id="friendsBtn">👥 Amici <b id="frBadge" class="frBadge hidden"></b></button><button id="recordsBtn">🏆 Record</button><button id="helpBtn">Comandi</button><button id="creditsBtn">Crediti</button><button id="fsBtn" class="touchOnly">Schermo intero</button><span style="align-self:center;opacity:.45;font-size:11px;letter-spacing:1px">v235</span></div>
     <div class="liveTag" id="liveTag"><i></i><span id="liveText">IN PISTA</span></div>
   </div>
 
@@ -212,11 +212,18 @@
         <div class="gStats" id="gStats"></div>
       </div>
       <div class="gNav"><button id="gPrev">‹</button><span id="gCount"></span><button id="gNext">›</button></div>
+      <button class="gToList hidden" id="gToList">☰ ELENCO DELLE STRADALI</button>
       <div class="gHint" id="gHint">Trascina per girare la vettura</div>
       <button class="gReplay" id="garageReplay">▶ ULTIMO REPLAY</button>
       <div class="mFoot"><button class="back" id="garageBack">‹ MENU</button><button class="go" id="garageUse">GUIDALA ›</button></div>
     </div>
     <div class="gColors hidden" id="gColors"></div>
+    <!-- stradali: elenco con le foto, ricerca e gruppi; si sceglie toccando una foto -->
+    <div class="roadGrid hidden" id="roadGrid">
+      <div class="rgTop"><button class="back" id="rgBack">‹ MENU</button><div class="rgTabs" id="rgTabs"></div></div>
+      <div class="rgSearch"><input id="rgQuery" type="search" autocomplete="off" placeholder="🔍 Cerca: Panda, Ferrari, BMW, 1990, integrale…"><div class="gChips" id="rgChips"></div></div>
+      <div class="rgList" id="rgList"></div>
+    </div>
     <div class="gLoading hidden" id="gLoading">CARICAMENTO VETTURA…</div>
   </div>
 
@@ -421,6 +428,6 @@
 <!-- presentazione del circuito prima della partenza -->
 <div id="introCard" class="hidden"><div class="icBox"><span class="icKind" id="icKind">GRAN PREMIO</span><b id="icName"></b><small id="icInfo"></small></div><button id="introSkip">SALTA ›</button></div>
 
-<script type="module" src="src/main.js?v=234"></script>
+<script type="module" src="src/main.js?v=235"></script>
 </body>
 </html>

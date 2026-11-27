@@ -1163,3 +1163,25 @@ body.free-drive #lapBox { display: none; }
 .gChips { display: flex; flex-wrap: wrap; gap: 5px; }
 .gChips button { padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 10.5px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
 .gChips button.sel { background: var(--accent); border-color: var(--accent); color: #141414; }
+
+/* garage stradali: elenco grande con le foto, si scorre in giù */
+.roadGrid { position: fixed; pointer-events: auto; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 0; box-sizing: border-box;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(30,36,52,0.97), rgba(8,10,16,0.98)); }
+.rgTop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rgTop .back { flex: none; }
+.rgTabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.rgTabs button { padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75); font-weight: 800; font-size: 11px; letter-spacing: .04em; cursor: pointer; }
+.rgTabs button.sel { background: var(--accent); border-color: var(--accent); color: #141414; }
+.rgSearch { display: flex; flex-direction: column; gap: 7px; }
+.rgSearch input { width: 100%; max-width: 640px; box-sizing: border-box; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.22); background: rgba(0,0,0,0.4); color: #fff; font: inherit; font-size: 15px; }
+.rgList { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(44vw, 290px), 1fr)); gap: 12px; padding: 4px 0 24px; align-content: start; grid-auto-rows: max-content; }
+.rgCard { display: flex; flex: none; height: auto; min-height: 0; flex-direction: column; align-items: stretch; text-align: left; padding: 0 0 10px; border-radius: 14px; overflow: hidden; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #fff; font: inherit; }
+.rgCard:hover, .rgCard:focus-visible { border-color: var(--accent); background: rgba(255,255,255,0.08); }
+.rgCard.mine { border-color: var(--accent); }
+.rgImg { display: block; aspect-ratio: 16 / 9; background: radial-gradient(70% 70% at 50% 60%, rgba(120,140,170,0.35), rgba(20,24,34,0.2)); }
+.rgImg img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.rgCard b { padding: 6px 10px 0; font-size: 14px; font-weight: 900; letter-spacing: .02em; line-height: 1.15; }
+.rgCard small { padding: 2px 10px 0; font-size: 11.5px; color: rgba(255,255,255,0.65); }
+.rgNone { color: rgba(255,255,255,0.7); grid-column: 1 / -1; text-align: center; padding: 30px; }
+.gToList { margin-top: 8px; width: 100%; padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-weight: 900; letter-spacing: .05em; cursor: pointer; }
