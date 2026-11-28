@@ -1183,5 +1183,23 @@ body.free-drive #lapBox { display: none; }
 .rgImg img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .rgCard b { padding: 6px 10px 0; font-size: 14px; font-weight: 900; letter-spacing: .02em; line-height: 1.15; }
 .rgCard small { padding: 2px 10px 0; font-size: 11.5px; color: rgba(255,255,255,0.65); }
+/* telefono (in verticale o in orizzontale): card più piccole, 3-4 per riga invece di 2 */
+@media (max-width: 900px), (max-height: 520px) {
+  .rgList { grid-template-columns: repeat(auto-fill, minmax(min(27vw, 150px), 1fr)); gap: 7px; }
+  .rgCard { padding-bottom: 6px; border-radius: 10px; }
+  .rgCard b { padding: 4px 7px 0; font-size: 11.5px; }
+  .rgCard small { padding: 1px 7px 0; font-size: 9.5px; }
+}
+/* telefono in orizzontale: intestazione compatta, così si vedono più file di auto */
+@media (max-height: 520px) {
+  .roadGrid { gap: 6px; padding: 8px 12px 0; }
+  .rgTop { gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+  .rgTabs { flex-wrap: nowrap; }
+  .rgTabs button, .rgTop .back { padding: 5px 8px; font-size: 10px; white-space: nowrap; }
+  .rgSearch { flex-direction: row; align-items: center; gap: 6px; }
+  .rgSearch input { max-width: 260px; padding: 6px 10px; font-size: 13px; }
+  .rgSearch .gChips { flex-wrap: nowrap; overflow-x: auto; }
+  .rgSearch .gChips button { padding: 4px 7px; font-size: 9.5px; white-space: nowrap; }
+}
 .rgNone { color: rgba(255,255,255,0.7); grid-column: 1 / -1; text-align: center; padding: 30px; }
 .gToList { margin-top: 8px; width: 100%; padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-weight: 900; letter-spacing: .05em; cursor: pointer; }

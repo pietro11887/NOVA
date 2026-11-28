@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PIT } from './trackData.js?v=243';
-import { TEAMS } from './f1Teams.js?v=243';
-import { IS_F1 } from './vehicle.js?v=243';
-import { DRIVERS, N_BOXES, GT_PLAYER_BOX } from './race.js?v=243';
+import { PIT } from './trackData.js?v=244';
+import { TEAMS } from './f1Teams.js?v=244';
+import { IS_F1 } from './vehicle.js?v=244';
+import { DRIVERS, N_BOXES, GT_PLAYER_BOX } from './race.js?v=244';
 
 // Corsia box come nei Gran Premi veri: un box per vettura (due affiancati per scuderia), con l'interno
 // arredato (gomme sotto le termocoperte, carrelli degli attrezzi, monitor dei tempi, banco, ala di scorta,
