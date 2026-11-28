@@ -294,6 +294,15 @@ export function buildTrack(points) {
   const def = TRACK;
   const scale = points ? 1.3 : def.xzScale;
   points = (points || def.points).map(p => [p[0] * scale, p[1], p[2] * scale, p[3] ?? def.hw]);
+  // ovali: il tracciato OSM è seghettato in curva (la curvatura cambia segno dentro le sopraelevate
+  // e i piloti vanno in testacoda all'uscita): lo si liscia, così le curve sono archi puliti
+  if (def.data && def.data.oval) {
+    const m = points.length, W = 6;
+    for (let it = 0; it < 4; it++) {
+      const sm = points.map((_, i) => { let x = 0, z = 0, w = 0; for (let j = -W; j <= W; j++) { const q = points[(i + j + m) % m], f = W + 1 - Math.abs(j); x += q[0] * f; z += q[2] * f; w += f; } return [x / w, z / w]; });
+      points.forEach((p, i) => { p[0] = sm[i][0]; p[2] = sm[i][1]; });
+    }
+  }
   // 1) curva densa
   const dense = [];
   const n = points.length;
